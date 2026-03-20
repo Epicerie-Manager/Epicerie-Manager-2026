@@ -1,3 +1,4 @@
+import { ModuleHeader } from "@/components/layout/module-header";
 import { tgEntries, tgWeeks } from "@/lib/tg-data";
 
 const activeWeek = tgWeeks[0];
@@ -16,15 +17,11 @@ const managers = Array.from(new Set(activeEntries.map((entry) => entry.manager))
 export default function PlanTgPage() {
   return (
     <section className="module-layout module-theme-tg">
-      <header className="module-hero">
-        <p className="eyebrow">Module V1</p>
-        <h1>Plan TG / GB</h1>
-        <p>
-          Cette vue reprend l&apos;esprit de lecture manager propose dans les
-          maquettes : semaine visible tout de suite, synthese rapide et cartes
-          rayon faciles a scanner sur PC et tablette.
-        </p>
-      </header>
+      <ModuleHeader
+        moduleKey="plantg"
+        title="Plan TG / GB"
+        description="Cette vue reprend l'esprit de lecture manager propose dans les maquettes : semaine visible tout de suite, synthese rapide et cartes rayon faciles a scanner sur PC et tablette."
+      />
 
       <div className="planning-summary-grid">
         <article className="module-card">

@@ -1,3 +1,4 @@
+import { ModuleHeader } from "@/components/layout/module-header";
 import { balisageData, balisageMonths, balisageObjective } from "@/lib/balisage-data";
 
 const activeMonth = balisageMonths[0];
@@ -21,14 +22,11 @@ function getStatus(total: number) {
 export default function StatsPage() {
   return (
     <section className="module-layout module-theme-stats">
-      <header className="module-hero">
-        <p className="eyebrow">Module V1</p>
-        <h1>Stats balisage</h1>
-        <p>
-          Cette page reprend la logique dashboard des maquettes : synthese du
-          mois, classement rapide et tableau par employe avec lecture manager.
-        </p>
-      </header>
+      <ModuleHeader
+        moduleKey="balisage"
+        title="Stats balisage"
+        description="Cette page reprend la logique dashboard des maquettes : synthese du mois, classement rapide et tableau par employe avec lecture manager."
+      />
 
       <div className="planning-summary-grid">
         <article className="module-card">

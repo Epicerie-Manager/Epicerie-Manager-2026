@@ -1,3 +1,4 @@
+import { ModuleHeader } from "@/components/layout/module-header";
 import { plateauMonths, plateauWeeks } from "@/lib/plateau-data";
 
 const activeMonth = plateauMonths[0];
@@ -9,15 +10,11 @@ const totalZones = highlightedWeek.zones.length;
 export default function PlanPlateauPage() {
   return (
     <section className="module-layout module-theme-plateau">
-      <header className="module-hero">
-        <p className="eyebrow">Module V1</p>
-        <h1>Plan Plateau</h1>
-        <p>
-          Cette version remplace le simple lien PDF par une lecture plus
-          exploitable: mois visible, semaines reperables tout de suite et
-          detail des plateaux A a D pour guider la preparation terrain.
-        </p>
-      </header>
+      <ModuleHeader
+        moduleKey="plateau"
+        title="Plan Plateau"
+        description="Cette version remplace le simple lien PDF par une lecture plus exploitable : mois visible, semaines reperables tout de suite et detail des plateaux A a D pour guider la preparation terrain."
+      />
 
       <div className="planning-summary-grid">
         <article className="module-card">

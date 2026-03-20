@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
-import Link from "next/link";
-import { SiteNav } from "@/components/site-nav";
+import { AppShell } from "@/components/layout/app-shell";
 import packageJson from "../../package.json";
 import "./globals.css";
 
@@ -31,21 +30,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full">
-        <div className="app-shell">
-          <header className="site-header">
-            <div className="brand-block">
-              <div className="brand-meta-row">
-                <p className="eyebrow">Epicerie Manager 2026</p>
-                <span className="version-badge">v{packageJson.version}</span>
-              </div>
-              <Link href="/" className="brand-link">
-                Villebon 2
-              </Link>
-            </div>
-            <SiteNav />
-          </header>
-          <main className="page-frame">{children}</main>
-        </div>
+        <AppShell version={packageJson.version}>{children}</AppShell>
       </body>
     </html>
   );

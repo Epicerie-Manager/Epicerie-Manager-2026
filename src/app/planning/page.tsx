@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ModuleHeader } from "@/components/layout/module-header";
 import { planningDays, planningEmployees } from "@/lib/planning-data";
 
 export default function PlanningPage() {
@@ -19,15 +20,11 @@ export default function PlanningPage() {
 
   return (
     <section className="module-layout module-theme-planning">
-      <header className="module-hero">
-        <p className="eyebrow">Module V1</p>
-        <h1>Planning</h1>
-        <p>
-          Cette premiere version affiche deja de vraies donnees issues du
-          planning de mars 2026. L&apos;objectif maintenant sera d&apos;automatiser
-          l&apos;import complet du fichier et d&apos;ajouter les filtres dynamiques.
-        </p>
-      </header>
+      <ModuleHeader
+        moduleKey="planning"
+        title="Planning"
+        description="Cette premiere version affiche deja de vraies donnees issues du planning de mars 2026. L'objectif maintenant sera d'automatiser l'import complet du fichier et d'ajouter les filtres dynamiques."
+      />
 
       <div className="planning-summary-grid">
         <article className="module-card">

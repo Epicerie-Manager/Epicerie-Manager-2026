@@ -27,13 +27,11 @@
 }
 
 html {
-  background:
-    linear-gradient(180deg, #f8fafc 0%, #eef3f7 100%);
+  background: linear-gradient(180deg, #f8fafc 0%, #eef3f7 100%);
 }
 
 body {
-  background:
-    linear-gradient(180deg, rgba(0, 75, 147, 0.04), rgba(227, 30, 36, 0.02));
+  background: linear-gradient(180deg, rgba(0, 75, 147, 0.04), rgba(227, 30, 36, 0.02));
   color: var(--foreground);
   font-family: var(--font-geist-sans), Arial, Helvetica, sans-serif;
   margin: 0;
@@ -74,6 +72,13 @@ select {
   gap: 8px;
 }
 
+.brand-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+
 .eyebrow {
   margin: 0;
   color: var(--accent);
@@ -81,6 +86,25 @@ select {
   font-weight: 800;
   letter-spacing: 0.16em;
   text-transform: uppercase;
+}
+
+.version-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: var(--secondary);
+  color: white;
+  font-size: 0.78rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.version-badge-soft {
+  background: var(--secondary-soft);
+  color: var(--secondary);
 }
 
 .brand-link {
@@ -140,9 +164,7 @@ select {
 }
 
 .hero-primary {
-  background:
-    linear-gradient(135deg, rgba(0, 75, 147, 0.05), rgba(227, 30, 36, 0.05)),
-    var(--surface);
+  background: linear-gradient(135deg, rgba(0, 75, 147, 0.05), rgba(227, 30, 36, 0.05)), var(--surface);
 }
 
 .hero-primary h1 {
@@ -248,9 +270,7 @@ select {
   padding: 28px;
   border-radius: 28px;
   border: 1px solid var(--line);
-  background:
-    linear-gradient(135deg, rgba(0, 75, 147, 0.04), rgba(227, 30, 36, 0.04)),
-    var(--surface);
+  background: linear-gradient(135deg, rgba(0, 75, 147, 0.04), rgba(227, 30, 36, 0.04)), var(--surface);
   box-shadow: var(--shadow);
 }
 
@@ -294,6 +314,14 @@ select {
   border-radius: 24px;
   background: linear-gradient(180deg, rgba(0, 75, 147, 0.06), rgba(227, 30, 36, 0.04));
   border: 1px solid rgba(0, 75, 147, 0.12);
+}
+
+.highlight-top-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
 }
 
 .highlight-badge {

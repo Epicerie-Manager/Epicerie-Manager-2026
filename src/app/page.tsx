@@ -1,4 +1,5 @@
 import Link from "next/link";
+import packageJson from "../../package.json";
 
 const shortcuts = [
   {
@@ -54,7 +55,12 @@ export default function Home() {
         </div>
 
         <div className="dashboard-highlight">
-          <div className="highlight-badge">V1 en preparation</div>
+          <div className="highlight-top-row">
+            <div className="highlight-badge">V1 en preparation</div>
+            <span className="version-badge version-badge-soft">
+              version {packageJson.version}
+            </span>
+          </div>
           <strong>Objectif prioritaire</strong>
           <p>
             Rendre le planning, les plans TG, les plateaux et les stats plus

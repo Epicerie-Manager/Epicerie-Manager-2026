@@ -1,0 +1,46 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard Proposition C</title>
+    <style>
+      :root { --bg:#f2f4f7; --card:#fff; --line:#d8dee6; --text:#15263f; --muted:#62758a; --red:#d71920; --blue:#0a4d95; --soft-red:#ffe8ec; --soft-blue:#edf5ff; --soft-green:#eaf7ef; --soft-yellow:#fff7e6; --shadow:0 10px 28px rgba(21,38,63,.08); }
+      *{box-sizing:border-box} body{margin:0;background:linear-gradient(180deg,#f7fafc,var(--bg));color:var(--text);font-family:Arial,sans-serif}
+      .wrap{max-width:1520px;margin:0 auto;padding:18px;display:grid;gap:14px}.hero,.card{background:var(--card);border:1px solid var(--line);border-radius:24px;box-shadow:var(--shadow)}
+      .hero{padding:18px 20px;display:grid;grid-template-columns:1fr auto;gap:18px;align-items:center}.hero h1{margin:6px 0 4px;font-size:32px;letter-spacing:-.05em}.hero small,.kicker{display:block;color:var(--red);font-size:12px;font-weight:800;letter-spacing:.18em;text-transform:uppercase}
+      .hero-right{display:flex;gap:10px;flex-wrap:wrap;justify-content:end}.pill{border-radius:999px;background:var(--soft-blue);color:var(--blue);padding:10px 12px;font-size:12px;font-weight:800}
+      .grid{display:grid;gap:14px}.layout{grid-template-columns:.9fr 1.2fr .9fr}.column{display:grid;gap:14px}.card{padding:18px}.card h2{margin:6px 0 4px;font-size:20px}.muted{margin:0;color:var(--muted)}
+      .kpi-line{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}.kpi{border-radius:16px;padding:14px 10px;text-align:center;border:1px solid var(--line)}.kpi strong{display:block;font-size:30px;margin-bottom:6px}
+      .kpi.green{background:var(--soft-green);color:#17854a}.kpi.blue{background:#eff1ff;color:#5b43df}.kpi.gray{background:#f6f7f8;color:#90a0af}.box{border:1px solid var(--line);border-radius:16px;padding:12px 14px;margin-top:12px}.box.yellow{background:var(--soft-yellow)}
+      .list,.compact-list{display:grid;gap:10px;margin-top:12px}.item{border-radius:16px;border:1px solid var(--line);padding:12px 14px}.item.red{background:var(--soft-red);border-color:#ffc2cb}.item.blue{background:var(--soft-blue);border-color:#bdd4fb}.item.yellow{background:var(--soft-yellow);border-color:#f2d891}
+      .item.greenline{border-left:4px solid #16a34a}.item.redline{border-left:4px solid var(--red)}.item.blueline{border-left:4px solid #2563eb}.item.orangeline{border-left:4px solid #ea580c}
+      .week{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:12px}.week div{border:1px solid var(--line);border-radius:16px;background:#f7f9fb;text-align:center;padding:14px 10px}.week div.active{background:#fff2f4;border-color:var(--red)}.week small{display:block;color:var(--muted);text-transform:uppercase;font-size:11px;font-weight:800;margin-bottom:8px}.week strong{font-size:34px}
+      .nav-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:12px}.nav-card{border-radius:16px;border:1px solid var(--line);background:#f8fafc;padding:14px}.nav-card b{display:block;margin-bottom:6px}
+      @media (max-width:1250px){.layout,.week,.kpi-line,.nav-grid{grid-template-columns:1fr 1fr}} @media (max-width:860px){.hero,.layout,.week,.kpi-line,.nav-grid{grid-template-columns:1fr}}
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <section class="hero">
+        <div><small>Epicerie manager 2026</small><h1>Dashboard colonne centrale</h1><p class="muted">Version plus editoriale : colonne gauche equipe, colonne centrale priorites, colonne droite suivi.</p></div>
+        <div class="hero-right"><span class="pill">Vendredi 20 mars 2026</span><span class="pill">11 presents matin</span><span class="pill">3 alertes</span></div>
+      </section>
+      <section class="grid layout">
+        <div class="column">
+          <article class="card"><span class="kicker">Equipe</span><h2>Presences</h2><div class="kpi-line"><div class="kpi green"><strong>11</strong>Matin</div><div class="kpi blue"><strong>2</strong>Apres-midi</div><div class="kpi gray"><strong>0</strong>Etudiants</div></div><div class="box yellow"><strong>Absents : Kamar, Liyakath, Khanh</strong></div><div class="box"><strong>Tri caddie : Jeremy, Kamel</strong></div></article>
+          <article class="card"><span class="kicker">Navigation</span><h2>Acces modules</h2><div class="nav-grid"><div class="nav-card"><b>Planning</b><span class="muted">Horaires et presences</span></div><div class="nav-card"><b>Plan TG</b><span class="muted">Mecaniques rayon</span></div><div class="nav-card"><b>Plateaux</b><span class="muted">Implantations terrain</span></div><div class="nav-card"><b>Stats</b><span class="muted">Balisage et suivi</span></div></div></article>
+        </div>
+        <div class="column">
+          <article class="card"><span class="kicker">Priorites</span><h2>Alertes a lire en premier</h2><div class="list"><div class="item yellow"><strong>Seulement 7 presents lundi matin</strong><span class="muted">Planning</span></div><div class="item red"><strong>3 controles balisage en retard</strong><span class="muted">Balisage</span></div><div class="item blue"><strong>Nouveau plan plateau disponible</strong><span class="muted">Plateau</span></div></div></article>
+          <article class="card"><span class="kicker">Semaine</span><h2>Effectifs par jour</h2><div class="week"><div><small>Lun</small><strong>11</strong></div><div><small>Mar</small><strong>10</strong></div><div><small>Mer</small><strong>9</strong></div><div><small>Jeu</small><strong>10</strong></div><div class="active"><small>Ven</small><strong>10</strong></div><div><small>Sam</small><strong>13</strong></div></div></article>
+        </div>
+        <div class="column">
+          <article class="card"><span class="kicker">Consigne</span><h2>Note du jour</h2><div class="item red"><strong>Implantation chocolat Paques</strong><span class="muted">A diffuser a l'ouverture</span></div></article>
+          <article class="card"><span class="kicker">Suivi</span><h2>Balisage</h2><div class="box"><strong style="font-size:42px">312 / 800</strong><p class="muted">39% atteint · Taux erreur 4.2%</p></div></article>
+          <article class="card"><span class="kicker">Operations</span><h2>Chantiers terrain</h2><div class="compact-list"><div class="item redline"><strong>Chocolat de Paques</strong><span class="muted">Plateau A</span></div><div class="item blueline"><strong>Foire au vin</strong><span class="muted">Plateau A</span></div><div class="item greenline"><strong>Jardin</strong><span class="muted">Plateau B</span></div><div class="item orangeline"><strong>Little Italy</strong><span class="muted">Plateau C/D</span></div></div></article>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

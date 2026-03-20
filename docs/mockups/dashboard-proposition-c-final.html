@@ -1,0 +1,459 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard Proposition C Final</title>
+    <style>
+      :root {
+        --bg: #f2f5f8;
+        --card: rgba(255, 255, 255, 0.96);
+        --line: #dbe3eb;
+        --text: #13243b;
+        --muted: #617286;
+        --red: #d71920;
+        --red-soft: #ffe8ec;
+        --blue: #0a4f98;
+        --blue-soft: #edf5ff;
+        --green: #1b8b4b;
+        --green-soft: #eaf7ef;
+        --yellow-soft: #fff7e7;
+        --shadow: 0 16px 36px rgba(19, 36, 59, 0.08);
+      }
+
+      * { box-sizing: border-box; }
+
+      body {
+        margin: 0;
+        color: var(--text);
+        font-family: "Segoe UI", Arial, sans-serif;
+        background:
+          radial-gradient(circle at top left, rgba(10, 79, 152, 0.08), transparent 24%),
+          linear-gradient(180deg, #f9fbfd 0%, var(--bg) 100%);
+      }
+
+      .wrap {
+        max-width: 1540px;
+        margin: 0 auto;
+        padding: 18px;
+        display: grid;
+        gap: 14px;
+      }
+
+      .hero,
+      .card {
+        background: var(--card);
+        border: 1px solid var(--line);
+        border-radius: 24px;
+        box-shadow: var(--shadow);
+      }
+
+      .hero {
+        padding: 18px 20px;
+        display: grid;
+        grid-template-columns: 1.2fr auto;
+        gap: 18px;
+        align-items: center;
+      }
+
+      .eyebrow {
+        display: block;
+        color: var(--red);
+        font-size: 12px;
+        font-weight: 800;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+      }
+
+      .hero h1 {
+        margin: 6px 0 4px;
+        font-size: 34px;
+        letter-spacing: -0.06em;
+      }
+
+      .hero p {
+        margin: 0;
+        max-width: 48rem;
+        color: var(--muted);
+        line-height: 1.5;
+      }
+
+      .hero-right {
+        display: flex;
+        gap: 10px;
+        flex-wrap: wrap;
+        justify-content: end;
+        align-items: center;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        min-height: 36px;
+        padding: 0 12px;
+        border-radius: 999px;
+        background: var(--blue-soft);
+        color: var(--blue);
+        font-size: 12px;
+        font-weight: 800;
+      }
+
+      .version-pill {
+        background: var(--red-soft);
+        color: var(--red);
+      }
+
+      .layout {
+        display: grid;
+        gap: 14px;
+        grid-template-columns: 0.92fr 1.16fr 0.92fr;
+      }
+
+      .column {
+        display: grid;
+        gap: 14px;
+      }
+
+      .card {
+        padding: 18px;
+      }
+
+      .card h2 {
+        margin: 6px 0 4px;
+        font-size: 21px;
+        letter-spacing: -0.03em;
+      }
+
+      .muted {
+        margin: 0;
+        color: var(--muted);
+      }
+
+      .section-kicker {
+        display: inline-flex;
+        align-items: center;
+        min-height: 28px;
+        padding: 0 10px;
+        border-radius: 999px;
+        background: #f7eaed;
+        color: var(--red);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .kpi-line,
+      .nav-grid,
+      .week {
+        display: grid;
+        gap: 10px;
+        margin-top: 12px;
+      }
+
+      .kpi-line {
+        grid-template-columns: repeat(3, 1fr);
+      }
+
+      .kpi {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 14px 10px;
+        text-align: center;
+      }
+
+      .kpi strong {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 30px;
+        line-height: 1;
+      }
+
+      .kpi.green {
+        background: var(--green-soft);
+        color: var(--green);
+      }
+
+      .kpi.blue {
+        background: #f1eeff;
+        color: #6741e8;
+      }
+
+      .kpi.gray {
+        background: #f5f7f9;
+        color: #96a3b0;
+      }
+
+      .box,
+      .item,
+      .nav-card {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+      }
+
+      .box {
+        margin-top: 12px;
+        padding: 12px 14px;
+      }
+
+      .box.yellow {
+        background: var(--yellow-soft);
+      }
+
+      .box.red {
+        background: var(--red-soft);
+      }
+
+      .list,
+      .compact-list {
+        display: grid;
+        gap: 10px;
+        margin-top: 12px;
+      }
+
+      .item {
+        padding: 12px 14px;
+        background: #fbfcfd;
+      }
+
+      .item.red {
+        background: var(--red-soft);
+        border-color: #ffc9d0;
+      }
+
+      .item.blue {
+        background: var(--blue-soft);
+        border-color: #c0d7fb;
+      }
+
+      .item.yellow {
+        background: var(--yellow-soft);
+        border-color: #f2d78f;
+      }
+
+      .item.redline { border-left: 4px solid var(--red); }
+      .item.blueline { border-left: 4px solid #2563eb; }
+      .item.greenline { border-left: 4px solid #16a34a; }
+      .item.orangeline { border-left: 4px solid #ea580c; }
+
+      .item strong {
+        display: block;
+        margin-bottom: 4px;
+        font-size: 15px;
+      }
+
+      .week {
+        grid-template-columns: repeat(6, 1fr);
+      }
+
+      .week div {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        background: #f7f9fb;
+        text-align: center;
+        padding: 14px 10px;
+      }
+
+      .week div.active {
+        background: #fff1f3;
+        border-color: var(--red);
+      }
+
+      .week small {
+        display: block;
+        margin-bottom: 8px;
+        color: var(--muted);
+        font-size: 11px;
+        font-weight: 800;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+      }
+
+      .week strong {
+        font-size: 34px;
+        line-height: 1;
+      }
+
+      .nav-grid {
+        grid-template-columns: repeat(2, 1fr);
+      }
+
+      .nav-card {
+        padding: 14px;
+        background: #f8fafc;
+      }
+
+      .nav-card b {
+        display: block;
+        margin-bottom: 6px;
+      }
+
+      .summary-figure {
+        margin-top: 12px;
+        padding: 14px 16px;
+        border-radius: 18px;
+        background: linear-gradient(135deg, #fff3f5, #fff9fa);
+        border: 1px solid #ffd3d9;
+      }
+
+      .summary-figure strong {
+        display: block;
+        font-size: 40px;
+        line-height: 1;
+        margin-bottom: 6px;
+      }
+
+      .summary-progress {
+        margin-top: 12px;
+        height: 10px;
+        border-radius: 999px;
+        background: #ecf0f4;
+        overflow: hidden;
+      }
+
+      .summary-progress > div {
+        width: 39%;
+        height: 100%;
+        background: linear-gradient(90deg, #d97f00, #f1b04a);
+      }
+
+      @media (max-width: 1260px) {
+        .layout,
+        .week,
+        .kpi-line,
+        .nav-grid {
+          grid-template-columns: 1fr 1fr;
+        }
+      }
+
+      @media (max-width: 860px) {
+        .hero,
+        .layout,
+        .week,
+        .kpi-line,
+        .nav-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .hero-right {
+          justify-content: start;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="wrap">
+      <section class="hero">
+        <div>
+          <span class="eyebrow">Epicerie manager 2026</span>
+          <h1>Dashboard manager colonne centrale</h1>
+          <p>Version de reference pour la suite : lisible, aerée et pensée pour une lecture manager en un coup d'oeil.</p>
+        </div>
+        <div class="hero-right">
+          <span class="pill">Vendredi 20 mars 2026</span>
+          <span class="pill">11 presents matin</span>
+          <span class="pill">3 alertes</span>
+          <span class="pill version-pill">v0.1.4</span>
+        </div>
+      </section>
+
+      <section class="layout">
+        <div class="column">
+          <article class="card">
+            <span class="section-kicker">Equipe</span>
+            <h2>Presences du jour</h2>
+            <p class="muted">Vision immediate des effectifs et des points a verifier.</p>
+            <div class="kpi-line">
+              <div class="kpi green"><strong>11</strong>Matin</div>
+              <div class="kpi blue"><strong>2</strong>Apres-midi</div>
+              <div class="kpi gray"><strong>0</strong>Etudiants</div>
+            </div>
+            <div class="box yellow">
+              <strong>Absents : Kamar, Liyakath, Khanh</strong>
+            </div>
+            <div class="box">
+              <strong>Tri caddie : Jeremy, Kamel</strong>
+            </div>
+          </article>
+
+          <article class="card">
+            <span class="section-kicker">Navigation</span>
+            <h2>Acces modules</h2>
+            <div class="nav-grid">
+              <div class="nav-card"><b>Planning</b><span class="muted">Horaires et presences</span></div>
+              <div class="nav-card"><b>Plan TG</b><span class="muted">Mecaniques rayon</span></div>
+              <div class="nav-card"><b>Plateaux</b><span class="muted">Implantations terrain</span></div>
+              <div class="nav-card"><b>Stats</b><span class="muted">Balisage et suivi</span></div>
+            </div>
+          </article>
+        </div>
+
+        <div class="column">
+          <article class="card">
+            <span class="section-kicker">Priorites</span>
+            <h2>Alertes a lire en premier</h2>
+            <div class="list">
+              <div class="item yellow">
+                <strong>Seulement 7 presents lundi matin</strong>
+                <span class="muted">Planning</span>
+              </div>
+              <div class="item red">
+                <strong>3 controles balisage en retard</strong>
+                <span class="muted">Balisage</span>
+              </div>
+              <div class="item blue">
+                <strong>Nouveau plan plateau disponible</strong>
+                <span class="muted">Plateau</span>
+              </div>
+            </div>
+          </article>
+
+          <article class="card">
+            <span class="section-kicker">Semaine</span>
+            <h2>Effectifs par jour</h2>
+            <div class="week">
+              <div><small>Lun</small><strong>11</strong></div>
+              <div><small>Mar</small><strong>10</strong></div>
+              <div><small>Mer</small><strong>9</strong></div>
+              <div><small>Jeu</small><strong>10</strong></div>
+              <div class="active"><small>Ven</small><strong>10</strong></div>
+              <div><small>Sam</small><strong>13</strong></div>
+            </div>
+          </article>
+        </div>
+
+        <div class="column">
+          <article class="card">
+            <span class="section-kicker">Consigne</span>
+            <h2>Note du jour</h2>
+            <div class="item red">
+              <strong>Implantation chocolat Paques</strong>
+              <span class="muted">A diffuser a l'ouverture a toute l'equipe.</span>
+            </div>
+          </article>
+
+          <article class="card">
+            <span class="section-kicker">Suivi</span>
+            <h2>Balisage</h2>
+            <div class="summary-figure">
+              <strong>312 / 800</strong>
+              <span class="muted">39% atteint · Taux erreur 4.2%</span>
+              <div class="summary-progress"><div></div></div>
+            </div>
+          </article>
+
+          <article class="card">
+            <span class="section-kicker">Operations</span>
+            <h2>Chantiers terrain</h2>
+            <div class="compact-list">
+              <div class="item redline"><strong>Chocolat de Paques</strong><span class="muted">Plateau A</span></div>
+              <div class="item blueline"><strong>Foire au vin</strong><span class="muted">Plateau A</span></div>
+              <div class="item greenline"><strong>Jardin</strong><span class="muted">Plateau B</span></div>
+              <div class="item orangeline"><strong>Little Italy</strong><span class="muted">Plateau C/D</span></div>
+            </div>
+          </article>
+        </div>
+      </section>
+    </main>
+  </body>
+</html>

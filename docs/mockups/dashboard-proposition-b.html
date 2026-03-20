@@ -1,0 +1,44 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Dashboard Proposition B</title>
+    <style>
+      :root { --bg:#eff2f5; --card:#fff; --line:#d7dee7; --text:#13263f; --muted:#64758a; --red:#d71920; --warn:#fff4de; --alert:#ffe8ec; --shadow:0 12px 30px rgba(19,38,63,.08); }
+      *{box-sizing:border-box} body{margin:0;font-family:"Segoe UI",Arial,sans-serif;background:linear-gradient(180deg,#f8fafc,var(--bg));color:var(--text)}
+      .shell{max-width:1500px;margin:0 auto;padding:20px;display:grid;gap:14px}.header{background:linear-gradient(135deg,#d71920,#be1117);color:#fff;border-radius:28px;padding:18px 22px;display:grid;grid-template-columns:1.2fr auto;gap:18px;box-shadow:var(--shadow)}
+      .header h1{margin:8px 0 0;font-size:34px;letter-spacing:-.06em}.header small{text-transform:uppercase;letter-spacing:.16em;font-weight:800;opacity:.85}.header-right{display:grid;gap:12px;justify-items:end}.date{font-weight:700}
+      .tabs{display:flex;gap:8px;flex-wrap:wrap}.tabs span{background:rgba(255,255,255,.14);border-radius:12px;padding:10px 14px;font-weight:700}.tabs .active{background:#fff;color:var(--red)}
+      .grid{display:grid;gap:14px}.top{grid-template-columns:.95fr 1.05fr .8fr}.middle{grid-template-columns:1.25fr .75fr}.card{background:var(--card);border-radius:24px;border:1px solid var(--line);padding:18px;box-shadow:var(--shadow)}
+      .kicker{color:#113f7a;text-transform:uppercase;letter-spacing:.16em;font-size:12px;font-weight:800}.card h2{margin:8px 0 4px;font-size:22px}.muted{margin:0;color:var(--muted)}
+      .presence-board{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-top:12px}.presence-box{padding:14px 10px;text-align:center;border-radius:16px;border:1px solid var(--line)}.presence-box strong{display:block;font-size:34px;margin-bottom:6px}
+      .green{background:#e9f8ef;color:#16824a}.violet{background:#f3efff;color:#6d3df2}.gray{background:#f6f7f9;color:#94a0ae}.line-box{margin-top:12px;border-radius:16px;border:1px solid var(--line);padding:12px 14px}.line-box.warn{background:var(--warn)}
+      .chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}.chip{border-radius:999px;padding:5px 10px;font-size:12px;font-weight:700}.chip.warn{background:#ffe7c3;color:#ab6500}.chip.red{background:#ffe2e8;color:var(--red)}
+      .alert-feed,.tasks{display:grid;gap:10px;margin-top:12px}.feed-item,.task{border-radius:16px;padding:14px;border:1px solid var(--line)}.feed-item strong,.task strong{display:block;margin-bottom:4px}.feed-item.warn{background:#fff8e5;border-color:#f5d884}.feed-item.alert{background:#fff0f2;border-color:#ffc4cd}.feed-item.info{background:#edf4ff;border-color:#b8d1ff}
+      .priority-note{min-height:110px;border-radius:18px;background:linear-gradient(135deg,#fff1f3,#fff7f8);border:1px solid #ffd0d6;padding:18px;display:grid;align-content:center}.priority-note strong{color:var(--red);text-transform:uppercase;letter-spacing:.08em;font-size:24px}
+      .week-board{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:14px}.week-box{border-radius:16px;background:#f6f8fa;padding:14px 10px;text-align:center;border:1px solid #ebeff4}.week-box.active{background:#fff3f5;border-color:var(--red)}.week-box b{display:block;font-size:34px;margin-top:8px}.week-box span{text-transform:uppercase;letter-spacing:.08em;color:var(--muted);font-size:11px;font-weight:800}
+      .task{background:#fafbfc;border-left-width:5px}.task.red{border-left-color:var(--red)}.task.blue{border-left-color:#2563eb}.task.green{border-left-color:#16a34a}.task.orange{border-left-color:#ea580c}
+      .modules{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:14px}.module{border:1px solid var(--line);background:#f7f9fb;border-radius:18px;padding:14px;min-height:116px}.module b{display:block;margin-bottom:8px}
+      @media (max-width:1250px){.top,.middle,.modules{grid-template-columns:1fr 1fr}} @media (max-width:860px){.header,.top,.middle,.modules,.presence-board,.week-board{grid-template-columns:1fr}}
+    </style>
+  </head>
+  <body>
+    <main class="shell">
+      <section class="header">
+        <div><small>Epicerie Villebon 2</small><h1>Dashboard rouge Auchan</h1></div>
+        <div class="header-right"><div class="date">Vendredi 20 mars 2026</div><div class="tabs"><span class="active">Tableau de bord</span><span>Planning</span><span>Plan TG</span><span>Plateaux</span><span>Balisage</span><span>Infos</span></div></div>
+      </section>
+      <section class="grid top">
+        <article class="card"><div class="kicker">Equipe</div><h2>Presences aujourd'hui</h2><div class="presence-board"><div class="presence-box green"><strong>11</strong>Matin</div><div class="presence-box violet"><strong>2</strong>Apres-midi</div><div class="presence-box gray"><strong>0</strong>Etudiants</div></div><div class="line-box warn"><div class="kicker" style="color:#ab6500">Absents (3)</div><div class="chips"><span class="chip warn">Kamar</span><span class="chip warn">Liyakath</span><span class="chip warn">Khanh</span></div></div><div class="chips"><span class="muted">Tri caddie</span><span class="chip red">Jeremy</span><span class="chip red">Kamel</span></div></article>
+        <article class="card"><div class="kicker">Alertes</div><h2>Brief manager</h2><div class="alert-feed"><div class="feed-item warn"><strong>Seulement 7 presents lundi matin</strong><span class="muted">Planning</span></div><div class="feed-item alert"><strong>3 controles balisage en retard</strong><span class="muted">Balisage</span></div><div class="feed-item info"><strong>Nouveau plan plateau disponible</strong><span class="muted">Plateau</span></div></div></article>
+        <div class="grid" style="gap:14px"><article class="card"><div class="kicker">Priorite</div><h2>Note du jour</h2><div class="priority-note"><strong>Implantation chocolat Paques</strong></div></article><article class="card"><div class="kicker">Suivi</div><h2>Controle balisage</h2><div style="display:flex;justify-content:space-between;align-items:end;margin-top:12px"><div><strong style="font-size:48px">312</strong><div class="muted">/ 800 objectif</div></div><div style="text-align:right"><strong style="font-size:34px;color:#d97f00">39%</strong><div class="muted">Taux erreur 4.2%</div></div></div><div style="margin-top:12px;height:10px;border-radius:999px;background:#edf1f5;overflow:hidden"><div style="width:39%;height:100%;background:#d97f00"></div></div></article></div>
+      </section>
+      <section class="grid middle">
+        <article class="card"><div class="kicker">Semaine</div><h2>Effectifs par jour</h2><div class="week-board"><div class="week-box"><span>Lun</span><b>11</b></div><div class="week-box"><span>Mar</span><b>10</b></div><div class="week-box"><span>Mer</span><b>9</b></div><div class="week-box"><span>Jeu</span><b>10</b></div><div class="week-box active"><span>Ven</span><b>10</b></div><div class="week-box"><span>Sam</span><b>13</b></div></div></article>
+        <article class="card"><div class="kicker">Operations</div><h2>Chantiers en cours</h2><div class="tasks"><div class="task red"><strong>Chocolat de Paques</strong><div class="muted">Plateau A · Entree magasin</div></div><div class="task blue"><strong>Foire au vin</strong><div class="muted">Plateau A · Allee centrale</div></div><div class="task green"><strong>Jardin</strong><div class="muted">Plateau B · Cote ecolier</div></div><div class="task orange"><strong>Little Italy</strong><div class="muted">Plateau C/D · Zone centrale</div></div></div></article>
+      </section>
+      <article class="card"><div class="kicker">Navigation</div><h2>Modules et raccourcis</h2><div class="modules"><div class="module"><b>Planning</b><div class="muted">Horaires et presences</div></div><div class="module"><b>Plan TG</b><div class="muted">Priorites rayon</div></div><div class="module"><b>Plateaux</b><div class="muted">Implantations A/B/C/D</div></div><div class="module"><b>Balisage</b><div class="muted">Suivi erreurs</div></div><div class="module"><b>Absences</b><div class="muted">Demandes et validations</div></div><div class="module"><b>Infos</b><div class="muted">Consignes d'equipe</div></div></div></article>
+    </main>
+  </body>
+</html>

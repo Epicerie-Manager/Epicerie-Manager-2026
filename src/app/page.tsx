@@ -1,275 +1,200 @@
-import Link from "next/link";
 import packageJson from "../../package.json";
 
-const todayLabel = "Vendredi 20 mars 2026";
-
-const presenceStats = [
-  { label: "Matin", value: 11, tone: "success" },
-  { label: "Apres-midi", value: 2, tone: "secondary" },
-  { label: "Etudiants", value: 0, tone: "neutral" },
+const teamStats = [
+  { label: "Matin", value: 11, tone: "green" },
+  { label: "Apres-midi", value: 2, tone: "blue" },
+  { label: "Etudiants", value: 0, tone: "gray" },
 ];
-
-const absences = ["KAMAR", "LIYAKATH", "KHANH"];
-const triCaddie = ["JEREMY", "KAMEL"];
 
 const alerts = [
   {
-    title: "Lundi 23 mars : seulement 7 presents matin",
+    title: "Seulement 7 presents lundi matin",
     module: "Planning",
-    tone: "warn",
+    tone: "yellow",
   },
   {
-    title: "3 controles balisage en retard ce mois",
+    title: "3 controles balisage en retard",
     module: "Balisage",
-    tone: "alert",
+    tone: "red",
   },
   {
-    title: "Nouveau plan plateau Mars 4 disponible",
+    title: "Nouveau plan plateau disponible",
     module: "Plateau",
-    tone: "info",
+    tone: "blue",
   },
 ];
 
 const weekStats = [
-  { day: "Lun", value: 11 },
-  { day: "Mar", value: 10 },
-  { day: "Mer", value: 9 },
-  { day: "Jeu", value: 10 },
-  { day: "Ven", value: 10, active: true },
-  { day: "Sam", value: 13 },
+  { label: "Lun", value: 11 },
+  { label: "Mar", value: 10 },
+  { label: "Mer", value: 9 },
+  { label: "Jeu", value: 10 },
+  { label: "Ven", value: 10, active: true },
+  { label: "Sam", value: 13 },
+];
+
+const modules = [
+  { title: "Planning", detail: "Horaires et presences" },
+  { title: "Plan TG", detail: "Mecaniques rayon" },
+  { title: "Plateaux", detail: "Implantations terrain" },
+  { title: "Stats", detail: "Balisage et suivi" },
 ];
 
 const operations = [
-  { title: "Chocolat de Paques", detail: "Plateau A · Entree mag", tone: "red" },
-  { title: "Foire au vin", detail: "Plateau A · Allee centrale", tone: "blue" },
-  { title: "Jardin", detail: "Plateau B · Cote ecolier", tone: "green" },
-  { title: "Little Italy", detail: "Plateau C/D · Zone centrale", tone: "orange" },
-];
-
-const shortcuts = [
-  {
-    title: "Planning",
-    detail: "Horaires, presences, repos",
-    href: "/planning",
-    icon: "Planning",
-  },
-  {
-    title: "Plan TG",
-    detail: "Tetes de gondole par rayon",
-    href: "/plan-tg",
-    icon: "TG",
-  },
-  {
-    title: "Plans plateau",
-    detail: "Implantations A/B/C/D",
-    href: "/plan-plateau",
-    icon: "Plateau",
-  },
-  {
-    title: "Balisage",
-    detail: "Controles et suivi erreurs",
-    href: "/stats",
-    icon: "OK",
-  },
+  { title: "Chocolat de Paques", detail: "Plateau A", tone: "redline" },
+  { title: "Foire au vin", detail: "Plateau A", tone: "blueline" },
+  { title: "Jardin", detail: "Plateau B", tone: "greenline" },
+  { title: "Little Italy", detail: "Plateau C/D", tone: "orangeline" },
 ];
 
 export default function Home() {
   return (
-    <section className="manager-dashboard">
-      <header className="dashboard-topbar dashboard-card">
+    <section className="manager-dashboard-final">
+      <header className="manager-hero card-final">
         <div>
-          <p className="eyebrow">Tableau de bord manager</p>
-          <h1>Vue du jour</h1>
-          <p className="dashboard-topbar-text">
-            Priorites du matin, alertes et acces modules en un seul ecran.
+          <span className="manager-eyebrow">Epicerie manager 2026</span>
+          <h1>Dashboard manager colonne centrale</h1>
+          <p>
+            Version de reference pour la suite : lisible, aeree et pensee pour
+            une lecture manager en un coup d&apos;oeil.
           </p>
         </div>
-        <div className="dashboard-topbar-side">
-          <span className="dashboard-date-pill">{todayLabel}</span>
-          <span className="version-badge version-badge-soft">
-            version {packageJson.version}
+
+        <div className="manager-hero-pills">
+          <span className="manager-pill">Vendredi 20 mars 2026</span>
+          <span className="manager-pill">11 presents matin</span>
+          <span className="manager-pill">3 alertes</span>
+          <span className="manager-pill manager-pill-version">
+            v{packageJson.version}
           </span>
         </div>
       </header>
 
-      <section className="dashboard-row dashboard-row-top">
-        <article className="dashboard-card manager-panel">
-          <div className="manager-panel-head">
-            <div className="panel-icon-badge">Equipe</div>
-            <div>
-              <h2>Presences aujourd&apos;hui</h2>
-            </div>
-          </div>
+      <div className="manager-layout">
+        <div className="manager-column">
+          <article className="card-final">
+            <span className="manager-section-kicker">Equipe</span>
+            <h2>Presences du jour</h2>
+            <p className="manager-muted">
+              Vision immediate des effectifs et des points a verifier.
+            </p>
 
-          <div className="presence-grid">
-            {presenceStats.map((item) => (
-              <div
-                key={item.label}
-                className={`presence-stat presence-stat-${item.tone}`}
-              >
-                <strong>{item.value}</strong>
-                <span>{item.label}</span>
-              </div>
-            ))}
-          </div>
-
-          <div className="manager-mini-box manager-mini-box-warn">
-            <p className="manager-mini-label">Absents ({absences.length})</p>
-            <div className="tag-row">
-              {absences.map((name) => (
-                <span key={name} className="soft-tag soft-tag-warn">
-                  {name}
-                </span>
+            <div className="manager-kpi-line">
+              {teamStats.map((item) => (
+                <div
+                  key={item.label}
+                  className={`manager-kpi manager-kpi-${item.tone}`}
+                >
+                  <strong>{item.value}</strong>
+                  <span>{item.label}</span>
+                </div>
               ))}
             </div>
-          </div>
 
-          <div className="manager-inline-row">
-            <span className="manager-inline-label">Tri caddie</span>
-            <div className="tag-row">
-              {triCaddie.map((name) => (
-                <span key={name} className="soft-tag soft-tag-alert">
-                  {name}
-                </span>
-              ))}
+            <div className="manager-box manager-box-yellow">
+              <strong>Absents : Kamar, Liyakath, Khanh</strong>
             </div>
-          </div>
-        </article>
-
-        <article className="dashboard-card manager-panel">
-          <div className="manager-panel-head">
-            <div className="panel-icon-badge">Alertes</div>
-            <div>
-              <h2>Alertes</h2>
-              <p>{alerts.length} notifications</p>
+            <div className="manager-box">
+              <strong>Tri caddie : Jeremy, Kamel</strong>
             </div>
-          </div>
-
-          <div className="alert-stack">
-            {alerts.map((alert) => (
-              <div
-                key={alert.title}
-                className={`alert-item alert-item-${alert.tone}`}
-              >
-                <strong>{alert.title}</strong>
-                <span>{alert.module}</span>
-              </div>
-            ))}
-          </div>
-        </article>
-
-        <div className="dashboard-side-stack">
-          <article className="dashboard-card manager-panel manager-panel-tight">
-            <div className="manager-panel-head">
-              <div className="panel-icon-badge">Note</div>
-              <div>
-                <h2>Note du jour</h2>
-              </div>
-            </div>
-            <div className="headline-note">Implantation chocolat Paques</div>
           </article>
 
-          <article className="dashboard-card manager-panel manager-panel-tight">
-            <div className="manager-panel-head">
-              <div className="panel-icon-badge">Balisage</div>
-              <div>
-                <h2>Controle balisage</h2>
-                <p>Mars</p>
-              </div>
-            </div>
+          <article className="card-final">
+            <span className="manager-section-kicker">Navigation</span>
+            <h2>Acces modules</h2>
 
-            <div className="balisage-summary">
-              <div>
-                <strong>312</strong>
-                <span>/ 800 objectif</span>
-              </div>
-              <div className="balisage-aside">
-                <strong>39%</strong>
-                <span>Taux erreur : 4.2%</span>
-              </div>
-            </div>
-
-            <div className="balisage-bar">
-              <div className="balisage-bar-fill" style={{ width: "39%" }} />
+            <div className="manager-nav-grid">
+              {modules.map((module) => (
+                <div key={module.title} className="manager-nav-card">
+                  <b>{module.title}</b>
+                  <span className="manager-muted">{module.detail}</span>
+                </div>
+              ))}
             </div>
           </article>
         </div>
-      </section>
 
-      <section className="dashboard-row dashboard-row-middle">
-        <article className="dashboard-card manager-panel">
-          <div className="manager-panel-head">
-            <div className="panel-icon-badge">Semaine</div>
-            <div>
-              <h2>Semaine en cours</h2>
-              <p>Effectifs par jour</p>
+        <div className="manager-column">
+          <article className="card-final">
+            <span className="manager-section-kicker">Priorites</span>
+            <h2>Alertes a lire en premier</h2>
+
+            <div className="manager-list">
+              {alerts.map((alert) => (
+                <div
+                  key={alert.title}
+                  className={`manager-item manager-item-${alert.tone}`}
+                >
+                  <strong>{alert.title}</strong>
+                  <span className="manager-muted">{alert.module}</span>
+                </div>
+              ))}
             </div>
-          </div>
+          </article>
 
-          <div className="week-stats-grid">
-            {weekStats.map((item) => (
-              <div
-                key={item.day}
-                className={`week-stat-card${item.active ? " week-stat-card-active" : ""}`}
-              >
-                <span>{item.day}</span>
-                <strong>{item.value}</strong>
+          <article className="card-final">
+            <span className="manager-section-kicker">Semaine</span>
+            <h2>Effectifs par jour</h2>
+
+            <div className="manager-week-grid">
+              {weekStats.map((day) => (
+                <div
+                  key={day.label}
+                  className={`manager-week-card${day.active ? " manager-week-card-active" : ""}`}
+                >
+                  <small>{day.label}</small>
+                  <strong>{day.value}</strong>
+                </div>
+              ))}
+            </div>
+          </article>
+        </div>
+
+        <div className="manager-column">
+          <article className="card-final">
+            <span className="manager-section-kicker">Consigne</span>
+            <h2>Note du jour</h2>
+            <div className="manager-item manager-item-red">
+              <strong>Implantation chocolat Paques</strong>
+              <span className="manager-muted">
+                A diffuser a l&apos;ouverture a toute l&apos;equipe.
+              </span>
+            </div>
+          </article>
+
+          <article className="card-final">
+            <span className="manager-section-kicker">Suivi</span>
+            <h2>Balisage</h2>
+
+            <div className="manager-summary-figure">
+              <strong>312 / 800</strong>
+              <span className="manager-muted">
+                39% atteint · Taux erreur 4.2%
+              </span>
+              <div className="manager-summary-progress">
+                <div />
               </div>
-            ))}
-          </div>
-        </article>
-
-        <article className="dashboard-card manager-panel">
-          <div className="manager-panel-head">
-            <div className="panel-icon-badge">Ops</div>
-            <div>
-              <h2>Operations en cours</h2>
-              <p>Cette semaine</p>
             </div>
-          </div>
+          </article>
 
-          <div className="operations-list">
-            {operations.map((operation) => (
-              <div
-                key={operation.title}
-                className={`operation-card operation-card-${operation.tone}`}
-              >
-                <strong>{operation.title}</strong>
-                <span>{operation.detail}</span>
-              </div>
-            ))}
-          </div>
-        </article>
-      </section>
+          <article className="card-final">
+            <span className="manager-section-kicker">Operations</span>
+            <h2>Chantiers terrain</h2>
 
-      <section className="dashboard-row">
-        <article className="dashboard-card manager-panel">
-          <div className="section-heading compact-heading">
-            <div>
-              <p className="panel-kicker">Acces rapide</p>
-              <h2>Tous les modules</h2>
+            <div className="manager-compact-list">
+              {operations.map((operation) => (
+                <div
+                  key={operation.title}
+                  className={`manager-item manager-item-line ${operation.tone}`}
+                >
+                  <strong>{operation.title}</strong>
+                  <span className="manager-muted">{operation.detail}</span>
+                </div>
+              ))}
             </div>
-            <div className="hero-actions hero-actions-compact">
-              <Link href="/planning" className="action action-primary">
-                Ouvrir le planning
-              </Link>
-              <Link href="/plan-tg" className="action action-secondary">
-                Voir le plan TG
-              </Link>
-            </div>
-          </div>
-
-          <div className="dashboard-shortcut-grid">
-            {shortcuts.map((item) => (
-              <Link key={item.href} href={item.href} className="dashboard-shortcut-card">
-                <span className="dashboard-shortcut-icon">{item.icon}</span>
-                <h3>{item.title}</h3>
-                <p>{item.detail}</p>
-              </Link>
-            ))}
-          </div>
-        </article>
-      </section>
+          </article>
+        </div>
+      </div>
     </section>
   );
 }

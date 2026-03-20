@@ -23,6 +23,10 @@
   --theme-plateau-soft: #edf9f2;
   --theme-stats: #7a55d1;
   --theme-stats-soft: #f4efff;
+  --theme-absences: #5635b8;
+  --theme-absences-soft: #f5f2fe;
+  --theme-infos: #a47208;
+  --theme-infos-soft: #fefaef;
 }
 
 @theme inline {
@@ -176,6 +180,51 @@ select {
 .theme-stats {
   --module-accent: var(--theme-stats);
   --module-accent-soft: var(--theme-stats-soft);
+}
+
+.theme-absences {
+  --module-accent: var(--theme-absences);
+  --module-accent-soft: var(--theme-absences-soft);
+}
+
+.theme-infos {
+  --module-accent: var(--theme-infos);
+  --module-accent-soft: var(--theme-infos-soft);
+}
+
+.module-theme-home {
+  --module-accent: var(--theme-home);
+  --module-accent-soft: var(--theme-home-soft);
+}
+
+.module-theme-planning {
+  --module-accent: var(--theme-planning);
+  --module-accent-soft: var(--theme-planning-soft);
+}
+
+.module-theme-tg {
+  --module-accent: var(--theme-tg);
+  --module-accent-soft: var(--theme-tg-soft);
+}
+
+.module-theme-plateau {
+  --module-accent: var(--theme-plateau);
+  --module-accent-soft: var(--theme-plateau-soft);
+}
+
+.module-theme-stats {
+  --module-accent: var(--theme-stats);
+  --module-accent-soft: var(--theme-stats-soft);
+}
+
+.module-theme-absences {
+  --module-accent: var(--theme-absences);
+  --module-accent-soft: var(--theme-absences-soft);
+}
+
+.module-theme-infos {
+  --module-accent: var(--theme-infos);
+  --module-accent-soft: var(--theme-infos-soft);
 }
 
 .nav-link.theme-home {
@@ -938,6 +987,12 @@ select {
   color: var(--muted);
   font-size: 0.92rem;
   font-weight: 700;
+  cursor: pointer;
+}
+
+button.week-chip {
+  appearance: none;
+  font: inherit;
 }
 
 .week-chip-active {

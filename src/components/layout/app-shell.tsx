@@ -10,7 +10,7 @@ type AppShellProps = {
 };
 
 type ModuleNavItem = {
-  id: "dashboard" | "planning" | "plantg" | "plateau" | "balisage";
+  id: "dashboard" | "planning" | "plantg" | "plateau" | "balisage" | "absences" | "infos";
   label: string;
   desc: string;
   href: string;
@@ -22,6 +22,8 @@ const moduleItems: ModuleNavItem[] = [
   { id: "plantg", label: "Plan TG", desc: "Tetes de gondole", href: "/plan-tg" },
   { id: "plateau", label: "Plateaux", desc: "Implantations terrain", href: "/plan-plateau" },
   { id: "balisage", label: "Balisage", desc: "Controle etiquetage", href: "/stats" },
+  { id: "absences", label: "Absences", desc: "Demandes et validation", href: "/absences" },
+  { id: "infos", label: "Infos", desc: "Base documentaire", href: "/infos" },
 ];
 
 const iconStyle = {
@@ -69,6 +71,21 @@ const ICONS: Record<string, React.ReactNode> = {
     <svg viewBox="0 0 24 24" style={iconStyle}>
       <path d="M22 11.08V12a10 10 0 11-5.93-9.14" />
       <polyline points="22 4 12 14.01 9 11.01" />
+    </svg>
+  ),
+  absences: (
+    <svg viewBox="0 0 24 24" style={iconStyle}>
+      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <polyline points="14 2 14 8 20 8" />
+      <line x1="16" y1="13" x2="8" y2="13" />
+      <line x1="16" y1="17" x2="8" y2="17" />
+    </svg>
+  ),
+  infos: (
+    <svg viewBox="0 0 24 24" style={iconStyle}>
+      <circle cx="12" cy="12" r="10" />
+      <line x1="12" y1="16" x2="12" y2="12" />
+      <line x1="12" y1="8" x2="12.01" y2="8" />
     </svg>
   ),
 };

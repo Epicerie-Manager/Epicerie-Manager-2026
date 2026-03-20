@@ -259,3 +259,26 @@ export const planningDays: PlanningDay[] = [
     },
   },
 ];
+
+export type PlanningCartRotation = {
+  dayShort: string;
+  pair: string;
+};
+
+export const planningCartRotation: PlanningCartRotation[] = [
+  { dayShort: "LUN", pair: "CECILE + WASIM" },
+  { dayShort: "MAR", pair: "ROSALIE + JAMAA" },
+  { dayShort: "MER", pair: "JEREMY + KAMEL" },
+  { dayShort: "JEU", pair: "EL HASSANE + LIYAKATH" },
+  { dayShort: "VEN", pair: "KHANH + YASSINE" },
+  { dayShort: "SAM", pair: "MOHCINE + PASCALE" },
+];
+
+export const planningRestPairs = [
+  "ROSALIE + JEREMY",
+  "KHANH + CECILE",
+  "MOHCINE + KAMEL",
+  "EL HASSANE + JAMAA",
+  "WASIM + LIYAKATH",
+  "MOHAMED + PASCALE",
+];

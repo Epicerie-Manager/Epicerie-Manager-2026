@@ -39,10 +39,12 @@ const weekStats = [
 ];
 
 const modules = [
-  { title: "Planning", detail: "Horaires et presences" },
-  { title: "Plan TG", detail: "Mecaniques rayon" },
-  { title: "Plateaux", detail: "Implantations terrain" },
-  { title: "Stats", detail: "Balisage et suivi" },
+  { title: "Planning", detail: "Horaires et presences", href: "/planning" },
+  { title: "Plan TG", detail: "Mecaniques rayon", href: "/plan-tg" },
+  { title: "Plateaux", detail: "Implantations terrain", href: "/plan-plateau" },
+  { title: "Balisage", detail: "Controle etiquetage", href: "/stats" },
+  { title: "Absences", detail: "Demandes et validation", href: "/absences" },
+  { title: "Infos", detail: "Base documentaire", href: "/infos" },
 ];
 
 const operations = [
@@ -131,10 +133,15 @@ export default function Home() {
                         ? "plantg"
                         : module.title === "Plateaux"
                           ? "plateau"
-                          : "balisage"
+                          : module.title === "Absences"
+                            ? "absences"
+                            : module.title === "Infos"
+                              ? "infos"
+                              : "balisage"
                   }
                   title={module.title}
                   description={module.detail}
+                  href={module.href}
                 />
               ))}
             </div>

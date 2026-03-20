@@ -2,7 +2,12 @@
 
 import { useState } from "react";
 import { ModuleHeader } from "@/components/layout/module-header";
-import { planningDays, planningEmployees } from "@/lib/planning-data";
+import {
+  planningCartRotation,
+  planningDays,
+  planningEmployees,
+  planningRestPairs,
+} from "@/lib/planning-data";
 
 export default function PlanningPage() {
   const [selectedEmployeeId, setSelectedEmployeeId] = useState(
@@ -174,6 +179,31 @@ export default function PlanningPage() {
           </table>
         </div>
       </article>
+
+      <div className="planning-layout-grid">
+        <article className="module-card">
+          <p className="panel-kicker">Tri caddie</p>
+          <h2>Rotation mars 2026</h2>
+          <div className="status-grid">
+            {planningCartRotation.map((item) => (
+              <div key={item.dayShort} className="status-row">
+                <span>{item.dayShort}</span>
+                <strong>{item.pair}</strong>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="module-card">
+          <p className="panel-kicker">Binomes repos</p>
+          <h2>Paires fixes</h2>
+          <ul>
+            {planningRestPairs.map((pair) => (
+              <li key={pair}>{pair}</li>
+            ))}
+          </ul>
+        </article>
+      </div>
     </section>
   );
 }

@@ -1,11 +1,16 @@
 import { ModuleHeader } from "@/components/layout/module-header";
-import { plateauMonths, plateauWeeks } from "@/lib/plateau-data";
+import {
+  plateauMonths,
+  plateauOperationsByMonth,
+  plateauWeeks,
+} from "@/lib/plateau-data";
 
 const activeMonth = plateauMonths[0];
 const activeWeeks = plateauWeeks.filter((week) => week.monthId === activeMonth.id);
 const highlightedWeek = activeWeeks[0];
 const archivedMonths = plateauMonths.filter((month) => month.status === "Archive").length;
 const totalZones = highlightedWeek.zones.length;
+const monthlyOperations = plateauOperationsByMonth[activeMonth.id] ?? {};
 
 export default function PlanPlateauPage() {
   return (
@@ -108,6 +113,30 @@ export default function PlanPlateauPage() {
               </div>
               <p>{week.theme}</p>
               <p className="plateau-inline-note">Priorite: {week.priority}</p>
+            </div>
+          ))}
+        </div>
+      </article>
+
+      <article className="module-card">
+        <div className="section-heading compact-heading">
+          <div>
+            <p className="panel-kicker">Recap plateau</p>
+            <h2>Operations par zone</h2>
+          </div>
+        </div>
+        <div className="shortcut-grid">
+          {Object.entries(monthlyOperations).map(([zone, operations]) => (
+            <div key={zone} className="shortcut-card">
+              <h3>{zone}</h3>
+              <ul>
+                {operations.map((operation) => (
+                  <li key={`${zone}-${operation.slot}-${operation.operation}`}>
+                    {operation.slot}
+                    {operation.zone ? ` (${operation.zone})` : ""} : {operation.operation}
+                  </li>
+                ))}
+              </ul>
             </div>
           ))}
         </div>

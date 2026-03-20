@@ -1,4 +1,9 @@
 import packageJson from "../../package.json";
+import { Card } from "@/components/ui/card";
+import { NavCard } from "@/components/ui/nav-card";
+import { ProgressBar } from "@/components/ui/progress-bar";
+import { SectionHeader } from "@/components/ui/section-header";
+import { moduleThemes } from "@/lib/theme";
 
 const teamStats = [
   { label: "Matin", value: 11, tone: "green" },
@@ -48,9 +53,17 @@ const operations = [
 ];
 
 export default function Home() {
+  const dashboardTheme = moduleThemes.dashboard;
+
   return (
     <section className="manager-dashboard-final module-theme-home">
-      <header className="manager-hero card-final">
+      <Card
+        className="manager-hero"
+        style={{
+          background: dashboardTheme.gradient,
+          borderColor: dashboardTheme.medium,
+        }}
+      >
         <div>
           <span className="manager-eyebrow">Epicerie manager 2026</span>
           <h1>Dashboard manager colonne centrale</h1>
@@ -68,16 +81,17 @@ export default function Home() {
             v{packageJson.version}
           </span>
         </div>
-      </header>
+      </Card>
 
       <div className="manager-layout">
         <div className="manager-column">
-          <article className="card-final">
-            <span className="manager-section-kicker">Equipe</span>
-            <h2>Presences du jour</h2>
-            <p className="manager-muted">
-              Vision immediate des effectifs et des points a verifier.
-            </p>
+          <Card className="card-final">
+            <SectionHeader
+              moduleKey="dashboard"
+              kicker="Equipe"
+              title="Presences du jour"
+              description="Vision immediate des effectifs et des points a verifier."
+            />
 
             <div className="manager-kpi-line">
               {teamStats.map((item) => (
@@ -97,38 +111,43 @@ export default function Home() {
             <div className="manager-box">
               <strong>Tri caddie : Jeremy, Kamel</strong>
             </div>
-          </article>
+          </Card>
 
-          <article className="card-final">
-            <span className="manager-section-kicker">Navigation</span>
-            <h2>Acces modules</h2>
+          <Card className="card-final">
+            <SectionHeader
+              moduleKey="dashboard"
+              kicker="Navigation"
+              title="Acces modules"
+            />
 
             <div className="manager-nav-grid">
               {modules.map((module) => (
-                <div
+                <NavCard
                   key={module.title}
-                  className={`manager-nav-card ${
+                  moduleKey={
                     module.title === "Planning"
-                      ? "theme-planning"
+                      ? "planning"
                       : module.title === "Plan TG"
-                        ? "theme-tg"
+                        ? "plantg"
                         : module.title === "Plateaux"
-                          ? "theme-plateau"
-                          : "theme-stats"
-                  }`}
-                >
-                  <b>{module.title}</b>
-                  <span className="manager-muted">{module.detail}</span>
-                </div>
+                          ? "plateau"
+                          : "balisage"
+                  }
+                  title={module.title}
+                  description={module.detail}
+                />
               ))}
             </div>
-          </article>
+          </Card>
         </div>
 
         <div className="manager-column">
-          <article className="card-final">
-            <span className="manager-section-kicker">Priorites</span>
-            <h2>Alertes a lire en premier</h2>
+          <Card className="card-final">
+            <SectionHeader
+              moduleKey="dashboard"
+              kicker="Priorites"
+              title="Alertes a lire en premier"
+            />
 
             <div className="manager-list">
               {alerts.map((alert) => (
@@ -141,11 +160,14 @@ export default function Home() {
                 </div>
               ))}
             </div>
-          </article>
+          </Card>
 
-          <article className="card-final">
-            <span className="manager-section-kicker">Semaine</span>
-            <h2>Effectifs par jour</h2>
+          <Card className="card-final">
+            <SectionHeader
+              moduleKey="dashboard"
+              kicker="Semaine"
+              title="Effectifs par jour"
+            />
 
             <div className="manager-week-grid">
               {weekStats.map((day) => (
@@ -158,39 +180,46 @@ export default function Home() {
                 </div>
               ))}
             </div>
-          </article>
+          </Card>
         </div>
 
         <div className="manager-column">
-          <article className="card-final">
-            <span className="manager-section-kicker">Consigne</span>
-            <h2>Note du jour</h2>
+          <Card className="card-final">
+            <SectionHeader
+              moduleKey="dashboard"
+              kicker="Consigne"
+              title="Note du jour"
+            />
             <div className="manager-item manager-item-red">
               <strong>Implantation chocolat Paques</strong>
               <span className="manager-muted">
                 A diffuser a l&apos;ouverture a toute l&apos;equipe.
               </span>
             </div>
-          </article>
+          </Card>
 
-          <article className="card-final">
-            <span className="manager-section-kicker">Suivi</span>
-            <h2>Balisage</h2>
+          <Card className="card-final">
+            <SectionHeader
+              moduleKey="dashboard"
+              kicker="Suivi"
+              title="Balisage"
+            />
 
             <div className="manager-summary-figure">
               <strong>312 / 800</strong>
               <span className="manager-muted">
                 39% atteint · Taux erreur 4.2%
               </span>
-              <div className="manager-summary-progress">
-                <div />
-              </div>
+              <ProgressBar value={39} color="#d97f00" />
             </div>
-          </article>
+          </Card>
 
-          <article className="card-final">
-            <span className="manager-section-kicker">Operations</span>
-            <h2>Chantiers terrain</h2>
+          <Card className="card-final">
+            <SectionHeader
+              moduleKey="dashboard"
+              kicker="Operations"
+              title="Chantiers terrain"
+            />
 
             <div className="manager-compact-list">
               {operations.map((operation) => (
@@ -203,7 +232,7 @@ export default function Home() {
                 </div>
               ))}
             </div>
-          </article>
+          </Card>
         </div>
       </div>
     </section>

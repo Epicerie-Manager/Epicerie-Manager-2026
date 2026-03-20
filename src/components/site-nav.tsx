@@ -2,13 +2,15 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import type { ModuleKey } from "@/lib/theme";
+import { moduleThemes } from "@/lib/theme";
 
-const navigation = [
-  { href: "/", label: "Accueil", theme: "theme-home" },
-  { href: "/planning", label: "Planning", theme: "theme-planning" },
-  { href: "/plan-tg", label: "Plan TG", theme: "theme-tg" },
-  { href: "/plan-plateau", label: "Plateaux", theme: "theme-plateau" },
-  { href: "/stats", label: "Stats", theme: "theme-stats" },
+const navigation: Array<{ href: string; label: string; key: ModuleKey }> = [
+  { href: "/", label: "Accueil", key: "dashboard" },
+  { href: "/planning", label: "Planning", key: "planning" },
+  { href: "/plan-tg", label: "Plan TG", key: "plantg" },
+  { href: "/plan-plateau", label: "Plateaux", key: "plateau" },
+  { href: "/stats", label: "Stats", key: "balisage" },
 ];
 
 export function SiteNav() {
@@ -24,7 +26,16 @@ export function SiteNav() {
           <Link
             key={item.href}
             href={item.href}
-            className={`nav-link ${item.theme}${isActive ? " nav-link-active" : ""}`}
+            className={`nav-link${isActive ? " nav-link-active" : ""}`}
+            style={{
+              borderBottomColor: moduleThemes[item.key].color,
+              color: isActive ? moduleThemes[item.key].color : undefined,
+              borderColor: isActive ? moduleThemes[item.key].color : undefined,
+              background: isActive ? moduleThemes[item.key].light : undefined,
+              boxShadow: isActive
+                ? `inset 0 0 0 1px ${moduleThemes[item.key].medium}, 0 10px 20px ${moduleThemes[item.key].medium}`
+                : undefined,
+            }}
           >
             {item.label}
           </Link>

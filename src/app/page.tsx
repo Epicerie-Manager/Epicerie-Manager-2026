@@ -100,7 +100,7 @@ const projectStatus = [
 
 export default function Home() {
   return (
-    <section className="dashboard-layout">
+    <section className="dashboard-layout dashboard-layout-compact">
       <header className="dashboard-hero dashboard-card">
         <div className="dashboard-hero-copy">
           <p className="eyebrow">Tableau de bord manager</p>
@@ -136,7 +136,7 @@ export default function Home() {
 
       <section className="dashboard-kpi-grid">
         {dashboardKpis.map((item) => (
-          <article key={item.label} className="dashboard-card dashboard-kpi-card">
+          <article key={item.label} className="dashboard-card dashboard-kpi-card dashboard-card-dense">
             <p className="panel-kicker">{item.label}</p>
             <h2>{item.value}</h2>
             <p>{item.detail}</p>
@@ -144,8 +144,8 @@ export default function Home() {
         ))}
       </section>
 
-      <section className="dashboard-grid dashboard-grid-main">
-        <article className="dashboard-card dashboard-section-wide">
+      <section className="dashboard-grid dashboard-grid-main dashboard-grid-main-compact">
+        <article className="dashboard-card dashboard-section-wide dashboard-card-dense">
           <div className="section-heading">
             <div>
               <p className="panel-kicker">Acces rapide</p>
@@ -168,10 +168,10 @@ export default function Home() {
           </div>
         </article>
 
-        <article className="dashboard-card dashboard-side-panel">
+        <article className="dashboard-card dashboard-side-panel dashboard-card-dense">
           <p className="panel-kicker">Rappel du jour</p>
           <h2>Check-list manager</h2>
-          <ul className="focus-list">
+          <ul className="focus-list focus-list-tight">
             {dayChecklist.map((item) => (
               <li key={item}>{item}</li>
             ))}
@@ -179,8 +179,8 @@ export default function Home() {
         </article>
       </section>
 
-      <section className="dashboard-grid dashboard-grid-insights">
-        <article className="dashboard-card dashboard-alerts-card">
+      <section className="dashboard-grid dashboard-grid-insights dashboard-grid-insights-compact">
+        <article className="dashboard-card dashboard-alerts-card dashboard-card-dense">
           <div className="section-heading compact-heading">
             <div>
               <p className="panel-kicker">Brief matinal</p>
@@ -200,7 +200,7 @@ export default function Home() {
           </div>
         </article>
 
-        <article className="dashboard-card dashboard-planning-card">
+        <article className="dashboard-card dashboard-planning-card dashboard-card-dense">
           <div className="section-heading compact-heading">
             <div>
               <p className="panel-kicker">Semaine en cours</p>
@@ -223,10 +223,8 @@ export default function Home() {
             ))}
           </div>
         </article>
-      </section>
 
-      <section className="dashboard-grid dashboard-grid-bottom">
-        <article className="dashboard-card">
+        <article className="dashboard-card dashboard-card-dense">
           <div className="section-heading compact-heading">
             <div>
               <p className="panel-kicker">Suivi projet</p>

@@ -49,7 +49,7 @@ select {
 
 .app-shell {
   min-height: 100vh;
-  padding: 24px;
+  padding: 14px 18px;
 }
 
 .site-header {
@@ -57,11 +57,11 @@ select {
   grid-template-columns: 1fr auto;
   gap: 20px;
   align-items: center;
-  margin: 0 auto 24px;
+  margin: 0 auto 14px;
   max-width: 1680px;
-  padding: 22px 26px;
+  padding: 16px 22px;
   border: 1px solid var(--line);
-  border-radius: 24px;
+  border-radius: 20px;
   background: linear-gradient(135deg, rgba(0, 75, 147, 0.04), rgba(255, 255, 255, 0.96));
   box-shadow: var(--shadow);
 }
@@ -108,7 +108,7 @@ select {
 }
 
 .brand-link {
-  font-size: clamp(1.9rem, 3vw, 2.8rem);
+  font-size: clamp(1.6rem, 2.4vw, 2.2rem);
   font-weight: 800;
   letter-spacing: -0.05em;
 }
@@ -145,7 +145,7 @@ select {
 .dashboard-layout,
 .module-layout {
   display: grid;
-  gap: 18px;
+  gap: 12px;
 }
 
 .hero-card,
@@ -153,14 +153,14 @@ select {
 .module-card,
 .dashboard-card {
   border: 1px solid var(--line);
-  border-radius: 28px;
+  border-radius: 22px;
   background: var(--surface);
   box-shadow: var(--shadow);
 }
 
 .hero-card,
 .dashboard-card {
-  padding: 28px;
+  padding: 18px;
 }
 
 .hero-primary {
@@ -222,30 +222,34 @@ select {
 
 .status-list,
 .focus-list {
-  margin: 14px 0 0;
+  margin: 8px 0 0;
   padding-left: 18px;
   color: var(--muted);
-  line-height: 1.7;
+  line-height: 1.45;
+}
+
+.focus-list-tight li + li {
+  margin-top: 2px;
 }
 
 .panel-grid,
 .module-grid,
 .planning-summary-grid {
   display: grid;
-  gap: 18px;
+  gap: 12px;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
 }
 
 .panel-card,
 .module-card {
-  padding: 22px;
+  padding: 18px;
 }
 
 .panel-card h2,
 .module-card h2,
 .dashboard-card h2 {
-  margin: 6px 0 8px;
-  font-size: 1.3rem;
+  margin: 4px 0 6px;
+  font-size: 1.08rem;
 }
 
 .panel-card p,
@@ -254,7 +258,8 @@ select {
 .dashboard-card p,
 .dashboard-card li {
   color: var(--muted);
-  line-height: 1.65;
+  line-height: 1.45;
+  font-size: 0.92rem;
 }
 
 .panel-kicker {
@@ -267,8 +272,8 @@ select {
 }
 
 .module-hero {
-  padding: 28px;
-  border-radius: 28px;
+  padding: 22px;
+  border-radius: 22px;
   border: 1px solid var(--line);
   background: linear-gradient(135deg, rgba(0, 75, 147, 0.04), rgba(227, 30, 36, 0.04)), var(--surface);
   box-shadow: var(--shadow);
@@ -294,14 +299,14 @@ select {
 .dashboard-hero {
   display: grid;
   grid-template-columns: 1.3fr 0.8fr;
-  gap: 18px;
+  gap: 12px;
   align-items: stretch;
 }
 
 .dashboard-hero-copy h1 {
-  margin: 6px 0 10px;
-  font-size: clamp(2.4rem, 5vw, 4.6rem);
-  line-height: 0.95;
+  margin: 2px 0 6px;
+  font-size: clamp(2rem, 3.6vw, 3.1rem);
+  line-height: 0.98;
   letter-spacing: -0.06em;
 }
 
@@ -309,9 +314,9 @@ select {
   display: flex;
   flex-direction: column;
   justify-content: space-between;
-  gap: 12px;
-  padding: 22px;
-  border-radius: 24px;
+  gap: 8px;
+  padding: 14px 16px;
+  border-radius: 18px;
   background: linear-gradient(180deg, rgba(0, 75, 147, 0.06), rgba(227, 30, 36, 0.04));
   border: 1px solid rgba(0, 75, 147, 0.12);
 }
@@ -336,12 +341,12 @@ select {
 
 .dashboard-grid {
   display: grid;
-  gap: 18px;
+  gap: 12px;
 }
 
 .dashboard-kpi-grid {
   display: grid;
-  gap: 18px;
+  gap: 12px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
 
@@ -350,11 +355,7 @@ select {
 }
 
 .dashboard-grid-insights {
-  grid-template-columns: 1.15fr 0.85fr;
-}
-
-.dashboard-grid-bottom {
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: 1.15fr 0.8fr 0.9fr 0.8fr;
 }
 
 .dashboard-section-wide,
@@ -363,8 +364,26 @@ select {
 }
 
 .dashboard-kpi-card h2 {
-  margin-bottom: 6px;
-  font-size: clamp(1.6rem, 2vw, 2.1rem);
+  margin-bottom: 2px;
+  font-size: clamp(1.3rem, 1.6vw, 1.7rem);
+}
+
+.dashboard-card-dense {
+  padding: 14px 16px;
+}
+
+.dashboard-layout-compact .dashboard-intro {
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.dashboard-layout-compact .section-note {
+  max-width: 20rem;
+  font-size: 0.9rem;
+}
+
+.dashboard-grid-main-compact {
+  grid-template-columns: 1.35fr 0.8fr;
 }
 
 .section-heading {
@@ -372,7 +391,7 @@ select {
   justify-content: space-between;
   gap: 18px;
   align-items: end;
-  margin-bottom: 18px;
+  margin-bottom: 10px;
 }
 
 .compact-heading {
@@ -388,16 +407,16 @@ select {
 
 .shortcut-grid {
   display: grid;
-  gap: 16px;
+  gap: 10px;
   grid-template-columns: repeat(2, minmax(0, 1fr));
 }
 
 .shortcut-card {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 20px;
-  border-radius: 22px;
+  gap: 6px;
+  padding: 14px 16px;
+  border-radius: 18px;
   border: 1px solid var(--line);
   background: linear-gradient(180deg, rgba(255, 255, 255, 0.98), rgba(238, 243, 247, 0.9));
 }
@@ -409,7 +428,7 @@ select {
 
 .shortcut-card h3 {
   margin: 0;
-  font-size: 1.08rem;
+  font-size: 0.98rem;
 }
 
 .shortcut-card p {
@@ -427,7 +446,7 @@ select {
 .status-grid,
 .phase-list {
   display: grid;
-  gap: 12px;
+  gap: 8px;
 }
 
 .status-row,
@@ -436,8 +455,8 @@ select {
   justify-content: space-between;
   gap: 16px;
   align-items: center;
-  padding: 14px 16px;
-  border-radius: 18px;
+  padding: 10px 12px;
+  border-radius: 14px;
   background: var(--surface-alt);
   border: 1px solid var(--line);
 }
@@ -473,19 +492,19 @@ select {
 
 .manager-alert-list {
   display: grid;
-  gap: 12px;
+  gap: 8px;
 }
 
 .manager-alert {
   display: grid;
-  gap: 6px;
-  padding: 16px 18px;
-  border-radius: 18px;
+  gap: 4px;
+  padding: 10px 12px;
+  border-radius: 14px;
   border: 1px solid var(--line);
 }
 
 .manager-alert strong {
-  font-size: 1rem;
+  font-size: 0.92rem;
 }
 
 .manager-alert p {
@@ -509,15 +528,15 @@ select {
 
 .planning-snapshot-grid {
   display: grid;
-  gap: 12px;
+  gap: 8px;
   grid-template-columns: repeat(6, minmax(0, 1fr));
 }
 
 .planning-snapshot-card {
   display: grid;
-  gap: 6px;
-  padding: 16px 12px;
-  border-radius: 18px;
+  gap: 4px;
+  padding: 10px 6px;
+  border-radius: 14px;
   border: 1px solid var(--line);
   background: var(--surface-alt);
   text-align: center;
@@ -532,13 +551,13 @@ select {
 }
 
 .planning-snapshot-card strong {
-  font-size: 1.7rem;
+  font-size: 1.05rem;
   line-height: 1;
 }
 
 .planning-snapshot-card small {
   color: var(--muted);
-  font-size: 0.85rem;
+  font-size: 0.74rem;
 }
 
 .planning-snapshot-card-active {
@@ -675,13 +694,18 @@ select {
   font-size: 0.82rem;
 }
 
+@media (max-width: 1500px) {
+  .dashboard-grid-insights {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
 @media (max-width: 1100px) {
   .site-header,
   .dashboard-hero,
   .dashboard-kpi-grid,
   .dashboard-grid-main,
   .dashboard-grid-insights,
-  .dashboard-grid-bottom,
   .planning-selector-card,
   .planning-layout-grid {
     grid-template-columns: 1fr;

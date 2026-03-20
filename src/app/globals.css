@@ -908,6 +908,137 @@ select {
   font-size: 0.82rem;
 }
 
+.planning-workbench .planning-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.planning-workbench .planning-month-nav {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.planning-workbench .planning-month-nav strong {
+  font-size: 1rem;
+}
+
+.planning-workbench .planning-table-module {
+  padding: 10px 12px;
+}
+
+.planning-table-dense th,
+.planning-table-dense td {
+  padding: 8px 8px;
+  text-align: center;
+  font-size: 0.78rem;
+}
+
+.planning-table-dense th:first-child,
+.planning-table-dense td:first-child {
+  text-align: left;
+  position: sticky;
+  left: 0;
+  background: #fff;
+  z-index: 1;
+}
+
+.planning-row-today td {
+  background: #edf5ff;
+}
+
+.planning-row-alert td {
+  background: #fff5f5;
+}
+
+.planning-cell-badge {
+  position: relative;
+  border: 1px solid #dbe3eb;
+  border-radius: 8px;
+  padding: 2px 6px;
+  min-height: 26px;
+  background: #f8fafc;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.planning-status-present {
+  background: #ecfdf5;
+  color: #15803d;
+  border-color: #bbf7d0;
+}
+
+.planning-status-rh {
+  background: #f5f3ff;
+  color: #6d28d9;
+  border-color: #ddd6fe;
+}
+
+.planning-status-cp {
+  background: #fffbeb;
+  color: #b45309;
+  border-color: #fde68a;
+}
+
+.planning-status-mal,
+.planning-status-abs {
+  background: #fef2f2;
+  color: #b91c1c;
+  border-color: #fecaca;
+}
+
+.planning-status-form {
+  background: #eff6ff;
+  color: #1d4ed8;
+  border-color: #bfdbfe;
+}
+
+.planning-status-x {
+  background: #f8fafc;
+  color: #64748b;
+}
+
+.planning-status-conge_mat {
+  background: #fff7ed;
+  color: #c2410c;
+  border-color: #fed7aa;
+}
+
+.planning-tri-dot {
+  margin-left: 4px;
+  font-size: 0.68rem;
+}
+
+.planning-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(15, 23, 42, 0.35);
+  display: grid;
+  place-items: center;
+  z-index: 150;
+  padding: 20px;
+}
+
+.planning-modal-card {
+  width: min(640px, 100%);
+  background: #fff;
+  border: 1px solid #dbe3eb;
+  border-radius: 20px;
+  padding: 18px;
+  box-shadow: 0 20px 48px rgba(2, 6, 23, 0.2);
+}
+
+.planning-modal-actions {
+  margin-top: 14px;
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
 @media (max-width: 1500px) {
   .dashboard-grid-insights {
     grid-template-columns: 1fr 1fr;
@@ -967,6 +1098,11 @@ select {
 
   .planning-mobile-list {
     display: grid;
+  }
+
+  .planning-workbench .planning-toolbar {
+    flex-direction: column;
+    align-items: stretch;
   }
 }
 

@@ -1,7 +1,21 @@
+"use client";
+
+import { useState } from "react";
 import { planningDays, planningEmployees } from "@/lib/planning-data";
 
 export default function PlanningPage() {
-  const highlightedEmployee = planningEmployees[0];
+  const [selectedEmployeeId, setSelectedEmployeeId] = useState(
+    planningEmployees[0]?.id ?? "",
+  );
+
+  const selectedEmployee =
+    planningEmployees.find((employee) => employee.id === selectedEmployeeId) ??
+    planningEmployees[0];
+
+  const selectedEmployeeDays = planningDays.map((day) => ({
+    ...day,
+    assignment: day.assignments[selectedEmployee.id] ?? "-",
+  }));
 
   return (
     <section className="module-layout">
@@ -41,33 +55,60 @@ export default function PlanningPage() {
         </article>
       </div>
 
+      <article className="module-card planning-selector-card">
+        <div>
+          <p className="panel-kicker">Selection</p>
+          <h2>Choisir un collaborateur</h2>
+          <p>
+            Cette vue permet deja de se mettre dans la peau d&apos;un membre de
+            l&apos;equipe et de lire son planning plus facilement.
+          </p>
+        </div>
+        <label className="planning-select-field" htmlFor="employee-select">
+          <span>Collaborateur</span>
+          <select
+            id="employee-select"
+            value={selectedEmployee.id}
+            onChange={(event) => setSelectedEmployeeId(event.target.value)}
+          >
+            {planningEmployees.map((employee) => (
+              <option key={employee.id} value={employee.id}>
+                {employee.name}
+              </option>
+            ))}
+          </select>
+        </label>
+      </article>
+
       <div className="planning-employee-strip">
         {planningEmployees.map((employee) => (
-          <article
+          <button
             key={employee.id}
-            className={`employee-chip${employee.id === highlightedEmployee.id ? " employee-chip-active" : ""}`}
+            type="button"
+            className={`employee-chip${employee.id === selectedEmployee.id ? " employee-chip-active" : ""}`}
+            onClick={() => setSelectedEmployeeId(employee.id)}
           >
             <strong>{employee.name}</strong>
             <span>{employee.role}</span>
-          </article>
+          </button>
         ))}
       </div>
 
       <div className="planning-layout-grid">
         <article className="module-card">
           <p className="panel-kicker">Focus collaborateur</p>
-          <h2>{highlightedEmployee.name}</h2>
+          <h2>{selectedEmployee.name}</h2>
           <p>
-            Horaire standard : {highlightedEmployee.standardShift}
+            Horaire standard : {selectedEmployee.standardShift}
             <br />
-            Mardi : {highlightedEmployee.tuesdayShift}
+            Mardi : {selectedEmployee.tuesdayShift}
           </p>
-          {highlightedEmployee.note ? <p>{highlightedEmployee.note}</p> : null}
+          {selectedEmployee.note ? <p>{selectedEmployee.note}</p> : null}
           <ul>
-            {planningDays.slice(0, 6).map((day) => (
+            {selectedEmployeeDays.slice(0, 7).map((day) => (
               <li key={day.date}>
                 {day.dayLabel} {new Date(day.date).toLocaleDateString("fr-FR")} :{" "}
-                {day.assignments[highlightedEmployee.id]}
+                {day.assignment}
               </li>
             ))}
           </ul>
@@ -77,13 +118,28 @@ export default function PlanningPage() {
           <p className="panel-kicker">Lecture manager</p>
           <h2>Synthese de periode</h2>
           <ul>
-            {planningDays.slice(0, 6).map((day) => (
+            {planningDays.slice(0, 7).map((day) => (
               <li key={`${day.date}-manager`}>
                 {day.dayLabel} {new Date(day.date).toLocaleDateString("fr-FR")} : matin {day.morningPresent} / statut {day.morningStatus}
               </li>
             ))}
           </ul>
         </article>
+      </div>
+
+      <div className="planning-mobile-list">
+        {selectedEmployeeDays.map((day) => (
+          <article key={`${day.date}-mobile`} className="planning-day-card">
+            <div className="planning-day-head">
+              <strong>{day.dayLabel}</strong>
+              <span>{new Date(day.date).toLocaleDateString("fr-FR")}</span>
+            </div>
+            <p className="planning-day-shift">{day.assignment}</p>
+            <p className="planning-day-meta">
+              Matin : {day.morningPresent} | Statut : {day.morningStatus}
+            </p>
+          </article>
+        ))}
       </div>
 
       <article className="module-card">

@@ -20,7 +20,7 @@ function getStatus(total: number) {
 
 export default function StatsPage() {
   return (
-    <section className="module-layout">
+    <section className="module-layout module-theme-stats">
       <header className="module-hero">
         <p className="eyebrow">Module V1</p>
         <h1>Stats balisage</h1>

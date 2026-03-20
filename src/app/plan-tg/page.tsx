@@ -15,7 +15,7 @@ const managers = Array.from(new Set(activeEntries.map((entry) => entry.manager))
 
 export default function PlanTgPage() {
   return (
-    <section className="module-layout">
+    <section className="module-layout module-theme-tg">
       <header className="module-hero">
         <p className="eyebrow">Module V1</p>
         <h1>Plan TG / GB</h1>

@@ -13,6 +13,16 @@
   --secondary: #004b93;
   --secondary-soft: #e5f0fb;
   --shadow: 0 18px 40px rgba(16, 32, 51, 0.08);
+  --theme-home: #0a4f98;
+  --theme-home-soft: #edf5ff;
+  --theme-planning: #1f6fcb;
+  --theme-planning-soft: #edf5ff;
+  --theme-tg: #cc7a00;
+  --theme-tg-soft: #fff6e8;
+  --theme-plateau: #1f8f5f;
+  --theme-plateau-soft: #edf9f2;
+  --theme-stats: #7a55d1;
+  --theme-stats-soft: #f4efff;
 }
 
 @theme inline {
@@ -128,12 +138,78 @@ select {
   color: var(--muted);
   font-size: 0.95rem;
   font-weight: 700;
+  border-bottom-width: 3px;
+  transition:
+    background 0.18s ease,
+    border-color 0.18s ease,
+    color 0.18s ease,
+    box-shadow 0.18s ease,
+    transform 0.18s ease;
 }
 
 .nav-link:hover {
   color: var(--secondary);
   border-color: rgba(0, 75, 147, 0.25);
   background: var(--secondary-soft);
+}
+
+.theme-home {
+  --module-accent: var(--theme-home);
+  --module-accent-soft: var(--theme-home-soft);
+}
+
+.theme-planning {
+  --module-accent: var(--theme-planning);
+  --module-accent-soft: var(--theme-planning-soft);
+}
+
+.theme-tg {
+  --module-accent: var(--theme-tg);
+  --module-accent-soft: var(--theme-tg-soft);
+}
+
+.theme-plateau {
+  --module-accent: var(--theme-plateau);
+  --module-accent-soft: var(--theme-plateau-soft);
+}
+
+.theme-stats {
+  --module-accent: var(--theme-stats);
+  --module-accent-soft: var(--theme-stats-soft);
+}
+
+.nav-link.theme-home {
+  border-bottom-color: var(--theme-home);
+}
+
+.nav-link.theme-planning {
+  border-bottom-color: var(--theme-planning);
+}
+
+.nav-link.theme-tg {
+  border-bottom-color: var(--theme-tg);
+}
+
+.nav-link.theme-plateau {
+  border-bottom-color: var(--theme-plateau);
+}
+
+.nav-link.theme-stats {
+  border-bottom-color: var(--theme-stats);
+}
+
+.nav-link-active {
+  color: var(--module-accent);
+  border-color: color-mix(in srgb, var(--module-accent) 42%, white);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--module-accent-soft) 88%, white),
+    color-mix(in srgb, var(--module-accent-soft) 72%, white)
+  );
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--module-accent) 18%, white),
+    0 8px 18px color-mix(in srgb, var(--module-accent) 12%, transparent);
+  transform: translateY(-1px);
 }
 
 .page-frame {
@@ -277,6 +353,111 @@ select {
   border: 1px solid var(--line);
   background: linear-gradient(135deg, rgba(0, 75, 147, 0.04), rgba(227, 30, 36, 0.04)), var(--surface);
   box-shadow: var(--shadow);
+}
+
+.module-layout[class*="module-theme-"] .module-hero {
+  background: linear-gradient(
+      135deg,
+      color-mix(in srgb, var(--module-accent) 16%, white),
+      color-mix(in srgb, var(--module-accent-soft) 96%, white)
+    ),
+    var(--surface);
+  border-color: color-mix(in srgb, var(--module-accent) 30%, white);
+  box-shadow:
+    var(--shadow),
+    inset 0 4px 0 0 color-mix(in srgb, var(--module-accent) 82%, white);
+}
+
+.module-layout[class*="module-theme-"] .panel-kicker,
+.module-layout[class*="module-theme-"] .module-hero .eyebrow {
+  color: var(--module-accent);
+}
+
+.module-layout[class*="module-theme-"] .module-hero h1 {
+  text-decoration: underline;
+  text-decoration-color: color-mix(in srgb, var(--module-accent) 45%, white);
+  text-decoration-thickness: 4px;
+  text-underline-offset: 8px;
+}
+
+.module-layout[class*="module-theme-"] .week-chip-active,
+.module-layout[class*="module-theme-"] .employee-chip-active {
+  background: var(--module-accent-soft);
+  border-color: color-mix(in srgb, var(--module-accent) 40%, white);
+  color: var(--module-accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--module-accent) 16%, white);
+}
+
+.module-layout[class*="module-theme-"] .module-card,
+.module-layout[class*="module-theme-"] .dashboard-card {
+  position: relative;
+  border-color: color-mix(in srgb, var(--module-accent) 22%, white);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--module-accent-soft) 34%, white),
+    white 30%
+  );
+  box-shadow:
+    var(--shadow),
+    inset 4px 0 0 0 color-mix(in srgb, var(--module-accent) 85%, white);
+}
+
+.module-layout[class*="module-theme-"] .module-card::before,
+.module-layout[class*="module-theme-"] .dashboard-card::before {
+  content: "";
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--module-accent) 88%, white);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--module-accent-soft) 88%, white);
+}
+
+.module-layout[class*="module-theme-"] .module-card > *,
+.module-layout[class*="module-theme-"] .dashboard-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.module-layout[class*="module-theme-"] .panel-kicker {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--module-accent-soft) 88%, white);
+  border: 1px solid color-mix(in srgb, var(--module-accent) 18%, white);
+}
+
+.module-layout[class*="module-theme-"] .mini-badge-tg,
+.module-layout[class*="module-theme-"] .mini-badge-tg-solid {
+  background: color-mix(in srgb, var(--module-accent-soft) 92%, white);
+  color: var(--module-accent);
+}
+
+.module-layout[class*="module-theme-"] .mini-badge-tg-solid {
+  background: color-mix(in srgb, var(--module-accent) 88%, white);
+  color: white;
+}
+
+.module-layout[class*="module-theme-"] .planning-select-field select {
+  border-color: color-mix(in srgb, var(--module-accent) 24%, white);
+  background: color-mix(in srgb, var(--module-accent-soft) 24%, white);
+}
+
+.module-layout[class*="module-theme-"] .planning-table th,
+.module-layout[class*="module-theme-"] .stats-table th {
+  color: var(--module-accent);
+}
+
+.module-layout[class*="module-theme-"] .stats-progress-fill {
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--module-accent) 88%, white),
+    color-mix(in srgb, var(--module-accent) 60%, white)
+  );
 }
 
 .module-hero h1 {
@@ -1284,6 +1465,19 @@ select {
 .manager-nav-card {
   padding: 14px;
   background: #f8fafc;
+}
+
+.manager-nav-card.theme-planning,
+.manager-nav-card.theme-tg,
+.manager-nav-card.theme-plateau,
+.manager-nav-card.theme-stats {
+  border-left: 4px solid var(--module-accent);
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--module-accent-soft) 55%, white),
+    #f8fafc
+  );
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--module-accent) 14%, white);
 }
 
 .manager-nav-card b {

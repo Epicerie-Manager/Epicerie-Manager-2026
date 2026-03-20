@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import Link from "next/link";
+import { SiteNav } from "@/components/site-nav";
 import packageJson from "../../package.json";
 import "./globals.css";
 
@@ -18,14 +19,6 @@ export const metadata: Metadata = {
   title: "Epicerie Manager 2026",
   description: "Application de pilotage pour l'equipe epicerie",
 };
-
-const navigation = [
-  { href: "/", label: "Accueil" },
-  { href: "/planning", label: "Planning" },
-  { href: "/plan-tg", label: "Plan TG" },
-  { href: "/plan-plateau", label: "Plateaux" },
-  { href: "/stats", label: "Stats" },
-];
 
 export default function RootLayout({
   children,
@@ -49,13 +42,7 @@ export default function RootLayout({
                 Villebon 2
               </Link>
             </div>
-            <nav className="main-nav" aria-label="Navigation principale">
-              {navigation.map((item) => (
-                <Link key={item.href} href={item.href} className="nav-link">
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
+            <SiteNav />
           </header>
           <main className="page-frame">{children}</main>
         </div>

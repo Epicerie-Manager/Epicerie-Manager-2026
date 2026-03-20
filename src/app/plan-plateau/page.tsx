@@ -8,7 +8,7 @@ const totalZones = highlightedWeek.zones.length;
 
 export default function PlanPlateauPage() {
   return (
-    <section className="module-layout">
+    <section className="module-layout module-theme-plateau">
       <header className="module-hero">
         <p className="eyebrow">Module V1</p>
         <h1>Plan Plateau</h1>

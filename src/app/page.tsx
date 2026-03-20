@@ -49,7 +49,7 @@ const operations = [
 
 export default function Home() {
   return (
-    <section className="manager-dashboard-final">
+    <section className="manager-dashboard-final module-theme-home">
       <header className="manager-hero card-final">
         <div>
           <span className="manager-eyebrow">Epicerie manager 2026</span>
@@ -105,7 +105,18 @@ export default function Home() {
 
             <div className="manager-nav-grid">
               {modules.map((module) => (
-                <div key={module.title} className="manager-nav-card">
+                <div
+                  key={module.title}
+                  className={`manager-nav-card ${
+                    module.title === "Planning"
+                      ? "theme-planning"
+                      : module.title === "Plan TG"
+                        ? "theme-tg"
+                        : module.title === "Plateaux"
+                          ? "theme-plateau"
+                          : "theme-stats"
+                  }`}
+                >
                   <b>{module.title}</b>
                   <span className="manager-muted">{module.detail}</span>
                 </div>

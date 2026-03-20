@@ -390,35 +390,10 @@ select {
 
 .module-layout[class*="module-theme-"] .module-card,
 .module-layout[class*="module-theme-"] .dashboard-card {
-  position: relative;
-  border-color: color-mix(in srgb, var(--module-accent) 22%, white);
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--module-accent-soft) 34%, white),
-    white 30%
-  );
-  box-shadow:
-    var(--shadow),
-    inset 4px 0 0 0 color-mix(in srgb, var(--module-accent) 85%, white);
-}
-
-.module-layout[class*="module-theme-"] .module-card::before,
-.module-layout[class*="module-theme-"] .dashboard-card::before {
-  content: "";
-  position: absolute;
-  top: 12px;
-  left: 12px;
-  width: 10px;
-  height: 10px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--module-accent) 88%, white);
-  box-shadow: 0 0 0 6px color-mix(in srgb, var(--module-accent-soft) 88%, white);
-}
-
-.module-layout[class*="module-theme-"] .module-card > *,
-.module-layout[class*="module-theme-"] .dashboard-card > * {
-  position: relative;
-  z-index: 1;
+  border-color: #dbe3eb;
+  background: rgba(255, 255, 255, 0.96);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03), 0 4px 16px rgba(0, 0, 0, 0.04),
+    0 12px 32px rgba(0, 0, 0, 0.02);
 }
 
 .module-layout[class*="module-theme-"] .panel-kicker {
@@ -458,6 +433,15 @@ select {
     color-mix(in srgb, var(--module-accent) 88%, white),
     color-mix(in srgb, var(--module-accent) 60%, white)
   );
+}
+
+.module-layout[class*="module-theme-"] .status-row,
+.module-layout[class*="module-theme-"] .phase-item,
+.module-layout[class*="module-theme-"] .week-chip,
+.module-layout[class*="module-theme-"] .employee-chip,
+.module-layout[class*="module-theme-"] .planning-day-card {
+  border-color: #dbe3eb;
+  background: #f8fafc;
 }
 
 .module-hero h1 {

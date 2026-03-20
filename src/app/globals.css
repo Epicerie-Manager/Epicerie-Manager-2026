@@ -189,7 +189,8 @@ a {
 }
 
 .panel-grid,
-.module-grid {
+.module-grid,
+.planning-summary-grid {
   display: grid;
   gap: 18px;
   grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
@@ -252,6 +253,77 @@ a {
 .module-card ul {
   margin: 12px 0 0;
   padding-left: 18px;
+}
+
+.planning-layout-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: 1.1fr 0.9fr;
+}
+
+.planning-employee-strip {
+  display: grid;
+  gap: 14px;
+  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+}
+
+.employee-chip {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 18px;
+  border-radius: 20px;
+  border: 1px solid var(--line);
+  background: rgba(255, 253, 248, 0.7);
+  color: var(--muted);
+}
+
+.employee-chip strong {
+  color: var(--foreground);
+}
+
+.employee-chip-active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.planning-table-wrap {
+  overflow-x: auto;
+  margin-top: 16px;
+}
+
+.planning-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 860px;
+}
+
+.planning-table th,
+.planning-table td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+  text-align: left;
+}
+
+.planning-table th {
+  color: var(--accent-strong);
+  font-size: 0.84rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.planning-cell-note {
+  display: block;
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 0.82rem;
+}
+
+@media (max-width: 900px) {
+  .planning-layout-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 640px) {

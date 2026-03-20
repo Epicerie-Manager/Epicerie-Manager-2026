@@ -58,7 +58,7 @@ select {
   gap: 20px;
   align-items: center;
   margin: 0 auto 24px;
-  max-width: 1360px;
+  max-width: 1680px;
   padding: 22px 26px;
   border: 1px solid var(--line);
   border-radius: 24px;
@@ -137,7 +137,7 @@ select {
 }
 
 .page-frame {
-  max-width: 1360px;
+  max-width: 1680px;
   margin: 0 auto;
 }
 
@@ -339,8 +339,18 @@ select {
   gap: 18px;
 }
 
+.dashboard-kpi-grid {
+  display: grid;
+  gap: 18px;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
 .dashboard-grid-main {
   grid-template-columns: 1.45fr 0.85fr;
+}
+
+.dashboard-grid-insights {
+  grid-template-columns: 1.15fr 0.85fr;
 }
 
 .dashboard-grid-bottom {
@@ -350,6 +360,11 @@ select {
 .dashboard-section-wide,
 .dashboard-side-panel {
   min-height: 100%;
+}
+
+.dashboard-kpi-card h2 {
+  margin-bottom: 6px;
+  font-size: clamp(1.6rem, 2vw, 2.1rem);
 }
 
 .section-heading {
@@ -449,6 +464,86 @@ select {
 
 .phase-item p {
   margin: 0;
+}
+
+.dashboard-inline-link {
+  color: var(--secondary);
+  font-weight: 800;
+}
+
+.manager-alert-list {
+  display: grid;
+  gap: 12px;
+}
+
+.manager-alert {
+  display: grid;
+  gap: 6px;
+  padding: 16px 18px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+}
+
+.manager-alert strong {
+  font-size: 1rem;
+}
+
+.manager-alert p {
+  margin: 0;
+}
+
+.manager-alert-alert {
+  background: #fff0f1;
+  border-color: #ffd2d6;
+}
+
+.manager-alert-info {
+  background: #eef6ff;
+  border-color: #cfe2fb;
+}
+
+.manager-alert-warn {
+  background: #fff8eb;
+  border-color: #fde1af;
+}
+
+.planning-snapshot-grid {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+}
+
+.planning-snapshot-card {
+  display: grid;
+  gap: 6px;
+  padding: 16px 12px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background: var(--surface-alt);
+  text-align: center;
+}
+
+.planning-snapshot-card span {
+  color: var(--muted);
+  font-size: 0.82rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.planning-snapshot-card strong {
+  font-size: 1.7rem;
+  line-height: 1;
+}
+
+.planning-snapshot-card small {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.planning-snapshot-card-active {
+  background: var(--secondary-soft);
+  border-color: rgba(0, 75, 147, 0.2);
 }
 
 .planning-selector-card {
@@ -583,7 +678,9 @@ select {
 @media (max-width: 1100px) {
   .site-header,
   .dashboard-hero,
+  .dashboard-kpi-grid,
   .dashboard-grid-main,
+  .dashboard-grid-insights,
   .dashboard-grid-bottom,
   .planning-selector-card,
   .planning-layout-grid {
@@ -609,7 +706,8 @@ select {
   .panel-grid,
   .module-grid,
   .planning-summary-grid,
-  .planning-employee-strip {
+  .planning-employee-strip,
+  .planning-snapshot-grid {
     grid-template-columns: 1fr;
   }
 }

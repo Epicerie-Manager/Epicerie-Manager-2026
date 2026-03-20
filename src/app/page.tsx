@@ -1,6 +1,29 @@
 import Link from "next/link";
 import packageJson from "../../package.json";
 
+const dashboardKpis = [
+  {
+    label: "Equipe attendue ce matin",
+    value: "9 presents",
+    detail: "2 absences et 1 conge long a surveiller",
+  },
+  {
+    label: "Operations terrain",
+    value: "4 priorites",
+    detail: "TG, plateaux et balisage a suivre aujourd'hui",
+  },
+  {
+    label: "Controle balisage",
+    value: "312 / 800",
+    detail: "39% de l'objectif mensuel atteint",
+  },
+  {
+    label: "Point manager",
+    value: "3 alertes",
+    detail: "Actions a lire avant l'ouverture",
+  },
+];
+
 const shortcuts = [
   {
     title: "Planning equipe",
@@ -28,10 +51,44 @@ const shortcuts = [
   },
 ];
 
-const focusItems = [
+const morningAlerts = [
+  {
+    title: "Effectif matin a confirmer",
+    text: "Jeremy est en absence, Kamar reste a verifier avant la prise de poste.",
+    tone: "alert",
+  },
+  {
+    title: "Plan TG semaine 10 actif",
+    text: "4 lignes TG et 2 lignes GB sont a repartir avant le pic de flux.",
+    tone: "info",
+  },
+  {
+    title: "Plateau A prioritaire",
+    text: "Le bloc pates / sauces doit etre remis au propre des ce matin.",
+    tone: "warn",
+  },
+];
+
+const dayChecklist = [
+  "Verifier les absences et les remplacements",
+  "Confirmer les priorites plateau avant 9h",
+  "Relancer le balisage en retard sur les zones critiques",
+  "Partager la priorite TG du jour avec l'equipe",
+];
+
+const planningSnapshot = [
+  { day: "Lun", value: "9", meta: "matin" },
+  { day: "Mar", value: "10", meta: "matin" },
+  { day: "Mer", value: "10", meta: "matin" },
+  { day: "Jeu", value: "9", meta: "matin" },
+  { day: "Ven", value: "9", meta: "matin" },
+  { day: "Sam", value: "8", meta: "matin" },
+];
+
+const projectFocusItems = [
   "Pilotage planning sur PC et tablette",
-  "Centralisation des donnees aujourd&apos;hui dispersees",
-  "Base solide pour les absences et l&apos;audit terrain",
+  "Centralisation des donnees aujourd'hui dispersees",
+  "Base solide pour les absences et l'audit terrain",
 ];
 
 const projectStatus = [
@@ -77,6 +134,16 @@ export default function Home() {
         </div>
       </header>
 
+      <section className="dashboard-kpi-grid">
+        {dashboardKpis.map((item) => (
+          <article key={item.label} className="dashboard-card dashboard-kpi-card">
+            <p className="panel-kicker">{item.label}</p>
+            <h2>{item.value}</h2>
+            <p>{item.detail}</p>
+          </article>
+        ))}
+      </section>
+
       <section className="dashboard-grid dashboard-grid-main">
         <article className="dashboard-card dashboard-section-wide">
           <div className="section-heading">
@@ -102,13 +169,59 @@ export default function Home() {
         </article>
 
         <article className="dashboard-card dashboard-side-panel">
-          <p className="panel-kicker">Fil rouge</p>
-          <h2>Ce que doit reussir la V1</h2>
+          <p className="panel-kicker">Rappel du jour</p>
+          <h2>Check-list manager</h2>
           <ul className="focus-list">
-            {focusItems.map((item) => (
+            {dayChecklist.map((item) => (
               <li key={item}>{item}</li>
             ))}
           </ul>
+        </article>
+      </section>
+
+      <section className="dashboard-grid dashboard-grid-insights">
+        <article className="dashboard-card dashboard-alerts-card">
+          <div className="section-heading compact-heading">
+            <div>
+              <p className="panel-kicker">Brief matinal</p>
+              <h2>Alertes a lire en premier</h2>
+            </div>
+          </div>
+          <div className="manager-alert-list">
+            {morningAlerts.map((alert) => (
+              <div
+                key={alert.title}
+                className={`manager-alert manager-alert-${alert.tone}`}
+              >
+                <strong>{alert.title}</strong>
+                <p>{alert.text}</p>
+              </div>
+            ))}
+          </div>
+        </article>
+
+        <article className="dashboard-card dashboard-planning-card">
+          <div className="section-heading compact-heading">
+            <div>
+              <p className="panel-kicker">Semaine en cours</p>
+              <h2>Effectif matin</h2>
+            </div>
+            <Link href="/planning" className="dashboard-inline-link">
+              Ouvrir le planning
+            </Link>
+          </div>
+          <div className="planning-snapshot-grid">
+            {planningSnapshot.map((item, index) => (
+              <div
+                key={item.day}
+                className={`planning-snapshot-card${index === 0 ? " planning-snapshot-card-active" : ""}`}
+              >
+                <span>{item.day}</span>
+                <strong>{item.value}</strong>
+                <small>{item.meta}</small>
+              </div>
+            ))}
+          </div>
         </article>
       </section>
 
@@ -133,24 +246,15 @@ export default function Home() {
         <article className="dashboard-card">
           <div className="section-heading compact-heading">
             <div>
-              <p className="panel-kicker">Vision produit</p>
-              <h2>Phases du projet</h2>
+              <p className="panel-kicker">Fil rouge</p>
+              <h2>Ce que doit reussir la V1</h2>
             </div>
           </div>
-          <div className="phase-list">
-            <div className="phase-item">
-              <span>V1</span>
-              <p>Consulter planning, TG, plateaux et stats.</p>
-            </div>
-            <div className="phase-item">
-              <span>V2</span>
-              <p>Gerer les demandes d&apos;absence et leur suivi.</p>
-            </div>
-            <div className="phase-item">
-              <span>V3</span>
-              <p>Piloter le terrain avec les audits et comptes-rendus.</p>
-            </div>
-          </div>
+          <ul className="focus-list">
+            {projectFocusItems.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
         </article>
       </section>
     </section>

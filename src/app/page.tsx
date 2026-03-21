@@ -4,6 +4,7 @@ import { Kicker }      from "@/components/ui/kicker";
 import { KPI, KPIRow } from "@/components/ui/kpi";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { NavCard, NavCardGrid } from "@/components/ui/nav-card";
+import AgendaCard from "@/components/dashboard/agenda-card";
 import { moduleThemes } from "@/lib/theme";
 
 // ── Données statiques (Mars 2026) ────────────────
@@ -371,6 +372,8 @@ export default function DashboardPage() {
               </div>
             </div>
           </Card>
+
+          <AgendaCard calendarUrl="https://calendar.google.com" />
 
           {/* Balisage */}
           <Card>

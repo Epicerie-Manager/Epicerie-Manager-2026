@@ -1,0 +1,498 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Epicerie Manager 2026 - Feuille de route interactive</title>
+  <style>
+    :root {
+      --bg: #f3f6fb;
+      --panel: #ffffff;
+      --text: #1a2230;
+      --muted: #6d7787;
+      --ok: #1f9d6a;
+      --progress: #db9a00;
+      --todo: #8a94a6;
+      --border: #d8deea;
+      --accent: #1765d1;
+      --accent-soft: #e8f0fe;
+      --shadow: 0 12px 30px rgba(23, 41, 77, 0.1);
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: "Segoe UI", "Aptos", "Trebuchet MS", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 10% -10%, #d4e6ff 0%, transparent 45%),
+        radial-gradient(circle at 90% -20%, #ffe7c2 0%, transparent 45%),
+        var(--bg);
+      min-height: 100vh;
+      padding: 28px 18px 60px;
+    }
+
+    .container {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: grid;
+      gap: 18px;
+    }
+
+    .hero {
+      background: linear-gradient(130deg, #0f2c58 0%, #1f4c88 45%, #2f6cae 100%);
+      color: #fff;
+      border-radius: 20px;
+      padding: 24px;
+      box-shadow: var(--shadow);
+    }
+
+    .hero h1 {
+      margin: 0;
+      font-size: clamp(1.4rem, 2.6vw, 2rem);
+      letter-spacing: 0.02em;
+    }
+
+    .hero p {
+      margin: 10px 0 0;
+      color: #deebff;
+      max-width: 880px;
+    }
+
+    .summary-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 12px;
+    }
+
+    .summary-card {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 14px;
+      box-shadow: 0 6px 18px rgba(19, 30, 50, 0.06);
+    }
+
+    .summary-card h3 {
+      margin: 0;
+      font-size: 0.95rem;
+      color: var(--muted);
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    .summary-card .value {
+      margin-top: 8px;
+      font-size: 1.5rem;
+      font-weight: 800;
+    }
+
+    .phase {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 16px;
+      box-shadow: 0 6px 18px rgba(19, 30, 50, 0.06);
+    }
+
+    .phase-head {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-bottom: 14px;
+    }
+
+    .phase-title {
+      margin: 0;
+      font-size: 1.15rem;
+      letter-spacing: 0.01em;
+    }
+
+    .phase-progress {
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-weight: 600;
+    }
+
+    .bar {
+      height: 9px;
+      border-radius: 999px;
+      background: #edf1f8;
+      overflow: hidden;
+      margin-bottom: 14px;
+    }
+
+    .bar > span {
+      display: block;
+      height: 100%;
+      background: linear-gradient(90deg, #1765d1 0%, #3b8cff 100%);
+      transition: width 0.3s ease;
+    }
+
+    .task-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 10px;
+    }
+
+    .task {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: #fbfcff;
+      overflow: hidden;
+    }
+
+    .task-head {
+      padding: 10px 12px;
+      cursor: pointer;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 12px;
+      transition: background 0.2s ease;
+    }
+
+    .task-head:hover { background: #f2f7ff; }
+
+    .task-title {
+      margin: 0;
+      font-size: 0.95rem;
+      font-weight: 700;
+    }
+
+    .badge {
+      font-size: 0.73rem;
+      font-weight: 800;
+      border-radius: 999px;
+      padding: 4px 9px;
+      letter-spacing: 0.03em;
+      text-transform: uppercase;
+      white-space: nowrap;
+    }
+
+    .status-done { color: #0d5a3d; background: #d9f7eb; }
+    .status-progress { color: #724d00; background: #ffefc6; }
+    .status-todo { color: #48556f; background: #e8edf5; }
+
+    .task-body {
+      display: none;
+      padding: 0 12px 12px;
+      border-top: 1px solid var(--border);
+      background: #fff;
+    }
+
+    .task.open .task-body { display: block; }
+
+    .task p {
+      margin: 10px 0;
+      font-size: 0.9rem;
+      color: #324158;
+      line-height: 1.35;
+    }
+
+    .controls {
+      display: flex;
+      gap: 8px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .controls label {
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    select {
+      border: 1px solid #c6d1e3;
+      border-radius: 10px;
+      padding: 6px 10px;
+      font: inherit;
+      background: #fff;
+      cursor: pointer;
+    }
+
+    a.quick-link {
+      display: inline-block;
+      margin-top: 6px;
+      color: var(--accent);
+      text-decoration: none;
+      font-weight: 700;
+      background: var(--accent-soft);
+      border: 1px solid #c7d9fb;
+      border-radius: 9px;
+      padding: 5px 9px;
+    }
+
+    a.quick-link:hover { background: #dceaff; }
+
+    .footer-note {
+      color: var(--muted);
+      font-size: 0.85rem;
+      line-height: 1.45;
+      padding: 6px 2px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    button {
+      border: 1px solid #c7d1e2;
+      border-radius: 10px;
+      background: #fff;
+      padding: 8px 11px;
+      font: inherit;
+      cursor: pointer;
+      font-weight: 700;
+    }
+
+    button:hover { background: #f5f8fe; }
+
+    @media (max-width: 760px) {
+      .hero { padding: 18px; }
+      .phase { padding: 12px; }
+      .task-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <section class="hero">
+      <h1>Feuille de route interactive - Epicerie Manager 2026</h1>
+      <p>
+        Clique sur une etape pour afficher les details, change le statut si besoin,
+        et suis l'avancement V1/V2/V3 en temps reel.
+      </p>
+    </section>
+
+    <section class="summary-grid" id="summary"></section>
+
+    <section class="actions">
+      <button id="expandAll" type="button">Tout ouvrir</button>
+      <button id="collapseAll" type="button">Tout fermer</button>
+      <button id="resetStatuses" type="button">Remettre les statuts par defaut</button>
+    </section>
+
+    <section id="roadmap"></section>
+
+    <p class="footer-note">
+      Les statuts modifies dans cette page sont sauvegardes dans ton navigateur (localStorage).
+      Les liens de modules pointent vers <code>http://localhost:3000</code> (pense a lancer l'app avec <code>npm run dev</code>).
+    </p>
+  </main>
+
+  <script>
+    const STORAGE_KEY = "epicerie-manager-roadmap-v1";
+    const BASE_URL = "http://localhost:3000";
+
+    const STATUS = {
+      done: "Fait",
+      progress: "En cours",
+      todo: "A faire"
+    };
+
+    const STATUS_CLASS = {
+      done: "status-done",
+      progress: "status-progress",
+      todo: "status-todo"
+    };
+
+    const roadmapData = [
+      {
+        id: "v1",
+        title: "V1 - Consulter facilement",
+        objective: "Remplacer Google Site par une app utile au quotidien.",
+        tasks: [
+          { id: "v1-cadrage", title: "Cadrage", description: "Comprendre l'existant et definir le perimetre.", defaultStatus: "done" },
+          { id: "v1-spec", title: "Specification MVP", description: "Formaliser les ecrans et les donnees obligatoires de la V1.", defaultStatus: "progress" },
+          { id: "v1-structure", title: "Structure technique", description: "Socle Next.js + app shell + theming modules.", defaultStatus: "done", link: BASE_URL + "/" },
+          { id: "v1-planning", title: "Module Planning", description: "Consultation du planning epicerie (refonte recente).", defaultStatus: "done", link: BASE_URL + "/planning" },
+          { id: "v1-tg", title: "Module Plan TG", description: "Consultation des plans TG / GB.", defaultStatus: "done", link: BASE_URL + "/plan-tg" },
+          { id: "v1-plateau", title: "Module Plan Plateau", description: "Consultation des plans plateau.", defaultStatus: "done", link: BASE_URL + "/plan-plateau" },
+          { id: "v1-stats", title: "Module Stats", description: "Consultation stats balisage et suivi visuel.", defaultStatus: "done", link: BASE_URL + "/stats" },
+          { id: "v1-validation", title: "Validation terrain", description: "Verifier les usages reels avec l'equipe en condition magasin.", defaultStatus: "todo" },
+          { id: "v1-mise-en-ligne", title: "Mise en ligne", description: "Rendre l'application utilisable en production terrain.", defaultStatus: "todo" }
+        ]
+      },
+      {
+        id: "v2",
+        title: "V2 - Gerer les demandes",
+        objective: "Structurer le workflow absences cote collaborateur et manager.",
+        tasks: [
+          { id: "v2-cadrage", title: "Cadrage absences", description: "Definir les regles de demande et de validation.", defaultStatus: "progress" },
+          { id: "v2-formulaire", title: "Formulaire absence", description: "Saisie collaborateur (base ecran deja presente).", defaultStatus: "progress", link: BASE_URL + "/absences" },
+          { id: "v2-suivi", title: "Suivi manager", description: "Validation/refus manager avec statut des demandes.", defaultStatus: "todo" },
+          { id: "v2-historique", title: "Historique", description: "Voir les demandes passees + recherches simples.", defaultStatus: "todo" },
+          { id: "v2-integration", title: "Integration planning", description: "Reporter les absences validees dans le planning.", defaultStatus: "todo" }
+        ]
+      },
+      {
+        id: "v3",
+        title: "V3 - Piloter le terrain",
+        objective: "Mettre en place l'audit terrain et le suivi des actions.",
+        tasks: [
+          { id: "v3-cadrage", title: "Cadrage audit", description: "Definir la grille de visite terrain.", defaultStatus: "todo" },
+          { id: "v3-formulaire", title: "Formulaire audit", description: "Saisie terrain normalisee.", defaultStatus: "todo" },
+          { id: "v3-compte-rendu", title: "Compte-rendu", description: "Generer un rapport lisible et partageable.", defaultStatus: "todo" },
+          { id: "v3-envoi", title: "Envoi collaborateur", description: "Diffuser les retours aux personnes concernees.", defaultStatus: "todo" },
+          { id: "v3-suivi", title: "Suivi des actions", description: "Historique, relances et cloture des correctifs.", defaultStatus: "todo" }
+        ]
+      }
+    ];
+
+    const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}");
+
+    function getStatus(task) {
+      return saved[task.id] || task.defaultStatus;
+    }
+
+    function setStatus(taskId, value) {
+      saved[taskId] = value;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+      render();
+    }
+
+    function resetStatuses() {
+      localStorage.removeItem(STORAGE_KEY);
+      window.location.reload();
+    }
+
+    function computeCounts() {
+      let done = 0;
+      let progress = 0;
+      let todo = 0;
+      let total = 0;
+
+      roadmapData.forEach(phase => {
+        phase.tasks.forEach(task => {
+          total += 1;
+          const st = getStatus(task);
+          if (st === "done") done += 1;
+          if (st === "progress") progress += 1;
+          if (st === "todo") todo += 1;
+        });
+      });
+
+      return { done, progress, todo, total };
+    }
+
+    function phaseProgress(tasks) {
+      const done = tasks.filter(task => getStatus(task) === "done").length;
+      const total = tasks.length;
+      return Math.round((done / total) * 100);
+    }
+
+    function statusBadge(status) {
+      return `<span class="badge ${STATUS_CLASS[status]}">${STATUS[status]}</span>`;
+    }
+
+    function renderSummary() {
+      const summaryEl = document.getElementById("summary");
+      const counts = computeCounts();
+      const percent = Math.round((counts.done / counts.total) * 100);
+
+      summaryEl.innerHTML = `
+        <article class="summary-card">
+          <h3>Avancement global</h3>
+          <div class="value">${percent}%</div>
+        </article>
+        <article class="summary-card">
+          <h3>Etapes faites</h3>
+          <div class="value">${counts.done}</div>
+        </article>
+        <article class="summary-card">
+          <h3>Etapes en cours</h3>
+          <div class="value">${counts.progress}</div>
+        </article>
+        <article class="summary-card">
+          <h3>Etapes a faire</h3>
+          <div class="value">${counts.todo}</div>
+        </article>
+      `;
+    }
+
+    function renderRoadmap() {
+      const roadmapEl = document.getElementById("roadmap");
+      roadmapEl.innerHTML = roadmapData.map(phase => {
+        const progress = phaseProgress(phase.tasks);
+        const doneCount = phase.tasks.filter(task => getStatus(task) === "done").length;
+
+        const tasksHTML = phase.tasks.map(task => {
+          const status = getStatus(task);
+
+          return `
+            <article class="task" data-task-id="${task.id}">
+              <div class="task-head">
+                <h4 class="task-title">${task.title}</h4>
+                ${statusBadge(status)}
+              </div>
+              <div class="task-body">
+                <p>${task.description}</p>
+                <div class="controls">
+                  <label for="status-${task.id}">Statut</label>
+                  <select id="status-${task.id}" data-status-for="${task.id}">
+                    <option value="todo" ${status === "todo" ? "selected" : ""}>A faire</option>
+                    <option value="progress" ${status === "progress" ? "selected" : ""}>En cours</option>
+                    <option value="done" ${status === "done" ? "selected" : ""}>Fait</option>
+                  </select>
+                </div>
+                ${task.link ? `<a class="quick-link" href="${task.link}" target="_blank" rel="noreferrer">Ouvrir le module</a>` : ""}
+              </div>
+            </article>
+          `;
+        }).join("");
+
+        return `
+          <section class="phase">
+            <div class="phase-head">
+              <h2 class="phase-title">${phase.title}</h2>
+              <span class="phase-progress">${doneCount}/${phase.tasks.length} etapes faites (${progress}%)</span>
+            </div>
+            <p class="footer-note" style="padding:0;margin:0 0 12px 0;">${phase.objective}</p>
+            <div class="bar"><span style="width:${progress}%;"></span></div>
+            <div class="task-grid">${tasksHTML}</div>
+          </section>
+        `;
+      }).join("");
+
+      document.querySelectorAll(".task-head").forEach(head => {
+        head.addEventListener("click", () => {
+          head.parentElement.classList.toggle("open");
+        });
+      });
+
+      document.querySelectorAll("select[data-status-for]").forEach(select => {
+        select.addEventListener("change", e => {
+          setStatus(e.target.dataset.statusFor, e.target.value);
+        });
+      });
+    }
+
+    function render() {
+      renderSummary();
+      renderRoadmap();
+    }
+
+    document.getElementById("expandAll").addEventListener("click", () => {
+      document.querySelectorAll(".task").forEach(task => task.classList.add("open"));
+    });
+
+    document.getElementById("collapseAll").addEventListener("click", () => {
+      document.querySelectorAll(".task").forEach(task => task.classList.remove("open"));
+    });
+
+    document.getElementById("resetStatuses").addEventListener("click", resetStatuses);
+
+    render();
+  </script>
+</body>
+</html>

@@ -1,22 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Card } from "@/components/ui/card";
+import { Kicker } from "@/components/ui/kicker";
+import { KPI, KPIRow } from "@/components/ui/kpi";
 import { ModuleHeader } from "@/components/layout/module-header";
-import {
-  infoAnnouncements,
-  infoCategories,
-  type InfoCategoryId,
-  type InfoItem,
-} from "@/lib/infos-data";
+import { moduleThemes } from "@/lib/theme";
+import { infoAnnouncements, infoCategories, type InfoCategoryId, type InfoItem } from "@/lib/infos-data";
 
 export default function InfosPage() {
   const [activeCategoryId, setActiveCategoryId] = useState<InfoCategoryId>("proc");
   const [search, setSearch] = useState("");
   const [selectedTitle, setSelectedTitle] = useState<string | null>(null);
 
-  const activeCategory =
-    infoCategories.find((category) => category.id === activeCategoryId) ??
-    infoCategories[0];
+  const theme = moduleThemes.infos;
+  const activeCategory = infoCategories.find((category) => category.id === activeCategoryId) ?? infoCategories[0];
 
   const filteredItems = useMemo(() => {
     if (!search.trim()) return activeCategory.items;
@@ -32,137 +30,150 @@ export default function InfosPage() {
     filteredItems.find((item) => item.title === selectedTitle) ?? filteredItems[0];
 
   return (
-    <section className="module-layout module-theme-infos infos-workbench">
+    <section style={{ display: "grid", gap: "14px", marginTop: "20px" }}>
       <ModuleHeader
         moduleKey="infos"
         title="Informations equipe"
-        description="Base documentaire operationnelle pour procedures, securite, RH et outils. Pensee pour retrouver vite l&apos;information utile pendant la journee."
+        description="Base documentaire operationnelle pour procedures, securite, RH et outils. Pensee pour retrouver vite l'information utile pendant la journee."
       />
 
-      <div className="planning-summary-grid">
-        <article className="module-card">
-          <p className="panel-kicker">Categories</p>
-          <h2>{infoCategories.length}</h2>
-          <p>Organisation claire par domaine manager.</p>
-        </article>
-        <article className="module-card">
-          <p className="panel-kicker">Documents</p>
-          <h2>
-            {infoCategories.reduce(
-              (sum, category) => sum + category.items.length,
-              0,
-            )}
-          </h2>
-          <p>Base de reference pour l&apos;equipe.</p>
-        </article>
-        <article className="module-card">
-          <p className="panel-kicker">Annonces</p>
-          <h2>{infoAnnouncements.length}</h2>
-          <p>Mises a jour manager et points de vigilance.</p>
-        </article>
-      </div>
+      <KPIRow>
+        <KPI moduleKey="infos" value={infoCategories.length} label="Categories" />
+        <KPI
+          moduleKey="infos"
+          value={infoCategories.reduce((sum, category) => sum + category.items.length, 0)}
+          label="Documents"
+        />
+        <KPI moduleKey="infos" value={infoAnnouncements.length} label="Annonces" />
+      </KPIRow>
 
-      <article className="module-card">
-        <div className="section-heading compact-heading">
-          <div>
-            <p className="panel-kicker">Recherche</p>
-            <h2>Acces rapide document</h2>
-          </div>
-        </div>
-        <label className="planning-select-field">
-          <span>Mot cle</span>
-          <input
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Ex: ouverture, HACCP, commandes..."
-            className="infos-search"
-          />
-        </label>
-      </article>
+      <Card>
+        <Kicker moduleKey="infos" label="Recherche" />
+        <h2 style={{ marginTop: "6px", fontSize: "18px", color: "#0f172a" }}>Acces rapide document</h2>
+        <input
+          type="search"
+          value={search}
+          onChange={(event) => setSearch(event.target.value)}
+          placeholder="Ex: ouverture, HACCP, commandes..."
+          style={{
+            marginTop: "10px",
+            minHeight: "36px",
+            width: "100%",
+            borderRadius: "10px",
+            border: "1px solid #dbe3eb",
+            padding: "0 12px",
+            fontSize: "12px",
+          }}
+        />
+      </Card>
 
-      <div className="infos-layout">
-        <article className="module-card infos-sidebar">
-          <p className="panel-kicker">Categories</p>
-          <h2>Navigation docs</h2>
-          <div className="infos-category-list">
-            {infoCategories.map((category) => (
-              <button
-                key={category.id}
-                type="button"
-                className={`infos-category-button${category.id === activeCategory.id ? " infos-category-button-active" : ""}`}
-                onClick={() => {
-                  setActiveCategoryId(category.id);
-                  setSelectedTitle(null);
-                }}
-              >
-                <strong>{category.label}</strong>
-                <span>{category.items.length} docs</span>
-              </button>
-            ))}
-          </div>
-        </article>
-
-        <article className="module-card infos-main">
-          <div className="section-heading compact-heading">
-            <div>
-              <p className="panel-kicker">{activeCategory.label}</p>
-              <h2>Documents disponibles</h2>
-            </div>
-          </div>
-          <div className="infos-content-grid">
-            <div className="infos-document-list">
-              {filteredItems.map((item) => (
+      <div style={{ display: "grid", gap: "12px", gridTemplateColumns: "0.9fr 1.3fr 0.8fr" }}>
+        <Card>
+          <Kicker moduleKey="infos" label="Categories" />
+          <h2 style={{ marginTop: "6px", fontSize: "18px", color: "#0f172a" }}>Navigation docs</h2>
+          <div style={{ display: "grid", gap: "8px", marginTop: "10px" }}>
+            {infoCategories.map((category) => {
+              const active = category.id === activeCategory.id;
+              return (
                 <button
-                  key={item.title}
+                  key={category.id}
                   type="button"
-                  className={`infos-document-button${selectedItem?.title === item.title ? " infos-document-button-active" : ""}`}
-                  onClick={() => setSelectedTitle(item.title)}
+                  style={{
+                    textAlign: "left",
+                    borderRadius: "10px",
+                    border: `1px solid ${active ? theme.color : "#dbe3eb"}`,
+                    background: active ? theme.light : "#fff",
+                    padding: "8px 10px",
+                  }}
+                  onClick={() => {
+                    setActiveCategoryId(category.id);
+                    setSelectedTitle(null);
+                  }}
                 >
-                  <strong>{item.title}</strong>
-                  <span>{item.description}</span>
+                  <strong style={{ display: "block", fontSize: "13px", color: "#0f172a" }}>{category.label}</strong>
+                  <span style={{ fontSize: "11px", color: "#64748b" }}>{category.items.length} docs</span>
                 </button>
-              ))}
-              {filteredItems.length === 0 ? (
-                <div className="absences-empty">Aucun document sur cette recherche.</div>
-              ) : null}
+              );
+            })}
+          </div>
+        </Card>
+
+        <Card>
+          <Kicker moduleKey="infos" label={activeCategory.label} />
+          <h2 style={{ marginTop: "6px", fontSize: "18px", color: "#0f172a" }}>Documents disponibles</h2>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "10px", marginTop: "10px" }}>
+            <div style={{ display: "grid", gap: "8px" }}>
+              {filteredItems.map((item) => {
+                const active = selectedItem?.title === item.title;
+                return (
+                  <button
+                    key={item.title}
+                    type="button"
+                    style={{
+                      textAlign: "left",
+                      borderRadius: "10px",
+                      border: `1px solid ${active ? theme.color : "#dbe3eb"}`,
+                      background: active ? theme.light : "#fff",
+                      padding: "8px 10px",
+                    }}
+                    onClick={() => setSelectedTitle(item.title)}
+                  >
+                    <strong style={{ display: "block", fontSize: "13px", color: "#0f172a" }}>{item.title}</strong>
+                    <span style={{ fontSize: "11px", color: "#64748b" }}>{item.description}</span>
+                  </button>
+                );
+              })}
+              {filteredItems.length === 0 ? <p style={{ fontSize: "12px", color: "#64748b" }}>Aucun document sur cette recherche.</p> : null}
             </div>
-            <div className="infos-preview-card">
+
+            <div style={{ border: "1px solid #dbe3eb", borderRadius: "12px", padding: "10px", background: "#fff" }}>
               {selectedItem ? (
                 <>
-                  <p className="panel-kicker">Lecture</p>
-                  <h3>{selectedItem.title}</h3>
-                  <p>{selectedItem.description}</p>
-                  <div className="infos-preview-placeholder">
+                  <Kicker moduleKey="infos" label="Lecture" />
+                  <h3 style={{ marginTop: "6px", fontSize: "16px", color: "#0f172a" }}>{selectedItem.title}</h3>
+                  <p style={{ marginTop: "8px", fontSize: "12px", color: "#64748b" }}>{selectedItem.description}</p>
+                  <div
+                    style={{
+                      marginTop: "10px",
+                      borderRadius: "10px",
+                      border: `1px dashed ${theme.medium}`,
+                      background: theme.light,
+                      color: theme.color,
+                      fontSize: "12px",
+                      padding: "10px",
+                    }}
+                  >
                     Contenu detaille a brancher (PDF / procedure / lien interne).
                   </div>
-                  <button type="button" className="week-chip week-chip-active">
-                    Ouvrir le document
-                  </button>
                 </>
               ) : (
-                <div className="absences-empty">Aucun document selectionne.</div>
+                <p style={{ fontSize: "12px", color: "#64748b" }}>Aucun document selectionne.</p>
               )}
             </div>
           </div>
-        </article>
+        </Card>
 
-        <article className="module-card infos-announcements">
-          <p className="panel-kicker">Annonces</p>
-          <h2>Fil manager</h2>
-          <div className="infos-announcement-list">
+        <Card>
+          <Kicker moduleKey="infos" label="Annonces" />
+          <h2 style={{ marginTop: "6px", fontSize: "18px", color: "#0f172a" }}>Fil manager</h2>
+          <div style={{ display: "grid", gap: "8px", marginTop: "10px" }}>
             {infoAnnouncements.map((announcement) => (
               <div
                 key={announcement.id}
-                className={`infos-announcement${announcement.important ? " infos-announcement-important" : ""}`}
+                style={{
+                  borderRadius: "10px",
+                  border: `1px solid ${announcement.important ? "#fecaca" : "#dbe3eb"}`,
+                  background: announcement.important ? "#fff1f2" : "#fff",
+                  padding: "8px 10px",
+                }}
               >
-                <strong>{announcement.title}</strong>
-                <span className="manager-muted">{announcement.date}</span>
-                <p className="manager-muted">{announcement.content}</p>
+                <strong style={{ display: "block", fontSize: "13px", color: "#0f172a" }}>{announcement.title}</strong>
+                <span style={{ display: "block", fontSize: "11px", color: "#64748b", marginTop: "2px" }}>{announcement.date}</span>
+                <p style={{ marginTop: "4px", fontSize: "12px", color: "#64748b" }}>{announcement.content}</p>
               </div>
             ))}
           </div>
-        </article>
+        </Card>
       </div>
     </section>
   );

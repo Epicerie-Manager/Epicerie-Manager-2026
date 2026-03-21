@@ -17,18 +17,18 @@ type ModuleNavItem = {
 };
 
 const moduleItems: ModuleNavItem[] = [
-  { id: "dashboard", label: "Dashboard", desc: "Vue d'ensemble", href: "/" },
-  { id: "planning", label: "Planning", desc: "Horaires et presences", href: "/planning" },
-  { id: "plantg", label: "Plan TG", desc: "Tetes de gondole", href: "/plan-tg" },
-  { id: "plateau", label: "Plateaux", desc: "Implantations terrain", href: "/plan-plateau" },
-  { id: "balisage", label: "Balisage", desc: "Controle etiquetage", href: "/stats" },
-  { id: "absences", label: "Absences", desc: "Demandes et validation", href: "/absences" },
-  { id: "infos", label: "Infos", desc: "Base documentaire", href: "/infos" },
+  { id: "dashboard", label: "Dashboard",  desc: "Vue d'ensemble",        href: "/" },
+  { id: "planning",  label: "Planning",   desc: "Horaires et présences", href: "/planning" },
+  { id: "plantg",    label: "Plan TG",    desc: "Têtes de gondole",      href: "/plan-tg" },
+  { id: "plateau",   label: "Plateaux",   desc: "Implantations terrain", href: "/plan-plateau" },
+  { id: "balisage",  label: "Balisage",   desc: "Contrôle étiquetage",   href: "/stats" },
+  { id: "absences",  label: "Absences",   desc: "Demandes et validation",href: "/absences" },
+  { id: "infos",     label: "Infos",      desc: "Base documentaire",     href: "/infos" },
 ];
 
 const iconStyle = {
-  width: "18px",
-  height: "18px",
+  width: "15px",
+  height: "15px",
   fill: "none",
   stroke: "currentColor",
   strokeWidth: 1.8,
@@ -39,9 +39,9 @@ const iconStyle = {
 const ICONS: Record<string, React.ReactNode> = {
   dashboard: (
     <svg viewBox="0 0 24 24" style={iconStyle}>
-      <rect x="3" y="3" width="7" height="7" rx="1.5" />
-      <rect x="14" y="3" width="7" height="7" rx="1.5" />
-      <rect x="3" y="14" width="7" height="7" rx="1.5" />
+      <rect x="3"  y="3"  width="7" height="7" rx="1.5" />
+      <rect x="14" y="3"  width="7" height="7" rx="1.5" />
+      <rect x="3"  y="14" width="7" height="7" rx="1.5" />
       <rect x="14" y="14" width="7" height="7" rx="1.5" />
     </svg>
   ),
@@ -49,8 +49,8 @@ const ICONS: Record<string, React.ReactNode> = {
     <svg viewBox="0 0 24 24" style={iconStyle}>
       <rect x="3" y="4" width="18" height="18" rx="2" />
       <line x1="16" y1="2" x2="16" y2="6" />
-      <line x1="8" y1="2" x2="8" y2="6" />
-      <line x1="3" y1="10" x2="21" y2="10" />
+      <line x1="8"  y1="2" x2="8"  y2="6" />
+      <line x1="3"  y1="10" x2="21" y2="10" />
     </svg>
   ),
   plantg: (
@@ -63,8 +63,8 @@ const ICONS: Record<string, React.ReactNode> = {
   plateau: (
     <svg viewBox="0 0 24 24" style={iconStyle}>
       <polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" />
-      <line x1="8" y1="2" x2="8" y2="18" />
-      <line x1="16" y1="6" x2="16" y2="22" />
+      <line x1="8"  y1="2"  x2="8"  y2="18" />
+      <line x1="16" y1="6"  x2="16" y2="22" />
     </svg>
   ),
   balisage: (
@@ -75,7 +75,7 @@ const ICONS: Record<string, React.ReactNode> = {
   ),
   absences: (
     <svg viewBox="0 0 24 24" style={iconStyle}>
-      <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+      <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" />
       <polyline points="14 2 14 8 20 8" />
       <line x1="16" y1="13" x2="8" y2="13" />
       <line x1="16" y1="17" x2="8" y2="17" />
@@ -84,15 +84,14 @@ const ICONS: Record<string, React.ReactNode> = {
   infos: (
     <svg viewBox="0 0 24 24" style={iconStyle}>
       <circle cx="12" cy="12" r="10" />
-      <line x1="12" y1="16" x2="12" y2="12" />
-      <line x1="12" y1="8" x2="12.01" y2="8" />
+      <line x1="12" y1="16" x2="12"    y2="12" />
+      <line x1="12" y1="8"  x2="12.01" y2="8"  />
     </svg>
   ),
 };
 
 function getTodayLabel() {
-  const now = new Date();
-  return now.toLocaleDateString("fr-FR", {
+  return new Date().toLocaleDateString("fr-FR", {
     weekday: "long",
     day: "numeric",
     month: "long",
@@ -101,28 +100,33 @@ function getTodayLabel() {
 }
 
 export function AppShell({ version, children }: AppShellProps) {
-  const pathname = usePathname();
-  const activeId = getThemeByPathname(pathname) as ModuleNavItem["id"];
+  const pathname  = usePathname();
+  const activeId  = getThemeByPathname(pathname) as ModuleNavItem["id"];
   const activeTheme = moduleThemes[activeId];
-  const activeModule = moduleItems.find((item) => item.id === activeId) ?? moduleItems[0];
+  const activeModule = moduleItems.find((m) => m.id === activeId) ?? moduleItems[0];
 
   return (
     <div
       style={{
         minHeight: "100vh",
-        background: colors.bgGradient,
+        background:
+          "radial-gradient(circle at 15% 10%, rgba(10,79,152,0.07) 0%, transparent 30%), " +
+          "radial-gradient(circle at 85% 80%, rgba(185,28,46,0.04) 0%, transparent 30%), " +
+          "linear-gradient(180deg, #f6f9fc 0%, #eef2f7 100%)",
         color: colors.text,
         fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
       }}
     >
+      {/* ── HEADER ─────────────────────────────────── */}
       <header
         style={{
           position: "sticky",
           top: 0,
           zIndex: 100,
-          background: "rgba(255,255,255,0.92)",
-          backdropFilter: "blur(12px)",
-          borderBottom: "1px solid rgba(226,232,240,0.6)",
+          background: "rgba(255,255,255,0.88)",
+          backdropFilter: "blur(16px)",
+          WebkitBackdropFilter: "blur(16px)",
+          borderBottom: "1px solid rgba(210,222,234,0.6)",
           boxShadow: shadows.subtle,
         }}
       >
@@ -130,166 +134,178 @@ export function AppShell({ version, children }: AppShellProps) {
           style={{
             maxWidth: "1580px",
             margin: "0 auto",
-            padding: "10px 18px 0",
+            padding: "0 20px",
+            height: "56px",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
             gap: "12px",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+          {/* Logo + titre */}
+          <div style={{ display: "flex", alignItems: "center", gap: "10px", flexShrink: 0 }}>
             <div
               style={{
-                width: "36px",
-                height: "36px",
-                borderRadius: "11px",
-                background: activeTheme.iconGradient,
+                width: "34px",
+                height: "34px",
+                borderRadius: "10px",
+                background: "linear-gradient(135deg, #b91c2e, #8f1222)",
                 display: "flex",
                 alignItems: "center",
                 justifyContent: "center",
-                color: activeTheme.color,
-                boxShadow: `0 2px 8px ${activeTheme.color}20`,
+                color: "white",
+                boxShadow: "0 2px 8px rgba(185,28,46,0.28)",
               }}
             >
-              {ICONS[activeId]}
+              {ICONS["dashboard"]}
             </div>
             <div>
               <div
                 style={{
                   fontSize: "10px",
                   fontWeight: 700,
-                  letterSpacing: "0.04em",
-                  color: activeTheme.color,
+                  letterSpacing: "0.06em",
                   textTransform: "uppercase",
+                  color: colors.muted,
+                  lineHeight: 1,
                 }}
               >
-                Epicerie Villebon 2
+                Épicerie Villebon 2
               </div>
-              <h1
+              <div
                 style={{
-                  margin: "1px 0 0",
-                  fontSize: "18px",
+                  fontSize: "15px",
                   fontWeight: 700,
-                  letterSpacing: "-0.02em",
                   color: colors.textStrong,
+                  letterSpacing: "-0.02em",
+                  lineHeight: 1.2,
                 }}
               >
                 {activeModule.label}
-              </h1>
+              </div>
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
+          {/* Nav pills */}
+          <nav
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "2px",
+              overflowX: "auto",
+              flexShrink: 1,
+            }}
+            aria-label="Navigation modules"
+          >
+            {moduleItems.map((item) => {
+              const selected = item.id === activeId;
+              const theme    = moduleThemes[item.id];
+              return (
+                <Link
+                  key={item.id}
+                  href={item.href}
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: "6px",
+                    padding: "6px 12px",
+                    borderRadius: "999px",
+                    textDecoration: "none",
+                    whiteSpace: "nowrap",
+                    fontSize: "13px",
+                    fontWeight: selected ? 700 : 500,
+                    background: selected ? theme.medium : "transparent",
+                    color: selected ? theme.color : colors.muted,
+                    transition: "background 0.15s, color 0.15s",
+                  }}
+                >
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      width: "15px",
+                      height: "15px",
+                      color: selected ? theme.color : colors.light,
+                    }}
+                  >
+                    {ICONS[item.id]}
+                  </span>
+                  {item.label}
+                </Link>
+              );
+            })}
+          </nav>
+
+          {/* Date + version */}
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: "8px",
+              flexShrink: 0,
+            }}
+          >
             <span
               style={{
-                display: "inline-flex",
-                alignItems: "center",
-                padding: "5px 12px",
-                borderRadius: "10px",
-                background: colors.bg,
-                border: `1px solid ${colors.border}`,
-                fontSize: "11px",
-                fontWeight: 600,
+                fontSize: "12px",
                 color: colors.muted,
+                background: "#f1f5f9",
+                padding: "5px 12px",
+                borderRadius: "999px",
+                border: "1px solid #dbe3eb",
+                whiteSpace: "nowrap",
               }}
             >
               {getTodayLabel()}
             </span>
+            {/* Vue d'ensemble pill */}
             <span
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                gap: "5px",
-                padding: "5px 12px",
-                borderRadius: "10px",
-                background: activeTheme.light,
-                border: `1px solid ${activeTheme.color}26`,
-                fontSize: "11px",
+                gap: "6px",
+                fontSize: "12px",
                 fontWeight: 700,
-                color: activeTheme.dark,
+                color: activeTheme.color,
+                background: activeTheme.light,
+                border: `1px solid ${activeTheme.medium}`,
+                padding: "5px 12px",
+                borderRadius: "999px",
+                whiteSpace: "nowrap",
               }}
             >
-              <span style={{ color: activeTheme.color, display: "flex" }}>{ICONS[activeId]}</span>
-              {activeModule.desc}
+              <span style={{ display: "inline-flex", width: "13px", height: "13px" }}>
+                {ICONS[activeId]}
+              </span>
+              Vue d&apos;ensemble
             </span>
             <span
               style={{
-                display: "inline-flex",
-                alignItems: "center",
-                padding: "5px 10px",
-                borderRadius: "999px",
-                background: activeTheme.medium,
-                color: activeTheme.dark,
                 fontSize: "11px",
                 fontWeight: 700,
+                color: colors.muted,
+                background: "#f1f5f9",
+                padding: "4px 9px",
+                borderRadius: "999px",
+                border: "1px solid #dbe3eb",
               }}
             >
               v{version}
             </span>
           </div>
         </div>
-
-        <nav
-          style={{
-            maxWidth: "1580px",
-            margin: "0 auto",
-            display: "flex",
-            gap: "4px",
-            padding: "8px 18px 0",
-            overflowX: "auto",
-          }}
-          aria-label="Navigation modules"
-        >
-          {moduleItems.map((moduleItem) => {
-            const selected = moduleItem.id === activeId;
-            const theme = moduleThemes[moduleItem.id];
-
-            return (
-              <Link
-                key={moduleItem.id}
-                href={moduleItem.href}
-                style={{
-                  display: "inline-flex",
-                  alignItems: "center",
-                  gap: "7px",
-                  padding: "8px 12px",
-                  borderRadius: "12px 12px 0 0",
-                  textDecoration: "none",
-                  whiteSpace: "nowrap",
-                  background: selected ? colors.cardSolid : "transparent",
-                  borderBottom: selected ? `2px solid ${theme.color}` : "2px solid transparent",
-                  boxShadow: selected ? "0 -1px 4px rgba(0,0,0,0.03)" : "none",
-                  color: selected ? theme.color : colors.muted,
-                }}
-              >
-                <span
-                  style={{
-                    width: "28px",
-                    height: "28px",
-                    borderRadius: "8px",
-                    background: selected
-                      ? theme.iconGradient
-                      : "linear-gradient(135deg, #f1f5f9, #e8ecf1)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: selected ? theme.color : colors.light,
-                  }}
-                >
-                  {ICONS[moduleItem.id]}
-                </span>
-                <span style={{ fontSize: "12px", fontWeight: selected ? 700 : 500 }}>
-                  {moduleItem.label}
-                </span>
-              </Link>
-            );
-          })}
-        </nav>
       </header>
 
-      <main style={{ maxWidth: "1580px", margin: "0 auto", padding: "12px 18px 18px" }}>
+      {/* ── CONTENU ────────────────────────────────── */}
+      <main
+        style={{
+          maxWidth: "1580px",
+          margin: "0 auto",
+          padding: "0 20px 32px",
+        }}
+      >
         {children}
       </main>
     </div>
   );
 }
+

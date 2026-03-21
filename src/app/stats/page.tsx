@@ -1,6 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Card } from "@/components/ui/card";
+import { Kicker } from "@/components/ui/kicker";
+import { KPI, KPIRow } from "@/components/ui/kpi";
+import { ProgressBar } from "@/components/ui/progress-bar";
 import { ModuleHeader } from "@/components/layout/module-header";
 import {
   balisageData,
@@ -8,6 +12,7 @@ import {
   balisageObjective,
   type BalisageEmployeeStat,
 } from "@/lib/balisage-data";
+import { moduleThemes } from "@/lib/theme";
 
 type SortBy = "name" | "total" | "alert";
 
@@ -27,32 +32,22 @@ export default function StatsPage() {
   const [editingName, setEditingName] = useState<string | null>(null);
   const [editingTotal, setEditingTotal] = useState("");
   const [editingErrorRate, setEditingErrorRate] = useState("");
-  const [localData, setLocalData] = useState<Record<string, BalisageEmployeeStat[]>>(
-    balisageData,
-  );
+  const [localData, setLocalData] = useState<Record<string, BalisageEmployeeStat[]>>(balisageData);
 
+  const theme = moduleThemes.balisage;
   const activeMonth = balisageMonths[activeMonthIndex];
-  const activeStats = useMemo(
-    () => localData[activeMonth.id] ?? [],
-    [activeMonth.id, localData],
-  );
+  const activeStats = useMemo(() => localData[activeMonth.id] ?? [], [activeMonth.id, localData]);
 
   const sortedStats = useMemo(() => {
     const list = [...activeStats];
-    if (sortBy === "total") {
-      return list.sort((a, b) => b.total - a.total);
-    }
-    if (sortBy === "alert") {
-      return list.sort((a, b) => a.total - b.total);
-    }
+    if (sortBy === "total") return list.sort((a, b) => b.total - a.total);
+    if (sortBy === "alert") return list.sort((a, b) => a.total - b.total);
     return list.sort((a, b) => a.name.localeCompare(b.name));
   }, [activeStats, sortBy]);
 
   const totalControls = activeStats.reduce((sum, item) => sum + item.total, 0);
   const employeesOk = activeStats.filter((item) => item.total >= balisageObjective).length;
-  const employeesAlert = activeStats.filter(
-    (item) => item.total < balisageObjective * 0.5,
-  ).length;
+  const employeesAlert = activeStats.filter((item) => item.total < balisageObjective * 0.5).length;
   const bestEmployee = [...activeStats].sort((a, b) => b.total - a.total)[0];
   const globalPercent = Math.min(
     Math.round((totalControls / (Math.max(activeStats.length, 1) * balisageObjective)) * 100),
@@ -62,9 +57,7 @@ export default function StatsPage() {
   const openEdit = (employee: BalisageEmployeeStat) => {
     setEditingName(employee.name);
     setEditingTotal(String(employee.total));
-    setEditingErrorRate(
-      employee.errorRate === null ? "" : String(employee.errorRate),
-    );
+    setEditingErrorRate(employee.errorRate === null ? "" : String(employee.errorRate));
   };
 
   const saveEdit = () => {
@@ -89,142 +82,113 @@ export default function StatsPage() {
     setEditingName(null);
   };
 
+  const chipStyle = (active: boolean): React.CSSProperties => ({
+    borderRadius: "999px",
+    border: `1px solid ${active ? theme.color : "#dbe3eb"}`,
+    background: active ? theme.medium : "#fff",
+    color: active ? theme.color : "#64748b",
+    fontWeight: active ? 700 : 500,
+    fontSize: "12px",
+    padding: "7px 12px",
+  });
+
+  const statusStyle = (status: string): React.CSSProperties => {
+    if (status === "OK") return { background: "#dcfce7", color: "#166534" };
+    if (status === "En retard") return { background: "#fef3c7", color: "#92400e" };
+    return { background: "#fee2e2", color: "#991b1b" };
+  };
+
   return (
-    <section className="module-layout module-theme-stats balisage-workbench">
+    <section style={{ display: "grid", gap: "14px", marginTop: "20px" }}>
       <ModuleHeader
         moduleKey="balisage"
         title="Stats balisage"
-        description="Vue manager interactive inspiree de Claude AI: tri rapide, suivi du mois, edition des valeurs et lecture immediate des alertes equipe."
+        description="Vue manager interactive: tri rapide, suivi du mois, edition des valeurs et lecture immediate des alertes equipe."
       />
 
-      <article className="module-card">
-        <div className="balisage-toolbar">
-          <div className="week-chip-row">
+      <Card>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
+            <button type="button" style={chipStyle(false)} onClick={() => setActiveMonthIndex((index) => Math.max(0, index - 1))}>←</button>
+            <strong style={{ fontSize: "14px", color: "#0f172a" }}>{activeMonth.label}</strong>
             <button
               type="button"
-              className="week-chip"
-              onClick={() => setActiveMonthIndex((index) => Math.max(0, index - 1))}
-            >
-              ←
-            </button>
-            <strong>{activeMonth.label}</strong>
-            <button
-              type="button"
-              className="week-chip"
-              onClick={() =>
-                setActiveMonthIndex((index) =>
-                  Math.min(balisageMonths.length - 1, index + 1),
-                )
-              }
+              style={chipStyle(false)}
+              onClick={() => setActiveMonthIndex((index) => Math.min(balisageMonths.length - 1, index + 1))}
             >
               →
             </button>
           </div>
-          <div className="week-chip-row">
+          <div style={{ display: "flex", gap: "8px" }}>
             {(["name", "total", "alert"] as const).map((value) => (
-              <button
-                key={value}
-                type="button"
-                className={`week-chip${sortBy === value ? " week-chip-active" : ""}`}
-                onClick={() => setSortBy(value)}
-              >
+              <button key={value} type="button" style={chipStyle(sortBy === value)} onClick={() => setSortBy(value)}>
                 {value === "name" ? "A-Z" : value === "total" ? "Controles" : "Alertes"}
               </button>
             ))}
           </div>
         </div>
-      </article>
+      </Card>
 
-      <div className="planning-summary-grid">
-        <article className="module-card">
-          <p className="panel-kicker">Total controles</p>
-          <h2>{totalControls}</h2>
-          <p>Somme des controles du mois charge.</p>
-        </article>
-        <article className="module-card">
-          <p className="panel-kicker">Avancement global</p>
-          <h2>{globalPercent}%</h2>
-          <p>Niveau global vs objectif equipe.</p>
-        </article>
-        <article className="module-card">
-          <p className="panel-kicker">Employes OK</p>
-          <h2>{employeesOk}</h2>
-          <p>Ont atteint ou depasse {balisageObjective} controles.</p>
-        </article>
-        <article className="module-card">
-          <p className="panel-kicker">Alertes</p>
-          <h2>{employeesAlert}</h2>
-          <p>En dessous de 50% de l&apos;objectif mensuel.</p>
-        </article>
-      </div>
+      <KPIRow>
+        <KPI moduleKey="balisage" value={totalControls} label="Total controles" />
+        <KPI moduleKey="balisage" value={`${globalPercent}%`} label="Avancement global" />
+        <KPI moduleKey="balisage" value={employeesOk} label="Employes OK" />
+        <KPI moduleKey="balisage" value={employeesAlert} label="Alertes" />
+      </KPIRow>
 
-      <div className="dashboard-grid dashboard-grid-bottom">
-        <article className="dashboard-card">
-          <div className="section-heading compact-heading">
-            <div>
-              <p className="panel-kicker">Classement</p>
-              <h2>Meilleur niveau actuel</h2>
-            </div>
+      <div style={{ display: "grid", gap: "12px", gridTemplateColumns: "1fr 1fr" }}>
+        <Card>
+          <Kicker moduleKey="balisage" label="Classement" />
+          <h2 style={{ marginTop: "6px", fontSize: "18px", color: "#0f172a" }}>Meilleur niveau actuel</h2>
+          <div style={{ display: "grid", gap: "8px", marginTop: "10px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#64748b" }}><span>Employe en tete</span><strong style={{ color: "#0f172a" }}>{bestEmployee?.name ?? "-"}</strong></div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#64748b" }}><span>Total controles</span><strong style={{ color: "#0f172a" }}>{bestEmployee?.total ?? 0}</strong></div>
+            <div style={{ display: "flex", justifyContent: "space-between", fontSize: "12px", color: "#64748b" }}><span>Objectif mensuel</span><strong style={{ color: "#0f172a" }}>{balisageObjective}</strong></div>
           </div>
-          <div className="status-grid">
-            <div className="status-row">
-              <span>Employe en tete</span>
-              <strong>{bestEmployee?.name ?? "-"}</strong>
-            </div>
-            <div className="status-row">
-              <span>Total controles</span>
-              <strong>{bestEmployee?.total ?? 0}</strong>
-            </div>
-            <div className="status-row">
-              <span>Objectif mensuel</span>
-              <strong>{balisageObjective}</strong>
-            </div>
-          </div>
-        </article>
+        </Card>
 
-        <article className="dashboard-card">
-          <div className="section-heading compact-heading">
-            <div>
-              <p className="panel-kicker">Periodes</p>
-              <h2>Mois disponibles</h2>
-            </div>
-          </div>
-          <div className="week-chip-row">
+        <Card>
+          <Kicker moduleKey="balisage" label="Periodes" />
+          <h2 style={{ marginTop: "6px", fontSize: "18px", color: "#0f172a" }}>Mois disponibles</h2>
+          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "10px" }}>
             {balisageMonths.map((month) => (
               <button
                 key={month.id}
                 type="button"
-                className={`week-chip${month.id === activeMonth.id ? " week-chip-active" : ""}`}
-                onClick={() =>
-                  setActiveMonthIndex(
-                    balisageMonths.findIndex((item) => item.id === month.id),
-                  )
-                }
+                style={chipStyle(month.id === activeMonth.id)}
+                onClick={() => setActiveMonthIndex(balisageMonths.findIndex((item) => item.id === month.id))}
               >
                 {month.label}
               </button>
             ))}
           </div>
-        </article>
+        </Card>
       </div>
 
-      <article className="module-card">
-        <div className="section-heading compact-heading">
-          <div>
-            <p className="panel-kicker">Vue equipe</p>
-            <h2>Tableau mensuel editable</h2>
-          </div>
-        </div>
-        <div className="stats-table-wrap">
-          <table className="stats-table">
+      <Card>
+        <Kicker moduleKey="balisage" label="Vue equipe" />
+        <h2 style={{ marginTop: "6px", fontSize: "18px", color: "#0f172a" }}>Tableau mensuel editable</h2>
+
+        <div style={{ overflowX: "auto", marginTop: "10px" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "860px" }}>
             <thead>
               <tr>
-                <th>Employe</th>
-                <th>Total</th>
-                <th>Avancement</th>
-                <th>Taux erreur</th>
-                <th>Statut</th>
-                <th>Actions</th>
+                {["Employe", "Total", "Avancement", "Taux erreur", "Statut", "Actions"].map((head) => (
+                  <th
+                    key={head}
+                    style={{
+                      textAlign: "left",
+                      fontSize: "11px",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.06em",
+                      color: "#64748b",
+                      borderBottom: "1px solid #dbe3eb",
+                      padding: "8px 10px",
+                    }}
+                  >
+                    {head}
+                  </th>
+                ))}
               </tr>
             </thead>
             <tbody>
@@ -233,39 +197,21 @@ export default function StatsPage() {
                 const status = getStatus(employee.total);
                 return (
                   <tr key={employee.name}>
-                    <td>{employee.name}</td>
-                    <td>{employee.total}</td>
-                    <td>
-                      <div className="stats-progress-cell">
-                        <div className="stats-progress-bar">
-                          <div
-                            className="stats-progress-fill"
-                            style={{ width: `${progress}%` }}
-                          />
-                        </div>
-                        <span>{progress}%</span>
-                      </div>
+                    <td style={{ borderBottom: "1px solid #e2e8f0", padding: "8px 10px", fontSize: "12px", color: "#0f172a", fontWeight: 600 }}>{employee.name}</td>
+                    <td style={{ borderBottom: "1px solid #e2e8f0", padding: "8px 10px", fontSize: "12px", color: "#0f172a" }}>{employee.total}</td>
+                    <td style={{ borderBottom: "1px solid #e2e8f0", padding: "8px 10px" }}>
+                      <ProgressBar value={progress} moduleKey="balisage" showPercent noShimmer height={8} style={{ marginTop: 0 }} />
                     </td>
-                    <td>
+                    <td style={{ borderBottom: "1px solid #e2e8f0", padding: "8px 10px", fontSize: "12px", color: "#0f172a" }}>
                       {employee.errorRate === null ? "-" : `${employee.errorRate}%`}
                     </td>
-                    <td>
-                      <span
-                        className={`mini-badge ${
-                          status === "OK"
-                            ? "mini-badge-ok"
-                            : status === "En retard"
-                              ? "mini-badge-warn"
-                              : "mini-badge-alert"
-                        }`}
-                      >
-                        {status}
-                      </span>
+                    <td style={{ borderBottom: "1px solid #e2e8f0", padding: "8px 10px" }}>
+                      <span style={{ ...statusStyle(status), fontSize: "11px", fontWeight: 700, borderRadius: "999px", padding: "4px 8px" }}>{status}</span>
                     </td>
-                    <td>
+                    <td style={{ borderBottom: "1px solid #e2e8f0", padding: "8px 10px" }}>
                       <button
                         type="button"
-                        className="week-chip"
+                        style={{ border: "1px solid #dbe3eb", borderRadius: "999px", background: "#fff", color: "#1e293b", fontSize: "12px", padding: "6px 10px" }}
                         onClick={() => openEdit(employee)}
                       >
                         Editer
@@ -277,45 +223,68 @@ export default function StatsPage() {
             </tbody>
           </table>
         </div>
-      </article>
+      </Card>
 
       {editingName ? (
-        <div className="planning-modal-overlay" role="presentation" onClick={() => setEditingName(null)}>
+        <div
+          role="presentation"
+          onClick={() => setEditingName(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15,23,42,0.35)",
+            backdropFilter: "blur(3px)",
+            display: "grid",
+            placeItems: "center",
+            zIndex: 140,
+          }}
+        >
           <div
-            className="planning-modal-card"
             role="dialog"
             aria-modal="true"
             onClick={(event) => event.stopPropagation()}
+            style={{ width: "min(520px, 92vw)", background: "#fff", borderRadius: "16px", border: "1px solid #dbe3eb", padding: "16px" }}
           >
-            <p className="panel-kicker">Edition balisage</p>
-            <h2>{editingName}</h2>
-            <label className="planning-select-field">
+            <Kicker moduleKey="balisage" label="Edition balisage" />
+            <h2 style={{ marginTop: "6px", fontSize: "20px", color: "#0f172a" }}>{editingName}</h2>
+
+            <label style={{ display: "grid", gap: "5px", marginTop: "10px", fontSize: "12px", color: "#64748b" }}>
               <span>Total controles</span>
               <input
                 value={editingTotal}
                 onChange={(event) => setEditingTotal(event.target.value)}
-                className="absences-input"
                 type="number"
                 min={0}
+                style={{ minHeight: "36px", borderRadius: "10px", border: "1px solid #dbe3eb", padding: "0 10px" }}
               />
             </label>
-            <label className="planning-select-field" style={{ marginTop: 10 }}>
+
+            <label style={{ display: "grid", gap: "5px", marginTop: "10px", fontSize: "12px", color: "#64748b" }}>
               <span>Taux erreur (%)</span>
               <input
                 value={editingErrorRate}
                 onChange={(event) => setEditingErrorRate(event.target.value)}
-                className="absences-input"
                 type="number"
                 min={0}
                 step="0.1"
                 placeholder="Laisser vide si inconnu"
+                style={{ minHeight: "36px", borderRadius: "10px", border: "1px solid #dbe3eb", padding: "0 10px" }}
               />
             </label>
-            <div className="planning-modal-actions">
-              <button type="button" className="week-chip" onClick={() => setEditingName(null)}>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "14px" }}>
+              <button
+                type="button"
+                onClick={() => setEditingName(null)}
+                style={{ border: "1px solid #dbe3eb", borderRadius: "999px", background: "#fff", color: "#1e293b", fontSize: "12px", padding: "7px 12px" }}
+              >
                 Annuler
               </button>
-              <button type="button" className="week-chip week-chip-active" onClick={saveEdit}>
+              <button
+                type="button"
+                onClick={saveEdit}
+                style={{ border: `1px solid ${theme.color}`, borderRadius: "999px", background: theme.medium, color: theme.color, fontWeight: 700, fontSize: "12px", padding: "7px 12px" }}
+              >
                 Enregistrer
               </button>
             </div>

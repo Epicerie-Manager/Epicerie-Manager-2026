@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ModuleHeader } from "@/components/layout/module-header";
 import {
   absenceEmployees,
@@ -10,6 +10,7 @@ import {
   type AbsenceStatusId,
   type AbsenceTypeId,
 } from "@/lib/absences-data";
+import { loadAbsenceRequests, saveAbsenceRequests } from "@/lib/absences-store";
 
 type FilterStatus = "ALL" | AbsenceStatusId;
 
@@ -28,11 +29,14 @@ function getDayDiff(startDate: string, endDate: string) {
 }
 
 export default function AbsencesPage() {
-  const [requests, setRequests] = useState<AbsenceRequest[]>(absenceRequests);
+  const initialRequests = useMemo(() => loadAbsenceRequests(), []);
+  const [requests, setRequests] = useState<AbsenceRequest[]>(initialRequests);
   const [statusFilter, setStatusFilter] = useState<FilterStatus>("ALL");
   const [employeeFilter, setEmployeeFilter] = useState<string>("ALL");
   const [showForm, setShowForm] = useState(false);
-  const [nextId, setNextId] = useState(Math.max(...absenceRequests.map((item) => item.id)) + 1);
+  const [nextId, setNextId] = useState(
+    Math.max(...initialRequests.map((item) => item.id)) + 1,
+  );
   const [draft, setDraft] = useState<{
     employee: string;
     type: AbsenceTypeId;
@@ -61,6 +65,10 @@ export default function AbsencesPage() {
         return a.startDate.localeCompare(b.startDate);
       });
   }, [employeeFilter, requests, statusFilter]);
+
+  useEffect(() => {
+    saveAbsenceRequests(requests);
+  }, [requests]);
 
   const pendingCount = requests.filter((request) => request.status === "EN_ATTENTE").length;
   const approvedCount = requests.filter((request) => request.status === "APPROUVE").length;

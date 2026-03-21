@@ -1,7 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ModuleHeader } from "@/components/layout/module-header";
+import { type AbsenceRequest } from "@/lib/absences-data";
+import { getAbsencesUpdatedEventName, loadAbsenceRequests } from "@/lib/absences-store";
 
 type EmployeeType = "MATIN" | "APREM" | "ETU";
 type StatusKey =
@@ -153,6 +155,14 @@ function getShift(employee: Employee, date: Date) {
   return employee.standardShift;
 }
 
+function mapAbsenceTypeToStatus(type: AbsenceRequest["type"]): StatusKey {
+  if (type === "CP") return "CP";
+  if (type === "MAL") return "MAL";
+  if (type === "CONGE_MAT") return "CONGE_MAT";
+  if (type === "FORM") return "FORM";
+  return "ABS";
+}
+
 type EditState = {
   employeeName: string;
   dateIso: string;
@@ -166,6 +176,23 @@ export default function PlanningPage() {
   const [overrides, setOverrides] = useState<Record<string, { status: StatusKey; customShift?: string }>>({});
   const [editing, setEditing] = useState<EditState | null>(null);
   const [customShift, setCustomShift] = useState("");
+  const [approvedAbsences, setApprovedAbsences] = useState<AbsenceRequest[]>([]);
+
+  useEffect(() => {
+    const refreshAbsences = () => {
+      const requests = loadAbsenceRequests().filter((request) => request.status === "APPROUVE");
+      setApprovedAbsences(requests);
+    };
+
+    refreshAbsences();
+    const eventName = getAbsencesUpdatedEventName();
+    window.addEventListener(eventName, refreshAbsences);
+    window.addEventListener("focus", refreshAbsences);
+    return () => {
+      window.removeEventListener(eventName, refreshAbsences);
+      window.removeEventListener("focus", refreshAbsences);
+    };
+  }, []);
 
   const monthDays = new Date(year, month + 1, 0).getDate();
   const dates = Array.from({ length: monthDays }, (_, index) => new Date(year, month, index + 1));
@@ -177,7 +204,23 @@ export default function PlanningPage() {
 
   const getStatus = (employee: Employee, date: Date): StatusKey => {
     const key = `${employee.name}_${date.toISOString().slice(0, 10)}`;
-    return overrides[key]?.status ?? getDefaultStatus(employee, date);
+    if (overrides[key]?.status) {
+      return overrides[key].status;
+    }
+
+    const dateIso = date.toISOString().slice(0, 10);
+    const matchedAbsence = approvedAbsences.find(
+      (request) =>
+        request.employee === employee.name &&
+        request.startDate <= dateIso &&
+        request.endDate >= dateIso,
+    );
+
+    if (matchedAbsence) {
+      return mapAbsenceTypeToStatus(matchedAbsence.type);
+    }
+
+    return getDefaultStatus(employee, date);
   };
 
   const getRenderedCell = (employee: Employee, date: Date) => {
@@ -205,8 +248,10 @@ export default function PlanningPage() {
     : 0;
   const minMorning = morningValues.length ? Math.min(...morningValues) : 0;
   const alertDays = morningValues.filter((value) => value < 8).length;
-  const morningActive = EMPLOYEES.filter(
-    (employee) => employee.type === "MATIN" && employee.active,
+  const approvedThisMonth = approvedAbsences.filter(
+    (absence) =>
+      absence.startDate <= `${year}-${String(month + 1).padStart(2, "0")}-31` &&
+      absence.endDate >= `${year}-${String(month + 1).padStart(2, "0")}-01`,
   ).length;
 
   const goPreviousMonth = () => {
@@ -308,9 +353,9 @@ export default function PlanningPage() {
           <p>Jours avec moins de 8 presents le matin.</p>
         </article>
         <article className="module-card">
-          <p className="panel-kicker">Effectif matin</p>
-          <h2>{morningActive}</h2>
-          <p>Base active pour pilotage quotidien.</p>
+          <p className="panel-kicker">Absences approuvees</p>
+          <h2>{approvedThisMonth}</h2>
+          <p>Dossiers qui impactent le mois affiche.</p>
         </article>
       </div>
 

@@ -2432,3 +2432,109 @@ button.week-chip {
     align-items: start;
   }
 }
+
+/* Final polish: denser desktop layout while keeping readability */
+@media (min-width: 1024px) {
+  .module-layout,
+  .dashboard-grid,
+  .manager-dashboard-final,
+  .manager-layout {
+    gap: 10px;
+  }
+
+  .module-card,
+  .dashboard-card,
+  .card-final {
+    padding: 14px;
+    border-radius: 18px;
+  }
+
+  .module-hero {
+    padding: 16px;
+    border-radius: 18px;
+  }
+
+  .module-hero h1 {
+    margin: 4px 0 8px;
+    font-size: clamp(1.6rem, 2.8vw, 2.5rem);
+  }
+
+  .module-card h2,
+  .dashboard-card h2,
+  .manager-dashboard-final h2 {
+    margin: 3px 0 4px;
+    font-size: 1rem;
+  }
+
+  .module-card p,
+  .module-card li,
+  .dashboard-card p,
+  .dashboard-card li,
+  .manager-muted {
+    font-size: 0.85rem;
+    line-height: 1.35;
+  }
+
+  .panel-kicker {
+    font-size: 0.74rem;
+    letter-spacing: 0.1em;
+  }
+
+  .week-chip {
+    min-height: 34px;
+    padding: 0 11px;
+    font-size: 0.82rem;
+  }
+
+  .status-row,
+  .phase-item,
+  .manager-item,
+  .manager-box,
+  .shortcut-card {
+    padding: 8px 10px;
+  }
+
+  .planning-table th,
+  .planning-table td,
+  .stats-table th,
+  .stats-table td {
+    padding: 9px 10px;
+  }
+
+  .tg-card-head,
+  .tg-entry-row,
+  .plateau-card-head,
+  .plateau-card-body {
+    padding: 12px 14px;
+  }
+
+  .manager-hero {
+    gap: 12px;
+  }
+
+  .manager-hero h1 {
+    font-size: clamp(1.45rem, 2.4vw, 1.9rem);
+  }
+
+  .manager-pill {
+    min-height: 30px;
+    padding: 0 10px;
+    font-size: 0.7rem;
+  }
+
+  .manager-kpi-line,
+  .manager-nav-grid,
+  .manager-week-grid {
+    gap: 8px;
+    margin-top: 8px;
+  }
+
+  .manager-kpi {
+    padding: 10px 8px;
+  }
+
+  .manager-kpi strong {
+    font-size: 1.45rem;
+    margin-bottom: 4px;
+  }
+}

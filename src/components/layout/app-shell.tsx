@@ -130,19 +130,19 @@ export function AppShell({ version, children }: AppShellProps) {
           style={{
             maxWidth: "1580px",
             margin: "0 auto",
-            padding: "14px 24px 0",
+            padding: "10px 18px 0",
             display: "flex",
             alignItems: "center",
             justifyContent: "space-between",
-            gap: "16px",
+            gap: "12px",
           }}
         >
-          <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <div
               style={{
-                width: "40px",
-                height: "40px",
-                borderRadius: "12px",
+                width: "36px",
+                height: "36px",
+                borderRadius: "11px",
                 background: activeTheme.iconGradient,
                 display: "flex",
                 alignItems: "center",
@@ -156,7 +156,7 @@ export function AppShell({ version, children }: AppShellProps) {
             <div>
               <div
                 style={{
-                  fontSize: "11px",
+                  fontSize: "10px",
                   fontWeight: 700,
                   letterSpacing: "0.04em",
                   color: activeTheme.color,
@@ -168,7 +168,7 @@ export function AppShell({ version, children }: AppShellProps) {
               <h1
                 style={{
                   margin: "1px 0 0",
-                  fontSize: "20px",
+                  fontSize: "18px",
                   fontWeight: 700,
                   letterSpacing: "-0.02em",
                   color: colors.textStrong,
@@ -179,16 +179,16 @@ export function AppShell({ version, children }: AppShellProps) {
             </div>
           </div>
 
-          <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
             <span
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                padding: "6px 14px",
+                padding: "5px 12px",
                 borderRadius: "10px",
                 background: colors.bg,
                 border: `1px solid ${colors.border}`,
-                fontSize: "12px",
+                fontSize: "11px",
                 fontWeight: 600,
                 color: colors.muted,
               }}
@@ -200,11 +200,11 @@ export function AppShell({ version, children }: AppShellProps) {
                 display: "inline-flex",
                 alignItems: "center",
                 gap: "5px",
-                padding: "6px 14px",
+                padding: "5px 12px",
                 borderRadius: "10px",
                 background: activeTheme.light,
                 border: `1px solid ${activeTheme.color}26`,
-                fontSize: "12px",
+                fontSize: "11px",
                 fontWeight: 700,
                 color: activeTheme.dark,
               }}
@@ -216,11 +216,11 @@ export function AppShell({ version, children }: AppShellProps) {
               style={{
                 display: "inline-flex",
                 alignItems: "center",
-                padding: "6px 12px",
+                padding: "5px 10px",
                 borderRadius: "999px",
                 background: activeTheme.medium,
                 color: activeTheme.dark,
-                fontSize: "12px",
+                fontSize: "11px",
                 fontWeight: 700,
               }}
             >
@@ -235,7 +235,7 @@ export function AppShell({ version, children }: AppShellProps) {
             margin: "0 auto",
             display: "flex",
             gap: "4px",
-            padding: "12px 24px 0",
+            padding: "8px 18px 0",
             overflowX: "auto",
           }}
           aria-label="Navigation modules"
@@ -252,7 +252,7 @@ export function AppShell({ version, children }: AppShellProps) {
                   display: "inline-flex",
                   alignItems: "center",
                   gap: "7px",
-                  padding: "9px 16px",
+                  padding: "8px 12px",
                   borderRadius: "12px 12px 0 0",
                   textDecoration: "none",
                   whiteSpace: "nowrap",
@@ -278,7 +278,7 @@ export function AppShell({ version, children }: AppShellProps) {
                 >
                   {ICONS[moduleItem.id]}
                 </span>
-                <span style={{ fontSize: "13px", fontWeight: selected ? 700 : 500 }}>
+                <span style={{ fontSize: "12px", fontWeight: selected ? 700 : 500 }}>
                   {moduleItem.label}
                 </span>
               </Link>
@@ -287,7 +287,7 @@ export function AppShell({ version, children }: AppShellProps) {
         </nav>
       </header>
 
-      <main style={{ maxWidth: "1580px", margin: "0 auto", padding: "16px 24px 24px" }}>
+      <main style={{ maxWidth: "1580px", margin: "0 auto", padding: "12px 18px 18px" }}>
         {children}
       </main>
     </div>

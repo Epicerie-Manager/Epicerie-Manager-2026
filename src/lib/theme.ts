@@ -5,7 +5,8 @@ export type ModuleKey =
   | "plateau"
   | "balisage"
   | "absences"
-  | "infos";
+  | "infos"
+  | "rh";
 
 export type ModuleTheme = {
   color: string;
@@ -127,6 +128,14 @@ export const moduleThemes: Record<ModuleKey, ModuleTheme> = {
     gradient: "linear-gradient(135deg, #fefaef 0%, #fffcf5 50%, #fffefc 100%)",
     iconGradient: "linear-gradient(135deg, #faf0d5, #f4dfab)",
   },
+  rh: {
+    color: "#0f766e",
+    light: "#f0fdfa",
+    medium: "#ccfbf1",
+    dark: "#115e59",
+    gradient: "linear-gradient(135deg, #f0fdfa 0%, #f7fefb 50%, #fcfefd 100%)",
+    iconGradient: "linear-gradient(135deg, #ccfbf1, #99f6e4)",
+  },
 };
 
 export function getThemeByPathname(pathname: string): ModuleKey {
@@ -140,5 +149,6 @@ export function getThemeByPathname(pathname: string): ModuleKey {
   }
   if (pathname.startsWith("/absences")) return "absences";
   if (pathname.startsWith("/infos")) return "infos";
+  if (pathname.startsWith("/rh")) return "rh";
   return "dashboard";
 }

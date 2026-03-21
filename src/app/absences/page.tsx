@@ -7,7 +7,6 @@ import { KPI, KPIRow } from "@/components/ui/kpi";
 import { ModuleHeader } from "@/components/layout/module-header";
 import { moduleThemes } from "@/lib/theme";
 import {
-  absenceEmployees,
   absenceTypes,
   type AbsenceRequest,
   type AbsenceStatusId,
@@ -15,6 +14,7 @@ import {
 } from "@/lib/absences-data";
 import { loadAbsenceRequests, saveAbsenceRequests } from "@/lib/absences-store";
 import { TimelineSuivi } from "@/components/absences/timeline-suivi";
+import { getRhEmployeeNames, getRhUpdatedEventName } from "@/lib/rh-store";
 
 type FilterStatus = "ALL" | AbsenceStatusId;
 
@@ -35,7 +35,9 @@ function getDayDiff(startDate: string, endDate: string) {
 export default function AbsencesPage() {
   const theme = moduleThemes.absences;
   const initialRequests = useMemo(() => loadAbsenceRequests(), []);
+  const initialEmployees = useMemo(() => getRhEmployeeNames(), []);
   const [requests, setRequests] = useState<AbsenceRequest[]>(initialRequests);
+  const [employees, setEmployees] = useState<string[]>(initialEmployees);
   const [statusFilter, setStatusFilter] = useState<FilterStatus>("ALL");
   const [employeeFilter, setEmployeeFilter] = useState<string>("ALL");
   const [showForm, setShowForm] = useState(false);
@@ -47,7 +49,7 @@ export default function AbsencesPage() {
     endDate: string;
     note: string;
   }>({
-    employee: absenceEmployees[0],
+    employee: initialEmployees[0] ?? "",
     type: "CP",
     startDate: "",
     endDate: "",
@@ -69,6 +71,22 @@ export default function AbsencesPage() {
     saveAbsenceRequests(requests);
   }, [requests]);
 
+  useEffect(() => {
+    const refreshEmployees = () => {
+      const names = getRhEmployeeNames();
+      setEmployees(names);
+      setDraft((current) =>
+        names.includes(current.employee)
+          ? current
+          : { ...current, employee: names[0] ?? "" },
+      );
+    };
+    refreshEmployees();
+    const eventName = getRhUpdatedEventName();
+    window.addEventListener(eventName, refreshEmployees);
+    return () => window.removeEventListener(eventName, refreshEmployees);
+  }, []);
+
   const pendingCount = requests.filter((request) => request.status === "EN_ATTENTE").length;
   const approvedCount = requests.filter((request) => request.status === "APPROUVE").length;
   const refusedCount = requests.filter((request) => request.status === "REFUSE").length;
@@ -79,7 +97,7 @@ export default function AbsencesPage() {
   ).length;
 
   const handleCreateRequest = () => {
-    if (!draft.startDate || !draft.endDate) return;
+    if (!draft.employee || !draft.startDate || !draft.endDate) return;
     setRequests((current) => [
       ...current,
       {
@@ -93,7 +111,7 @@ export default function AbsencesPage() {
       },
     ]);
     setNextId((current) => current + 1);
-    setDraft({ employee: absenceEmployees[0], type: "CP", startDate: "", endDate: "", note: "" });
+    setDraft({ employee: employees[0] ?? "", type: "CP", startDate: "", endDate: "", note: "" });
     setShowForm(false);
   };
 
@@ -177,7 +195,7 @@ export default function AbsencesPage() {
               style={{ minHeight: "34px", borderRadius: "10px", border: "1px solid #dbe3eb", padding: "0 10px", fontSize: "12px" }}
             >
               <option value="ALL">Tous les employes</option>
-              {absenceEmployees.map((employee) => (
+              {employees.map((employee) => (
                 <option key={employee} value={employee}>{employee}</option>
               ))}
             </select>
@@ -197,7 +215,7 @@ export default function AbsencesPage() {
             <label style={{ display: "grid", gap: "4px", fontSize: "12px", color: "#64748b" }}>
               <span>Employe</span>
               <select value={draft.employee} onChange={(event) => setDraft((current) => ({ ...current, employee: event.target.value }))} style={{ minHeight: "36px", borderRadius: "10px", border: "1px solid #dbe3eb", padding: "0 10px" }}>
-                {absenceEmployees.map((employee) => (
+                {employees.map((employee) => (
                   <option key={employee} value={employee}>{employee}</option>
                 ))}
               </select>
@@ -284,7 +302,7 @@ export default function AbsencesPage() {
         </div>
       </Card>
 
-      <TimelineSuivi absences={requests} employees={absenceEmployees} />
+      <TimelineSuivi absences={requests} employees={employees} />
     </section>
   );
 }

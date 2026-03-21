@@ -8,6 +8,7 @@ import { ModuleHeader } from "@/components/layout/module-header";
 import { moduleThemes } from "@/lib/theme";
 import { type AbsenceRequest } from "@/lib/absences-data";
 import { getAbsencesUpdatedEventName, loadAbsenceRequests } from "@/lib/absences-store";
+import { getRhUpdatedEventName, loadRhCycles, loadRhEmployees } from "@/lib/rh-store";
 
 type EmployeeType = "MATIN" | "APREM" | "ETU";
 type StatusKey = "PRESENT" | "RH" | "CP" | "MAL" | "ABS" | "FORM" | "X" | "CONGE_MAT";
@@ -118,13 +119,13 @@ function getIsoWeek(date: Date) {
   return 1 + Math.round(((day.getTime() - weekOne.getTime()) / 86400000 - 3 + ((weekOne.getDay() + 6) % 7)) / 7);
 }
 
-function getDefaultStatus(employee: Employee, date: Date): StatusKey {
+function getDefaultStatus(employee: Employee, date: Date, cycleMap: Record<string, string[]>): StatusKey {
   const day = date.getDay();
   if (day === 0) return "X";
   if (employee.type === "ETU") return day === 6 ? "PRESENT" : "X";
   if (!employee.active) return "CONGE_MAT";
 
-  const cycle = WEEKLY_REST_CYCLE[employee.name];
+  const cycle = cycleMap[employee.name];
   if (cycle) {
     const cycleWeekIndex = (getIsoWeek(date) - 1) % 5;
     const dayCode = DAY_CODE[day];
@@ -173,6 +174,30 @@ export default function PlanningPage() {
   const [editing, setEditing] = useState<EditState | null>(null);
   const [customShift, setCustomShift] = useState("");
   const [approvedAbsences, setApprovedAbsences] = useState<AbsenceRequest[]>([]);
+  const [rhEmployees, setRhEmployees] = useState<Employee[]>(() =>
+    (loadRhEmployees().length ? loadRhEmployees() : EMPLOYEES.map((employee) => ({
+      n: employee.name,
+      t: employee.type === "MATIN" ? "M" : employee.type === "APREM" ? "S" : "E",
+      hs: employee.standardShift,
+      hm: employee.tuesdayShift,
+      hsa: employee.type === "ETU" ? "14h-21h30" : null,
+      obs: employee.note,
+      actif: employee.active,
+      id: 0,
+      photo: null,
+    }))).map((employee) => ({
+      name: employee.n,
+      type: employee.t === "M" ? "MATIN" : employee.t === "S" ? "APREM" : "ETU",
+      standardShift: employee.hs,
+      tuesdayShift: employee.hm,
+      note: employee.obs,
+      active: employee.actif,
+    })),
+  );
+  const [rhCycles, setRhCycles] = useState<Record<string, string[]>>(() => {
+    const loaded = loadRhCycles();
+    return Object.keys(loaded).length ? loaded : WEEKLY_REST_CYCLE;
+  });
 
   const theme = moduleThemes.planning;
 
@@ -192,13 +217,49 @@ export default function PlanningPage() {
     };
   }, []);
 
+  useEffect(() => {
+    const refreshRh = () => {
+      const loadedEmployees = loadRhEmployees();
+      const source = loadedEmployees.length
+        ? loadedEmployees
+        : EMPLOYEES.map((employee) => ({
+            id: 0,
+            n: employee.name,
+            t: employee.type === "MATIN" ? "M" : employee.type === "APREM" ? "S" : "E",
+            hs: employee.standardShift,
+            hm: employee.tuesdayShift,
+            hsa: employee.type === "ETU" ? "14h-21h30" : null,
+            obs: employee.note,
+            actif: employee.active,
+            photo: null,
+          }));
+      setRhEmployees(
+        source.map((employee) => ({
+          name: employee.n,
+          type: employee.t === "M" ? "MATIN" : employee.t === "S" ? "APREM" : "ETU",
+          standardShift: employee.hs,
+          tuesdayShift: employee.hm,
+          note: employee.obs,
+          active: employee.actif,
+        })),
+      );
+      const loadedCycles = loadRhCycles();
+      setRhCycles(Object.keys(loadedCycles).length ? loadedCycles : WEEKLY_REST_CYCLE);
+    };
+
+    refreshRh();
+    const eventName = getRhUpdatedEventName();
+    window.addEventListener(eventName, refreshRh);
+    return () => window.removeEventListener(eventName, refreshRh);
+  }, []);
+
   const monthDays = new Date(year, month + 1, 0).getDate();
   const dates = Array.from({ length: monthDays }, (_, index) => new Date(year, month, index + 1));
 
   const visibleEmployees = useMemo(() => {
-    if (filter === "ALL") return EMPLOYEES;
-    return EMPLOYEES.filter((employee) => employee.type === filter);
-  }, [filter]);
+    if (filter === "ALL") return rhEmployees;
+    return rhEmployees.filter((employee) => employee.type === filter);
+  }, [filter, rhEmployees]);
 
   const getStatus = (employee: Employee, date: Date): StatusKey => {
     const key = `${employee.name}_${date.toISOString().slice(0, 10)}`;
@@ -210,7 +271,7 @@ export default function PlanningPage() {
     );
 
     if (matchedAbsence) return mapAbsenceTypeToStatus(matchedAbsence.type);
-    return getDefaultStatus(employee, date);
+    return getDefaultStatus(employee, date, rhCycles);
   };
 
   const getRenderedCell = (employee: Employee, date: Date) => {
@@ -221,10 +282,10 @@ export default function PlanningPage() {
   };
 
   const morningCount = (date: Date) =>
-    EMPLOYEES.filter((employee) => employee.type === "MATIN" && getStatus(employee, date) === "PRESENT").length;
+    rhEmployees.filter((employee) => employee.type === "MATIN" && getStatus(employee, date) === "PRESENT").length;
 
   const eveningCount = (date: Date) =>
-    EMPLOYEES.filter((employee) => employee.type === "APREM" && getStatus(employee, date) === "PRESENT").length;
+    rhEmployees.filter((employee) => employee.type === "APREM" && getStatus(employee, date) === "PRESENT").length;
 
   const weekDayDates = dates.filter((date) => date.getDay() !== 0);
   const morningValues = weekDayDates.map((date) => morningCount(date));

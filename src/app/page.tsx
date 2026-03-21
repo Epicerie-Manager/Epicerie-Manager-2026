@@ -1,14 +1,15 @@
 import packageJson from "../../package.json";
 import { Card } from "@/components/ui/card";
+import { KPI, KPIRow } from "@/components/ui/kpi";
 import { NavCard } from "@/components/ui/nav-card";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { SectionHeader } from "@/components/ui/section-header";
 import { moduleThemes } from "@/lib/theme";
 
 const teamStats = [
-  { label: "Matin", value: 11, tone: "green" },
-  { label: "Apres-midi", value: 2, tone: "blue" },
-  { label: "Etudiants", value: 0, tone: "gray" },
+  { label: "Matin", value: 11 },
+  { label: "Apres-midi", value: 2 },
+  { label: "Etudiants", value: 0 },
 ];
 
 const alerts = [
@@ -95,17 +96,16 @@ export default function Home() {
               description="Vision immediate des effectifs et des points a verifier."
             />
 
-            <div className="manager-kpi-line">
+            <KPIRow className="manager-kpi-line" style={{ marginTop: "12px" }}>
               {teamStats.map((item) => (
-                <div
+                <KPI
                   key={item.label}
-                  className={`manager-kpi manager-kpi-${item.tone}`}
-                >
-                  <strong>{item.value}</strong>
-                  <span>{item.label}</span>
-                </div>
+                  moduleKey="dashboard"
+                  value={item.value}
+                  label={item.label}
+                />
               ))}
-            </div>
+            </KPIRow>
 
             <div className="manager-box manager-box-yellow">
               <strong>Absents : Kamar, Liyakath, Khanh</strong>

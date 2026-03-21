@@ -71,6 +71,7 @@ export default function AbsencesPage() {
 
   const pendingCount = requests.filter((request) => request.status === "EN_ATTENTE").length;
   const approvedCount = requests.filter((request) => request.status === "APPROUVE").length;
+  const refusedCount = requests.filter((request) => request.status === "REFUSE").length;
   const todayIso = new Date().toISOString().slice(0, 10);
   const absentToday = requests.filter(
     (request) =>
@@ -123,10 +124,38 @@ export default function AbsencesPage() {
       />
 
       <KPIRow>
-        <KPI moduleKey="absences" value={pendingCount} label="En attente" />
+        <KPI
+          moduleKey="absences"
+          value={pendingCount}
+          label="En attente"
+          valueColor={pendingCount > 0 ? "#c2410c" : undefined}
+          labelColor={pendingCount > 0 ? "#c2410c" : undefined}
+          style={
+            pendingCount > 0
+              ? {
+                  background: "linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%)",
+                  border: "1px solid #fdba74",
+                }
+              : undefined
+          }
+        />
         <KPI moduleKey="absences" value={approvedCount} label="Approuvees" />
+        <KPI
+          moduleKey="absences"
+          value={refusedCount}
+          label="Refusees"
+          valueColor={refusedCount > 0 ? "#b91c1c" : undefined}
+          labelColor={refusedCount > 0 ? "#b91c1c" : undefined}
+          style={
+            refusedCount > 0
+              ? {
+                  background: "linear-gradient(135deg, #fef2f2 0%, #fee2e2 100%)",
+                  border: "1px solid #fca5a5",
+                }
+              : undefined
+          }
+        />
         <KPI moduleKey="absences" value={absentToday} label="Absents aujourd'hui" />
-        <KPI moduleKey="absences" value={absenceTypes.length} label="Types suivis" />
       </KPIRow>
 
       <Card>
@@ -240,6 +269,11 @@ export default function AbsencesPage() {
                       <button type="button" style={chipStyle(false)} onClick={() => updateStatus(request.id, "APPROUVE")}>Approuver</button>
                       <button type="button" style={chipStyle(false)} onClick={() => updateStatus(request.id, "REFUSE")}>Refuser</button>
                     </>
+                  ) : null}
+                  {request.status === "REFUSE" ? (
+                    <button type="button" style={chipStyle(false)} onClick={() => updateStatus(request.id, "EN_ATTENTE")}>
+                      Remettre en attente
+                    </button>
                   ) : null}
                   <button type="button" style={chipStyle(false)} onClick={() => deleteRequest(request.id)}>Supprimer</button>
                 </div>

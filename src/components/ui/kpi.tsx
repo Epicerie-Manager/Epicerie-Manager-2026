@@ -9,6 +9,8 @@ type KPIProps = {
   size?: "sm" | "md" | "lg";
   className?: string;
   style?: React.CSSProperties;
+  valueColor?: string;
+  labelColor?: string;
 };
 
 const fontSizeMap = {
@@ -25,6 +27,8 @@ export function KPI({
   size = "lg",
   className,
   style,
+  valueColor,
+  labelColor,
 }: KPIProps) {
   const theme = moduleThemes[moduleKey];
   const cardBackground = `linear-gradient(135deg, ${theme.light} 0%, color-mix(in srgb, ${theme.light} 60%, white) 100%)`;
@@ -89,7 +93,7 @@ export function KPI({
           fontWeight: 700,
           letterSpacing: "-0.04em",
           lineHeight: 1,
-          color: theme.dark,
+          color: valueColor ?? theme.dark,
         }}
       >
         {value}
@@ -99,7 +103,7 @@ export function KPI({
         style={{
           fontSize: "11px",
           fontWeight: 600,
-          color: "#64748b",
+          color: labelColor ?? "#64748b",
           marginTop: "4px",
         }}
       >

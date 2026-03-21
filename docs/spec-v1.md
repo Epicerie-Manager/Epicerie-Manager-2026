@@ -1,247 +1,161 @@
-# Specification V1
+# Specification V1 (MVP) - Epicerie Manager 2026
 
-Ce document decrit la premiere vraie version utile de l'application.
+Date de reference : 21 mars 2026
+Statut : En cours de validation
 
-La `V1` doit remplacer le Google Site pour les usages principaux du quotidien, sans chercher a tout faire d'un coup.
+## 1. Objectif du document
 
-## 1. But de la V1
-
-Le but de la `V1` est de fournir une application web simple, claire et pratique qui permet a la manager et a l'equipe de consulter facilement les informations essentielles.
-
-La `V1` doit etre :
-
-- lisible sur smartphone ;
-- pratique sur tablette ;
-- utilisable sur ordinateur ;
-- plus claire que le Google Site ;
-- plus simple a faire evoluer.
-
-## 2. Ce que la V1 doit absolument faire
-
-La `V1` doit permettre :
-
-- de se connecter a l'application ;
-- d'arriver sur une page d'accueil claire ;
-- de consulter le planning ;
-- de consulter les plans TG / GB ;
-- de consulter les plans plateau ;
-- de consulter les stats de balisage ;
-- d'acceder rapidement aux informations utiles.
-
-## 3. Ce que la V1 ne fait pas encore
-
-La `V1` ne gere pas encore :
-
-- les demandes d'absence completes ;
-- les validations manager d'absence ;
-- le formulaire d'audit terrain ;
-- les comptes-rendus automatiques ;
-- les notifications avancees ;
-- les exports complexes.
-
-Ces elements seront traites en `V2` ou `V3`.
-
-## 4. Utilisateurs de la V1
-
-### 4.1 Collaborateur
-
-Le collaborateur doit pouvoir :
-
-- se connecter ;
-- voir son planning ;
-- voir les informations du jour ou de la semaine ;
-- consulter les plans utiles a son travail ;
-- voir les stats qui lui sont destinees.
-
-### 4.2 Manager
-
-La manager doit pouvoir :
-
-- voir le planning de l'equipe ;
-- consulter les plans TG ;
-- consulter les plans plateau ;
-- consulter les stats de balisage ;
-- avoir une vision plus globale que celle d'un collaborateur.
-
-## 5. Ecrans de la V1
-
-### 5.1 Ecran de connexion
+Ce document fixe une specification MVP exploitable pour terminer la V1.
 
 But :
 
-Permettre l'acces securise a l'application.
+- verrouiller le perimetre fonctionnel ;
+- eviter les demandes floues en cours de route ;
+- definir les criteres d'acceptation ;
+- preparer la mise en service terrain.
 
-Contenu :
+## 2. Etat actuel constate (au 21/03/2026)
 
-- identifiant ;
-- mot de passe ;
-- bouton de connexion.
+Fonctionnel deja en place dans l'application :
 
-### 5.2 Ecran d'accueil
+- dashboard ;
+- module planning ;
+- module plan TG ;
+- module plan plateau ;
+- module stats balisage ;
+- module absences (creation + validation) ;
+- module infos ;
+- shell applicatif responsive.
 
-But :
+Avancee recente :
 
-Servir de point d'entree simple vers les modules.
+- persistance locale des demandes d'absences ;
+- impact des absences approuvees dans le planning.
 
-Contenu :
+## 3. Perimetre MVP V1
 
-- message de bienvenue ;
-- acces rapide au planning ;
-- acces rapide au plan TG ;
-- acces rapide au plan plateau ;
-- acces rapide aux stats de balisage ;
-- eventuellement un bloc "informations utiles".
+### 3.1 MUST (obligatoire V1)
 
-### 5.3 Ecran Planning
+- consulter les modules metier sur mobile et desktop ;
+- navigation rapide entre les modules ;
+- planning lisible (filtres + statuts + edition rapide) ;
+- consultation TG / plateau / balisage ;
+- page informations equipe ;
+- stabilite de l'interface (pas d'erreurs bloquantes).
 
-But :
+### 3.2 SHOULD (important mais non bloquant)
 
-Permettre de consulter rapidement les horaires et informations de planning.
+- coherence des donnees de demonstration entre modules ;
+- alertes visuelles sur sous-effectif ;
+- message de derniere mise a jour par module.
 
-Contenu minimum :
+### 3.3 OUT (hors V1)
 
-- vue du planning ;
-- filtre par mois ;
-- filtre par collaborateur pour la manager ;
-- mise en avant du jour courant ;
-- lecture facile sur mobile.
+- authentification complete en production ;
+- workflow absences multi-role avec notifications ;
+- audit terrain ;
+- exports avancees ;
+- synchronisation live avec source externe.
 
-Informations a afficher :
+## 4. Ecrans MVP et criteres d'acceptation
 
-- jour ;
-- date ;
-- horaires ;
-- statuts type `RH`, `CP`, `X`, `FERIE` ;
-- eventuellement vue binomes de repos ;
-- eventuellement vue tri caddie si faisable dans la V1 sans trop compliquer.
+### 4.1 Dashboard
 
-### 5.4 Ecran Plan TG / GB
+Critere accepte si :
 
-But :
+- les cartes modules ouvrent les bons ecrans ;
+- les indicateurs ne cassent pas l'affichage mobile.
 
-Permettre de retrouver les implantations et responsabilites terrain.
+### 4.2 Planning
 
-Contenu minimum :
+Critere accepte si :
 
-- filtre par semaine ;
-- filtre par responsable ;
-- filtre TG / GB ;
-- liste claire des lignes a executer.
+- navigation mois precedent/suivant operationnelle ;
+- filtre equipe (`Tous`, `Matin`, `Soir`, `Etudiants`) operationnel ;
+- edition d'une cellule possible ;
+- les absences approuvees se refletent dans les statuts du mois.
 
-Informations a afficher :
+### 4.3 Plan TG
 
-- semaine ;
-- rayon ;
-- famille ;
-- type ;
-- responsable ;
-- produit ;
-- quantite ;
-- mecanique commerciale.
+Critere accepte si :
 
-### 5.5 Ecran Plan Plateau
+- affichage des lignes metier lisible ;
+- filtres principaux utilisables sans rechargement long.
 
-But :
+### 4.4 Plan Plateau
 
-Permettre de consulter les plans plateau simplement.
+Critere accepte si :
 
-Contenu minimum :
+- consultation par periode possible ;
+- recap operationnel mensuel lisible.
 
-- acces par mois ;
-- acces par semaine ;
-- affichage du document de facon lisible ;
-- solution correcte sur mobile.
+### 4.5 Stats balisage
 
-Pour la V1, on peut rester sur une consultation du PDF si c'est le plus rapide et le plus fiable.
+Critere accepte si :
 
-### 5.6 Ecran Stats balisage
+- synthese mensuelle visible ;
+- progression lisible par code couleur ;
+- tableau exploitable sur desktop et mobile.
 
-But :
+### 4.6 Infos
 
-Permettre de consulter rapidement le niveau de suivi balisage.
+Critere accepte si :
 
-Contenu minimum :
+- bloc d'informations equipe consultable ;
+- lecture claire sur mobile.
 
-- vue par mois ;
-- vue par employe ;
-- indicateurs clairs ;
-- codes couleur simples.
+## 5. Regles metier MVP (version simplifiee)
 
-Informations a afficher :
+- une absence creee est `EN_ATTENTE` ;
+- seule une absence `APPROUVE` impacte le planning ;
+- mapping planning :
+  - `CP -> CP`
+  - `MAL -> MAL`
+  - `CONGE_MAT -> CONGE_MAT`
+  - `FORM -> FORM`
+  - `AUTRE` ou `FERIE -> ABS`
+- une edition manuelle de cellule planning reste prioritaire sur le calcul automatique.
 
-- total controles ;
-- pourcentage d'avancement ;
-- taux d'erreur ;
-- statut.
+## 6. Donnees et persistance MVP
 
-### 5.7 Ecran Informations
+- donnees modules : fichiers TypeScript statiques ;
+- absences : persistance locale navigateur (`localStorage`) ;
+- pas encore de base de donnees serveur.
 
-But :
+Consequence :
 
-Avoir une page simple pour les informations d'equipe utiles.
+- comportement stable pour les tests fonctionnels locaux ;
+- non adapte (encore) a un usage multi-poste/multi-utilisateur.
 
-Contenu :
+## 7. Definition de done V1
 
-- consignes ;
-- rappels ;
-- liens utiles ;
-- informations ponctuelles.
+La V1 sera consideree terminee quand les 4 points suivants seront valides :
 
-## 6. Donnees de la V1
+1. validation terrain sur smartphone + desktop ;
+2. correction des anomalies bloquantes ;
+3. gel fonctionnel V1 ;
+4. mise en ligne de la version stable.
 
-La `V1` s'appuiera d'abord sur les sources existantes.
+## 8. Reste a faire V1 (priorise)
 
-Sources identifiees :
+P0 :
 
-- fichier planning ;
-- fichier plan TG ;
-- fichier suivi balisage ;
-- PDF plans plateau ;
-- eventuellement certaines sources Google publiees si utile.
+- campagne de validation terrain avec scenarios reels ;
+- corrections issues des retours terrain.
 
-Approche recommandee pour la V1 :
+P1 :
 
-- lire ou importer les donnees existantes ;
-- ne pas demander tout de suite a l'equipe de changer sa facon de preparer les donnees ;
-- fiabiliser l'affichage avant de refondre les workflows.
+- harmonisation finale des jeux de donnees ;
+- micro-ajustements UX mobile.
 
-## 7. Priorites de developpement dans la V1
+P2 :
 
-Ordre recommande :
+- preparation du passage V2 (workflow absences complet cote manager).
 
-1. connexion et structure generale ;
-2. accueil ;
-3. planning ;
-4. plan TG ;
-5. plan plateau ;
-6. stats balisage ;
-7. ajustements d'ergonomie ;
-8. validation terrain.
+## 9. Prochaine etape immediate
 
-## 8. Definition de succes de la V1
+Prochaine etape recommande :
 
-On pourra considerer que la `V1` est reussie si :
-
-- la manager peut se servir de l'application a la place du Google Site pour l'essentiel ;
-- les collaborateurs trouvent facilement leur planning et les informations utiles ;
-- la consultation sur telephone est simple ;
-- les modules principaux sont stables ;
-- l'application est assez propre pour servir de base a la `V2`.
-
-## 9. Questions qui restent a valider
-
-Les points suivants devront etre arbitres au fur et a mesure :
-
-- faut-il afficher tous les collaborateurs ou seulement le sien pour chaque utilisateur ;
-- quelles stats sont visibles par toute l'equipe ;
-- faut-il integrer les binomes et tri caddie des la V1 ou juste apres ;
-- quel niveau de detail garder sur mobile ;
-- faut-il une page informations des la V1 ou plus tard.
-
-## 10. Prochaine etape apres validation de ce document
-
-Une fois cette `V1` validee, la suite logique sera :
-
-- choisir la stack technique finale ;
-- creer l'ossature du projet ;
-- commencer par le module `Planning`.
+- lancer la validation terrain V1 avec une checklist de tests par module ;
+- ouvrir les tickets de correction ;
+- figer une release candidate `v0.2.x` avant mise en ligne.

@@ -16,72 +16,17 @@ Objectif :
 
 Mettre a disposition une vraie application web simple, claire et utilisable sur telephone, tablette et ordinateur.
 
-Cette version doit deja rendre service au quotidien.
-
-Contenu prevu :
-
-- connexion simple ;
-- page d'accueil ;
-- consultation du planning ;
-- consultation des plans TG ;
-- consultation des plans plateau ;
-- consultation des stats de balisage ;
-- interface adaptee au mobile.
-
-Ce qu'on ne cherche pas a faire tout de suite :
-
-- workflow complet des absences ;
-- audit terrain ;
-- automatisations avancees ;
-- exports complexes ;
-- notifications poussees.
-
-Definition de "V1 terminee" :
-
-- la manager et les collaborateurs peuvent consulter les informations principales sans passer par le Google Site ;
-- l'application est lisible et pratique sur smartphone ;
-- les donnees principales existantes sont reprises proprement.
-
 ### V2 - Gerer les demandes
 
 Objectif :
 
 Ajouter la partie gestion, en particulier autour des absences.
 
-Contenu prevu :
-
-- formulaire de demande d'absence ;
-- suivi des demandes ;
-- validation ou refus par la manager ;
-- historique des demandes ;
-- integration de l'information dans le planning.
-
-Definition de "V2 terminee" :
-
-- les demandes d'absence ne passent plus par des outils disperses ;
-- la manager a un suivi clair ;
-- l'equipe comprend facilement l'etat des demandes.
-
 ### V3 - Piloter le terrain
 
 Objectif :
 
 Transformer l'application en outil de pilotage terrain.
-
-Contenu prevu :
-
-- formulaire d'audit terrain ;
-- grille de controle avec champs predefinis ;
-- generation d'un compte-rendu ;
-- envoi aux collaborateurs concernes ;
-- historique des visites ;
-- suivi des actions correctives.
-
-Definition de "V3 terminee" :
-
-- les visites terrain sont suivies de facon structuree ;
-- les comptes-rendus sont clairs et reutilisables ;
-- la manager dispose d'un historique exploitable.
 
 ## Vision globale
 
@@ -91,36 +36,19 @@ flowchart LR
     B --> C["V3<br/>Piloter"]
 ```
 
-## Decoupage simple de la V1
-
-La `V1` est la priorite immediate.
-
-Elle peut elle-meme etre construite par etapes.
-
-```mermaid
-flowchart TD
-    A["1. Cadrage"] --> B["2. Structure technique"]
-    B --> C["3. Module Planning"]
-    C --> D["4. Module Plan TG"]
-    D --> E["5. Module Plan Plateau"]
-    E --> F["6. Module Stats balisage"]
-    F --> G["7. Tests et ajustements"]
-    G --> H["8. Mise en service V1"]
-```
-
-## Tableau de suivi
+## Tableau de suivi (etat au 21 mars 2026)
 
 ### V1
 
 | Etape | Description | Statut |
 |---|---|---|
 | Cadrage | Comprendre l'existant et definir le perimetre | Fait |
-| Specification MVP | Definir clairement ce qu'on met dans la V1 | A faire |
-| Structure technique | Creer la base du projet | A faire |
-| Module Planning | Afficher le planning | A faire |
-| Module TG | Afficher les plans TG / GB | A faire |
-| Module Plateau | Afficher les plans plateau | A faire |
-| Module Stats | Afficher les controles balisage | A faire |
+| Specification MVP | Definir clairement ce qu'on met dans la V1 | En cours |
+| Structure technique | Creer la base du projet | Fait |
+| Module Planning | Afficher le planning | Fait |
+| Module TG | Afficher les plans TG / GB | Fait |
+| Module Plateau | Afficher les plans plateau | Fait |
+| Module Stats | Afficher les controles balisage | Fait |
 | Validation terrain | Verifier avec les vrais usages | A faire |
 | Mise en ligne | Rendre l'application utilisable | A faire |
 
@@ -128,11 +56,11 @@ flowchart TD
 
 | Etape | Description | Statut |
 |---|---|---|
-| Cadrage absences | Definir les regles de demande et validation | A faire |
-| Formulaire absence | Saisie collaborateur | A faire |
-| Suivi manager | Validation / refus | A faire |
+| Cadrage absences | Definir les regles de demande et validation | En cours |
+| Formulaire absence | Saisie collaborateur | En cours |
+| Suivi manager | Validation / refus | En cours |
 | Historique | Voir les demandes passees | A faire |
-| Integration planning | Repercuter les absences | A faire |
+| Integration planning | Repercuter les absences | En cours |
 
 ### V3
 
@@ -146,14 +74,7 @@ flowchart TD
 
 ## Outil de suivi recommande
 
-Pour rester simple, je recommande `GitHub Projects`.
-
-Pourquoi :
-
-- le depot est deja sur GitHub ;
-- pas besoin d'ajouter un autre outil tout de suite ;
-- on peut creer des colonnes simples du type `A faire`, `En cours`, `En validation`, `Termine` ;
-- on peut relier chaque tache aux fichiers et au code.
+Pour rester simple, on continue avec `GitHub Projects`.
 
 Structure conseillee :
 
@@ -163,32 +84,24 @@ Structure conseillee :
 - colonne `En test`
 - colonne `Valide`
 
-Types de cartes a creer :
+Types de cartes a suivre en priorite immediate :
 
-- `Spec V1`
-- `Structure technique`
-- `Planning`
-- `Plan TG`
-- `Plan Plateau`
-- `Stats balisage`
-- `Absences`
-- `Audit terrain`
+- `Spec V1 (validation finale)`
+- `Validation terrain V1`
+- `Corrections V1`
+- `Mise en ligne V1`
+- `V2 Absences - Historique`
 
 ## Regle simple de pilotage
 
-Pour eviter de se disperser :
-
-- on termine la definition de la `V1` avant de coder massivement ;
-- on valide chaque module avec un besoin concret ;
-- on ne bascule vers `V2` que lorsque `V1` est vraiment utilisable ;
-- on garde `V3` comme une evolution, pas comme une urgence.
+- on termine la validation V1 avant de basculer en V2 complet ;
+- on evite d'ajouter du scope V3 tant que V1 n'est pas stabilisee ;
+- chaque ticket doit avoir un critere d'acceptation testable.
 
 ## Prochaine etape
 
-La prochaine etape logique est de rediger un document encore plus concret :
+La prochaine etape logique est :
 
-- les ecrans de la `V1` ;
-- les utilisateurs ;
-- les donnees a afficher ;
-- ce qui est obligatoire ou optionnel ;
-- l'ordre de developpement reel.
+- finaliser la specification MVP (`docs/spec-v1.md`) ;
+- executer une validation terrain courte (checklist) ;
+- corriger puis preparer la mise en ligne.

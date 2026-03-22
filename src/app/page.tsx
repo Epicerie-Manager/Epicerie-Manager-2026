@@ -227,6 +227,40 @@ export default function DashboardPage() {
             </NavCardGrid>
           </Card>
 
+          {/* Opérations */}
+          <Card>
+            <Kicker moduleKey="plateau" label="Plateaux" icon={<IconMap />} />
+            <h2 style={{ fontSize: "17px", fontWeight: 700, letterSpacing: "-0.02em", color: "#0f172a" }}>Chantiers terrain</h2>
+            <p style={{ fontSize: "12px", color: "#64748b", marginTop: "3px", marginBottom: "10px" }}>Mars – Avril 2026</p>
+
+            {OPERATIONS.map((op) => (
+              <div key={op.name} style={{
+                display: "flex", alignItems: "center", justifyContent: "space-between",
+                padding: "10px 0", borderBottom: "1px solid #dbe3eb",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+                  <div style={{
+                    width: "3px", height: "36px", borderRadius: "2px", flexShrink: 0,
+                    background: `linear-gradient(180deg, ${op.color}, ${op.color}99)`,
+                  }} />
+                  <div>
+                    <div style={{ fontSize: "13px", fontWeight: 600, color: "#0f172a" }}>{op.name}</div>
+                    <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>{op.detail}</div>
+                  </div>
+                </div>
+                <span style={{
+                  fontSize: "10px", fontWeight: 700, letterSpacing: "0.04em",
+                  textTransform: "uppercase", padding: "3px 8px", borderRadius: "6px",
+                  background: `${op.color}18`, color: op.color,
+                }}>
+                  {op.badge}
+                </span>
+              </div>
+            ))}
+            {/* Enlever la bordure du dernier élément */}
+            <style>{`div[data-ops-last] { border-bottom: none !important; }`}</style>
+          </Card>
+
         </div>
 
         {/* ─── COLONNE CENTRE ──────────────────────── */}
@@ -434,40 +468,6 @@ export default function DashboardPage() {
                 </div>
               );
             })}
-          </Card>
-
-          {/* Opérations */}
-          <Card>
-            <Kicker moduleKey="plateau" label="Plateaux" icon={<IconMap />} />
-            <h2 style={{ fontSize: "17px", fontWeight: 700, letterSpacing: "-0.02em", color: "#0f172a" }}>Chantiers terrain</h2>
-            <p style={{ fontSize: "12px", color: "#64748b", marginTop: "3px", marginBottom: "10px" }}>Mars – Avril 2026</p>
-
-            {OPERATIONS.map((op) => (
-              <div key={op.name} style={{
-                display: "flex", alignItems: "center", justifyContent: "space-between",
-                padding: "10px 0", borderBottom: "1px solid #dbe3eb",
-              }}>
-                <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-                  <div style={{
-                    width: "3px", height: "36px", borderRadius: "2px", flexShrink: 0,
-                    background: `linear-gradient(180deg, ${op.color}, ${op.color}99)`,
-                  }} />
-                  <div>
-                    <div style={{ fontSize: "13px", fontWeight: 600, color: "#0f172a" }}>{op.name}</div>
-                    <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>{op.detail}</div>
-                  </div>
-                </div>
-                <span style={{
-                  fontSize: "10px", fontWeight: 700, letterSpacing: "0.04em",
-                  textTransform: "uppercase", padding: "3px 8px", borderRadius: "6px",
-                  background: `${op.color}18`, color: op.color,
-                }}>
-                  {op.badge}
-                </span>
-              </div>
-            ))}
-            {/* Enlever la bordure du dernier élément */}
-            <style>{`div[data-ops-last] { border-bottom: none !important; }`}</style>
           </Card>
 
         </div>

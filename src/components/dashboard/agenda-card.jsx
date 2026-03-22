@@ -63,11 +63,21 @@ const EventIcon = ({ type, color, size = 13 }) => {
    AGENDA CARD COMPONENT
    ═══════════════════════════════════════════════════════════ */
 export default function AgendaCard({ events = MOCK_EVENTS, calendarUrl = "https://calendar.google.com" }) {
+  const [now, setNow] = useState(() => new Date());
   const [loading, setLoading] = useState(true);
   const [connected, setConnected] = useState(false);
   const [apiEvents, setApiEvents] = useState([]);
-  const currentHour = new Date().getHours();
+  const [showAll, setShowAll] = useState(false);
+  const currentHour = now.getHours();
   const displayedEvents = connected ? apiEvents : events;
+
+  const firstRelevantIndex = displayedEvents.findIndex((ev) => ev.startHour >= currentHour - 1);
+  const compactStartIndex =
+    firstRelevantIndex >= 0
+      ? firstRelevantIndex
+      : Math.max(displayedEvents.length - 3, 0);
+  const compactEvents = displayedEvents.slice(compactStartIndex, compactStartIndex + 3);
+  const visibleEvents = showAll ? displayedEvents : compactEvents;
 
   useEffect(() => {
     let active = true;
@@ -89,6 +99,13 @@ export default function AgendaCard({ events = MOCK_EVENTS, calendarUrl = "https:
     return () => {
       active = false;
     };
+  }, []);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setNow(new Date());
+    }, 60000);
+    return () => window.clearInterval(timer);
   }, []);
 
   return (
@@ -197,7 +214,7 @@ export default function AgendaCard({ events = MOCK_EVENTS, calendarUrl = "https:
           >
             Aucun événement aujourd&apos;hui.
           </div>
-        ) : displayedEvents.map(ev => {
+        ) : visibleEvents.map(ev => {
           const isPast = ev.startHour < currentHour - 1;
           const isCurrent = ev.startHour >= currentHour - 1 && ev.startHour <= currentHour;
 
@@ -245,6 +262,28 @@ export default function AgendaCard({ events = MOCK_EVENTS, calendarUrl = "https:
           );
         })}
       </div>
+
+      {!loading && displayedEvents.length > 3 ? (
+        <button
+          type="button"
+          onClick={() => setShowAll((value) => !value)}
+          style={{
+            display: "block",
+            width: "100%",
+            marginTop: 10,
+            padding: "8px 12px",
+            borderRadius: 10,
+            border: "1px solid #dbe3eb",
+            background: "#f8fafc",
+            color: "#0a4f98",
+            fontSize: 12,
+            fontWeight: 700,
+            cursor: "pointer",
+          }}
+        >
+          {showAll ? "Afficher moins" : "Afficher plus"}
+        </button>
+      ) : null}
 
       {/* Footer link */}
       {calendarUrl && (

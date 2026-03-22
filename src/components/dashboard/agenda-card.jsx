@@ -12,6 +12,7 @@
  */
 
 import { useEffect, useState } from "react";
+import { signOut } from "next-auth/react";
 
 /* ═══════════════════════════════════════════════════════════
    TYPES
@@ -121,6 +122,23 @@ export default function AgendaCard({ events = MOCK_EVENTS, calendarUrl = "https:
               animation: "gcal-pulse 2s infinite",
             }} />
             <span style={{ fontSize: 10, fontWeight: 600, color: "#16a34a" }}>Google Calendar</span>
+            <button
+              type="button"
+              onClick={() => signOut({ callbackUrl: "/" })}
+              style={{
+                marginLeft: 4,
+                fontSize: 10,
+                fontWeight: 700,
+                color: "#64748b",
+                border: "1px solid #dbe3eb",
+                background: "#f8fafc",
+                borderRadius: 8,
+                padding: "4px 8px",
+                cursor: "pointer",
+              }}
+            >
+              Se déconnecter
+            </button>
             <style>{`@keyframes gcal-pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
           </div>
         ) : (

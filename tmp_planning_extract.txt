@@ -1,0 +1,638 @@
+employees 21
+binomes 6
+cycles 16
+requests 33
+---EMP START---
+[
+  {
+    "n": "ABDOU",
+    "t": "M",
+    "hs": "3h50-11h20",
+    "hm": "3h00-10h30",
+    "hsa": null,
+    "obs": "Coordo",
+    "actif": true
+  },
+  {
+    "n": "CECILE",
+    "t": "M",
+    "hs": "3h50-11h20",
+    "hm": "3h00-10h30",
+    "hsa": null,
+    "obs": "Employé",
+    "actif": true
+  },
+  {
+    "n": "KAMAR",
+    "t": "M",
+    "hs": "3h50-11h20",
+    "hm": "3h00-10h30",
+    "hsa": null,
+    "obs": "congé maternité",
+    "actif": false
+  },
+  {
+    "n": "YASSINE",
+    "t": "M",
+    "hs": "3h50-11h20",
+    "hm": "3h00-10h30",
+    "hsa": null,
+    "obs": "Employé",
+    "actif": true
+  },
+  {
+    "n": "WASIM",
+    "t": "M",
+    "hs": "3h50-11h20",
+    "hm": "3h00-10h30",
+    "hsa": null,
+    "obs": "Employé",
+    "actif": true
+  },
+  {
+    "n": "JEREMY",
+    "t": "M",
+    "hs": "3h50-11h20",
+    "hm": "3h00-10h30",
+    "hsa": null,
+    "obs": "Employé",
+    "actif": true
+  },
+  {
+    "n": "KAMEL",
+    "t": "M",
+    "hs": "3h50-11h20",
+    "hm": "3h00-10h30",
+    "hsa": null,
+    "obs": "Employé",
+    "actif": true
+  },
+  {
+    "n": "PASCALE",
+    "t": "M",
+    "hs": "3h50-11h20",
+    "hm": "3h00-10h30",
+    "hsa": null,
+    "obs": "Employé",
+    "actif": true
+  },
+  {
+    "n": "MOHCINE",
+    "t": "M",
+    "hs": "3h50-11h20",
+    "hm": "3h00-10h30",
+    "hsa": null,
+    "obs": "Employé",
+    "actif": true
+  },
+  {
+    "n": "LIYAKATH",
+    "t": "M",
+    "hs": "3h50-11h20",
+    "hm": "3h00-10h30",
+    "hsa": null,
+    "obs": "Employé",
+    "actif": true
+  },
+  {
+    "n": "ROSALIE",
+    "t": "M",
+    "hs": "3h50-11h20",
+    "hm": "3h00-10h30",
+    "hsa": null,
+    "obs": "Employé",
+    "actif": true
+  },
+  {
+    "n": "JAMAA",
+    "t": "M",
+    "hs": "3h50-11h20",
+    "hm": "3h00-10h30",
+    "hsa": null,
+    "obs": "Employé",
+    "actif": true
+  },
+  {
+    "n": "EL HASSANE",
+    "t": "M",
+    "hs": "3h50-11h20",
+    "hm": "3h00-10h30",
+    "hsa": null,
+    "obs": "Employé",
+    "actif": true
+  },
+  {
+    "n": "MASSIMO",
+    "t": "S",
+    "hs": "14h-21h30",
+    "hm": "12h-19h30",
+    "hsa": null,
+    "obs": "Employé",
+    "actif": true
+  },
+  {
+    "n": "DILAXSHAN",
+    "t": "S",
+    "hs": "14h-21h30",
+    "hm": "12h-19h30",
+    "hsa": null,
+    "obs": "Employé",
+    "actif": true
+  },
+  {
+    "n": "KHANH",
+    "t": "M",
+    "hs": "3h50-11h20",
+    "hm": "3h00-10h30",
+    "hsa": null,
+    "obs": "Employé",
+    "actif": true
+  },
+  {
+    "n": "YLEANA",
+    "t": "E",
+    "hs": null,
+    "hm": null,
+    "hsa": "14h-21h30",
+    "obs": "ETUDIANT",
+    "actif": true
+  },
+  {
+    "n": "MOUNIR",
+    "t": "E",
+    "hs": null,
+    "hm": null,
+    "hsa": "14h-21h30",
+    "obs": "ETUDIANT",
+    "actif": true
+  },
+  {
+    "n": "MAHIN",
+    "t": "E",
+    "hs": null,
+    "hm": null,
+    "hsa": "14h-21h30",
+    "obs": "ETUDIANT",
+    "actif": true
+  },
+  {
+    "n": "MOHAMED",
+    "t": "E",
+    "hs": null,
+    "hm": null,
+    "hsa": "14h-21h30",
+    "obs": "ETUDIANT",
+    "actif": true
+  },
+  {
+    "n": "ACHRAF",
+    "t": "E",
+    "hs": null,
+    "hm": null,
+    "hsa": "14h-21h30",
+    "obs": "ETUDIANT",
+    "actif": true
+  }
+]
+---BIN START---
+[
+  [
+    "ROSALIE",
+    "JEREMY"
+  ],
+  [
+    "KHANH",
+    "CECILE"
+  ],
+  [
+    "MOHCINE",
+    "KAMEL"
+  ],
+  [
+    "EL HASSANE",
+    "JAMAA"
+  ],
+  [
+    "WASIM",
+    "LIYAKATH"
+  ],
+  [
+    "MOHAMED",
+    "PASCALE"
+  ]
+]
+---CYC START---
+{
+  "ABDOU": [
+    "VENDREDI",
+    "VENDREDI",
+    "VENDREDI",
+    "VENDREDI",
+    "VENDREDI"
+  ],
+  "CECILE": [
+    "MERCREDI",
+    "MERCREDI",
+    "MERCREDI",
+    "MERCREDI",
+    "SAMEDI"
+  ],
+  "MASSIMO": [
+    "JEUDI",
+    "JEUDI",
+    "JEUDI",
+    "JEUDI",
+    "JEUDI"
+  ],
+  "DILAXSHAN": [
+    "SAMEDI",
+    "MERCREDI",
+    "MERCREDI",
+    "MERCREDI",
+    "MERCREDI"
+  ],
+  "KAMAR": [
+    "MARDI",
+    "MARDI",
+    "MARDI",
+    "MARDI",
+    "MARDI"
+  ],
+  "YASSINE": [
+    "JEUDI",
+    "JEUDI",
+    "JEUDI",
+    "JEUDI",
+    "SAMEDI"
+  ],
+  "WASIM": [
+    "VENDREDI",
+    "VENDREDI",
+    "SAMEDI",
+    "VENDREDI",
+    "VENDREDI"
+  ],
+  "JEREMY": [
+    "VENDREDI",
+    "VENDREDI",
+    "VENDREDI",
+    "SAMEDI",
+    "VENDREDI"
+  ],
+  "KAMEL": [
+    "SAMEDI",
+    "MARDI",
+    "MARDI",
+    "MARDI",
+    "MARDI"
+  ],
+  "PASCALE": [
+    "SAMEDI",
+    "LUNDI",
+    "LUNDI",
+    "LUNDI",
+    "LUNDI"
+  ],
+  "MOHCINE": [
+    "MERCREDI",
+    "MERCREDI",
+    "MERCREDI",
+    "SAMEDI",
+    "MERCREDI"
+  ],
+  "LIYAKATH": [
+    "LUNDI",
+    "LUNDI",
+    "SAMEDI",
+    "LUNDI",
+    "LUNDI"
+  ],
+  "KHANH": [
+    "JEUDI",
+    "JEUDI",
+    "JEUDI",
+    "JEUDI",
+    "SAMEDI"
+  ],
+  "ROSALIE": [
+    "JEUDI",
+    "SAMEDI",
+    "JEUDI",
+    "JEUDI",
+    "JEUDI"
+  ],
+  "JAMAA": [
+    "MERCREDI",
+    "MERCREDI",
+    "SAMEDI",
+    "MERCREDI",
+    "MERCREDI"
+  ],
+  "EL HASSANE": [
+    "VENDREDI",
+    "SAMEDI",
+    "VENDREDI",
+    "VENDREDI",
+    "VENDREDI"
+  ]
+}
+---REQ START---
+[
+  {
+    "id": 1,
+    "employee": "KAMAR",
+    "type": "CONGE_MAT",
+    "startDate": "2026-01-01",
+    "endDate": "2028-01-01",
+    "status": "APPROUVE",
+    "note": "Congé maternité"
+  },
+  {
+    "id": 2,
+    "employee": "MASSIMO",
+    "type": "CP",
+    "startDate": "2026-02-16",
+    "endDate": "2026-02-16",
+    "status": "APPROUVE",
+    "note": "CP"
+  },
+  {
+    "id": 3,
+    "employee": "KAMEL",
+    "type": "CP",
+    "startDate": "2026-02-09",
+    "endDate": "2026-02-14",
+    "status": "APPROUVE",
+    "note": "CP"
+  },
+  {
+    "id": 4,
+    "employee": "JEREMY",
+    "type": "CP",
+    "startDate": "2026-06-01",
+    "endDate": "2026-06-20",
+    "status": "APPROUVE",
+    "note": "CP"
+  },
+  {
+    "id": 5,
+    "employee": "KAMEL",
+    "type": "CP",
+    "startDate": "2026-06-15",
+    "endDate": "2026-07-04",
+    "status": "APPROUVE",
+    "note": "CP"
+  },
+  {
+    "id": 6,
+    "employee": "WASIM",
+    "type": "AUTRE",
+    "startDate": "2026-06-29",
+    "endDate": "2026-10-31",
+    "status": "APPROUVE",
+    "note": "X"
+  },
+  {
+    "id": 7,
+    "employee": "JAMAA",
+    "type": "CP",
+    "startDate": "2026-07-13",
+    "endDate": "2026-08-15",
+    "status": "APPROUVE",
+    "note": "CP"
+  },
+  {
+    "id": 8,
+    "employee": "EL HASSANE",
+    "type": "CP",
+    "startDate": "2026-07-13",
+    "endDate": "2026-08-08",
+    "status": "APPROUVE",
+    "note": "CP"
+  },
+  {
+    "id": 9,
+    "employee": "MOHCINE",
+    "type": "CP",
+    "startDate": "2026-07-13",
+    "endDate": "2026-08-01",
+    "status": "APPROUVE",
+    "note": "CP"
+  },
+  {
+    "id": 10,
+    "employee": "LIYAKATH",
+    "type": "CP",
+    "startDate": "2026-07-20",
+    "endDate": "2026-08-08",
+    "status": "APPROUVE",
+    "note": "CP"
+  },
+  {
+    "id": 11,
+    "employee": "PASCALE",
+    "type": "CP",
+    "startDate": "2026-07-27",
+    "endDate": "2026-08-08",
+    "status": "APPROUVE",
+    "note": "CP"
+  },
+  {
+    "id": 12,
+    "employee": "CECILE",
+    "type": "CP",
+    "startDate": "2026-07-27",
+    "endDate": "2026-08-22",
+    "status": "APPROUVE",
+    "note": "CP"
+  },
+  {
+    "id": 13,
+    "employee": "ROSALIE",
+    "type": "CP",
+    "startDate": "2026-08-17",
+    "endDate": "2026-09-12",
+    "status": "APPROUVE",
+    "note": "CP"
+  },
+  {
+    "id": 14,
+    "employee": "MASSIMO",
+    "type": "CP",
+    "startDate": "2026-09-14",
+    "endDate": "2026-09-19",
+    "status": "APPROUVE",
+    "note": "CP"
+  },
+  {
+    "id": 15,
+    "employee": "JEREMY",
+    "type": "CP",
+    "startDate": "2026-09-14",
+    "endDate": "2026-09-19",
+    "status": "APPROUVE",
+    "note": "CP"
+  },
+  {
+    "id": 16,
+    "employee": "MASSIMO",
+    "type": "CP",
+    "startDate": "2026-10-05",
+    "endDate": "2026-10-17",
+    "status": "APPROUVE",
+    "note": "CP"
+  },
+  {
+    "id": 17,
+    "employee": "MAHIN",
+    "type": "CP",
+    "startDate": "2026-06-01",
+    "endDate": "2026-06-13",
+    "status": "APPROUVE",
+    "note": "CP"
+  },
+  {
+    "id": 18,
+    "employee": "ACHRAF",
+    "type": "CP",
+    "startDate": "2026-06-29",
+    "endDate": "2026-07-11",
+    "status": "APPROUVE",
+    "note": "CP"
+  },
+  {
+    "id": 19,
+    "employee": "MOHAMED",
+    "type": "CP",
+    "startDate": "2026-07-20",
+    "endDate": "2026-08-08",
+    "status": "APPROUVE",
+    "note": "CP"
+  },
+  {
+    "id": 20,
+    "employee": "DILAXSHAN",
+    "type": "CP",
+    "startDate": "2026-08-17",
+    "endDate": "2026-08-29",
+    "status": "APPROUVE",
+    "note": "CP"
+  },
+  {
+    "id": 21,
+    "employee": "YLEANA",
+    "type": "CP",
+    "startDate": "2026-08-17",
+    "endDate": "2026-08-29",
+    "status": "APPROUVE",
+    "note": "CP"
+  },
+  {
+    "id": 22,
+    "employee": "KAMAR",
+    "type": "CONGE_MAT",
+    "startDate": "2026-06-01",
+    "endDate": "2026-10-31",
+    "status": "APPROUVE",
+    "note": "Congé maternité"
+  },
+  {
+    "id": 23,
+    "employee": "ROSALIE",
+    "type": "CP",
+    "startDate": "2026-03-23",
+    "endDate": "2026-03-28",
+    "status": "APPROUVE",
+    "note": "CP"
+  },
+  {
+    "id": 24,
+    "employee": "CECILE",
+    "type": "CP",
+    "startDate": "2026-03-02",
+    "endDate": "2026-03-07",
+    "status": "APPROUVE",
+    "note": "CP"
+  },
+  {
+    "id": 25,
+    "employee": "EL HASSANE",
+    "type": "CP",
+    "startDate": "2026-03-02",
+    "endDate": "2026-03-07",
+    "status": "APPROUVE",
+    "note": "CP"
+  },
+  {
+    "id": 26,
+    "employee": "JAMAA",
+    "type": "CP",
+    "startDate": "2026-03-20",
+    "endDate": "2026-03-21",
+    "status": "APPROUVE",
+    "note": "CP"
+  },
+  {
+    "id": 27,
+    "employee": "LIYAKATH",
+    "type": "CP",
+    "startDate": "2026-03-09",
+    "endDate": "2026-03-21",
+    "status": "APPROUVE",
+    "note": "CP"
+  },
+  {
+    "id": 28,
+    "employee": "MASSIMO",
+    "type": "CP",
+    "startDate": "2026-03-09",
+    "endDate": "2026-03-14",
+    "status": "APPROUVE",
+    "note": "CP"
+  },
+  {
+    "id": 29,
+    "employee": "DILAXSHAN",
+    "type": "CP",
+    "startDate": "2026-02-23",
+    "endDate": "2026-02-28",
+    "status": "APPROUVE",
+    "note": "CP"
+  },
+  {
+    "id": 30,
+    "employee": "MOHAMED",
+    "type": "CP",
+    "startDate": "2026-02-23",
+    "endDate": "2026-02-28",
+    "status": "APPROUVE",
+    "note": "CP"
+  },
+  {
+    "id": 31,
+    "employee": "MOHAMED",
+    "type": "CP",
+    "startDate": "2026-03-16",
+    "endDate": "2026-03-21",
+    "status": "APPROUVE",
+    "note": "CP"
+  },
+  {
+    "id": 32,
+    "employee": "KHANH",
+    "type": "CP",
+    "startDate": "2026-03-02",
+    "endDate": "2026-03-07",
+    "status": "APPROUVE",
+    "note": "CP"
+  },
+  {
+    "id": 33,
+    "employee": "ABDOU",
+    "type": "CP",
+    "startDate": "2026-03-18",
+    "endDate": "2026-03-19",
+    "status": "APPROUVE",
+    "note": "CP"
+  }
+]

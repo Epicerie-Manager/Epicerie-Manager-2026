@@ -1,6 +1,14 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
+import {
+  loadPlanningBinomes,
+  loadPlanningOverrides,
+  loadPlanningTriData,
+  savePlanningBinomes,
+  savePlanningOverrides,
+  savePlanningTriData,
+} from "@/lib/planning-store";
 
 /* ═══════════════════════════════════════════════════════════
    THEME — Planning = Bleu
@@ -22,6 +30,7 @@ const ST = {
   MAL:{c:V.red,bg:"#fef2f2",l:"Maladie",short:"MAL"},
   ABS:{c:V.pink,bg:"#fdf2f8",l:"Absence",short:"ABS"},
   FORM:{c:"#2563eb",bg:"#eff6ff",l:"Formation",short:"FOR"},
+  FERIE:{c:"#475569",bg:"#f1f5f9",l:"Jour férié",short:"FÉR"},
   X:{c:"#9ca3af",bg:"#f9fafb",l:"Non travaillé",short:"X"},
   CONGE_MAT:{c:V.orange,bg:"#fff7ed",l:"Congé mat.",short:"C.M"},
 };
@@ -491,14 +500,26 @@ export default function PlanningApp(){
   const [view,setView]=useState("mois");
   const [year,setYear]=useState(2026);
   const [month,setMonth]=useState(2);
-  const [selectedDate,setSelectedDate]=useState(new Date(2026,2,20));
+  const [selectedDate,setSelectedDate]=useState(new Date());
   const [filter,setFilter]=useState("ALL");
-  const [overrides,setOverrides]=useState({}); // key: "NAME_2026-03-20" → {s:"CP",h:"6h-13h"}
+  const [overrides,setOverrides]=useState(()=>loadPlanningOverrides()); // key: "NAME_2026-03-20" → {s:"CP",h:"6h-13h"}
   const [editing,setEditing]=useState(null);
-  const [triData,setTriData]=useState({1:["CECILE","WASIM"],2:["ROSALIE","JAMAA"],3:["JEREMY","KAMEL"],4:["EL HASSANE","LIYAKATH"],5:["KHANH","YASSINE"],6:["MOHCINE","PASCALE"]});
-  const [binomes,setBinomes]=useState([["ROSALIE","JEREMY"],["KHANH","CECILE"],["MOHCINE","KAMEL"],["EL HASSANE","JAMAA"],["WASIM","LIYAKATH"],["MOHAMED","PASCALE"]]);
+  const [triData,setTriData]=useState(()=>loadPlanningTriData());
+  const [binomes,setBinomes]=useState(()=>loadPlanningBinomes());
   const [editTri,setEditTri]=useState(null); // dow number
   const [editBinome,setEditBinome]=useState(null); // index
+
+  useEffect(()=>{
+    savePlanningOverrides(overrides);
+  },[overrides]);
+
+  useEffect(()=>{
+    savePlanningTriData(triData);
+  },[triData]);
+
+  useEffect(()=>{
+    savePlanningBinomes(binomes);
+  },[binomes]);
 
   const weekStart=useMemo(()=>{const d=new Date(selectedDate);d.setDate(d.getDate()-((d.getDay()+6)%7));return d;},[selectedDate]);
   const weekLabel=`${weekStart.getDate()} ${MOIS_FR[weekStart.getMonth()].substring(0,3)} → ${new Date(weekStart.getTime()+5*864e5).getDate()} ${MOIS_FR[new Date(weekStart.getTime()+5*864e5).getMonth()].substring(0,3)}`;
@@ -548,7 +569,7 @@ export default function PlanningApp(){
     setEditing(null);
   };
 
-  const todayDate=new Date(2026,2,20);
+  const todayDate=new Date();
   const mCount=EMPS.filter(e=>e.t==="M"&&getStatus(e,todayDate,overrides)==="PRESENT").length;
   const sCount=EMPS.filter(e=>e.t==="S"&&getStatus(e,todayDate,overrides)==="PRESENT").length;
   const absCount=EMPS.filter(e=>e.actif&&!["PRESENT","X"].includes(getStatus(e,todayDate,overrides))).length;

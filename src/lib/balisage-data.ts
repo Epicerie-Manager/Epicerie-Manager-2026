@@ -7,9 +7,9 @@ export type BalisageEmployeeStat = {
 export const balisageObjective = 800;
 
 export const balisageMonths = [
-  { id: "MARS_2026", label: "Mars 2026" },
-  { id: "FEVR_2026", label: "Fevrier 2026" },
   { id: "JANV_2026", label: "Janvier 2026" },
+  { id: "FEVR_2026", label: "Fevrier 2026" },
+  { id: "MARS_2026", label: "Mars 2026" },
   { id: "AVRIL_2026", label: "Avril 2026" },
   { id: "MAI_2026", label: "Mai 2026" },
   { id: "JUIN_2026", label: "Juin 2026" },

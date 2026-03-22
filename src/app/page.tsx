@@ -1,4 +1,7 @@
+"use client";
+
 import packageJson from "../../package.json";
+import { useEffect, useMemo, useState } from "react";
 import { Card }        from "@/components/ui/card";
 import { Kicker }      from "@/components/ui/kicker";
 import { KPI, KPIRow } from "@/components/ui/kpi";
@@ -6,40 +9,30 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { NavCard, NavCardGrid } from "@/components/ui/nav-card";
 import AgendaCard from "@/components/dashboard/agenda-card";
 import { moduleThemes } from "@/lib/theme";
+import { absenceRequests } from "@/lib/absences-data";
+import { loadAbsenceRequests, getAbsencesUpdatedEventName } from "@/lib/absences-store";
+import { balisageData, balisageMonths, balisageObjective, type BalisageEmployeeStat } from "@/lib/balisage-data";
+import { loadBalisageData, getBalisageUpdatedEventName } from "@/lib/balisage-store";
+import {
+  planningEmployees,
+  defaultPlanningBinomes,
+  defaultPlanningTriData,
+  loadPlanningBinomes,
+  loadPlanningOverrides,
+  loadPlanningTriData,
+  getPlanningStatus,
+  getPlanningTriPairForDate,
+  getPlanningBinomeForDate,
+  getPlanningUpdatedEventName,
+  type PlanningOverrides,
+  type PlanningTriData,
+  type PlanningBinomes,
+} from "@/lib/planning-store";
+import { getRhUpdatedEventName } from "@/lib/rh-store";
+import { plateauOperationsByMonth } from "@/lib/plateau-data";
 
-// ── Données statiques (Mars 2026) ────────────────
-const ABSENTS    = ["Kamar", "Liyakath", "Khanh"];
-const TRI_CADDIE = ["Jérémy", "Kamel"];
-const BINOME     = ["Mohamed", "Kamar"];
-
-const ALERTS = [
-  { id: 1, text: "Seulement 7 présents lundi matin", module: "Planning", tone: "yellow" as const },
-  { id: 2, text: "3 contrôles balisage en retard",   module: "Balisage", tone: "red"    as const },
-  { id: 3, text: "Nouveau plan plateau disponible",  module: "Plateau",  tone: "blue"   as const },
-];
-
-const WEEK = [
-  { label: "LUN", value: 7,  sub: "⚠ bas",      alert: true  },
-  { label: "MAR", value: 10, sub: "OK",          alert: false },
-  { label: "MER", value: 9,  sub: "OK",          alert: false },
-  { label: "JEU", value: 10, sub: "OK",          alert: false },
-  { label: "VEN", value: 11, sub: "Aujourd'hui", active: true },
-  { label: "SAM", value: 13, sub: "Renforcé",    alert: false },
-];
-
-const BALISAGE_RANK = [
-  { name: "Kamel",   total: 721, pct: 90, status: "ok"    as const },
-  { name: "Jérémy",  total: 590, pct: 74, status: "ok"    as const },
-  { name: "Fatima",  total: 448, pct: 56, status: "warn"  as const },
-  { name: "Mohamed", total: 312, pct: 39, status: "alert" as const },
-];
-
-const OPERATIONS = [
-  { name: "Chocolat de Pâques", detail: "S10→S15 · Zone Sucré", color: "#b91c2e", badge: "Plat. A" },
-  { name: "Foire au vin",       detail: "S11→S14 · Zone Salé",  color: "#1d5fa0", badge: "Plat. A" },
-  { name: "Jardin / Printemps", detail: "S12→S16 · Zone Mixte", color: "#167a48", badge: "Plat. B" },
-  { name: "Little Italy",       detail: "S13→S17 · Zone Salé",  color: "#c05a0c", badge: "Plat. C/D" },
-];
+type AlertTone = "yellow" | "red" | "blue";
+type RankStatus = "ok" | "warn" | "alert";
 
 // ── Helpers ──────────────────────────────────────
 const alertColors = {
@@ -55,6 +48,71 @@ const statusStyles = {
 };
 
 const medals = ["🥇", "🥈", "🥉"];
+const WEEK_LABELS = ["LUN", "MAR", "MER", "JEU", "VEN", "SAM"];
+const MONTH_TO_BALISAGE: Record<number, string> = {
+  0: "JANV_2026",
+  1: "FEVR_2026",
+  2: "MARS_2026",
+  3: "AVRIL_2026",
+  4: "MAI_2026",
+  5: "JUIN_2026",
+  6: "JUIL_2026",
+  7: "AOUT_2026",
+  8: "SEPT_2026",
+  9: "OCT_2026",
+  10: "NOV_2026",
+  11: "DEC_2026",
+};
+
+function parseMonthFromId(monthId: string) {
+  const [rawMonth, rawYear] = monthId.split("_");
+  const year = Number(rawYear);
+  const monthMap: Record<string, number> = {
+    JANV: 0,
+    FEVR: 1,
+    MARS: 2,
+    AVRIL: 3,
+    MAI: 4,
+    JUIN: 5,
+    JUIL: 6,
+    AOUT: 7,
+    SEPT: 8,
+    OCT: 9,
+    NOV: 10,
+    DEC: 11,
+  };
+  return {
+    year,
+    month: monthMap[rawMonth] ?? 0,
+  };
+}
+
+function getBalisageDynamicStatus(total: number, monthId: string, today = new Date()) {
+  const { year, month } = parseMonthFromId(monthId);
+  const monthStart = new Date(year, month, 1);
+  const monthEnd = new Date(year, month + 1, 0);
+  const totalDays = monthEnd.getDate();
+
+  const isPastMonth = today > monthEnd;
+  const isFutureMonth = today < monthStart;
+
+  if (isFutureMonth) return "OK";
+  if (isPastMonth) {
+    if (total >= balisageObjective) return "OK";
+    if (total >= balisageObjective * 0.9) return "En retard";
+    return "Alerte";
+  }
+
+  const completedDays = Math.max(today.getDate() - 1, 0);
+  const remainingDays = Math.max(totalDays - completedDays, 1);
+  const remainingControls = Math.max(balisageObjective - total, 0);
+  const nominalDailyPace = balisageObjective / totalDays;
+  const requiredDailyPace = remainingControls / remainingDays;
+  const paceRatio = requiredDailyPace / nominalDailyPace;
+  if (paceRatio <= 1) return "OK";
+  if (paceRatio <= 1.1) return "En retard";
+  return "Alerte";
+}
 
 // ── Icônes SVG inline (strokeWidth 1.8) ──────────
 const svgProps = {
@@ -118,6 +176,161 @@ export default function DashboardPage() {
   const plan  = moduleThemes.planning;
   const bal   = moduleThemes.balisage;
   const plat  = moduleThemes.plateau;
+  const [now, setNow] = useState(() => new Date("2026-03-22T12:00:00+01:00"));
+  const [absences, setAbsences] = useState(absenceRequests);
+  const [planningOverrides, setPlanningOverrides] = useState<PlanningOverrides>({});
+  const [planningTriData, setPlanningTriData] = useState<PlanningTriData>(defaultPlanningTriData);
+  const [planningBinomes, setPlanningBinomes] = useState<PlanningBinomes>(defaultPlanningBinomes);
+  const [balisageDataState, setBalisageDataState] = useState<Record<string, BalisageEmployeeStat[]>>(balisageData);
+
+  useEffect(() => {
+    const refreshAll = () => {
+      setNow(new Date());
+      setAbsences(loadAbsenceRequests());
+      setPlanningOverrides(loadPlanningOverrides());
+      setPlanningTriData(loadPlanningTriData());
+      setPlanningBinomes(loadPlanningBinomes());
+      setBalisageDataState(loadBalisageData());
+    };
+
+    refreshAll();
+    const minuteTimer = window.setInterval(() => setNow(new Date()), 60000);
+    const listeners = [
+      getAbsencesUpdatedEventName(),
+      getPlanningUpdatedEventName(),
+      getBalisageUpdatedEventName(),
+      getRhUpdatedEventName(),
+    ];
+    listeners.forEach((eventName) => window.addEventListener(eventName, refreshAll));
+
+    return () => {
+      window.clearInterval(minuteTimer);
+      listeners.forEach((eventName) => window.removeEventListener(eventName, refreshAll));
+    };
+  }, []);
+
+  const today = now;
+  const todayIso = today.toISOString().slice(0, 10);
+  const todayLabel = today.toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+
+  const presenceByType = useMemo(() => {
+    return planningEmployees.reduce(
+      (acc, employee) => {
+        const status = getPlanningStatus(employee, today, planningOverrides);
+        if (status === "PRESENT") {
+          if (employee.t === "M") acc.morning += 1;
+          if (employee.t === "S") acc.afternoon += 1;
+          if (employee.t === "E") acc.students += 1;
+        }
+        if (employee.actif && !["PRESENT", "X"].includes(status) && employee.t !== "E") {
+          acc.absentNames.push(employee.n);
+        }
+        return acc;
+      },
+      { morning: 0, afternoon: 0, students: 0, absentNames: [] as string[] },
+    );
+  }, [planningOverrides, today]);
+
+  const triPair = getPlanningTriPairForDate(today, planningTriData) ?? [];
+  const binomePair = getPlanningBinomeForDate(today, planningBinomes) ?? [];
+
+  const weekCards = useMemo(() => {
+    const base = new Date(today);
+    const mondayOffset = (base.getDay() + 6) % 7;
+    base.setDate(base.getDate() - mondayOffset);
+
+    return WEEK_LABELS.map((label, index) => {
+      const date = new Date(base);
+      date.setDate(base.getDate() + index);
+      const dayIso = date.toISOString().slice(0, 10);
+      const isFuture = date > today;
+      const morningCount = planningEmployees.filter((employee) => employee.t === "M").reduce((sum, employee) => {
+        const status = getPlanningStatus(employee, date, planningOverrides);
+        return status === "PRESENT" ? sum + 1 : sum;
+      }, 0);
+      const alert = !isFuture && morningCount < 9;
+      return {
+        label,
+        value: morningCount,
+        sub: date.toDateString() === today.toDateString() ? "Aujourd'hui" : alert ? "⚠ bas" : "OK",
+        alert,
+        active: dayIso === todayIso,
+      };
+    });
+  }, [planningOverrides, today, todayIso]);
+  const avgMorning = weekCards.length
+    ? (weekCards.reduce((sum, day) => sum + day.value, 0) / weekCards.length).toFixed(1)
+    : "0.0";
+  const weekAlertCount = weekCards.filter((day) => day.alert).length;
+  const activeMorningEmployees = planningEmployees.filter((employee) => employee.t === "M" && employee.actif).length;
+
+  const monthId = MONTH_TO_BALISAGE[today.getMonth()] ?? "MARS_2026";
+  const monthLabel = balisageMonths.find((month) => month.id === monthId)?.label ?? "Mois courant";
+  const balisageStats = balisageDataState[monthId] ?? [];
+  const balisageTotalControls = balisageStats.reduce((sum, row) => sum + row.total, 0);
+  const balisageEmployeeCount = Math.max(balisageStats.length, 1);
+  const balisageGlobalPercent = Math.min(
+    Math.round((balisageTotalControls / (balisageEmployeeCount * balisageObjective)) * 100),
+    100,
+  );
+  const balisageAverage = Math.round(balisageTotalControls / balisageEmployeeCount);
+  const balisageAlertsCount = balisageStats.filter((employee) => getBalisageDynamicStatus(employee.total, monthId, today) === "Alerte").length;
+
+  const balisageRank = [...balisageStats]
+    .sort((a, b) => b.total - a.total)
+    .slice(0, 4)
+    .map((employee) => {
+      const dynamicStatus = getBalisageDynamicStatus(employee.total, monthId, today);
+      const rankStatus: RankStatus = dynamicStatus === "OK" ? "ok" : dynamicStatus === "En retard" ? "warn" : "alert";
+      return {
+        name: employee.name,
+        total: employee.total,
+        pct: Math.min(Math.round((employee.total / balisageObjective) * 100), 100),
+        status: rankStatus,
+      };
+    });
+
+  const pendingAbsences = absences.filter((request) => request.status === "EN_ATTENTE").length;
+  const operationsMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+  const operationsByZone = plateauOperationsByMonth[operationsMonthKey] ?? {};
+  const operations = Object.entries(operationsByZone)
+    .flatMap(([zone, rows]) => rows.map((row) => ({ zone, ...row })))
+    .slice(0, 4)
+    .map((row, index) => {
+      const colorMap: Record<string, string> = {
+        "Plateau A": "#b91c2e",
+        "Plateau B": "#167a48",
+        "Plateau C/D": "#1d5fa0",
+      };
+      const color = colorMap[row.zone] ?? "#c05a0c";
+      return {
+        id: `${row.zone}-${index}`,
+        name: row.operation,
+        detail: `${row.slot}${row.zone ? ` · ${row.zone}` : ""}`,
+        color,
+        badge: row.zone.replace("Plateau ", "Plat. "),
+      };
+    });
+
+  const alerts = [
+    ...(weekCards.some((item) => item.alert)
+      ? [{ id: "plan-low", text: "Effectif matin bas sur la semaine en cours", module: "Planning", tone: "yellow" as AlertTone }]
+      : []),
+    ...(pendingAbsences > 0
+      ? [{ id: "abs-pending", text: `${pendingAbsences} demande(s) d'absence en attente`, module: "Absences", tone: "yellow" as AlertTone }]
+      : []),
+    ...(balisageAlertsCount > 0
+      ? [{ id: "bal-alert", text: `${balisageAlertsCount} profil(s) balisage en alerte`, module: "Balisage", tone: "red" as AlertTone }]
+      : []),
+    ...(operations.length > 0
+      ? [{ id: "plat-active", text: "Opérations plateau en cours ce mois", module: "Plateau", tone: "blue" as AlertTone }]
+      : []),
+  ];
 
   return (
     <div>
@@ -163,9 +376,9 @@ export default function DashboardPage() {
         </div>
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "flex-end" }}>
           {[
-            { label: "Vendredi 20 mars 2026", color: plan.color,  bg: plan.light,  border: plan.medium },
-            { label: "11 présents matin",     color: "#065f46",   bg: "#ecfdf5",   border: "#bbf7d0" },
-            { label: "3 alertes",             color: dash.color,  bg: dash.light,  border: dash.medium },
+            { label: todayLabel, color: plan.color,  bg: plan.light,  border: plan.medium },
+            { label: `${presenceByType.morning} présents matin`, color: "#065f46", bg: "#ecfdf5", border: "#bbf7d0" },
+            { label: `${alerts.length} alertes`, color: dash.color, bg: dash.light, border: dash.medium },
             { label: `v${packageJson.version}`,color: "#64748b", bg: "#f1f5f9",   border: "#dbe3eb" },
           ].map((p) => (
             <span key={p.label} style={{
@@ -198,16 +411,16 @@ export default function DashboardPage() {
             <p style={{ fontSize: "12px", color: "#64748b", marginTop: "3px", marginBottom: "14px" }}>Vision immédiate des effectifs et des points à vérifier.</p>
 
             <KPIRow>
-              <KPI value={11} label="Matin"      moduleKey="planning" icon={<IconUsers />} />
-              <KPI value={2}  label="Après-midi" moduleKey="planning" icon={<IconUsers />} />
-              <KPI value={0}  label="Étudiants"  moduleKey="balisage" icon={<IconUsers />} size="md" />
+              <KPI value={presenceByType.morning} label="Matin"      moduleKey="planning" icon={<IconUsers />} />
+              <KPI value={presenceByType.afternoon}  label="Après-midi" moduleKey="planning" icon={<IconUsers />} />
+              <KPI value={presenceByType.students}  label="Étudiants"  moduleKey="balisage" icon={<IconUsers />} size="md" />
             </KPIRow>
 
             <StatusBox tone="yellow">
-              <strong>Absents : </strong>{ABSENTS.join(", ")}
+              <strong>Absents : </strong>{presenceByType.absentNames.length ? presenceByType.absentNames.join(", ") : "Aucun"}
             </StatusBox>
             <StatusBox tone="neutral">
-              <strong>Tri caddie : </strong>{TRI_CADDIE.join(", ")}
+              <strong>Tri caddie : </strong>{triPair.length ? triPair.join(", ") : "Non défini"}
             </StatusBox>
           </Card>
 
@@ -231,10 +444,10 @@ export default function DashboardPage() {
           <Card>
             <Kicker moduleKey="plateau" label="Plateaux" icon={<IconMap />} />
             <h2 style={{ fontSize: "17px", fontWeight: 700, letterSpacing: "-0.02em", color: "#0f172a" }}>Chantiers terrain</h2>
-            <p style={{ fontSize: "12px", color: "#64748b", marginTop: "3px", marginBottom: "10px" }}>Mars – Avril 2026</p>
+            <p style={{ fontSize: "12px", color: "#64748b", marginTop: "3px", marginBottom: "10px" }}>{monthLabel}</p>
 
-            {OPERATIONS.map((op) => (
-              <div key={op.name} style={{
+            {operations.map((op) => (
+              <div key={op.id} style={{
                 display: "flex", alignItems: "center", justifyContent: "space-between",
                 padding: "10px 0", borderBottom: "1px solid #dbe3eb",
               }}>
@@ -257,6 +470,11 @@ export default function DashboardPage() {
                 </span>
               </div>
             ))}
+            {operations.length === 0 ? (
+              <div style={{ fontSize: "12px", color: "#64748b", padding: "8px 0" }}>
+                Aucune opération terrain sur ce mois.
+              </div>
+            ) : null}
             {/* Enlever la bordure du dernier élément */}
             <style>{`div[data-ops-last] { border-bottom: none !important; }`}</style>
           </Card>
@@ -272,7 +490,7 @@ export default function DashboardPage() {
             <h2 style={{ fontSize: "17px", fontWeight: 700, letterSpacing: "-0.02em", color: "#0f172a" }}>Alertes à lire en premier</h2>
             <p style={{ fontSize: "12px", color: "#64748b", marginTop: "3px", marginBottom: "14px" }}>Points qui nécessitent votre attention</p>
 
-            {ALERTS.map((a) => {
+            {alerts.map((a) => {
               const c = alertColors[a.tone];
               return (
                 <div key={a.id} style={{
@@ -309,7 +527,7 @@ export default function DashboardPage() {
             <p style={{ fontSize: "12px", color: "#64748b", marginTop: "3px", marginBottom: "12px" }}>Cliquer sur un jour pour éditer</p>
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: "8px" }}>
-              {WEEK.map((d) => (
+              {weekCards.map((d) => (
                 <div key={d.label} style={{
                   borderRadius: "12px", padding: "10px 6px", textAlign: "center",
                   border: d.active
@@ -349,8 +567,8 @@ export default function DashboardPage() {
 
             <div style={{ display: "flex", gap: "8px" }}>
               {[
-                { label: "Tri caddie", value: TRI_CADDIE.join(" · ") },
-                { label: "Binôme repos", value: BINOME.join(" · ") },
+                { label: "Tri caddie", value: triPair.length ? triPair.join(" · ") : "Non défini" },
+                { label: "Binôme repos", value: binomePair.length ? binomePair.join(" · ") : "Non défini" },
               ].map((b) => (
                 <div key={b.label} style={{
                   flex: 1,
@@ -377,9 +595,9 @@ export default function DashboardPage() {
             <h2 style={{ fontSize: "17px", fontWeight: 700, letterSpacing: "-0.02em", color: "#0f172a" }}>Vue mensuelle</h2>
             <p style={{ fontSize: "12px", color: "#64748b", marginTop: "3px", marginBottom: "12px" }}>Mars 2026 — données en cours</p>
             <KPIRow style={{ marginBottom: 0 }}>
-              <KPI value="10.2" label="Moy. matin/j"  moduleKey="planning"  icon={<IconTrend />} size="md" />
-              <KPI value={2}    label="Jours alerte"  moduleKey="plateau"   icon={<IconAlert />} size="md" />
-              <KPI value={14}   label="Effectif actif" moduleKey="plantg"   icon={<IconUsers />} size="md" />
+              <KPI value={avgMorning} label="Moy. matin/j"  moduleKey="planning"  icon={<IconTrend />} size="md" />
+              <KPI value={weekAlertCount} label="Jours alerte"  moduleKey="plateau"   icon={<IconAlert />} size="md" />
+              <KPI value={activeMorningEmployees} label="Effectif actif" moduleKey="plantg"   icon={<IconUsers />} size="md" />
             </KPIRow>
           </Card>
 
@@ -420,19 +638,19 @@ export default function DashboardPage() {
                 fontSize: "44px", fontWeight: 700, letterSpacing: "-0.05em",
                 color: bal.color, lineHeight: 1,
               }}>
-                312 <span style={{ fontSize: "22px", color: "#64748b", fontWeight: 400 }}>/&nbsp;800</span>
+                {balisageAverage} <span style={{ fontSize: "22px", color: "#64748b", fontWeight: 400 }}>/&nbsp;{balisageObjective}</span>
               </div>
               <div style={{ fontSize: "12px", color: "#64748b", marginTop: "6px" }}>
-                39% atteint · Taux erreur 4.2%
+                {balisageGlobalPercent}% atteint · {monthLabel}
               </div>
             </div>
 
             <ProgressBar
-              value={39}
+              value={balisageGlobalPercent}
               moduleKey="balisage"
               label="Avancement global"
-              subLeft="8 employés suivis"
-              subRight="3 alertes actives"
+              subLeft={`${balisageStats.length} employés suivis`}
+              subRight={`${balisageAlertsCount} alertes actives`}
             />
 
             <Divider />
@@ -441,7 +659,7 @@ export default function DashboardPage() {
             <div style={{ fontSize: "10px", fontWeight: 700, letterSpacing: "0.05em", textTransform: "uppercase", color: "#64748b", marginBottom: "8px" }}>
               Classement
             </div>
-            {BALISAGE_RANK.map((emp, i) => {
+            {balisageRank.map((emp, i) => {
               const s = statusStyles[emp.status];
               return (
                 <div key={emp.name} style={{ display: "flex", alignItems: "center", gap: "8px", padding: "6px 0" }}>
@@ -468,6 +686,11 @@ export default function DashboardPage() {
                 </div>
               );
             })}
+            {balisageRank.length === 0 ? (
+              <div style={{ fontSize: "12px", color: "#64748b", paddingTop: "6px" }}>
+                Aucune donnée balisage disponible.
+              </div>
+            ) : null}
           </Card>
 
         </div>

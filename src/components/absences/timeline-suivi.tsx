@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Kicker } from "@/components/ui/kicker";
 import { moduleThemes } from "@/lib/theme";
@@ -10,6 +10,13 @@ import {
   type AbsenceStatusId,
   type AbsenceTypeId,
 } from "@/lib/absences-data";
+import {
+  getPlanningStatus,
+  getPlanningUpdatedEventName,
+  loadPlanningOverrides,
+  planningEmployees,
+  type PlanningOverrides,
+} from "@/lib/planning-store";
 
 type TimelineSuiviProps = {
   absences: AbsenceRequest[];
@@ -85,15 +92,14 @@ function getPresenceColor(present: number, warningThreshold: number, criticalThr
 
 function EffectifParJour({
   perDay,
-  totalEmployees,
   warningThreshold,
   criticalThreshold,
 }: {
   perDay: Array<{ dayIso: string; present: number; absent: number }>;
-  totalEmployees: number;
   warningThreshold: number;
   criticalThreshold: number;
 }) {
+  const peakScheduled = Math.max(...perDay.map((day) => day.present + day.absent), 1);
   return (
     <div
       style={{
@@ -135,7 +141,7 @@ function EffectifParJour({
 
       <div style={{ display: "flex", alignItems: "flex-end", height: "38px" }}>
         {perDay.map((day) => {
-          const height = (day.present / Math.max(totalEmployees, 1)) * 100;
+          const height = (day.present / peakScheduled) * 100;
           const color = getPresenceColor(day.present, warningThreshold, criticalThreshold);
           return (
             <div
@@ -157,6 +163,7 @@ function EffectifParJour({
 
 export function TimelineSuivi({ absences, employees }: TimelineSuiviProps) {
   const theme = moduleThemes.absences;
+  const [planningOverrides, setPlanningOverrides] = useState<PlanningOverrides>({});
   const [view, setView] = useState<ViewMode>("periode");
   const [year, setYear] = useState(2026);
   const [month, setMonth] = useState(6);
@@ -174,6 +181,44 @@ export function TimelineSuivi({ absences, employees }: TimelineSuiviProps) {
     [absences, employees],
   );
 
+  useEffect(() => {
+    const refreshPlanning = () => {
+      setPlanningOverrides(loadPlanningOverrides());
+    };
+    refreshPlanning();
+    const eventName = getPlanningUpdatedEventName();
+    window.addEventListener(eventName, refreshPlanning);
+    return () => window.removeEventListener(eventName, refreshPlanning);
+  }, []);
+
+  const getPresenceForDay = useMemo(() => {
+    return (dayIso: string, sourceAbsences: AbsenceRequest[]) => {
+      const date = toDate(dayIso);
+      const scheduledEmployees = planningEmployees.filter(
+        (employee) => getPlanningStatus(employee, date, planningOverrides) === "PRESENT",
+      );
+      const scheduledNames = new Set(scheduledEmployees.map((employee) => employee.n));
+      const absentNames = new Set<string>();
+
+      sourceAbsences.forEach((absence) => {
+        if (absence.status !== "APPROUVE") return;
+        if (absence.startDate > dayIso || absence.endDate < dayIso) return;
+
+        if (absence.employee === "TOUS") {
+          scheduledNames.forEach((name) => absentNames.add(name));
+          return;
+        }
+        if (scheduledNames.has(absence.employee)) {
+          absentNames.add(absence.employee);
+        }
+      });
+
+      const absent = absentNames.size;
+      const present = Math.max(scheduledEmployees.length - absent, 0);
+      return { present, absent };
+    };
+  }, [planningOverrides]);
+
   const filteredAbsences = useMemo(() => {
     return absences.filter((absence) =>
       filterStatus === "ALL" ? true : absence.status === filterStatus,
@@ -183,8 +228,7 @@ export function TimelineSuivi({ absences, employees }: TimelineSuiviProps) {
   const todayIso = new Date().toISOString().slice(0, 10);
   const approved = filteredAbsences.filter((item) => item.status === "APPROUVE");
   const pending = filteredAbsences.filter((item) => item.status === "EN_ATTENTE");
-  const absentToday = approved.filter((item) => item.startDate <= todayIso && item.endDate >= todayIso).length;
-  const presentToday = Math.max(allEmployees.length - absentToday, 0);
+  const { absent: absentToday, present: presentToday } = getPresenceForDay(todayIso, approved);
 
   const legendTypeCounts = useMemo(() => {
     const counters: Record<AbsenceTypeId, number> = {
@@ -457,6 +501,7 @@ export function TimelineSuivi({ absences, employees }: TimelineSuiviProps) {
             month={month}
             absences={filteredAbsences}
             employees={allEmployees}
+            getPresenceForDay={getPresenceForDay}
             warningThreshold={warningThreshold}
             criticalThreshold={criticalThreshold}
           />
@@ -467,6 +512,7 @@ export function TimelineSuivi({ absences, employees }: TimelineSuiviProps) {
             dateTo={dateTo}
             absences={filteredAbsences}
             employees={allEmployees}
+            getPresenceForDay={getPresenceForDay}
             warningThreshold={warningThreshold}
             criticalThreshold={criticalThreshold}
           />
@@ -484,6 +530,7 @@ function VueMois({
   month,
   absences,
   employees,
+  getPresenceForDay,
   warningThreshold,
   criticalThreshold,
 }: {
@@ -491,6 +538,7 @@ function VueMois({
   month: number;
   absences: AbsenceRequest[];
   employees: string[];
+  getPresenceForDay: (dayIso: string, sourceAbsences: AbsenceRequest[]) => { present: number; absent: number };
   warningThreshold: number;
   criticalThreshold: number;
 }) {
@@ -507,12 +555,10 @@ function VueMois({
   const perDay = Array.from({ length: days }, (_, index) => {
     const currentDay = index + 1;
     const currentIso = isoDate(year, month, currentDay);
-    const absent = relevantApproved.filter(
-      (absence) => absence.startDate <= currentIso && absence.endDate >= currentIso,
-    ).length;
+    const { present, absent } = getPresenceForDay(currentIso, relevantApproved);
     return {
       dayIso: currentIso,
-      present: Math.max(employees.length - absent, 0),
+      present,
       absent,
     };
   });
@@ -531,7 +577,6 @@ function VueMois({
     <div>
       <EffectifParJour
         perDay={perDay}
-        totalEmployees={employees.length}
         warningThreshold={warningThreshold}
         criticalThreshold={criticalThreshold}
       />
@@ -613,6 +658,7 @@ function VuePeriode({
   dateTo,
   absences,
   employees,
+  getPresenceForDay,
   warningThreshold,
   criticalThreshold,
 }: {
@@ -620,6 +666,7 @@ function VuePeriode({
   dateTo: string;
   absences: AbsenceRequest[];
   employees: string[];
+  getPresenceForDay: (dayIso: string, sourceAbsences: AbsenceRequest[]) => { present: number; absent: number };
   warningThreshold: number;
   criticalThreshold: number;
 }) {
@@ -676,15 +723,14 @@ function VuePeriode({
   const perDay = Array.from({ length: totalDays }, (_, index) => {
     const day = new Date(from.getTime() + index * 86400000);
     const dayIso = isoDate(day.getFullYear(), day.getMonth(), day.getDate());
-    const absent = filtered.filter((absence) => absence.status === "APPROUVE" && absence.startDate <= dayIso && absence.endDate >= dayIso).length;
-    return { dayIso, present: Math.max(employees.length - absent, 0), absent };
+    const { present, absent } = getPresenceForDay(dayIso, filtered);
+    return { dayIso, present, absent };
   });
 
   return (
     <div>
       <EffectifParJour
         perDay={perDay}
-        totalEmployees={employees.length}
         warningThreshold={warningThreshold}
         criticalThreshold={criticalThreshold}
       />

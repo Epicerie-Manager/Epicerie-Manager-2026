@@ -1,6 +1,6 @@
 import { absenceRequests, type AbsenceRequest } from "@/lib/absences-data";
 
-const ABSENCES_STORAGE_KEY = "epicerie-manager-absences-requests-v1";
+const ABSENCES_STORAGE_KEY = "epicerie-manager-absences-requests-v3";
 const ABSENCES_UPDATED_EVENT = "epicerie-manager:absences-updated";
 
 function isValidRequest(value: unknown): value is AbsenceRequest {

@@ -63,12 +63,12 @@ const EventIcon = ({ type, color, size = 13 }) => {
    AGENDA CARD COMPONENT
    ═══════════════════════════════════════════════════════════ */
 export default function AgendaCard({ events = MOCK_EVENTS, calendarUrl = "https://calendar.google.com" }) {
-  const [now, setNow] = useState(() => new Date());
+  const [now, setNow] = useState(null);
   const [loading, setLoading] = useState(true);
   const [connected, setConnected] = useState(false);
   const [apiEvents, setApiEvents] = useState([]);
   const [showAll, setShowAll] = useState(false);
-  const currentHour = now.getHours();
+  const currentHour = now ? now.getHours() : -1;
   const displayedEvents = connected ? apiEvents : events;
 
   const firstRelevantIndex = displayedEvents.findIndex((ev) => ev.startHour >= currentHour - 1);
@@ -102,6 +102,7 @@ export default function AgendaCard({ events = MOCK_EVENTS, calendarUrl = "https:
   }, []);
 
   useEffect(() => {
+    setNow(new Date());
     const timer = window.setInterval(() => {
       setNow(new Date());
     }, 60000);

@@ -291,7 +291,7 @@
   </main>
 
   <script>
-    const STORAGE_KEY = "epicerie-manager-roadmap-v1";
+    const STORAGE_KEY = "epicerie-manager-roadmap-v2-2026-03-22";
     const BASE_URL = "http://localhost:3000";
 
     const STATUS = {
@@ -313,12 +313,15 @@
         objective: "Remplacer Google Site par une app utile au quotidien.",
         tasks: [
           { id: "v1-cadrage", title: "Cadrage", description: "Comprendre l'existant et definir le perimetre.", defaultStatus: "done" },
-          { id: "v1-spec", title: "Specification MVP", description: "Formaliser les ecrans et les donnees obligatoires de la V1.", defaultStatus: "progress" },
+          { id: "v1-spec", title: "Specification MVP", description: "Formaliser les ecrans et les donnees obligatoires de la V1.", defaultStatus: "done" },
           { id: "v1-structure", title: "Structure technique", description: "Socle Next.js + app shell + theming modules.", defaultStatus: "done", link: BASE_URL + "/" },
           { id: "v1-planning", title: "Module Planning", description: "Consultation du planning epicerie (refonte recente).", defaultStatus: "done", link: BASE_URL + "/planning" },
           { id: "v1-tg", title: "Module Plan TG", description: "Consultation des plans TG / GB.", defaultStatus: "done", link: BASE_URL + "/plan-tg" },
-          { id: "v1-plateau", title: "Module Plan Plateau", description: "Consultation des plans plateau.", defaultStatus: "done", link: BASE_URL + "/plan-plateau" },
+          { id: "v1-plateau", title: "Module Plan Plateau", description: "Consultation des plans plateau + import PDF hebdo cale.", defaultStatus: "done", link: BASE_URL + "/plan-plateau" },
           { id: "v1-stats", title: "Module Stats", description: "Consultation stats balisage et suivi visuel.", defaultStatus: "done", link: BASE_URL + "/stats" },
+          { id: "v1-rh", title: "Module RH", description: "Brique RH integree avec creation employe.", defaultStatus: "done", link: BASE_URL + "/rh" },
+          { id: "v1-gcal", title: "Tuile Google Agenda", description: "Connexion OAuth Google Agenda active sur dashboard.", defaultStatus: "done", link: BASE_URL + "/" },
+          { id: "v1-infos", title: "Module Infos (contenu)", description: "Structure prete mais donnees metier encore a injecter.", defaultStatus: "todo", link: BASE_URL + "/infos" },
           { id: "v1-validation", title: "Validation terrain", description: "Verifier les usages reels avec l'equipe en condition magasin.", defaultStatus: "todo" },
           { id: "v1-mise-en-ligne", title: "Mise en ligne", description: "Rendre l'application utilisable en production terrain.", defaultStatus: "todo" }
         ]
@@ -328,11 +331,11 @@
         title: "V2 - Gerer les demandes",
         objective: "Structurer le workflow absences cote collaborateur et manager.",
         tasks: [
-          { id: "v2-cadrage", title: "Cadrage absences", description: "Definir les regles de demande et de validation.", defaultStatus: "progress" },
-          { id: "v2-formulaire", title: "Formulaire absence", description: "Saisie collaborateur (base ecran deja presente).", defaultStatus: "progress", link: BASE_URL + "/absences" },
-          { id: "v2-suivi", title: "Suivi manager", description: "Validation/refus manager avec statut des demandes.", defaultStatus: "todo" },
-          { id: "v2-historique", title: "Historique", description: "Voir les demandes passees + recherches simples.", defaultStatus: "todo" },
-          { id: "v2-integration", title: "Integration planning", description: "Reporter les absences validees dans le planning.", defaultStatus: "todo" }
+          { id: "v2-cadrage", title: "Cadrage absences", description: "Regles de demande/validation definies.", defaultStatus: "done" },
+          { id: "v2-formulaire", title: "Formulaire absence", description: "Saisie collaborateur et filtres operationnels.", defaultStatus: "done", link: BASE_URL + "/absences" },
+          { id: "v2-suivi", title: "Suivi manager", description: "Validation/refus + retour en attente + suppression.", defaultStatus: "done", link: BASE_URL + "/absences" },
+          { id: "v2-historique", title: "Historique", description: "Timeline annuelle/mensuelle/periode avec legendes et compteurs.", defaultStatus: "done", link: BASE_URL + "/absences" },
+          { id: "v2-integration", title: "Integration planning", description: "Reporter les absences validees dans le planning.", defaultStatus: "progress" }
         ]
       },
       {

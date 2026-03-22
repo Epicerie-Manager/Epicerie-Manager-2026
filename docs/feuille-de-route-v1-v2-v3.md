@@ -36,19 +36,22 @@ flowchart LR
     B --> C["V3<br/>Piloter"]
 ```
 
-## Tableau de suivi (etat au 21 mars 2026)
+## Tableau de suivi (etat au 22 mars 2026)
 
 ### V1
 
 | Etape | Description | Statut |
 |---|---|---|
 | Cadrage | Comprendre l'existant et definir le perimetre | Fait |
-| Specification MVP | Definir clairement ce qu'on met dans la V1 | En cours |
+| Specification MVP | Definir clairement ce qu'on met dans la V1 | Fait |
 | Structure technique | Creer la base du projet | Fait |
 | Module Planning | Afficher le planning | Fait |
 | Module TG | Afficher les plans TG / GB | Fait |
-| Module Plateau | Afficher les plans plateau | Fait |
+| Module Plateau | Afficher les plans plateau + import PDF hebdo | Fait |
 | Module Stats | Afficher les controles balisage | Fait |
+| Module RH | Gestion RH (fiche, suivi, creation employe) | Fait |
+| Tuile Google Agenda | Connexion OAuth + tuile dashboard | Fait |
+| Module Infos (contenu) | Contenu metier a injecter | En attente donnees |
 | Validation terrain | Verifier avec les vrais usages | A faire |
 | Mise en ligne | Rendre l'application utilisable | A faire |
 
@@ -56,11 +59,12 @@ flowchart LR
 
 | Etape | Description | Statut |
 |---|---|---|
-| Cadrage absences | Definir les regles de demande et validation | En cours |
-| Formulaire absence | Saisie collaborateur | En cours |
-| Suivi manager | Validation / refus | En cours |
-| Historique | Voir les demandes passees | A faire |
+| Cadrage absences | Definir les regles de demande et validation | Fait |
+| Formulaire absence | Saisie collaborateur | Fait |
+| Suivi manager | Validation / refus / retour en attente | Fait |
+| Historique | Voir les demandes passees | Fait |
 | Integration planning | Repercuter les absences | En cours |
+| Stabilisation UX timeline | Lisibilite, legendes, filtres, echelle, scroll | Fait |
 
 ### V3
 
@@ -86,11 +90,12 @@ Structure conseillee :
 
 Types de cartes a suivre en priorite immediate :
 
-- `Spec V1 (validation finale)`
 - `Validation terrain V1`
 - `Corrections V1`
 - `Mise en ligne V1`
-- `V2 Absences - Historique`
+- `Integration absences <-> planning`
+- `Module Infos - donnees et structure`
+- `Checklist exploitation (sauvegarde, securite, support)`
 
 ## Regle simple de pilotage
 
@@ -100,8 +105,9 @@ Types de cartes a suivre en priorite immediate :
 
 ## Prochaine etape
 
-La prochaine etape logique est :
+Les prochaines etapes logiques sont :
 
-- finaliser la specification MVP (`docs/spec-v1.md`) ;
 - executer une validation terrain courte (checklist) ;
-- corriger puis preparer la mise en ligne.
+- finaliser l'integration absences vers planning ;
+- cadrer le contenu du module infos ;
+- corriger puis preparer la mise en ligne (Netlify + runbook).

@@ -7,6 +7,7 @@ import { KPI, KPIRow } from "@/components/ui/kpi";
 import { ModuleHeader } from "@/components/layout/module-header";
 import { moduleThemes } from "@/lib/theme";
 import {
+  absenceRequests,
   absenceTypes,
   type AbsenceRequest,
   type AbsenceStatusId,
@@ -14,7 +15,7 @@ import {
 } from "@/lib/absences-data";
 import { loadAbsenceRequests, saveAbsenceRequests } from "@/lib/absences-store";
 import { TimelineSuivi } from "@/components/absences/timeline-suivi";
-import { getRhEmployeeNames, getRhUpdatedEventName } from "@/lib/rh-store";
+import { defaultRhEmployees, getRhEmployeeNames, getRhUpdatedEventName } from "@/lib/rh-store";
 
 type FilterStatus = "ALL" | AbsenceStatusId;
 
@@ -34,14 +35,15 @@ function getDayDiff(startDate: string, endDate: string) {
 
 export default function AbsencesPage() {
   const theme = moduleThemes.absences;
-  const initialRequests = useMemo(() => loadAbsenceRequests(), []);
-  const initialEmployees = useMemo(() => getRhEmployeeNames(), []);
-  const [requests, setRequests] = useState<AbsenceRequest[]>(initialRequests);
-  const [employees, setEmployees] = useState<string[]>(initialEmployees);
+  const [isInitialized, setIsInitialized] = useState(false);
+  const [requests, setRequests] = useState<AbsenceRequest[]>(absenceRequests);
+  const [employees, setEmployees] = useState<string[]>(
+    defaultRhEmployees.map((employee) => employee.n).sort((a, b) => a.localeCompare(b)),
+  );
   const [statusFilter, setStatusFilter] = useState<FilterStatus>("ALL");
   const [employeeFilter, setEmployeeFilter] = useState<string>("ALL");
   const [showForm, setShowForm] = useState(false);
-  const [nextId, setNextId] = useState(Math.max(...initialRequests.map((item) => item.id)) + 1);
+  const nextId = useMemo(() => Math.max(0, ...requests.map((item) => item.id)) + 1, [requests]);
   const [draft, setDraft] = useState<{
     employee: string;
     type: AbsenceTypeId;
@@ -49,7 +51,7 @@ export default function AbsencesPage() {
     endDate: string;
     note: string;
   }>({
-    employee: initialEmployees[0] ?? "",
+    employee: defaultRhEmployees[0]?.n ?? "",
     type: "CP",
     startDate: "",
     endDate: "",
@@ -68,8 +70,15 @@ export default function AbsencesPage() {
   }, [employeeFilter, requests, statusFilter]);
 
   useEffect(() => {
+    setRequests(loadAbsenceRequests());
+    setEmployees(getRhEmployeeNames());
+    setIsInitialized(true);
+  }, []);
+
+  useEffect(() => {
+    if (!isInitialized) return;
     saveAbsenceRequests(requests);
-  }, [requests]);
+  }, [isInitialized, requests]);
 
   useEffect(() => {
     const refreshEmployees = () => {
@@ -81,11 +90,12 @@ export default function AbsencesPage() {
           : { ...current, employee: names[0] ?? "" },
       );
     };
+    if (!isInitialized) return;
     refreshEmployees();
     const eventName = getRhUpdatedEventName();
     window.addEventListener(eventName, refreshEmployees);
     return () => window.removeEventListener(eventName, refreshEmployees);
-  }, []);
+  }, [isInitialized]);
 
   const pendingCount = requests.filter((request) => request.status === "EN_ATTENTE").length;
   const approvedCount = requests.filter((request) => request.status === "APPROUVE").length;
@@ -110,7 +120,6 @@ export default function AbsencesPage() {
         status: "EN_ATTENTE",
       },
     ]);
-    setNextId((current) => current + 1);
     setDraft({ employee: employees[0] ?? "", type: "CP", startDate: "", endDate: "", note: "" });
     setShowForm(false);
   };

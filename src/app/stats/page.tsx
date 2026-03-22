@@ -1,17 +1,17 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Kicker } from "@/components/ui/kicker";
 import { KPI, KPIRow } from "@/components/ui/kpi";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { ModuleHeader } from "@/components/layout/module-header";
 import {
-  balisageData,
   balisageMonths,
   balisageObjective,
   type BalisageEmployeeStat,
 } from "@/lib/balisage-data";
+import { loadBalisageData, saveBalisageData } from "@/lib/balisage-store";
 import { moduleThemes } from "@/lib/theme";
 
 type SortBy = "name" | "total" | "alert";
@@ -20,9 +20,55 @@ function getProgress(total: number) {
   return Math.min(Math.round((total / balisageObjective) * 100), 100);
 }
 
-function getStatus(total: number) {
-  if (total >= balisageObjective) return "OK";
-  if (total >= balisageObjective * 0.5) return "En retard";
+function parseMonthFromId(monthId: string) {
+  const [rawMonth, rawYear] = monthId.split("_");
+  const year = Number(rawYear);
+  const monthMap: Record<string, number> = {
+    JANV: 0,
+    FEVR: 1,
+    MARS: 2,
+    AVRIL: 3,
+    MAI: 4,
+    JUIN: 5,
+    JUIL: 6,
+    AOUT: 7,
+    SEPT: 8,
+    OCT: 9,
+    NOV: 10,
+    DEC: 11,
+  };
+  return {
+    year,
+    month: monthMap[rawMonth] ?? 0,
+  };
+}
+
+function getDynamicStatus(total: number, monthId: string, today = new Date()) {
+  const { year, month } = parseMonthFromId(monthId);
+  const monthStart = new Date(year, month, 1);
+  const monthEnd = new Date(year, month + 1, 0);
+  const totalDays = monthEnd.getDate();
+
+  const isPastMonth = today > monthEnd;
+  const isFutureMonth = today < monthStart;
+
+  if (isFutureMonth) return "OK";
+  if (isPastMonth) {
+    if (total >= balisageObjective) return "OK";
+    if (total >= balisageObjective * 0.9) return "En retard";
+    return "Alerte";
+  }
+
+  const completedDays = Math.max(today.getDate() - 1, 0);
+  const remainingDays = Math.max(totalDays - completedDays, 1);
+  const remainingControls = Math.max(balisageObjective - total, 0);
+
+  const nominalDailyPace = balisageObjective / totalDays;
+  const requiredDailyPace = remainingControls / remainingDays;
+  const paceRatio = requiredDailyPace / nominalDailyPace;
+
+  if (paceRatio <= 1) return "OK";
+  if (paceRatio <= 1.1) return "En retard";
   return "Alerte";
 }
 
@@ -32,7 +78,7 @@ export default function StatsPage() {
   const [editingName, setEditingName] = useState<string | null>(null);
   const [editingTotal, setEditingTotal] = useState("");
   const [editingErrorRate, setEditingErrorRate] = useState("");
-  const [localData, setLocalData] = useState<Record<string, BalisageEmployeeStat[]>>(balisageData);
+  const [localData, setLocalData] = useState<Record<string, BalisageEmployeeStat[]>>(() => loadBalisageData());
 
   const theme = moduleThemes.balisage;
   const activeMonth = balisageMonths[activeMonthIndex];
@@ -45,9 +91,13 @@ export default function StatsPage() {
     return list.sort((a, b) => a.name.localeCompare(b.name));
   }, [activeStats, sortBy]);
 
+  useEffect(() => {
+    saveBalisageData(localData);
+  }, [localData]);
+
   const totalControls = activeStats.reduce((sum, item) => sum + item.total, 0);
-  const employeesOk = activeStats.filter((item) => item.total >= balisageObjective).length;
-  const employeesAlert = activeStats.filter((item) => item.total < balisageObjective * 0.5).length;
+  const employeesOk = activeStats.filter((item) => getDynamicStatus(item.total, activeMonth.id) === "OK").length;
+  const employeesAlert = activeStats.filter((item) => getDynamicStatus(item.total, activeMonth.id) === "Alerte").length;
   const bestEmployee = [...activeStats].sort((a, b) => b.total - a.total)[0];
   const globalPercent = Math.min(
     Math.round((totalControls / (Math.max(activeStats.length, 1) * balisageObjective)) * 100),
@@ -194,7 +244,7 @@ export default function StatsPage() {
             <tbody>
               {sortedStats.map((employee) => {
                 const progress = getProgress(employee.total);
-                const status = getStatus(employee.total);
+                const status = getDynamicStatus(employee.total, activeMonth.id);
                 return (
                   <tr key={employee.name}>
                     <td style={{ borderBottom: "1px solid #e2e8f0", padding: "8px 10px", fontSize: "12px", color: "#0f172a", fontWeight: 600 }}>{employee.name}</td>

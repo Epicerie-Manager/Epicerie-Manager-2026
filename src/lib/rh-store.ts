@@ -10,6 +10,7 @@ export type RhEmployee = {
   obs: string;
   actif: boolean;
   photo: string | null;
+  rayons?: string[];
 };
 
 export type RhCycles = Record<string, string[]>;

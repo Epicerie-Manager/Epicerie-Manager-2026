@@ -11,6 +11,11 @@ import {
   saveRhCycles,
   saveRhEmployees,
 } from "@/lib/rh-store";
+import {
+  loadTgDefaultAssignments,
+  loadTgRayons,
+  saveTgDefaultAssignments,
+} from "@/lib/tg-store";
 
 /* ═══════════════════════════════════════════════════════════
    THEME — RH = Teal foncé
@@ -98,9 +103,17 @@ const KPI=({value,label,color,gradient,sub})=>(<div style={{borderRadius:16,padd
 /* ═══════════════════════════════════════════════════════════
    EDIT EMPLOYEE MODAL
    ═══════════════════════════════════════════════════════════ */
-const EditEmpModal=({emp,onSave,onClose})=>{
+const EditEmpModal=({emp,availableRayons,onSave,onClose})=>{
   const [d,setD]=useState({...emp});
   const upd=(k,v)=>setD(p=>({...p,[k]:v}));
+  const toggleRayon=(rayon)=>{
+    const current = Array.isArray(d.rayons) ? d.rayons : [];
+    if(current.includes(rayon)){
+      upd("rayons", current.filter((item)=>item!==rayon));
+      return;
+    }
+    upd("rayons", [...current, rayon]);
+  };
 
   const handlePhoto=(e)=>{
     const file=e.target.files?.[0];
@@ -167,6 +180,24 @@ const EditEmpModal=({emp,onSave,onClose})=>{
                 <button onClick={()=>upd("actif",true)} style={{flex:1,padding:"8px",borderRadius:8,border:d.actif?`2px solid ${V.green}`:`1px solid ${V.line}`,background:d.actif?"#ecfdf5":"#fafafa",color:d.actif?V.green:V.light,fontSize:12,fontWeight:700,cursor:"pointer"}}>Actif</button>
                 <button onClick={()=>upd("actif",false)} style={{flex:1,padding:"8px",borderRadius:8,border:!d.actif?`2px solid ${V.red}`:`1px solid ${V.line}`,background:!d.actif?"#fef2f2":"#fafafa",color:!d.actif?V.red:V.light,fontSize:12,fontWeight:700,cursor:"pointer"}}>Inactif</button>
               </div>
+            </div>
+          </div>
+
+          <div style={{fontSize:12,color:V.muted,fontWeight:700,marginBottom:8}}>RAYONS RESPONSABLE TG/GB</div>
+          <div style={{padding:"14px",borderRadius:14,background:"#f8fafc",border:`1px solid ${V.line}`,marginBottom:18}}>
+            <div style={{display:"grid",gap:6,maxHeight:170,overflowY:"auto",paddingRight:4}}>
+              {availableRayons.map((rayon)=> {
+                const checked = Array.isArray(d.rayons) && d.rayons.includes(rayon);
+                return (
+                  <label key={rayon} style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:V.body,cursor:"pointer"}}>
+                    <input type="checkbox" checked={checked} onChange={()=>toggleRayon(rayon)} style={{accentColor:V.mc}}/>
+                    <span>{rayon}</span>
+                  </label>
+                );
+              })}
+            </div>
+            <div style={{fontSize:10,color:V.light,marginTop:8}}>
+              Cette affectation définit le responsable par défaut des rayons dans le module Plan TG.
             </div>
           </div>
 
@@ -250,7 +281,7 @@ const EditCycleModal=({empName,cycle,onSave,onClose})=>{
   );
 };
 
-const NewEmpModal=({onSave,onClose})=>{
+const NewEmpModal=({availableRayons,onSave,onClose})=>{
   const [d,setD]=useState({
     n:"",
     t:"M",
@@ -260,9 +291,18 @@ const NewEmpModal=({onSave,onClose})=>{
     obs:"Employe",
     actif:true,
     photo:null,
+    rayons:[],
   });
   const [cycle,setCycle]=useState(["LUN","LUN","LUN","LUN","LUN"]);
   const upd=(k,v)=>setD(p=>({...p,[k]:v}));
+  const toggleRayon=(rayon)=>{
+    const current = Array.isArray(d.rayons) ? d.rayons : [];
+    if(current.includes(rayon)){
+      upd("rayons", current.filter((item)=>item!==rayon));
+      return;
+    }
+    upd("rayons", [...current, rayon]);
+  };
 
   const handleTypeChange=(value)=>{
     if(value==="E"){
@@ -341,6 +381,21 @@ const NewEmpModal=({onSave,onClose})=>{
                 <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Samedi</label>
                 <input value={d.hsa||""} onChange={e=>upd("hsa",e.target.value)} placeholder="Ex: 14h-21h30" style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.purple}25`,fontSize:14,fontWeight:700,outline:"none",boxSizing:"border-box",color:V.purple}}/>
               </div>
+            </div>
+          </div>
+
+          <div style={{fontSize:12,color:V.muted,fontWeight:700,marginBottom:8}}>RAYONS RESPONSABLE TG/GB</div>
+          <div style={{padding:"14px",borderRadius:14,background:"#f8fafc",border:`1px solid ${V.line}`,marginBottom:18}}>
+            <div style={{display:"grid",gap:6,maxHeight:170,overflowY:"auto",paddingRight:4}}>
+              {availableRayons.map((rayon)=> {
+                const checked = Array.isArray(d.rayons) && d.rayons.includes(rayon);
+                return (
+                  <label key={rayon} style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:V.body,cursor:"pointer"}}>
+                    <input type="checkbox" checked={checked} onChange={()=>toggleRayon(rayon)} style={{accentColor:V.mc}}/>
+                    <span>{rayon}</span>
+                  </label>
+                );
+              })}
             </div>
           </div>
 
@@ -490,18 +545,50 @@ const CycleOverview=({emps,cycles,onEditCycle})=>{
   );
 };
 
+function attachTgRayonsToEmployees(employees, assignments){
+  const map = new Map();
+  assignments.forEach((item)=>{
+    const list = map.get(item.employee) || [];
+    map.set(item.employee, [...list, item.rayon]);
+  });
+  return employees.map((employee)=>({
+    ...employee,
+    rayons: map.get(employee.n) || [],
+  }));
+}
+
 /* ═══════════════════════════════════════════════════════════
    MAIN APP
    ═══════════════════════════════════════════════════════════ */
 export default function RHModule(){
   const [view,setView]=useState("fiches"); // fiches | cycles
-  const [emps,setEmps]=useState(()=>loadRhEmployees()||defaultRhEmployees);
+  const [emps,setEmps]=useState(()=>{
+    const initialAssignments = loadTgDefaultAssignments();
+    return attachTgRayonsToEmployees(loadRhEmployees()||defaultRhEmployees, initialAssignments);
+  });
   const [cycles,setCycles]=useState(()=>loadRhCycles()||defaultRhCycles);
+  const [tgRayons,setTgRayons]=useState(()=>loadTgRayons());
+  const [tgAssignments,setTgAssignments]=useState(()=>loadTgDefaultAssignments());
   const [editEmp,setEditEmp]=useState(null);
   const [editCycleFor,setEditCycleFor]=useState(null);
   const [newEmpOpen,setNewEmpOpen]=useState(false);
   const [filterType,setFilterType]=useState("ALL");
   const [search,setSearch]=useState("");
+  const availableRayons = useMemo(
+    ()=>[...tgRayons]
+      .filter((rayon)=>rayon.active)
+      .sort((a,b)=>(Number(a.order)||0)-(Number(b.order)||0))
+      .map((rayon)=>rayon.rayon),
+    [tgRayons],
+  );
+  const rayonsByEmployee = useMemo(()=>{
+    const map = new Map();
+    tgAssignments.forEach((item)=>{
+      const list = map.get(item.employee) || [];
+      map.set(item.employee, [...list, item.rayon]);
+    });
+    return map;
+  },[tgAssignments]);
 
   const filtered=useMemo(()=>{
     let list=[...emps];
@@ -512,8 +599,11 @@ export default function RHModule(){
 
   useEffect(() => {
     const refresh = () => {
-      setEmps(loadRhEmployees());
+      const refreshedAssignments = loadTgDefaultAssignments();
+      setEmps(attachTgRayonsToEmployees(loadRhEmployees(), refreshedAssignments));
       setCycles(loadRhCycles());
+      setTgRayons(loadTgRayons());
+      setTgAssignments(refreshedAssignments);
     };
     const eventName = getRhUpdatedEventName();
     window.addEventListener(eventName, refresh);
@@ -538,6 +628,19 @@ export default function RHModule(){
           next[updated.n] = existing;
           saveRhCycles(next);
         }
+        return next;
+      });
+    }
+    if (Array.isArray(updated.rayons)) {
+      setTgAssignments((current)=>{
+        const next = current.filter((item)=>
+          item.employee!==previousName &&
+          !updated.rayons.includes(item.rayon),
+        );
+        updated.rayons.forEach((rayon)=>{
+          next.push({ employee: updated.n, rayon });
+        });
+        saveTgDefaultAssignments(next);
         return next;
       });
     }
@@ -566,6 +669,16 @@ export default function RHModule(){
     setCycles(nextCycles);
     saveRhEmployees(nextEmployees);
     saveRhCycles(nextCycles);
+    if (Array.isArray(payload.rayons) && payload.rayons.length) {
+      setTgAssignments((current)=>{
+        const next = current.filter((item)=>!payload.rayons.includes(item.rayon));
+        payload.rayons.forEach((rayon)=>{
+          next.push({ employee: name, rayon });
+        });
+        saveTgDefaultAssignments(next);
+        return next;
+      });
+    }
     setNewEmpOpen(false);
   };
 
@@ -635,7 +748,7 @@ export default function RHModule(){
             <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:14}}>
               {filtered.map(emp=>(
                 <EmpCard key={emp.id} emp={emp} cycle={cycles[emp.n]}
-                  onEditEmp={()=>setEditEmp(emp)}
+                  onEditEmp={()=>setEditEmp({...emp,rayons:rayonsByEmployee.get(emp.n)||[]})}
                   onEditCycle={()=>setEditCycleFor(emp.n)}/>
               ))}
             </div>
@@ -650,9 +763,9 @@ export default function RHModule(){
       </div>
 
       {/* MODALS */}
-      {editEmp&&<EditEmpModal emp={editEmp} onSave={saveEmp} onClose={()=>setEditEmp(null)}/>}
+      {editEmp&&<EditEmpModal emp={editEmp} availableRayons={availableRayons} onSave={saveEmp} onClose={()=>setEditEmp(null)}/>}
       {editCycleFor&&<EditCycleModal empName={editCycleFor} cycle={cycles[editCycleFor]||["LUN","LUN","LUN","LUN","LUN"]} onSave={c=>saveCycle(editCycleFor,c)} onClose={()=>setEditCycleFor(null)}/>}
-      {newEmpOpen&&<NewEmpModal onSave={createEmp} onClose={()=>setNewEmpOpen(false)}/>}
+      {newEmpOpen&&<NewEmpModal availableRayons={availableRayons} onSave={createEmp} onClose={()=>setNewEmpOpen(false)}/>}
     </div>
   );
 }

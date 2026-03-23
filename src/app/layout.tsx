@@ -15,7 +15,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Epicerie Manager 2026",
+  title: "Epicerie Manager",
   description: "Application de pilotage pour l'equipe epicerie",
 };
 

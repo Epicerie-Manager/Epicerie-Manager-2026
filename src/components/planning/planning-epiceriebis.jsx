@@ -9,6 +9,7 @@ import {
   savePlanningOverrides,
   savePlanningTriData,
 } from "@/lib/planning-store";
+import { getRhUpdatedEventName, loadRhCycles, loadRhEmployees } from "@/lib/rh-store";
 
 /* ═══════════════════════════════════════════════════════════
    THEME — Planning = Bleu
@@ -38,7 +39,7 @@ const ST = {
 /* ═══════════════════════════════════════════════════════════
    DATA
    ═══════════════════════════════════════════════════════════ */
-const EMPS=[
+let EMPS=[
   {n:"ABDOU",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",obs:"Coordo",actif:true},
   {n:"CECILE",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",obs:"Employé",actif:true},
   {n:"KAMAR",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",obs:"Congé mat.",actif:false},
@@ -62,9 +63,29 @@ const EMPS=[
   {n:"ACHRAF",t:"E",hs:null,hm:null,obs:"Étudiant",actif:true},
 ];
 
-const ALL_EMP_NAMES = EMPS.filter(e=>e.t!=="E").map(e=>e.n);
+function getAllEmpNames(){
+  return EMPS.filter((e)=>e.t!=="E").map((e)=>e.n);
+}
 
-const CYCLE={ABDOU:["VEN","VEN","VEN","VEN","VEN"],CECILE:["MER","MER","MER","MER","SAM"],MASSIMO:["JEU","JEU","JEU","JEU","JEU"],DILAXSHAN:["SAM","MER","MER","MER","MER"],KAMAR:["MAR","MAR","MAR","MAR","MAR"],YASSINE:["JEU","JEU","JEU","JEU","SAM"],WASIM:["VEN","VEN","SAM","VEN","VEN"],JEREMY:["VEN","VEN","VEN","SAM","VEN"],KAMEL:["SAM","MAR","MAR","MAR","MAR"],PASCALE:["SAM","LUN","LUN","LUN","LUN"],MOHCINE:["MER","MER","MER","SAM","MER"],LIYAKATH:["LUN","LUN","SAM","LUN","LUN"],KHANH:["JEU","JEU","JEU","JEU","SAM"],ROSALIE:["JEU","SAM","JEU","JEU","JEU"],JAMAA:["MER","MER","SAM","MER","MER"],"EL HASSANE":["VEN","SAM","VEN","VEN","VEN"]};
+let CYCLE={ABDOU:["VEN","VEN","VEN","VEN","VEN"],CECILE:["MER","MER","MER","MER","SAM"],MASSIMO:["JEU","JEU","JEU","JEU","JEU"],DILAXSHAN:["SAM","MER","MER","MER","MER"],KAMAR:["MAR","MAR","MAR","MAR","MAR"],YASSINE:["JEU","JEU","JEU","JEU","SAM"],WASIM:["VEN","VEN","SAM","VEN","VEN"],JEREMY:["VEN","VEN","VEN","SAM","VEN"],KAMEL:["SAM","MAR","MAR","MAR","MAR"],PASCALE:["SAM","LUN","LUN","LUN","LUN"],MOHCINE:["MER","MER","MER","SAM","MER"],LIYAKATH:["LUN","LUN","SAM","LUN","LUN"],KHANH:["JEU","JEU","JEU","JEU","SAM"],ROSALIE:["JEU","SAM","JEU","JEU","JEU"],JAMAA:["MER","MER","SAM","MER","MER"],"EL HASSANE":["VEN","SAM","VEN","VEN","VEN"]};
+
+function syncPlanningDataFromRh(){
+  const rhEmployees=loadRhEmployees();
+  const rhCycles=loadRhCycles();
+  if(Array.isArray(rhEmployees)&&rhEmployees.length){
+    EMPS=rhEmployees.map((e)=>({
+      n:e.n,
+      t:e.t,
+      hs:e.hs,
+      hm:e.hm,
+      obs:e.obs||"",
+      actif:Boolean(e.actif),
+    }));
+  }
+  if(rhCycles&&typeof rhCycles==="object"){
+    CYCLE=rhCycles;
+  }
+}
 
 const JL=["","LUN","MAR","MER","JEU","VEN","SAM","DIM"];
 const JL_FULL=["","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi","Dimanche"];
@@ -101,6 +122,24 @@ function getHoraire(emp,date,overrides){
 
 function isTriCaddie(name,dow,triData){const p=triData[dow];return p&&p.includes(name);}
 
+function getDayGroups(date, overrides){
+  const grouped={matin:[],soir:[],etu:[],absRH:[],absCP:[],absMAL:[],absOther:[]};
+  EMPS.forEach((e)=>{
+    const s=getStatus(e,date,overrides);
+    if(s==="PRESENT"){
+      if(e.t==="M") grouped.matin.push(e);
+      else if(e.t==="S") grouped.soir.push(e);
+      else grouped.etu.push(e);
+      return;
+    }
+    if(s==="RH"){ grouped.absRH.push(e); return; }
+    if(s==="CP"){ grouped.absCP.push(e); return; }
+    if(s==="MAL"){ grouped.absMAL.push(e); return; }
+    if(s!=="X") grouped.absOther.push({...e,statut:s});
+  });
+  return grouped;
+}
+
 /* ═══════════════════════════════════════════════════════════
    UI PRIMITIVES
    ═══════════════════════════════════════════════════════════ */
@@ -114,7 +153,7 @@ const CartIcon=<svg width="14" height="14" viewBox="0 0 24 24" fill="none" strok
 const LinkIcon=<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={V.mc} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>;
 const EditIcon=<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
 
-const Legend=()=>(<div style={{display:"flex",gap:12,flexWrap:"wrap",padding:"8px 0"}}>{Object.entries(ST).filter(([k])=>k!=="X").map(([k,v])=>(<div key={k} style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:V.muted}}><div style={{width:10,height:10,borderRadius:3,background:v.c,opacity:0.8}}/>{v.l}</div>))}<div style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:V.muted}}><div style={{width:10,height:10,borderRadius:50,background:V.amber,opacity:0.8}}/>Tri caddie</div></div>);
+const Legend=()=>(<div style={{display:"flex",gap:12,flexWrap:"wrap",padding:"8px 0"}}>{Object.entries(ST).filter(([k])=>k!=="X").map(([k,v])=>(<div key={k} style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:V.muted}}><div style={{width:10,height:10,borderRadius:3,background:v.c,opacity:0.8}}/>{v.l}</div>))}<div style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:V.muted}}><span style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:14,height:12,borderRadius:4,background:`${V.amber}12`,border:`1px solid ${V.amber}30`}}><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={V.amber} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg></span>Tri caddie</div></div>);
 
 /* ═══════════════════════════════════════════════════════════
    EDIT CELL MODAL — statut + horaire ponctuel
@@ -319,7 +358,25 @@ const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
                           border:triC?`1px solid ${V.amber}40`:"1px solid transparent",
                         }}>
                           {h||"P"}
-                          {triC&&<div style={{width:4,height:4,borderRadius:2,background:V.amber,margin:"1px auto 0"}}/>}
+                          {triC&&(
+                            <span style={{
+                              display:"inline-flex",
+                              alignItems:"center",
+                              justifyContent:"center",
+                              width:14,
+                              height:10,
+                              margin:"2px auto 0",
+                              borderRadius:4,
+                              background:`${V.amber}12`,
+                              border:`1px solid ${V.amber}30`,
+                            }}>
+                              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={V.amber} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                <circle cx="9" cy="21" r="1"/>
+                                <circle cx="20" cy="21" r="1"/>
+                                <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/>
+                              </svg>
+                            </span>
+                          )}
                         </div>
                       ):(
                         <div style={{
@@ -433,14 +490,7 @@ const VueSemaine=({weekStart,overrides,triData,onEdit})=>{
 const VueJour=({date,overrides,triData,binomes,onEdit})=>{
   const dow=date.getDay();const dayLabel=date.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
   const todayS=new Date().toISOString().slice(0,10);const isT=date.toISOString().slice(0,10)===todayS;
-
-  const grouped={matin:[],soir:[],etu:[],absRH:[],absCP:[],absMAL:[],absOther:[]};
-  EMPS.forEach(e=>{
-    const s=getStatus(e,date,overrides);
-    if(s==="PRESENT"){if(e.t==="M")grouped.matin.push(e);else if(e.t==="S")grouped.soir.push(e);else grouped.etu.push(e);}
-    else if(s==="RH")grouped.absRH.push(e);else if(s==="CP")grouped.absCP.push(e);else if(s==="MAL")grouped.absMAL.push(e);
-    else if(s!=="X")grouped.absOther.push({...e,statut:s});
-  });
+  const grouped=getDayGroups(date,overrides);
   const triPair=triData[dow];const alert=grouped.matin.length<8;
 
   const EmpCard=({e,horaire,tri})=>(
@@ -497,6 +547,7 @@ const VueJour=({date,overrides,triData,binomes,onEdit})=>{
    MAIN APP
    ═══════════════════════════════════════════════════════════ */
 export default function PlanningApp(){
+  const [,setRhVersion]=useState(0);
   const [view,setView]=useState("mois");
   const [year,setYear]=useState(2026);
   const [month,setMonth]=useState(2);
@@ -520,6 +571,18 @@ export default function PlanningApp(){
   useEffect(()=>{
     savePlanningBinomes(binomes);
   },[binomes]);
+
+  useEffect(()=>{
+    syncPlanningDataFromRh();
+    setRhVersion((v)=>v+1);
+    const eventName=getRhUpdatedEventName();
+    const onRhUpdate=()=>{
+      syncPlanningDataFromRh();
+      setRhVersion((v)=>v+1);
+    };
+    window.addEventListener(eventName,onRhUpdate);
+    return ()=>window.removeEventListener(eventName,onRhUpdate);
+  },[]);
 
   const weekStart=useMemo(()=>{const d=new Date(selectedDate);d.setDate(d.getDate()-((d.getDay()+6)%7));return d;},[selectedDate]);
   const weekLabel=`${weekStart.getDate()} ${MOIS_FR[weekStart.getMonth()].substring(0,3)} → ${new Date(weekStart.getTime()+5*864e5).getDate()} ${MOIS_FR[new Date(weekStart.getTime()+5*864e5).getMonth()].substring(0,3)}`;
@@ -569,10 +632,12 @@ export default function PlanningApp(){
     setEditing(null);
   };
 
-  const todayDate=new Date();
-  const mCount=EMPS.filter(e=>e.t==="M"&&getStatus(e,todayDate,overrides)==="PRESENT").length;
-  const sCount=EMPS.filter(e=>e.t==="S"&&getStatus(e,todayDate,overrides)==="PRESENT").length;
-  const absCount=EMPS.filter(e=>e.actif&&!["PRESENT","X"].includes(getStatus(e,todayDate,overrides))).length;
+  const kpiDate=view==="jour"?selectedDate:new Date();
+  const kpiGroups=useMemo(()=>getDayGroups(kpiDate,overrides),[kpiDate,overrides]);
+  const mCount=kpiGroups.matin.length;
+  const sCount=kpiGroups.soir.length;
+  const eCount=kpiGroups.etu.length;
+  const absCount=kpiGroups.absRH.length+kpiGroups.absCP.length+kpiGroups.absMAL.length+kpiGroups.absOther.length;
 
   return(
     <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",color:V.body,minHeight:"100vh",background:`radial-gradient(circle at top left,rgba(29,95,160,0.06),transparent 24%),linear-gradient(180deg,#f9fbfd 0%,${V.bg} 100%)`}}>
@@ -608,12 +673,14 @@ export default function PlanningApp(){
         </Card>
 
         {/* KPIs */}
-        <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}}>
-          <KPI value={mCount} label="Matin aujourd'hui" color={mCount<8?V.red:V.mc} gradient={mCount<8?"linear-gradient(135deg,#fef1f2,#fff8f8)":V.mG}/>
-          <KPI value={sCount} label="Après-midi" color={V.purple} gradient="linear-gradient(135deg,#f5f2fe,#faf8ff)"/>
-          <KPI value={absCount} label="Absents" color={absCount>3?V.red:V.amber} gradient={absCount>3?"linear-gradient(135deg,#fef1f2,#fff8f8)":"linear-gradient(135deg,#fffbeb,#fffef5)"}/>
-          <KPI value={EMPS.filter(e=>e.actif&&e.t==="M").length} label="Effectif matin" color={V.green} gradient="linear-gradient(135deg,#ecfdf5,#f0faf4)"/>
-        </div>
+        {view!=="jour"&&(
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}}>
+            <KPI value={mCount} label="Matin aujourd'hui" color={mCount<8?V.red:V.mc} gradient={mCount<8?"linear-gradient(135deg,#fef1f2,#fff8f8)":V.mG}/>
+            <KPI value={sCount} label="Après-midi" color={V.purple} gradient="linear-gradient(135deg,#f5f2fe,#faf8ff)"/>
+            <KPI value={eCount} label="Étudiants" color={eCount>0?V.cyan:"#9ca3af"} gradient={eCount>0?"linear-gradient(135deg,#effcfd,#f7feff)":"linear-gradient(135deg,#f5f7fa,#fafbfc)"}/>
+            <KPI value={absCount} label="Absents" color={absCount>3?V.red:V.amber} gradient={absCount>3?"linear-gradient(135deg,#fef1f2,#fff8f8)":"linear-gradient(135deg,#fffbeb,#fffef5)"}/>
+          </div>
+        )}
 
         {/* VIEWS */}
         <Card style={view==="semaine"?{padding:14}:{}}>
@@ -629,7 +696,7 @@ export default function PlanningApp(){
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginTop:14}}>
             <Card>
               <Kicker label="TRI CADDIE — cliquer pour modifier" icon={CartIcon}/>
-              <H2>Rotation mars 2026</H2>
+              <H2>Rotation mars</H2>
               <div style={{display:"grid",gap:6,marginTop:12}}>
                 {Object.entries(triData).map(([dow,pair])=>(
                   <div key={dow} onClick={()=>setEditTri(parseInt(dow))} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:12,background:"rgba(248,250,252,0.6)",border:`1px solid ${V.border}`,cursor:"pointer",transition:"all 0.15s"}}
@@ -661,8 +728,8 @@ export default function PlanningApp(){
 
       {/* MODALS */}
       {editing&&<EditCellModal empName={editing.emp.n} date={editing.date} currentStatut={editing.s} currentHoraire={editing.h} defaultHoraire={editing.dh} monthLabel={`${MOIS_FR[editing.date.getMonth()]} ${editing.date.getFullYear()}`} onSave={saveEdit} onClose={()=>setEditing(null)}/>}
-      {editTri!==null&&<EditTriModal dow={editTri} pair={triData[editTri]} allNames={ALL_EMP_NAMES} onSave={(pair)=>{setTriData(p=>({...p,[editTri]:pair}));setEditTri(null);}} onClose={()=>setEditTri(null)}/>}
-      {editBinome!==null&&<EditBinomeModal index={editBinome} pair={binomes[editBinome]} allNames={ALL_EMP_NAMES} onSave={(pair)=>{setBinomes(p=>{const n=[...p];n[editBinome]=pair;return n;});setEditBinome(null);}} onClose={()=>setEditBinome(null)}/>}
+      {editTri!==null&&<EditTriModal dow={editTri} pair={triData[editTri]} allNames={getAllEmpNames()} onSave={(pair)=>{setTriData(p=>({...p,[editTri]:pair}));setEditTri(null);}} onClose={()=>setEditTri(null)}/>}
+      {editBinome!==null&&<EditBinomeModal index={editBinome} pair={binomes[editBinome]} allNames={getAllEmpNames()} onSave={(pair)=>{setBinomes(p=>{const n=[...p];n[editBinome]=pair;return n;});setEditBinome(null);}} onClose={()=>setEditBinome(null)}/>}
     </div>
   );
 }

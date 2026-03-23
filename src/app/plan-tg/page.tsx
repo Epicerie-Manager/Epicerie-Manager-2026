@@ -134,7 +134,7 @@ export default function PlanTgPage(){
   const moveRayon=(rayonName:string,dir:-1|1)=>{const list=[...orderedRayons]; const idx=list.findIndex((r)=>r.rayon===rayonName); const target=idx+dir; if(idx<0||target<0||target>=list.length)return; const [item]=list.splice(idx,1); list.splice(target,0,item); const rs=resequence(list); const map=new Map(assignments.map((i)=>[i.rayon,i.employee])); setRayons(rs); setPlans(normalizePlans(plans,rs,map)); };
 
   return <section style={{display:"grid",gap:"14px",marginTop:"20px"}}>
-    <ModuleHeader moduleKey="plantg" title="Plan TG / GB manager" description="Pilotage hebdomadaire des têtes de gondole et gondoles basses. Affectation dynamique des collaborateurs selon la charge." />
+    <ModuleHeader compact moduleKey="plantg" title="Plan TG / GB manager" description="Pilotage hebdomadaire des têtes de gondole et gondoles basses. Affectation dynamique des collaborateurs selon la charge." />
 
     <Card><div style={{display:"flex",gap:"8px",alignItems:"center",flexWrap:"wrap",justifyContent:"space-between"}}>
       <div style={{display:"flex",gap:"8px",alignItems:"center",flexWrap:"wrap"}}>

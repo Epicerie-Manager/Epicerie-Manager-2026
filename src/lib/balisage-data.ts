@@ -7,18 +7,18 @@ export type BalisageEmployeeStat = {
 export const balisageObjective = 800;
 
 export const balisageMonths = [
-  { id: "JANV_2026", label: "Janvier 2026" },
-  { id: "FEVR_2026", label: "Fevrier 2026" },
-  { id: "MARS_2026", label: "Mars 2026" },
-  { id: "AVRIL_2026", label: "Avril 2026" },
-  { id: "MAI_2026", label: "Mai 2026" },
-  { id: "JUIN_2026", label: "Juin 2026" },
-  { id: "JUIL_2026", label: "Juillet 2026" },
-  { id: "AOUT_2026", label: "Aout 2026" },
-  { id: "SEPT_2026", label: "Septembre 2026" },
-  { id: "OCT_2026", label: "Octobre 2026" },
-  { id: "NOV_2026", label: "Novembre 2026" },
-  { id: "DEC_2026", label: "Decembre 2026" },
+  { id: "JANV_2026", label: "Janvier" },
+  { id: "FEVR_2026", label: "Fevrier" },
+  { id: "MARS_2026", label: "Mars" },
+  { id: "AVRIL_2026", label: "Avril" },
+  { id: "MAI_2026", label: "Mai" },
+  { id: "JUIN_2026", label: "Juin" },
+  { id: "JUIL_2026", label: "Juillet" },
+  { id: "AOUT_2026", label: "Aout" },
+  { id: "SEPT_2026", label: "Septembre" },
+  { id: "OCT_2026", label: "Octobre" },
+  { id: "NOV_2026", label: "Novembre" },
+  { id: "DEC_2026", label: "Decembre" },
 ];
 
 const defaultEmployees: BalisageEmployeeStat[] = [

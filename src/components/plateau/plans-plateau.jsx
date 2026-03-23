@@ -400,7 +400,7 @@ export default function PlateauApp(){
   const sameWeekOps=op?OPS.filter(o=>o.id!==selectedOp&&o.sFrom<=op.sTo&&o.sTo>=op.sFrom):[];
 
   const [showImport,setShowImport]=useState(false);
-  const [lastImport,setLastImport]=useState("15 mars 2026"); // mock last import date
+  const [lastImport,setLastImport]=useState("15 mars"); // mock last import date
   const [importProgress,setImportProgress]=useState(null); // null | 0-100
   const [importMessage,setImportMessage]=useState("");
   const [importError,setImportError]=useState("");
@@ -579,7 +579,7 @@ export default function PlateauApp(){
           <div style={{display:"flex",alignItems:"center",gap:14}}>
             <div style={{width:42,height:42,borderRadius:14,background:V.mIG,display:"flex",alignItems:"center",justifyContent:"center"}}>{IC.map(V.mc,20)}</div>
             <div>
-              <div style={{fontSize:11,fontWeight:700,letterSpacing:"0.06em",color:V.mc}}>PLANS PLATEAU 2026</div>
+              <div style={{fontSize:13,fontWeight:800,letterSpacing:"0.08em",color:V.mc}}>PLANS PLATEAU</div>
               <div style={{fontSize:20,fontWeight:700,color:V.text}}>Opérations commerciales</div>
             </div>
           </div>
@@ -694,7 +694,7 @@ export default function PlateauApp(){
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
             <div>
               <Kicker icon={IC.map(V.mc,14)} label="TIMELINE"/>
-              <H2>Mars — Juin 2026</H2>
+              <H2>Mars — Juin</H2>
               <p style={{margin:0,fontSize:12,color:V.muted}}>Cliquer sur une opération pour voir le plan · Cliquer sur une semaine pour le focus</p>
             </div>
             {/* Week selector */}

@@ -151,6 +151,7 @@ export default function StatsPage() {
   return (
     <section style={{ display: "grid", gap: "14px", marginTop: "20px" }}>
       <ModuleHeader
+        compact
         moduleKey="balisage"
         title="Stats balisage"
         description="Vue manager interactive: tri rapide, suivi du mois, edition des valeurs et lecture immediate des alertes equipe."

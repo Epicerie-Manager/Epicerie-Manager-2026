@@ -249,13 +249,19 @@ export default function DashboardPage() {
       date.setDate(base.getDate() + index);
       const dayIso = date.toISOString().slice(0, 10);
       const isFuture = date > today;
+      const dateLabel = date.toLocaleDateString("fr-FR", {
+        day: "2-digit",
+        month: "2-digit",
+      });
       const morningCount = planningEmployees.filter((employee) => employee.t === "M").reduce((sum, employee) => {
         const status = getPlanningStatus(employee, date, planningOverrides);
         return status === "PRESENT" ? sum + 1 : sum;
       }, 0);
       const alert = !isFuture && morningCount < 9;
       return {
+        dayIso,
         label,
+        dateLabel,
         value: morningCount,
         sub: date.toDateString() === today.toDateString() ? "Aujourd'hui" : alert ? "⚠ bas" : "OK",
         alert,
@@ -339,8 +345,8 @@ export default function DashboardPage() {
         margin: "20px 0 16px",
         background: dash.gradient,
         border: `1px solid ${dash.medium}`,
-        borderRadius: "20px",
-        padding: "20px 24px",
+        borderRadius: "18px",
+        padding: "14px 18px",
         display: "flex",
         alignItems: "center",
         justifyContent: "space-between",
@@ -357,21 +363,21 @@ export default function DashboardPage() {
         <div>
           <span style={{
             display: "inline-block",
-            fontSize: "11px", fontWeight: 700, letterSpacing: "0.06em",
+            fontSize: "10px", fontWeight: 700, letterSpacing: "0.06em",
             textTransform: "uppercase", color: dash.color,
-            background: dash.medium, padding: "3px 9px", borderRadius: "10px",
-            marginBottom: "10px",
+            background: dash.medium, padding: "2px 8px", borderRadius: "10px",
+            marginBottom: "6px",
           }}>
             Épicerie Manager 2026
           </span>
           <h1 style={{
-            fontSize: "28px", fontWeight: 700, letterSpacing: "-0.05em",
+            fontSize: "22px", fontWeight: 700, letterSpacing: "-0.04em",
             color: "#0f172a", lineHeight: 1.15,
           }}>
-            Dashboard manager<br />colonne centrale
+            Dashboard manager
           </h1>
-          <p style={{ fontSize: "13px", color: "#64748b", marginTop: "6px" }}>
-            Version de référence — lisible, aérée et pensée pour une lecture manager en un coup d&apos;œil.
+          <p style={{ fontSize: "12px", color: "#64748b", marginTop: "4px" }}>
+            Lecture rapide et claire pour le pilotage quotidien.
           </p>
         </div>
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "flex-end" }}>
@@ -528,7 +534,7 @@ export default function DashboardPage() {
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: "8px" }}>
               {weekCards.map((d) => (
-                <div key={d.label} style={{
+                <div key={d.dayIso} style={{
                   borderRadius: "12px", padding: "10px 6px", textAlign: "center",
                   border: d.active
                     ? `1px solid ${plan.color}`
@@ -544,7 +550,7 @@ export default function DashboardPage() {
                     letterSpacing: "0.05em",
                     color: d.active ? plan.color : "#94a3b8",
                   }}>
-                    {d.label}
+                    {d.label} {d.dateLabel}
                   </div>
                   <div style={{
                     fontSize: "22px", fontWeight: 700, letterSpacing: "-0.04em",
@@ -593,7 +599,7 @@ export default function DashboardPage() {
           <Card>
             <Kicker moduleKey="planning" label="Indicateurs" icon={<IconTrend />} />
             <h2 style={{ fontSize: "17px", fontWeight: 700, letterSpacing: "-0.02em", color: "#0f172a" }}>Vue mensuelle</h2>
-            <p style={{ fontSize: "12px", color: "#64748b", marginTop: "3px", marginBottom: "12px" }}>Mars 2026 — données en cours</p>
+            <p style={{ fontSize: "12px", color: "#64748b", marginTop: "3px", marginBottom: "12px" }}>Données en cours</p>
             <KPIRow style={{ marginBottom: 0 }}>
               <KPI value={avgMorning} label="Moy. matin/j"  moduleKey="planning"  icon={<IconTrend />} size="md" />
               <KPI value={weekAlertCount} label="Jours alerte"  moduleKey="plateau"   icon={<IconAlert />} size="md" />

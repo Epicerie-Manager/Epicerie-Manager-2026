@@ -31,25 +31,25 @@ export type PlateauOperation = {
 export const plateauMonths: PlateauMonth[] = [
   {
     id: "2026-03",
-    label: "Mars 2026",
+    label: "Mars",
     status: "Actif",
     pdfLabel: "Recap plateau A, B, C, D",
   },
   {
     id: "2026-04",
-    label: "Avril 2026",
+    label: "Avril",
     status: "Archive",
     pdfLabel: "Preparation mensuelle",
   },
   {
     id: "2026-05",
-    label: "Mai 2026",
+    label: "Mai",
     status: "Archive",
     pdfLabel: "Recap plateau A, B, C, D",
   },
   {
     id: "2026-06",
-    label: "Juin 2026",
+    label: "Juin",
     status: "Archive",
     pdfLabel: "Recap plateau A, B, C, D",
   },

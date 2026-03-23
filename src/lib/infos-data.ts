@@ -64,7 +64,7 @@ export const infoCategories: InfoCategory[] = [
 export const infoAnnouncements: InfoAnnouncement[] = [
   {
     id: "default-1",
-    date: "23 mars 2026",
+    date: "23 mars",
     title: "Bienvenue dans le centre Info",
     content: "Creez vos sections documentaires et vos annonces manager depuis cette page.",
     priority: "normal",

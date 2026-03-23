@@ -34,7 +34,7 @@ type OverrideEntry = {
 };
 
 const data = rawPlanningData as unknown as RawPlanningData;
-const TEMPLATE_MONTHS = new Set(["OCTOBRE 2026", "NOVEMBRE 2026", "DECEMBRE 2026"]);
+const TEMPLATE_MONTH_PREFIXES = ["OCTOBRE", "NOVEMBRE", "DECEMBRE"];
 
 function normalizeName(name: string) {
   return name.trim().replace(/\?+$/, "").trim();
@@ -93,7 +93,8 @@ export const sheetPlanningOverrides: Record<string, OverrideEntry> = (() => {
   const overrides: Record<string, OverrideEntry> = {};
 
   Object.entries(data.planning).forEach(([monthLabel, monthDays]) => {
-    if (TEMPLATE_MONTHS.has(monthLabel)) return;
+    const normalizedLabel = normalizeForMatch(monthLabel);
+    if (TEMPLATE_MONTH_PREFIXES.some((prefix) => normalizedLabel.startsWith(prefix))) return;
 
     monthDays.forEach((day) => {
       const dayIso = day.date;

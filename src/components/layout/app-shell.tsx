@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import { colors, getThemeByPathname, moduleThemes, shadows } from "@/lib/theme";
 
 type AppShellProps = {
@@ -113,6 +114,11 @@ export function AppShell({ version, children }: AppShellProps) {
   const activeId  = getThemeByPathname(pathname) as ModuleNavItem["id"];
   const activeTheme = moduleThemes[activeId];
   const activeModule = moduleItems.find((m) => m.id === activeId) ?? moduleItems[0];
+  const [todayLabel, setTodayLabel] = useState("");
+
+  useEffect(() => {
+    setTodayLabel(getTodayLabel());
+  }, []);
 
   return (
     <div
@@ -263,8 +269,9 @@ export function AppShell({ version, children }: AppShellProps) {
                 border: "1px solid #dbe3eb",
                 whiteSpace: "nowrap",
               }}
+              suppressHydrationWarning
             >
-              {getTodayLabel()}
+              {todayLabel || "Date du jour"}
             </span>
             {/* Vue d'ensemble pill */}
             <span

@@ -10,6 +10,7 @@ import {
 const TG_WEEK_PLANS_KEY = "epicerie-manager-tg-week-plans-v1";
 const TG_RAYONS_KEY = "epicerie-manager-tg-rayons-v1";
 const TG_DEFAULT_ASSIGNMENTS_KEY = "epicerie-manager-tg-default-assignments-v1";
+const TG_CUSTOM_MECHANICS_KEY = "epicerie-manager-tg-custom-mechanics-v1";
 const TG_UPDATED_EVENT = "epicerie-manager:tg-updated";
 
 function canUseStorage() {
@@ -87,7 +88,10 @@ export function loadTgRayons(): TgRayon[] {
 
 export function saveTgRayons(rayons: TgRayon[]) {
   if (!canUseStorage()) return;
-  window.localStorage.setItem(TG_RAYONS_KEY, JSON.stringify(rayons));
+  const nextRaw = JSON.stringify(rayons);
+  const prevRaw = window.localStorage.getItem(TG_RAYONS_KEY);
+  if (prevRaw === nextRaw) return;
+  window.localStorage.setItem(TG_RAYONS_KEY, nextRaw);
   emitTgUpdated();
 }
 
@@ -107,7 +111,10 @@ export function loadTgDefaultAssignments(): TgDefaultAssignment[] {
 
 export function saveTgDefaultAssignments(assignments: TgDefaultAssignment[]) {
   if (!canUseStorage()) return;
-  window.localStorage.setItem(TG_DEFAULT_ASSIGNMENTS_KEY, JSON.stringify(assignments));
+  const nextRaw = JSON.stringify(assignments);
+  const prevRaw = window.localStorage.getItem(TG_DEFAULT_ASSIGNMENTS_KEY);
+  if (prevRaw === nextRaw) return;
+  window.localStorage.setItem(TG_DEFAULT_ASSIGNMENTS_KEY, nextRaw);
   emitTgUpdated();
 }
 
@@ -127,6 +134,27 @@ export function loadTgWeekPlans(): TgWeekPlanRow[] {
 
 export function saveTgWeekPlans(plans: TgWeekPlanRow[]) {
   if (!canUseStorage()) return;
-  window.localStorage.setItem(TG_WEEK_PLANS_KEY, JSON.stringify(plans));
+  const nextRaw = JSON.stringify(plans);
+  const prevRaw = window.localStorage.getItem(TG_WEEK_PLANS_KEY);
+  if (prevRaw === nextRaw) return;
+  window.localStorage.setItem(TG_WEEK_PLANS_KEY, nextRaw);
   emitTgUpdated();
+}
+
+export function loadTgCustomMechanics(): string[] {
+  if (!canUseStorage()) return [];
+  try {
+    const raw = window.localStorage.getItem(TG_CUSTOM_MECHANICS_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter((item): item is string => typeof item === "string");
+  } catch {
+    return [];
+  }
+}
+
+export function saveTgCustomMechanics(mechanics: string[]) {
+  if (!canUseStorage()) return;
+  window.localStorage.setItem(TG_CUSTOM_MECHANICS_KEY, JSON.stringify(mechanics));
 }

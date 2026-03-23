@@ -10,6 +10,7 @@ export type TgRayon = {
   family: TgFamily;
   order: string;
   active: boolean;
+  startWeekId?: string;
 };
 
 export type TgEmployee = {

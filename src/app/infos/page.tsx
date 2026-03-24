@@ -20,6 +20,7 @@ import {
   loadInfoCategories,
   saveInfoAnnouncements,
   saveInfoCategories,
+  syncInfosFromSupabase,
 } from "@/lib/infos-store";
 
 const FILE_ACCEPT = ".pdf,.png,.jpg,.jpeg,.webp,.txt,.doc,.docx,.xls,.xlsx,.csv,.ppt,.pptx";
@@ -209,6 +210,9 @@ export default function InfosPage() {
     };
 
     refresh();
+    void syncInfosFromSupabase().then((synced) => {
+      if (synced) refresh();
+    });
     const eventName = getInfosUpdatedEventName();
     window.addEventListener(eventName, refresh);
     return () => window.removeEventListener(eventName, refresh);

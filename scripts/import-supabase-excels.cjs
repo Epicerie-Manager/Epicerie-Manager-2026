@@ -31,11 +31,14 @@ function stripAccents(value) {
 }
 
 function normalizeName(value) {
-  return stripAccents(value)
+  const normalized = stripAccents(value)
     .toUpperCase()
     .replace(/[?.,;:!]/g, '')
     .replace(/\s+/g, ' ')
     .trim();
+  // Exclusion business demand: NADIA no longer exists in the team.
+  if (normalized === 'NADIA') return '';
+  return normalized;
 }
 
 function normalizeText(value) {
@@ -365,9 +368,9 @@ function parsePlanningWorkbook(planningPath) {
     absences.push({
       employee_name: employeeName,
       type,
-      start_date: startDate,
-      end_date: endDate,
-      status: 'APPROUVE',
+      date_debut: startDate,
+      date_fin: endDate,
+      statut: 'APPROUVE',
       note: String(row[3] || '').trim() || null,
     });
   }
@@ -596,6 +599,24 @@ async function deletePlanningRange(supabase, rows) {
     if (error) {
       throw new Error(`Delete planning_entries failed: ${error.message}`);
     }
+  }
+}
+
+async function deleteAbsencesRange(supabase, rows) {
+  if (!rows.length) return;
+  const starts = rows.map((row) => row.date_debut).filter(Boolean).sort();
+  const ends = rows.map((row) => row.date_fin).filter(Boolean).sort();
+  if (!starts.length || !ends.length) return;
+  const minDate = starts[0];
+  const maxDate = ends[ends.length - 1];
+
+  const { error } = await supabase
+    .from('absences')
+    .delete()
+    .gte('date_debut', minDate)
+    .lte('date_fin', maxDate);
+  if (error) {
+    throw new Error(`Delete absences failed: ${error.message}`);
   }
 }
 
@@ -859,22 +880,33 @@ async function main() {
   await deleteByInChunks(supabase, 'balisage_mensuel', 'mois', balisageRows.map((row) => row.mois));
   await insertChunks(supabase, 'balisage_mensuel', balisageRows, 500);
 
-  const mappedAbsences = mapNameToIdRows(planning.absences, employeeMap, ['employee_name']);
-  if (mappedAbsences.rows.length) {
+  const absencesRows = planning.absences.map((row) => {
+    const normalizedName = normalizeName(row.employee_name);
+    let employeeId = employeeMap.get(normalizedName) || null;
+    if (!employeeId && normalizedName === 'HASSANE') {
+      employeeId = employeeMap.get('EL HASSANE') || null;
+    }
+
+    let note = row.note;
+    if (!employeeId && normalizedName) {
+      // Preserve special/global lines like TOUS when employee_id is null.
+      note = `EMPLOYEE:${normalizedName}${note ? ` | ${note}` : ''}`;
+    }
+
+    return {
+      employee_id: employeeId,
+      type: row.type,
+      date_debut: row.date_debut,
+      date_fin: row.date_fin,
+      statut: row.statut,
+      note: note || null,
+    };
+  });
+
+  if (absencesRows.length) {
     try {
-      await upsertChunks(
-        supabase,
-        'absences',
-        mappedAbsences.rows.map((row) => ({
-          employee_id: row.employee_id,
-          type: row.type,
-          start_date: row.start_date,
-          end_date: row.end_date,
-          status: row.status,
-          note: row.note,
-        })),
-        'employee_id,start_date,end_date,type',
-      );
+      await deleteAbsencesRange(supabase, absencesRows);
+      await insertChunks(supabase, 'absences', absencesRows, 500);
     } catch (err) {
       console.warn('[warn] import absences ignore:', err.message);
     }

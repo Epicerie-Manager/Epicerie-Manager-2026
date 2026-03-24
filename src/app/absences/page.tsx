@@ -13,7 +13,7 @@ import {
   type AbsenceStatusId,
   type AbsenceTypeId,
 } from "@/lib/absences-data";
-import { loadAbsenceRequests, saveAbsenceRequests } from "@/lib/absences-store";
+import { loadAbsenceRequests, saveAbsenceRequests, syncAbsencesFromSupabase } from "@/lib/absences-store";
 import { TimelineSuivi } from "@/components/absences/timeline-suivi";
 import { defaultRhEmployees, getRhEmployeeNames, getRhUpdatedEventName } from "@/lib/rh-store";
 
@@ -73,6 +73,7 @@ export default function AbsencesPage() {
     setRequests(loadAbsenceRequests());
     setEmployees(getRhEmployeeNames());
     setIsInitialized(true);
+    void syncAbsencesFromSupabase();
   }, []);
 
   useEffect(() => {

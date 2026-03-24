@@ -10,9 +10,9 @@ import { NavCard, NavCardGrid } from "@/components/ui/nav-card";
 import AgendaCard from "@/components/dashboard/agenda-card";
 import { moduleThemes } from "@/lib/theme";
 import { absenceRequests } from "@/lib/absences-data";
-import { loadAbsenceRequests, getAbsencesUpdatedEventName } from "@/lib/absences-store";
+import { loadAbsenceRequests, getAbsencesUpdatedEventName, syncAbsencesFromSupabase } from "@/lib/absences-store";
 import { balisageData, balisageMonths, balisageObjective, type BalisageEmployeeStat } from "@/lib/balisage-data";
-import { loadBalisageData, getBalisageUpdatedEventName } from "@/lib/balisage-store";
+import { loadBalisageData, getBalisageUpdatedEventName, syncBalisageFromSupabase } from "@/lib/balisage-store";
 import {
   planningEmployees,
   defaultPlanningBinomes,
@@ -24,11 +24,12 @@ import {
   getPlanningTriPairForDate,
   getPlanningBinomeForDate,
   getPlanningUpdatedEventName,
+  syncPlanningFromSupabase,
   type PlanningOverrides,
   type PlanningTriData,
   type PlanningBinomes,
 } from "@/lib/planning-store";
-import { getRhUpdatedEventName } from "@/lib/rh-store";
+import { getRhUpdatedEventName, syncRhFromSupabase } from "@/lib/rh-store";
 import { plateauOperationsByMonth } from "@/lib/plateau-data";
 
 type AlertTone = "yellow" | "red" | "blue";
@@ -194,6 +195,14 @@ export default function DashboardPage() {
     };
 
     refreshAll();
+    void Promise.all([
+      syncPlanningFromSupabase(),
+      syncBalisageFromSupabase(),
+      syncAbsencesFromSupabase(),
+      syncRhFromSupabase(),
+    ]).then(() => {
+      refreshAll();
+    });
     const minuteTimer = window.setInterval(() => setNow(new Date()), 60000);
     const listeners = [
       getAbsencesUpdatedEventName(),

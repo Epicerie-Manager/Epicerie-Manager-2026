@@ -1,3 +1,5 @@
+import { createClient } from "@/lib/supabase";
+
 export type RhEmployeeType = "M" | "S" | "E";
 
 export type RhEmployee = {
@@ -119,4 +121,64 @@ export function getRhEmployeeNames(options?: { activeOnly?: boolean }) {
     .filter((employee) => (activeOnly ? employee.actif : true))
     .map((employee) => employee.n)
     .sort((a, b) => a.localeCompare(b));
+}
+
+function normalizeRhType(value: string): RhEmployeeType {
+  const upper = String(value || "").toUpperCase();
+  if (upper.includes("APRES")) return "S";
+  if (upper.includes("ETUD")) return "E";
+  return "M";
+}
+
+export async function syncRhFromSupabase() {
+  if (!canUseStorage()) return false;
+
+  try {
+    const supabase = createClient();
+    const { data: employeeRows, error: employeeError } = await supabase
+      .from("employees")
+      .select("id,name,type,horaire_standard,horaire_mardi,horaire_samedi,observation,actif")
+      .limit(5000);
+    if (employeeError) throw employeeError;
+    if (!employeeRows || employeeRows.length === 0) return false;
+
+    const mappedEmployees: RhEmployee[] = employeeRows.map((employee, index) => ({
+      id: index + 1,
+      n: String(employee.name ?? "").trim().toUpperCase(),
+      t: normalizeRhType(String(employee.type ?? "")),
+      hs: employee.horaire_standard ?? null,
+      hm: employee.horaire_mardi ?? null,
+      hsa: employee.horaire_samedi ?? null,
+      obs: String(employee.observation ?? ""),
+      actif: Boolean(employee.actif),
+      photo: null,
+    }));
+    const nameById = new Map(
+      employeeRows.map((employee) => [String(employee.id), String(employee.name ?? "").trim().toUpperCase()]),
+    );
+
+    const { data: cycleRows } = await supabase
+      .from("cycle_repos")
+      .select("employee_id,semaine_cycle,jour_repos")
+      .limit(5000);
+
+    const mappedCycles: RhCycles = { ...defaultRhCycles };
+    if (Array.isArray(cycleRows)) {
+      cycleRows.forEach((row) => {
+        const name = nameById.get(String(row.employee_id));
+        if (!name) return;
+        const current = mappedCycles[name] ? [...mappedCycles[name]] : ["LUN", "LUN", "LUN", "LUN", "LUN"];
+        const idx = Number(row.semaine_cycle) - 1;
+        if (idx >= 0 && idx < 5) current[idx] = String(row.jour_repos ?? "LUN").toUpperCase();
+        mappedCycles[name] = current;
+      });
+    }
+
+    window.localStorage.setItem(EMPLOYEES_KEY, JSON.stringify(mappedEmployees));
+    window.localStorage.setItem(CYCLES_KEY, JSON.stringify(mappedCycles));
+    emitRhUpdated();
+    return true;
+  } catch {
+    return false;
+  }
 }

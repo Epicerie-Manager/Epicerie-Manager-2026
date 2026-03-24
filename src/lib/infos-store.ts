@@ -8,6 +8,7 @@ import {
   type InfoDocumentAttachment,
   type InfoItem,
 } from "@/lib/infos-data";
+import { createClient } from "@/lib/supabase";
 
 const INFO_CATEGORIES_STORAGE_KEY = "epicerie-manager-info-categories-v1";
 const INFO_ANNOUNCEMENTS_STORAGE_KEY = "epicerie-manager-info-announcements-v1";
@@ -125,4 +126,90 @@ export function saveInfoAnnouncements(announcements: InfoAnnouncement[]) {
 
 export function getInfosUpdatedEventName() {
   return INFO_UPDATED_EVENT;
+}
+
+function toPriority(value: unknown): InfoAnnouncementPriority {
+  const normalized = String(value ?? "").toLowerCase();
+  if (normalized === "urgent") return "urgent";
+  if (normalized === "important") return "important";
+  return "normal";
+}
+
+function categoryExists(id: string, categories: InfoCategory[]) {
+  return categories.some((category) => category.id === id);
+}
+
+export async function syncInfosFromSupabase() {
+  if (!canUseStorage()) return false;
+
+  try {
+    const supabase = createClient();
+    const { data: documentsRows, error: documentsError } = await supabase
+      .from("documents")
+      .select("*")
+      .limit(5000);
+    if (documentsError) throw documentsError;
+
+    const { data: annoncesRows, error: annoncesError } = await supabase
+      .from("annonces")
+      .select("*")
+      .limit(5000);
+    if (annoncesError) throw annoncesError;
+
+    let hasData = false;
+
+    if (Array.isArray(documentsRows) && documentsRows.length > 0) {
+      const nextCategories: InfoCategory[] = infoCategories.map((category) => ({ ...category, items: [] }));
+
+      documentsRows.forEach((row: Record<string, unknown>) => {
+        const categoryId = String(row.category_id ?? row.category ?? "proc");
+        if (!categoryExists(categoryId, nextCategories)) return;
+
+        const attachmentObj = row.attachment && typeof row.attachment === "object"
+          ? (row.attachment as Record<string, unknown>)
+          : null;
+        const attachment =
+          attachmentObj || row.attachment_data_url || row.attachment_name
+            ? {
+                name: String(attachmentObj?.name ?? row.attachment_name ?? "document"),
+                mimeType: String(attachmentObj?.mimeType ?? row.attachment_mime_type ?? "application/octet-stream"),
+                size: Number(attachmentObj?.size ?? row.attachment_size ?? 0),
+                dataUrl: String(attachmentObj?.dataUrl ?? row.attachment_data_url ?? ""),
+                uploadedAt: String(attachmentObj?.uploadedAt ?? row.updated_at ?? row.created_at ?? new Date().toISOString()),
+              }
+            : undefined;
+
+        const item: InfoItem = {
+          id: String(row.id ?? `doc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
+          title: String(row.title ?? row.nom ?? "Document"),
+          description: String(row.description ?? row.resume ?? ""),
+          attachment,
+          createdAt: String(row.created_at ?? new Date().toISOString()),
+          updatedAt: String(row.updated_at ?? row.created_at ?? new Date().toISOString()),
+        };
+        const category = nextCategories.find((entry) => entry.id === categoryId);
+        if (category) category.items.push(item);
+      });
+
+      window.localStorage.setItem(INFO_CATEGORIES_STORAGE_KEY, JSON.stringify(nextCategories));
+      hasData = true;
+    }
+
+    if (Array.isArray(annoncesRows) && annoncesRows.length > 0) {
+      const nextAnnouncements: InfoAnnouncement[] = annoncesRows.map((row: Record<string, unknown>) => ({
+        id: String(row.id ?? ""),
+        date: String(row.date ?? row.created_at ?? ""),
+        title: String(row.title ?? row.titre ?? "Annonce"),
+        content: String(row.content ?? row.message ?? ""),
+        priority: toPriority(row.priority),
+      }));
+      window.localStorage.setItem(INFO_ANNOUNCEMENTS_STORAGE_KEY, JSON.stringify(nextAnnouncements));
+      hasData = true;
+    }
+
+    if (hasData) emitUpdated();
+    return hasData;
+  } catch {
+    return false;
+  }
 }

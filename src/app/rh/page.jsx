@@ -10,6 +10,7 @@ import {
   loadRhEmployees,
   saveRhCycles,
   saveRhEmployees,
+  syncRhFromSupabase,
 } from "@/lib/rh-store";
 import {
   loadTgDefaultAssignments,
@@ -608,6 +609,10 @@ export default function RHModule(){
     const eventName = getRhUpdatedEventName();
     window.addEventListener(eventName, refresh);
     return () => window.removeEventListener(eventName, refresh);
+  }, []);
+
+  useEffect(() => {
+    void syncRhFromSupabase();
   }, []);
 
   const saveEmp=(updated)=>{

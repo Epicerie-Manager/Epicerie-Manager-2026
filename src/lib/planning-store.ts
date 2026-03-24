@@ -4,6 +4,7 @@ import {
   sheetPlanningEmployees,
   sheetPlanningOverrides,
 } from "@/lib/planning-sheet-data";
+import { createClient } from "@/lib/supabase";
 
 export type PlanningOverrideEntry = {
   s: string;
@@ -27,9 +28,9 @@ const PLANNING_TRI_KEY = "epicerie-manager-planning-tri-v1";
 const PLANNING_BINOMES_KEY = "epicerie-manager-planning-binomes-v1";
 const PLANNING_UPDATED_EVENT = "epicerie-manager:planning-updated";
 
-export const planningEmployees: PlanningEmployee[] = sheetPlanningEmployees;
+export let planningEmployees: PlanningEmployee[] = sheetPlanningEmployees;
 
-const cycle: Record<string, string[]> = sheetPlanningCycle;
+let cycle: Record<string, string[]> = sheetPlanningCycle;
 
 export const defaultPlanningTriData: PlanningTriData = {
   1: ["CECILE", "WASIM"],
@@ -63,6 +64,144 @@ export function getPlanningUpdatedEventName() {
 function emitPlanningUpdated() {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new Event(PLANNING_UPDATED_EVENT));
+}
+
+const DAY_CODE_TO_INDEX: Record<string, number> = {
+  LUN: 1,
+  MAR: 2,
+  MER: 3,
+  JEU: 4,
+  VEN: 5,
+  SAM: 6,
+};
+
+function normalizePlanningStatusFromDb(status: string) {
+  const upper = String(status || "").toUpperCase();
+  if (upper === "ABSENT") return "X";
+  if (upper === "CONGE_MAT") return "CONGE_MAT";
+  if (upper === "FORMATION") return "FORM";
+  if (upper === "FERIE") return "FERIE";
+  if (upper === "CP") return "CP";
+  if (upper === "RH") return "RH";
+  if (upper === "MAL") return "MAL";
+  return "PRESENT";
+}
+
+function normalizeRhType(value: string): "M" | "S" | "E" {
+  const upper = String(value || "").toUpperCase();
+  if (upper.includes("APRES")) return "S";
+  if (upper.includes("ETUD")) return "E";
+  return "M";
+}
+
+export async function syncPlanningFromSupabase() {
+  if (!canUseStorage()) return false;
+
+  try {
+    const supabase = createClient();
+
+    const { data: employeeRows, error: employeeError } = await supabase
+      .from("employees")
+      .select("id,name,type,horaire_standard,horaire_mardi,actif")
+      .limit(5000);
+    if (employeeError) throw employeeError;
+    if (!employeeRows || employeeRows.length === 0) return false;
+
+    const mappedEmployees: PlanningEmployee[] = employeeRows.map((employee) => ({
+      n: String(employee.name ?? "").trim().toUpperCase(),
+      t: normalizeRhType(String(employee.type ?? "")),
+      hs: employee.horaire_standard ?? null,
+      hm: employee.horaire_mardi ?? null,
+      actif: Boolean(employee.actif),
+    }));
+    planningEmployees = mappedEmployees;
+    const employeeNameById = new Map(
+      employeeRows.map((employee) => [String(employee.id), String(employee.name ?? "").trim().toUpperCase()]),
+    );
+
+    const { data: cycleRows } = await supabase
+      .from("cycle_repos")
+      .select("employee_id,semaine_cycle,jour_repos")
+      .limit(5000);
+    if (Array.isArray(cycleRows) && cycleRows.length > 0) {
+      const nextCycle: Record<string, string[]> = {};
+      cycleRows.forEach((row) => {
+        const name = employeeNameById.get(String(row.employee_id));
+        if (!name) return;
+        if (!nextCycle[name]) nextCycle[name] = (cycle[name] ?? ["LUN", "LUN", "LUN", "LUN", "LUN"]).slice(0, 5);
+        const idx = Number(row.semaine_cycle) - 1;
+        if (idx >= 0 && idx < 5) {
+          nextCycle[name][idx] = String(row.jour_repos ?? "LUN").toUpperCase();
+        }
+      });
+      if (Object.keys(nextCycle).length > 0) {
+        cycle = { ...cycle, ...nextCycle };
+      }
+    }
+
+    const { data: triRows } = await supabase
+      .from("tri_caddie")
+      .select("jour_semaine,employee1_id,employee2_id")
+      .eq("mois", "2026-01")
+      .limit(100);
+    if (Array.isArray(triRows) && triRows.length > 0) {
+      const triData = cloneTriData(defaultPlanningTriData);
+      triRows.forEach((row) => {
+        const index = DAY_CODE_TO_INDEX[String(row.jour_semaine ?? "").toUpperCase()];
+        if (!index) return;
+        const name1 = employeeNameById.get(String(row.employee1_id));
+        const name2 = employeeNameById.get(String(row.employee2_id));
+        if (!name1 || !name2) return;
+        triData[index] = [name1, name2];
+      });
+      window.localStorage.setItem(PLANNING_TRI_KEY, JSON.stringify(triData));
+    }
+
+    const { data: binomeRows } = await supabase
+      .from("binomes_repos")
+      .select("binome_number,employee1_id,employee2_id")
+      .eq("mois", "2026-01")
+      .order("binome_number", { ascending: true })
+      .limit(20);
+    if (Array.isArray(binomeRows) && binomeRows.length > 0) {
+      const binomes: PlanningBinomes = binomeRows
+        .map((row) => {
+          const name1 = employeeNameById.get(String(row.employee1_id));
+          const name2 = employeeNameById.get(String(row.employee2_id));
+          if (!name1 || !name2) return null;
+          return [name1, name2] as [string, string];
+        })
+        .filter((row): row is [string, string] => Boolean(row));
+      if (binomes.length > 0) {
+        window.localStorage.setItem(PLANNING_BINOMES_KEY, JSON.stringify(binomes));
+      }
+    }
+
+    const { data: planningRows } = await supabase
+      .from("planning_entries")
+      .select("date,employee_id,statut,horaire_custom")
+      .gte("date", "2026-01-01")
+      .lte("date", "2026-12-31")
+      .limit(25000);
+    if (Array.isArray(planningRows) && planningRows.length > 0) {
+      const overrides: PlanningOverrides = { ...sheetPlanningOverrides };
+      planningRows.forEach((row) => {
+        const name = employeeNameById.get(String(row.employee_id));
+        if (!name || !row.date) return;
+        const key = `${name}_${String(row.date)}`;
+        overrides[key] = {
+          s: normalizePlanningStatusFromDb(String(row.statut ?? "")),
+          h: row.horaire_custom ?? null,
+        };
+      });
+      window.localStorage.setItem(PLANNING_OVERRIDES_KEY, JSON.stringify(overrides));
+    }
+
+    emitPlanningUpdated();
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export function loadPlanningOverrides(): PlanningOverrides {

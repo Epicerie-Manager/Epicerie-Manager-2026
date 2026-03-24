@@ -11,7 +11,7 @@ import {
   balisageObjective,
   type BalisageEmployeeStat,
 } from "@/lib/balisage-data";
-import { loadBalisageData, saveBalisageData } from "@/lib/balisage-store";
+import { getBalisageUpdatedEventName, loadBalisageData, saveBalisageData, syncBalisageFromSupabase } from "@/lib/balisage-store";
 import { moduleThemes } from "@/lib/theme";
 
 type SortBy = "name" | "total" | "alert";
@@ -94,6 +94,16 @@ export default function StatsPage() {
   useEffect(() => {
     saveBalisageData(localData);
   }, [localData]);
+
+  useEffect(() => {
+    const refresh = () => setLocalData(loadBalisageData());
+    void syncBalisageFromSupabase().then((synced) => {
+      if (synced) refresh();
+    });
+    const eventName = getBalisageUpdatedEventName();
+    window.addEventListener(eventName, refresh);
+    return () => window.removeEventListener(eventName, refresh);
+  }, []);
 
   const totalControls = activeStats.reduce((sum, item) => sum + item.total, 0);
   const employeesOk = activeStats.filter((item) => getDynamicStatus(item.total, activeMonth.id) === "OK").length;

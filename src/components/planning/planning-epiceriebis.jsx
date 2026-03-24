@@ -8,6 +8,7 @@ import {
   savePlanningBinomes,
   savePlanningOverrides,
   savePlanningTriData,
+  syncPlanningFromSupabase,
 } from "@/lib/planning-store";
 import { getRhUpdatedEventName, loadRhCycles, loadRhEmployees } from "@/lib/rh-store";
 
@@ -575,6 +576,14 @@ export default function PlanningApp(){
   useEffect(()=>{
     syncPlanningDataFromRh();
     setRhVersion((v)=>v+1);
+    void syncPlanningFromSupabase().then((synced)=>{
+      if(!synced) return;
+      setOverrides(loadPlanningOverrides());
+      setTriData(loadPlanningTriData());
+      setBinomes(loadPlanningBinomes());
+      syncPlanningDataFromRh();
+      setRhVersion((v)=>v+1);
+    });
     const eventName=getRhUpdatedEventName();
     const onRhUpdate=()=>{
       syncPlanningDataFromRh();

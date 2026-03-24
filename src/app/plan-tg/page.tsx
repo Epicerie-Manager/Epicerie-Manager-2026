@@ -14,6 +14,7 @@ import {
   type TgWeekPlanRow,
 } from "@/lib/tg-data";
 import {
+  getTgUpdatedEventName,
   loadTgCustomMechanics,
   loadTgDefaultAssignments,
   loadTgRayons,
@@ -22,6 +23,7 @@ import {
   saveTgDefaultAssignments,
   saveTgRayons,
   saveTgWeekPlans,
+  syncTgFromSupabase,
 } from "@/lib/tg-store";
 import { moduleThemes } from "@/lib/theme";
 
@@ -120,6 +122,23 @@ export default function PlanTgPage(){
   useEffect(()=>{saveTgRayons(orderedRayons);},[orderedRayons]);
   useEffect(()=>{saveTgDefaultAssignments(assignments);},[assignments]);
   useEffect(()=>{saveTgWeekPlans(normalizePlans(plans,orderedRayons,assignmentMap));},[assignmentMap,orderedRayons,plans]);
+  useEffect(()=>{
+    const refresh=()=>{
+      const nextRayons = resequence(loadTgRayons());
+      const nextAssignments = loadTgDefaultAssignments();
+      const nextPlans = normalizePlans(loadTgWeekPlans(), nextRayons, new Map(nextAssignments.map((item)=>[item.rayon,item.employee])));
+      setRayons(nextRayons);
+      setAssignments(nextAssignments);
+      setPlans(nextPlans);
+      setCustomMechanics(loadTgCustomMechanics());
+    };
+    void syncTgFromSupabase().then((synced)=>{
+      if(synced) refresh();
+    });
+    const eventName = getTgUpdatedEventName();
+    window.addEventListener(eventName, refresh);
+    return ()=>window.removeEventListener(eventName, refresh);
+  },[]);
 
   const updateSelectedRow=(patch:Partial<TgWeekPlanRow>)=>{ if(!selectedRow)return; setPlans((cur)=>cur.map((r)=>{if(r.weekId!==activeWeek.id||r.rayon!==selectedRow.rayon)return r;const n={...r,...patch};return {...n,hasOperation:Boolean(n.gbProduct||n.tgProduct||n.tgQuantity||n.tgMechanic)};})); };
   const addCustomMechanic=()=>{ const v=mecaCustomInput.trim().toUpperCase(); if(!v||allMechanics.includes(v)){setMecaCustomInput("");setShowMecaInput(false);return;} const next=[...customMechanics,v]; setCustomMechanics(next); saveTgCustomMechanics(next); updateSelectedRow({tgMechanic:v}); setMecaCustomInput(""); setShowMecaInput(false); };

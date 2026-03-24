@@ -61,7 +61,6 @@ export const absenceEmployees = [
   "MOHAMED",
   "MOHCINE",
   "MOUNIR",
-  "NADIA",
   "PASCALE",
   "ROSALIE",
   "TOUS",
@@ -286,15 +285,6 @@ export const absenceRequests: AbsenceRequest[] = [
     endDate: "2026-10-31",
     status: "APPROUVE",
     note: "Conge maternite",
-  },
-  {
-    id: 25,
-    employee: "NADIA",
-    type: "CP",
-    startDate: "2026-07-06",
-    endDate: "2026-07-25",
-    status: "APPROUVE",
-    note: "CP",
   },
   {
     id: 26,

@@ -60,7 +60,10 @@ export function loadBalisageData(): BalisageDataset {
 
 export function saveBalisageData(data: BalisageDataset) {
   if (typeof window === "undefined") return;
-  window.localStorage.setItem(BALISAGE_STORAGE_KEY, JSON.stringify(data));
+  const nextRaw = JSON.stringify(data);
+  const prevRaw = window.localStorage.getItem(BALISAGE_STORAGE_KEY);
+  if (prevRaw === nextRaw) return;
+  window.localStorage.setItem(BALISAGE_STORAGE_KEY, nextRaw);
   window.dispatchEvent(new Event(BALISAGE_UPDATED_EVENT));
 }
 

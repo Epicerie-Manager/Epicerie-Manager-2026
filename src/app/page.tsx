@@ -1,6 +1,5 @@
 "use client";
 
-import packageJson from "../../package.json";
 import { useEffect, useMemo, useState } from "react";
 import { Card }        from "@/components/ui/card";
 import { Kicker }      from "@/components/ui/kicker";
@@ -176,7 +175,6 @@ export default function DashboardPage() {
   const dash  = moduleThemes.dashboard;
   const plan  = moduleThemes.planning;
   const bal   = moduleThemes.balisage;
-  const plat  = moduleThemes.plateau;
   const [now, setNow] = useState(() => new Date("2026-03-22T12:00:00+01:00"));
   const [absences, setAbsences] = useState(absenceRequests);
   const [planningOverrides, setPlanningOverrides] = useState<PlanningOverrides>({});
@@ -220,12 +218,6 @@ export default function DashboardPage() {
 
   const today = now;
   const todayIso = today.toISOString().slice(0, 10);
-  const todayLabel = today.toLocaleDateString("fr-FR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
 
   const presenceByType = useMemo(() => {
     return planningEmployees.reduce(
@@ -391,10 +383,8 @@ export default function DashboardPage() {
         </div>
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "flex-end" }}>
           {[
-            { label: todayLabel, color: plan.color,  bg: plan.light,  border: plan.medium },
             { label: `${presenceByType.morning} présents matin`, color: "#065f46", bg: "#ecfdf5", border: "#bbf7d0" },
             { label: `${alerts.length} alertes`, color: dash.color, bg: dash.light, border: dash.medium },
-            { label: `v${packageJson.version}`,color: "#64748b", bg: "#f1f5f9",   border: "#dbe3eb" },
           ].map((p) => (
             <span key={p.label} style={{
               fontSize: "12px", fontWeight: 600,

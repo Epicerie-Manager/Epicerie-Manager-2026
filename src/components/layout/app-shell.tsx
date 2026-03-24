@@ -110,18 +110,32 @@ function getTodayLabel() {
   });
 }
 
+function getTimeLabel() {
+  return new Date().toLocaleTimeString("fr-FR", {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
 export function AppShell({ version, children }: AppShellProps) {
   const pathname  = usePathname();
   const router = useRouter();
   const activeId  = getThemeByPathname(pathname) as ModuleNavItem["id"];
-  const activeTheme = moduleThemes[activeId];
   const activeModule = moduleItems.find((m) => m.id === activeId) ?? moduleItems[0];
   const [todayLabel, setTodayLabel] = useState("");
+  const [timeLabel, setTimeLabel] = useState("");
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [userLabel, setUserLabel] = useState("");
 
   useEffect(() => {
-    setTodayLabel(getTodayLabel());
+    const refreshClock = () => {
+      setTodayLabel(getTodayLabel());
+      setTimeLabel(getTimeLabel());
+    };
+
+    refreshClock();
+    const timer = window.setInterval(refreshClock, 1000);
+    return () => window.clearInterval(timer);
   }, []);
 
   useEffect(() => {
@@ -251,6 +265,17 @@ export function AppShell({ version, children }: AppShellProps) {
               >
                 {activeModule.label}
               </div>
+              <div
+                style={{
+                  marginTop: "2px",
+                  fontSize: "11px",
+                  fontWeight: 600,
+                  color: "#94a3b8",
+                  lineHeight: 1.1,
+                }}
+              >
+                v{version}
+              </div>
             </div>
           </div>
 
@@ -324,41 +349,7 @@ export function AppShell({ version, children }: AppShellProps) {
               }}
               suppressHydrationWarning
             >
-              {todayLabel || "Date du jour"}
-            </span>
-            {/* Vue d'ensemble pill */}
-            <span
-              style={{
-                display: "inline-flex",
-                alignItems: "center",
-                gap: "6px",
-                fontSize: "12px",
-                fontWeight: 700,
-                color: activeTheme.color,
-                background: activeTheme.light,
-                border: `1px solid ${activeTheme.medium}`,
-                padding: "5px 12px",
-                borderRadius: "999px",
-                whiteSpace: "nowrap",
-              }}
-            >
-              <span style={{ display: "inline-flex", width: "13px", height: "13px" }}>
-                {ICONS[activeId]}
-              </span>
-              Vue d&apos;ensemble
-            </span>
-            <span
-              style={{
-                fontSize: "11px",
-                fontWeight: 700,
-                color: colors.muted,
-                background: "#f1f5f9",
-                padding: "4px 9px",
-                borderRadius: "999px",
-                border: "1px solid #dbe3eb",
-              }}
-            >
-              v{version}
+              {todayLabel || "Date du jour"} {timeLabel ? `• ${timeLabel}` : ""}
             </span>
             {userLabel ? (
               <span

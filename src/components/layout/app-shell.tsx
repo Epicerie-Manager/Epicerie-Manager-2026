@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { colors, getThemeByPathname, moduleThemes, shadows } from "@/lib/theme";
+import { createClient } from "@/lib/supabase";
 
 type AppShellProps = {
   version: string;
@@ -111,14 +112,33 @@ function getTodayLabel() {
 
 export function AppShell({ version, children }: AppShellProps) {
   const pathname  = usePathname();
+  const router = useRouter();
   const activeId  = getThemeByPathname(pathname) as ModuleNavItem["id"];
   const activeTheme = moduleThemes[activeId];
   const activeModule = moduleItems.find((m) => m.id === activeId) ?? moduleItems[0];
   const [todayLabel, setTodayLabel] = useState("");
+  const [isSigningOut, setIsSigningOut] = useState(false);
 
   useEffect(() => {
     setTodayLabel(getTodayLabel());
   }, []);
+
+  const handleSignOut = async () => {
+    if (isSigningOut) return;
+    setIsSigningOut(true);
+    try {
+      const supabase = createClient();
+      await supabase.auth.signOut();
+      router.replace("/login");
+      router.refresh();
+    } finally {
+      setIsSigningOut(false);
+    }
+  };
+
+  if (pathname === "/login" || pathname === "/change-password") {
+    return <>{children}</>;
+  }
 
   return (
     <div
@@ -307,6 +327,25 @@ export function AppShell({ version, children }: AppShellProps) {
             >
               v{version}
             </span>
+            <button
+              type="button"
+              onClick={handleSignOut}
+              disabled={isSigningOut}
+              style={{
+                fontSize: "12px",
+                fontWeight: 700,
+                color: "#991b1b",
+                background: "#fef2f2",
+                padding: "5px 12px",
+                borderRadius: "999px",
+                border: "1px solid #fecaca",
+                cursor: isSigningOut ? "not-allowed" : "pointer",
+                opacity: isSigningOut ? 0.7 : 1,
+                whiteSpace: "nowrap",
+              }}
+            >
+              {isSigningOut ? "Déconnexion..." : "Déconnexion"}
+            </button>
           </div>
         </div>
       </header>

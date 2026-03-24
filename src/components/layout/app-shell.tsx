@@ -118,6 +118,7 @@ export function AppShell({ version, children }: AppShellProps) {
   const activeModule = moduleItems.find((m) => m.id === activeId) ?? moduleItems[0];
   const [todayLabel, setTodayLabel] = useState("");
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [userLabel, setUserLabel] = useState("");
 
   useEffect(() => {
     setTodayLabel(getTodayLabel());
@@ -137,9 +138,11 @@ export function AppShell({ version, children }: AppShellProps) {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("password_changed")
+        .select("password_changed,full_name")
         .eq("id", user.id)
         .maybeSingle();
+
+      setUserLabel(profile?.full_name?.trim() || user.email || "");
 
       const passwordChanged = profile?.password_changed === true;
       if (!passwordChanged && pathname !== "/change-password") {
@@ -357,6 +360,26 @@ export function AppShell({ version, children }: AppShellProps) {
             >
               v{version}
             </span>
+            {userLabel ? (
+              <span
+                style={{
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  color: "#1e293b",
+                  background: "#ffffff",
+                  padding: "5px 12px",
+                  borderRadius: "999px",
+                  border: "1px solid #dbe3eb",
+                  maxWidth: "220px",
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+                title={userLabel}
+              >
+                {userLabel}
+              </span>
+            ) : null}
             <button
               type="button"
               onClick={handleSignOut}

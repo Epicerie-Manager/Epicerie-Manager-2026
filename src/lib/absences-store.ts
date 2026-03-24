@@ -9,6 +9,7 @@ function isValidRequest(value: unknown): value is AbsenceRequest {
   const candidate = value as Record<string, unknown>;
   return (
     typeof candidate.id === "number" &&
+    (candidate.dbId === undefined || typeof candidate.dbId === "string") &&
     typeof candidate.employee === "string" &&
     typeof candidate.type === "string" &&
     typeof candidate.startDate === "string" &&
@@ -49,6 +50,11 @@ export function getAbsencesUpdatedEventName() {
   return ABSENCES_UPDATED_EVENT;
 }
 
+function emitAbsencesUpdated() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(ABSENCES_UPDATED_EVENT));
+}
+
 function normalizeAbsenceStatus(value: unknown): AbsenceRequest["status"] {
   const status = String(value ?? "").toUpperCase();
   if (status.includes("REFUS")) return "REFUSE";
@@ -56,11 +62,145 @@ function normalizeAbsenceStatus(value: unknown): AbsenceRequest["status"] {
   return "APPROUVE";
 }
 
+function normalizeActionError(error: unknown) {
+  const rawMessage = String(
+    (error as { message?: string; error_description?: string })?.message ??
+    (error as { error_description?: string })?.error_description ??
+    error ??
+    "",
+  );
+  const message = rawMessage.toLowerCase();
+
+  if (
+    message.includes("row-level security") ||
+    message.includes("permission denied") ||
+    message.includes("new row violates") ||
+    message.includes("not allowed") ||
+    message.includes("forbidden")
+  ) {
+    return new Error("Action réservée aux managers.");
+  }
+  if (message.includes("jwt") || message.includes("auth session missing") || message.includes("not authenticated")) {
+    return new Error("Veuillez vous reconnecter.");
+  }
+  return new Error(rawMessage || "Erreur Supabase inconnue.");
+}
+
 function employeeFromNote(note: unknown) {
   const txt = String(note ?? "");
   const match = txt.match(/^EMPLOYEE:([^|]+)(\||$)/i);
   if (!match) return null;
   return match[1].trim().toUpperCase();
+}
+
+async function getEmployeeIdByName() {
+  const supabase = createClient();
+  const { data: employees, error } = await supabase
+    .from("employees")
+    .select("id,name")
+    .limit(5000);
+  if (error) throw error;
+
+  return new Map(
+    (employees ?? []).map((employee) => [
+      String((employee as Record<string, unknown>).name ?? "").toUpperCase(),
+      String((employee as Record<string, unknown>).id),
+    ]),
+  );
+}
+
+function mapRowToAbsenceRequest(
+  row: Record<string, unknown>,
+  index: number,
+  employeeNameById: Map<string, string>,
+): AbsenceRequest | null {
+  const startDate = String(row.date_debut ?? row.start_date ?? row.date_from ?? row.startDate ?? "");
+  const endDate = String(row.date_fin ?? row.end_date ?? row.date_to ?? row.endDate ?? startDate);
+  if (!startDate || !endDate) return null;
+  const employeeId = row.employee_id ? String(row.employee_id) : "";
+  const fallbackEmployee = employeeFromNote(row.note);
+  const employee =
+    employeeNameById.get(employeeId) ??
+    String(row.employee_name ?? row.employee ?? row.name ?? fallbackEmployee ?? "").toUpperCase();
+  if (!employee) return null;
+  const next: AbsenceRequest = {
+    id: index + 1,
+    dbId: row.id ? String(row.id) : undefined,
+    employee,
+    type: String(row.type ?? row.absence_type ?? "AUTRE") as AbsenceRequest["type"],
+    startDate,
+    endDate,
+    status: normalizeAbsenceStatus(row.statut ?? row.status),
+  };
+  if (row.note) next.note = String(row.note);
+  return next;
+}
+
+export async function createAbsenceRequestInSupabase(
+  input: Omit<AbsenceRequest, "id" | "dbId" | "status"> & { status?: AbsenceRequest["status"] },
+) {
+  try {
+    const supabase = createClient();
+    const employeeIdByName = await getEmployeeIdByName();
+    const normalizedEmployee = input.employee.trim().toUpperCase();
+    const employeeId = employeeIdByName.get(normalizedEmployee) ?? null;
+    const note = employeeId
+      ? (input.note?.trim() || null)
+      : `EMPLOYEE:${normalizedEmployee}${input.note?.trim() ? ` | ${input.note.trim()}` : ""}`;
+
+    const { data, error } = await supabase
+      .from("absences")
+      .insert({
+        employee_id: employeeId,
+        type: input.type,
+        date_debut: input.startDate,
+        date_fin: input.endDate,
+        statut: input.status ?? "EN_ATTENTE",
+        note,
+      })
+      .select("*")
+      .single();
+    if (error) throw error;
+
+    const employeeNameById = new Map<string, string>();
+    for (const [name, id] of employeeIdByName.entries()) {
+      employeeNameById.set(id, name);
+    }
+    const mapped = mapRowToAbsenceRequest(data as Record<string, unknown>, 0, employeeNameById);
+    if (!mapped) throw new Error("Impossible de relire la demande créée.");
+    emitAbsencesUpdated();
+    return mapped;
+  } catch (error) {
+    throw normalizeActionError(error);
+  }
+}
+
+export async function updateAbsenceStatusInSupabase(dbId: string, status: AbsenceRequest["status"]) {
+  try {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("absences")
+      .update({ statut: status })
+      .eq("id", dbId);
+    if (error) throw error;
+    emitAbsencesUpdated();
+  } catch (error) {
+    throw normalizeActionError(error);
+  }
+}
+
+export async function deleteAbsenceRequestInSupabase(dbId: string) {
+  try {
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("absences")
+      .delete()
+      .eq("id", dbId);
+    if (error) throw error;
+    emitAbsencesUpdated();
+  } catch (error) {
+    throw normalizeActionError(error);
+  }
 }
 
 export async function syncAbsencesFromSupabase() {
@@ -85,36 +225,15 @@ export async function syncAbsencesFromSupabase() {
       .select("*")
       .limit(5000);
     if (error) throw error;
-    if (!Array.isArray(data) || data.length === 0) return false;
+    if (!Array.isArray(data)) return false;
 
     const mapped = data
-      .map((row: Record<string, unknown>, index) => {
-        const startDate = String(row.date_debut ?? row.start_date ?? row.date_from ?? row.startDate ?? "");
-        const endDate = String(row.date_fin ?? row.end_date ?? row.date_to ?? row.endDate ?? startDate);
-        if (!startDate || !endDate) return null;
-        const employeeId = row.employee_id ? String(row.employee_id) : "";
-        const fallbackEmployee = employeeFromNote(row.note);
-        const employee =
-          employeeNameById.get(employeeId) ??
-          String(row.employee_name ?? row.employee ?? row.name ?? fallbackEmployee ?? "").toUpperCase();
-        if (!employee) return null;
-        const next: AbsenceRequest = {
-          id: index + 1,
-          employee,
-          type: String(row.type ?? row.absence_type ?? "AUTRE") as AbsenceRequest["type"],
-          startDate,
-          endDate,
-          status: normalizeAbsenceStatus(row.statut ?? row.status),
-        };
-        if (row.note) next.note = String(row.note);
-        return next;
-      })
+      .map((row: Record<string, unknown>, index) => mapRowToAbsenceRequest(row, index, employeeNameById))
       .filter((row): row is AbsenceRequest => row !== null);
 
-    if (mapped.length === 0) return false;
     window.localStorage.setItem(ABSENCES_STORAGE_KEY, JSON.stringify(mapped));
-    window.dispatchEvent(new Event(ABSENCES_UPDATED_EVENT));
-    return true;
+    emitAbsencesUpdated();
+    return Array.isArray(data);
   } catch {
     return false;
   }

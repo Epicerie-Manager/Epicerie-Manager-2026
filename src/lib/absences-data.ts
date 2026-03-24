@@ -20,6 +20,7 @@ export type AbsenceStatus = {
 
 export type AbsenceRequest = {
   id: number;
+  dbId?: string;
   employee: string;
   type: AbsenceTypeId;
   startDate: string;

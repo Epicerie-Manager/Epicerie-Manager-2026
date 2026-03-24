@@ -13,7 +13,14 @@ import {
   type AbsenceStatusId,
   type AbsenceTypeId,
 } from "@/lib/absences-data";
-import { loadAbsenceRequests, saveAbsenceRequests, syncAbsencesFromSupabase } from "@/lib/absences-store";
+import {
+  createAbsenceRequestInSupabase,
+  deleteAbsenceRequestInSupabase,
+  getAbsencesUpdatedEventName,
+  loadAbsenceRequests,
+  syncAbsencesFromSupabase,
+  updateAbsenceStatusInSupabase,
+} from "@/lib/absences-store";
 import { TimelineSuivi } from "@/components/absences/timeline-suivi";
 import { defaultRhEmployees, getRhEmployeeNames, getRhUpdatedEventName } from "@/lib/rh-store";
 
@@ -44,6 +51,8 @@ export default function AbsencesPage() {
   const [employeeFilter, setEmployeeFilter] = useState<string>("ALL");
   const [showForm, setShowForm] = useState(false);
   const nextId = useMemo(() => Math.max(0, ...requests.map((item) => item.id)) + 1, [requests]);
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
   const [draft, setDraft] = useState<{
     employee: string;
     type: AbsenceTypeId;
@@ -70,16 +79,20 @@ export default function AbsencesPage() {
   }, [employeeFilter, requests, statusFilter]);
 
   useEffect(() => {
-    setRequests(loadAbsenceRequests());
-    setEmployees(getRhEmployeeNames());
-    setIsInitialized(true);
-    void syncAbsencesFromSupabase();
-  }, []);
+    const refresh = () => {
+      setRequests(loadAbsenceRequests());
+      setEmployees(getRhEmployeeNames());
+    };
 
-  useEffect(() => {
-    if (!isInitialized) return;
-    saveAbsenceRequests(requests);
-  }, [isInitialized, requests]);
+    refresh();
+    setIsInitialized(true);
+    void syncAbsencesFromSupabase().then(() => {
+      refresh();
+    });
+    const eventName = getAbsencesUpdatedEventName();
+    window.addEventListener(eventName, refresh);
+    return () => window.removeEventListener(eventName, refresh);
+  }, []);
 
   useEffect(() => {
     const refreshEmployees = () => {
@@ -107,30 +120,57 @@ export default function AbsencesPage() {
       request.status === "APPROUVE" && request.startDate <= todayIso && request.endDate >= todayIso,
   ).length;
 
-  const handleCreateRequest = () => {
+  const handleCreateRequest = async () => {
     if (!draft.employee || !draft.startDate || !draft.endDate) return;
-    setRequests((current) => [
-      ...current,
-      {
-        id: nextId,
+    setError("");
+    setBusy(true);
+    try {
+      const created = await createAbsenceRequestInSupabase({
         employee: draft.employee,
         type: draft.type,
         startDate: draft.startDate,
         endDate: draft.endDate,
         note: draft.note.trim() || undefined,
         status: "EN_ATTENTE",
-      },
-    ]);
-    setDraft({ employee: employees[0] ?? "", type: "CP", startDate: "", endDate: "", note: "" });
-    setShowForm(false);
+      });
+      setRequests((current) => [...current, { ...created, id: nextId }]);
+      setDraft({ employee: employees[0] ?? "", type: "CP", startDate: "", endDate: "", note: "" });
+      setShowForm(false);
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Impossible de créer la demande.");
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const updateStatus = (id: number, status: AbsenceStatusId) => {
-    setRequests((current) => current.map((request) => (request.id === id ? { ...request, status } : request)));
+  const updateStatus = async (id: number, status: AbsenceStatusId) => {
+    const request = requests.find((item) => item.id === id);
+    if (!request?.dbId) return;
+    setError("");
+    setBusy(true);
+    try {
+      await updateAbsenceStatusInSupabase(request.dbId, status);
+      setRequests((current) => current.map((item) => (item.id === id ? { ...item, status } : item)));
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Impossible de mettre à jour le statut.");
+    } finally {
+      setBusy(false);
+    }
   };
 
-  const deleteRequest = (id: number) => {
-    setRequests((current) => current.filter((request) => request.id !== id));
+  const deleteRequest = async (id: number) => {
+    const request = requests.find((item) => item.id === id);
+    if (!request?.dbId) return;
+    setError("");
+    setBusy(true);
+    try {
+      await deleteAbsenceRequestInSupabase(request.dbId);
+      setRequests((current) => current.filter((item) => item.id !== id));
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Impossible de supprimer la demande.");
+    } finally {
+      setBusy(false);
+    }
   };
 
   const chipStyle = (active: boolean): React.CSSProperties => ({
@@ -253,14 +293,16 @@ export default function AbsencesPage() {
               <span>Note (optionnel)</span>
               <input value={draft.note} onChange={(event) => setDraft((current) => ({ ...current, note: event.target.value }))} placeholder="Motif ou precision..." style={{ minHeight: "36px", borderRadius: "10px", border: "1px solid #dbe3eb", padding: "0 10px" }} />
             </label>
-            <button type="button" style={chipStyle(true)} onClick={handleCreateRequest}>Soumettre</button>
+            <button type="button" style={chipStyle(true)} onClick={handleCreateRequest} disabled={busy}>Soumettre</button>
           </div>
+          {error ? <p style={{ marginTop: "10px", fontSize: "12px", color: "#b91c1c" }}>{error}</p> : null}
         </Card>
       ) : null}
 
       <Card>
         <Kicker moduleKey="absences" label="Demandes" />
         <h2 style={{ marginTop: "6px", fontSize: "18px", color: "#0f172a" }}>Validation manager</h2>
+        {error ? <p style={{ marginTop: "10px", fontSize: "12px", color: "#b91c1c" }}>{error}</p> : null}
         <div style={{ display: "grid", gap: "8px", marginTop: "10px", maxHeight: "360px", overflowY: "auto", paddingRight: "2px" }}>
           {filteredRequests.map((request) => {
             const requestType = absenceTypes.find((type) => type.id === request.type)?.label ?? request.type;
@@ -294,16 +336,16 @@ export default function AbsencesPage() {
                   </span>
                   {isPending ? (
                     <>
-                      <button type="button" style={chipStyle(false)} onClick={() => updateStatus(request.id, "APPROUVE")}>Approuver</button>
-                      <button type="button" style={chipStyle(false)} onClick={() => updateStatus(request.id, "REFUSE")}>Refuser</button>
+                      <button type="button" style={chipStyle(false)} onClick={() => updateStatus(request.id, "APPROUVE")} disabled={busy}>Approuver</button>
+                      <button type="button" style={chipStyle(false)} onClick={() => updateStatus(request.id, "REFUSE")} disabled={busy}>Refuser</button>
                     </>
                   ) : null}
                   {request.status === "REFUSE" ? (
-                    <button type="button" style={chipStyle(false)} onClick={() => updateStatus(request.id, "EN_ATTENTE")}>
+                    <button type="button" style={chipStyle(false)} onClick={() => updateStatus(request.id, "EN_ATTENTE")} disabled={busy}>
                       Remettre en attente
                     </button>
                   ) : null}
-                  <button type="button" style={chipStyle(false)} onClick={() => deleteRequest(request.id)}>Supprimer</button>
+                  <button type="button" style={chipStyle(false)} onClick={() => deleteRequest(request.id)} disabled={busy}>Supprimer</button>
                 </div>
               </div>
             );

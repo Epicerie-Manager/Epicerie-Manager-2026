@@ -3,14 +3,16 @@
 import { useEffect, useMemo, useState } from "react";
 import { Avatar } from "@/components/ui/avatar";
 import {
+  createRhEmployeeInSupabase,
   defaultRhCycles,
   defaultRhEmployees,
   getRhUpdatedEventName,
   loadRhCycles,
   loadRhEmployees,
-  saveRhCycles,
-  saveRhEmployees,
+  renameRhCycleCache,
+  saveRhCycleInSupabase,
   syncRhFromSupabase,
+  updateRhEmployeeInSupabase,
 } from "@/lib/rh-store";
 import {
   loadTgDefaultAssignments,
@@ -34,52 +36,6 @@ const V = {
 const TYPE_LABELS = { M:{l:"Matin",c:V.blue,bg:"#eff6ff"}, S:{l:"Après-midi",c:V.purple,bg:"#f5f3ff"}, E:{l:"Étudiant",c:"#9ca3af",bg:"#f5f7f9"} };
 const JOURS = ["LUN","MAR","MER","JEU","VEN","SAM"];
 const JOURS_FULL = ["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
-
-/* ═══════════════════════════════════════════════════════════
-   DATA
-   ═══════════════════════════════════════════════════════════ */
-const INIT_EMPS = [
-  {id:1,n:"ABDOU",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",hsa:null,obs:"Coordonnateur",actif:true,photo:null},
-  {id:2,n:"CECILE",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",hsa:null,obs:"Employé",actif:true,photo:null},
-  {id:3,n:"KAMAR",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",hsa:null,obs:"Congé maternité",actif:false,photo:null},
-  {id:4,n:"YASSINE",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",hsa:null,obs:"Employé",actif:true,photo:null},
-  {id:5,n:"WASIM",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",hsa:null,obs:"Employé",actif:true,photo:null},
-  {id:6,n:"JEREMY",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",hsa:null,obs:"Employé",actif:true,photo:null},
-  {id:7,n:"KAMEL",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",hsa:null,obs:"Employé",actif:true,photo:null},
-  {id:8,n:"PASCALE",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",hsa:null,obs:"Employé",actif:true,photo:null},
-  {id:9,n:"MOHCINE",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",hsa:null,obs:"Employé",actif:true,photo:null},
-  {id:10,n:"LIYAKATH",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",hsa:null,obs:"Employé",actif:true,photo:null},
-  {id:11,n:"KHANH",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",hsa:null,obs:"Employé",actif:true,photo:null},
-  {id:12,n:"ROSALIE",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",hsa:null,obs:"Employé",actif:true,photo:null},
-  {id:13,n:"JAMAA",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",hsa:null,obs:"Employé",actif:true,photo:null},
-  {id:14,n:"EL HASSANE",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",hsa:null,obs:"Employé",actif:true,photo:null},
-  {id:15,n:"MASSIMO",t:"S",hs:"14h-21h30",hm:"12h-19h30",hsa:null,obs:"Employé",actif:true,photo:null},
-  {id:16,n:"DILAXSHAN",t:"S",hs:"14h-21h30",hm:"12h-19h30",hsa:null,obs:"Employé",actif:true,photo:null},
-  {id:17,n:"YLEANA",t:"E",hs:null,hm:null,hsa:"14h-21h30",obs:"Étudiant samedi",actif:true,photo:null},
-  {id:18,n:"MOUNIR",t:"E",hs:null,hm:null,hsa:"14h-21h30",obs:"Étudiant samedi",actif:true,photo:null},
-  {id:19,n:"MAHIN",t:"E",hs:null,hm:null,hsa:"14h-21h30",obs:"Étudiant samedi",actif:true,photo:null},
-  {id:20,n:"MOHAMED",t:"E",hs:null,hm:null,hsa:"14h-21h30",obs:"Étudiant samedi",actif:true,photo:null},
-  {id:21,n:"ACHRAF",t:"E",hs:null,hm:null,hsa:"14h-21h30",obs:"Étudiant samedi",actif:true,photo:null},
-];
-
-const INIT_CYCLES = {
-  ABDOU:["VEN","VEN","VEN","VEN","VEN"],
-  CECILE:["MER","MER","MER","MER","SAM"],
-  MASSIMO:["JEU","JEU","JEU","JEU","JEU"],
-  DILAXSHAN:["SAM","MER","MER","MER","MER"],
-  KAMAR:["MAR","MAR","MAR","MAR","MAR"],
-  YASSINE:["JEU","JEU","JEU","JEU","SAM"],
-  WASIM:["VEN","VEN","SAM","VEN","VEN"],
-  JEREMY:["VEN","VEN","VEN","SAM","VEN"],
-  KAMEL:["SAM","MAR","MAR","MAR","MAR"],
-  PASCALE:["SAM","LUN","LUN","LUN","LUN"],
-  MOHCINE:["MER","MER","MER","SAM","MER"],
-  LIYAKATH:["LUN","LUN","SAM","LUN","LUN"],
-  KHANH:["JEU","JEU","JEU","JEU","SAM"],
-  ROSALIE:["JEU","SAM","JEU","JEU","JEU"],
-  JAMAA:["MER","MER","SAM","MER","MER"],
-  "EL HASSANE":["VEN","SAM","VEN","VEN","VEN"],
-};
 
 /* ═══════════════════════════════════════════════════════════
    ICONS
@@ -252,7 +208,7 @@ const EditCycleModal=({empName,cycle,onSave,onClose})=>{
         </div>
         <div style={{padding:24}}>
           <div style={{fontSize:12,color:V.muted,marginBottom:14,lineHeight:1.4}}>
-            Chaque semaine du cycle définit le jour de repos hebdomadaire. Le cycle se répète toutes les 5 semaines sur l'année.
+            Chaque semaine du cycle définit le jour de repos hebdomadaire. Le cycle se répète toutes les 5 semaines sur l&apos;année.
           </div>
           <div style={{display:"grid",gap:8}}>
             {c.map((jour,i)=>(
@@ -575,6 +531,8 @@ export default function RHModule(){
   const [newEmpOpen,setNewEmpOpen]=useState(false);
   const [filterType,setFilterType]=useState("ALL");
   const [search,setSearch]=useState("");
+  const [busy,setBusy]=useState(false);
+  const [error,setError]=useState("");
   const availableRayons = useMemo(
     ()=>[...tgRayons]
       .filter((rayon)=>rayon.active)
@@ -615,76 +573,99 @@ export default function RHModule(){
     void syncRhFromSupabase();
   }, []);
 
-  const saveEmp=(updated)=>{
+  const saveEmp=async(updated)=>{
     let previousName = updated.n;
-    setEmps((p)=>{
-      const current = p.find((item)=>item.id===updated.id);
+    setBusy(true);
+    setError("");
+    try {
+      const current = emps.find((item)=>item.id===updated.id);
       previousName = current?.n ?? updated.n;
-      const next = p.map((e)=>e.id===updated.id?updated:e);
-      saveRhEmployees(next);
-      return next;
-    });
-    if (previousName !== updated.n) {
-      setCycles((p)=>{
-        const next = { ...p };
-        const existing = next[previousName];
-        if (existing) {
-          delete next[previousName];
-          next[updated.n] = existing;
-          saveRhCycles(next);
-        }
-        return next;
-      });
-    }
-    if (Array.isArray(updated.rayons)) {
-      setTgAssignments((current)=>{
-        const next = current.filter((item)=>
-          item.employee!==previousName &&
-          !updated.rayons.includes(item.rayon),
-        );
-        updated.rayons.forEach((rayon)=>{
-          next.push({ employee: updated.n, rayon });
+      const synced = await updateRhEmployeeInSupabase(updated);
+      setEmps((p)=>p.map((employee)=>employee.id===updated.id?{...synced,rayons:updated.rayons}:employee));
+
+      if (previousName !== synced.n) {
+        setCycles((p)=>{
+          const next = { ...p };
+          const existing = next[previousName];
+          if (existing) {
+            delete next[previousName];
+            next[synced.n] = existing;
+          }
+          return next;
         });
-        saveTgDefaultAssignments(next);
-        return next;
-      });
+        renameRhCycleCache(previousName, synced.n);
+      }
+
+      if (Array.isArray(updated.rayons)) {
+        setTgAssignments((currentAssignments)=>{
+          const next = currentAssignments.filter((item)=>
+            item.employee!==previousName &&
+            !updated.rayons.includes(item.rayon),
+          );
+          updated.rayons.forEach((rayon)=>{
+            next.push({ employee: synced.n, rayon });
+          });
+          saveTgDefaultAssignments(next);
+          return next;
+        });
+      }
+
+      setEditEmp(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur Supabase.");
+    } finally {
+      setBusy(false);
     }
-    setEditEmp(null);
   };
-  const saveCycle=(name,newCycle)=>{
-    setCycles((p)=>{
-      const next = {...p,[name]:newCycle};
-      saveRhCycles(next);
-      return next;
-    });
-    setEditCycleFor(null);
+  const saveCycle=async(name,newCycle)=>{
+    const employee = emps.find((item)=>item.n===name);
+    if(!employee)return;
+    setBusy(true);
+    setError("");
+    try {
+      const syncedCycle = await saveRhCycleInSupabase(employee,newCycle);
+      setCycles((p)=>({...p,[name]:syncedCycle}));
+      setEditCycleFor(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur Supabase.");
+    } finally {
+      setBusy(false);
+    }
   };
-  const createEmp=(payload)=>{
+  const createEmp=async(payload)=>{
     const name = payload.n.trim().toUpperCase();
     if(!name)return;
     if(emps.some((item)=>item.n===name))return;
-    const nextEmp = {
-      id: emps.length ? Math.max(...emps.map((item)=>item.id))+1 : 1,
-      ...payload,
-      n: name,
-    };
-    const nextEmployees = [...emps, nextEmp];
-    const nextCycles = { ...cycles, [name]: payload.cycle };
-    setEmps(nextEmployees);
-    setCycles(nextCycles);
-    saveRhEmployees(nextEmployees);
-    saveRhCycles(nextCycles);
-    if (Array.isArray(payload.rayons) && payload.rayons.length) {
-      setTgAssignments((current)=>{
-        const next = current.filter((item)=>!payload.rayons.includes(item.rayon));
-        payload.rayons.forEach((rayon)=>{
-          next.push({ employee: name, rayon });
-        });
-        saveTgDefaultAssignments(next);
-        return next;
+    setBusy(true);
+    setError("");
+    try {
+      const nextEmp = await createRhEmployeeInSupabase({
+        ...payload,
+        n: name,
+        cycle: payload.cycle,
       });
+      setEmps((current)=>(
+        current.some((item)=>item.dbId===nextEmp.dbId)
+          ? current.map((item)=>item.dbId===nextEmp.dbId?{...nextEmp,rayons:payload.rayons}:item)
+          : [...current,{...nextEmp,rayons:payload.rayons}]
+      ));
+      setCycles((current)=>({ ...current, [name]: payload.cycle }));
+      if (Array.isArray(payload.rayons) && payload.rayons.length) {
+        setTgAssignments((current)=>{
+          const next = current.filter((item)=>!payload.rayons.includes(item.rayon));
+          payload.rayons.forEach((rayon)=>{
+            next.push({ employee: name, rayon });
+          });
+          saveTgDefaultAssignments(next);
+          return next;
+        });
+      }
+      setNewEmpOpen(false);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur Supabase.");
+    } finally {
+      setBusy(false);
     }
-    setNewEmpOpen(false);
   };
 
   const mCount=emps.filter(e=>e.t==="M"&&e.actif).length;
@@ -703,7 +684,7 @@ export default function RHModule(){
             <div style={{width:42,height:42,borderRadius:14,background:V.mIG,display:"flex",alignItems:"center",justifyContent:"center"}}>{IC.users(V.mc,20)}</div>
             <div>
               <div style={{fontSize:11,fontWeight:700,letterSpacing:"0.06em",color:V.mc}}>RESSOURCES HUMAINES</div>
-              <div style={{fontSize:20,fontWeight:700,color:V.text}}>Gestion de l'équipe</div>
+              <div style={{fontSize:20,fontWeight:700,color:V.text}}>Gestion de l&apos;équipe</div>
             </div>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:6}}>
@@ -727,11 +708,16 @@ export default function RHModule(){
                 ))}
               </div>
             )}
-            <button onClick={()=>setNewEmpOpen(true)} style={{marginLeft:6,padding:"8px 12px",borderRadius:10,border:`1px solid ${V.mc}25`,background:V.mG,color:V.mc,fontSize:12,fontWeight:700,cursor:"pointer"}}>
+            <button disabled={busy} onClick={()=>setNewEmpOpen(true)} style={{marginLeft:6,padding:"8px 12px",borderRadius:10,border:`1px solid ${V.mc}25`,background:V.mG,color:V.mc,fontSize:12,fontWeight:700,cursor:busy?"not-allowed":"pointer",opacity:busy?0.6:1}}>
               + Nouvel employe
             </button>
           </div>
         </Card>
+        {error&&(
+          <div style={{marginBottom:14,padding:"12px 14px",borderRadius:14,border:`1px solid ${V.red}22`,background:"#fff5f5",color:V.red,fontSize:13,fontWeight:600}}>
+            {error}
+          </div>
+        )}
 
         {/* KPIs */}
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}}>

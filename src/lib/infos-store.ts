@@ -14,12 +14,25 @@ const INFO_CATEGORIES_STORAGE_KEY = "epicerie-manager-info-categories-v1";
 const INFO_ANNOUNCEMENTS_STORAGE_KEY = "epicerie-manager-info-announcements-v1";
 const INFO_UPDATED_EVENT = "epicerie-manager:infos-updated";
 const INFO_STORAGE_BUCKET = "infos-documents";
-const INLINE_ATTACHMENT_LIMIT = 100 * 1024;
+const INFO_CATEGORY_TO_DB: Record<InfoCategoryId, string> = {
+  proc: "procedures",
+  secu: "securite",
+  rh: "rh",
+  outils: "outils",
+  contacts: "contacts",
+};
+const INFO_CATEGORY_FROM_DB: Record<string, InfoCategoryId> = {
+  procedures: "proc",
+  procedure: "proc",
+  proc: "proc",
+  securite: "secu",
+  secu: "secu",
+  rh: "rh",
+  outils: "outils",
+  contacts: "contacts",
+};
 
 type DbRow = Record<string, unknown>;
-type DbAttachment = InfoDocumentAttachment & {
-  storagePath?: string;
-};
 
 function canUseStorage() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
@@ -139,6 +152,7 @@ function toPriority(value: unknown): InfoAnnouncementPriority {
   const normalized = String(value ?? "").toLowerCase();
   if (normalized === "urgent") return "urgent";
   if (normalized === "important") return "important";
+  if (normalized === "info") return "normal";
   return "normal";
 }
 
@@ -146,17 +160,18 @@ function categoryExists(id: string, categories: InfoCategory[]) {
   return categories.some((category) => category.id === id);
 }
 
-function todayLabel() {
-  return new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+function todayIsoDate() {
+  return new Date().toISOString().slice(0, 10);
 }
 
 function normalizeActionError(error: unknown) {
-  const message = String(
+  const rawMessage = String(
     (error as { message?: string; error_description?: string })?.message ??
     (error as { error_description?: string })?.error_description ??
     error ??
     "",
-  ).toLowerCase();
+  );
+  const message = rawMessage.toLowerCase();
 
   if (
     message.includes("row-level security") ||
@@ -170,16 +185,10 @@ function normalizeActionError(error: unknown) {
   if (message.includes("jwt") || message.includes("auth session missing") || message.includes("not authenticated")) {
     return new Error("Veuillez vous reconnecter.");
   }
-  return error instanceof Error ? error : new Error("Erreur Supabase.");
-}
-
-async function fileToDataUrl(file: File) {
-  return await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
-    reader.onerror = () => reject(new Error("Impossible de lire le fichier."));
-    reader.readAsDataURL(file);
-  });
+  if (rawMessage.trim()) {
+    return new Error(rawMessage);
+  }
+  return error instanceof Error ? error : new Error("Erreur Supabase inconnue.");
 }
 
 function sanitizeFileName(fileName: string) {
@@ -190,12 +199,6 @@ function sanitizeFileName(fileName: string) {
 }
 
 function extractStoragePath(row: DbRow) {
-  const attachment = row.attachment && typeof row.attachment === "object"
-    ? (row.attachment as Record<string, unknown>)
-    : null;
-  const pathFromAttachment = String(attachment?.storagePath ?? "").trim();
-  if (pathFromAttachment) return pathFromAttachment;
-
   const rawUrl = String(row.url ?? "").trim();
   if (!rawUrl) return "";
   const marker = `/storage/v1/object/public/${INFO_STORAGE_BUCKET}/`;
@@ -205,23 +208,21 @@ function extractStoragePath(row: DbRow) {
 }
 
 function mapDocumentRowToItem(row: DbRow): InfoItem {
-  const attachmentObj = row.attachment && typeof row.attachment === "object"
-    ? (row.attachment as Record<string, unknown>)
-    : null;
-  const attachment =
-    attachmentObj || row.attachment_data_url || row.attachment_name
-      ? {
-          name: String(attachmentObj?.name ?? row.attachment_name ?? "document"),
-          mimeType: String(attachmentObj?.mimeType ?? row.attachment_mime_type ?? row.type ?? "application/octet-stream"),
-          size: Number(attachmentObj?.size ?? row.attachment_size ?? 0),
-          dataUrl: String(attachmentObj?.dataUrl ?? row.attachment_data_url ?? row.url ?? ""),
-          uploadedAt: String(attachmentObj?.uploadedAt ?? row.updated_at ?? row.created_at ?? new Date().toISOString()),
-        }
-      : undefined;
+  const rawUrl = String(row.url ?? "").trim();
+  const fileName = rawUrl ? decodeURIComponent(rawUrl.split("/").pop() || "document") : "document";
+  const attachment = rawUrl
+    ? {
+        name: fileName,
+        mimeType: String(row.type ?? "application/octet-stream"),
+        size: 0,
+        dataUrl: rawUrl,
+        uploadedAt: String(row.updated_at ?? row.created_at ?? new Date().toISOString()),
+      }
+    : undefined;
 
   return {
     id: String(row.id ?? `doc-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`),
-    title: String(row.title ?? row.nom ?? "Document"),
+    title: String(row.title ?? row.titre ?? row.nom ?? "Document"),
     description: String(row.description ?? row.resume ?? ""),
     attachment,
     createdAt: String(row.created_at ?? new Date().toISOString()),
@@ -230,13 +231,27 @@ function mapDocumentRowToItem(row: DbRow): InfoItem {
 }
 
 function mapAnnouncementRowToItem(row: DbRow): InfoAnnouncement {
+  const rawDate = String(row.date ?? row.created_at ?? "");
+  const displayDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
+    ? new Date(`${rawDate}T00:00:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })
+    : rawDate;
   return {
     id: String(row.id ?? ""),
-    date: String(row.date ?? row.created_at ?? ""),
+    date: displayDate,
     title: String(row.title ?? row.titre ?? "Annonce"),
-    content: String(row.content ?? row.message ?? ""),
-    priority: toPriority(row.priority),
+    content: String(row.content ?? row.contenu ?? row.message ?? ""),
+    priority: toPriority(row.priority ?? row.niveau),
   };
+}
+
+function toDbAnnouncementLevel(priority: InfoAnnouncementPriority) {
+  if (priority === "important" || priority === "urgent") return "important";
+  return "info";
+}
+
+function toDbDocumentType(file?: File) {
+  if (file && file.type.toLowerCase().includes("pdf")) return "pdf";
+  return "doc";
 }
 
 export async function addDocumentToSupabase(
@@ -247,53 +262,32 @@ export async function addDocumentToSupabase(
 ): Promise<InfoItem> {
   try {
     const supabase = createClient();
-    let attachment: DbAttachment | null = null;
     let url: string | null = null;
-    let type: string | null = null;
+    const type = toDbDocumentType(file);
 
     if (file) {
-      type = file.type || null;
-      if (file.size > INLINE_ATTACHMENT_LIMIT) {
-        const filePath = `${categoryId}/${Date.now()}_${sanitizeFileName(file.name)}`;
-        const { error: uploadError } = await supabase.storage
-          .from(INFO_STORAGE_BUCKET)
-          .upload(filePath, file, {
-            cacheControl: "3600",
-            upsert: false,
-            contentType: file.type || undefined,
-          });
-        if (uploadError) throw uploadError;
+      const filePath = `${INFO_CATEGORY_TO_DB[categoryId]}/${Date.now()}_${sanitizeFileName(file.name)}`;
+      const { error: uploadError } = await supabase.storage
+        .from(INFO_STORAGE_BUCKET)
+        .upload(filePath, file, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: file.type || undefined,
+        });
+      if (uploadError) throw uploadError;
 
-        const { data } = supabase.storage.from(INFO_STORAGE_BUCKET).getPublicUrl(filePath);
-        url = data.publicUrl;
-        attachment = {
-          name: file.name,
-          mimeType: file.type || "application/octet-stream",
-          size: file.size,
-          dataUrl: url,
-          uploadedAt: new Date().toISOString(),
-          storagePath: filePath,
-        };
-      } else {
-        attachment = {
-          name: file.name,
-          mimeType: file.type || "application/octet-stream",
-          size: file.size,
-          dataUrl: await fileToDataUrl(file),
-          uploadedAt: new Date().toISOString(),
-        };
-      }
+      const { data } = supabase.storage.from(INFO_STORAGE_BUCKET).getPublicUrl(filePath);
+      url = data.publicUrl;
     }
 
     const { data, error } = await supabase
       .from("documents")
       .insert({
-        category_id: categoryId,
-        title,
+        categorie: INFO_CATEGORY_TO_DB[categoryId],
+        titre: title,
         description,
         type,
         url,
-        attachment,
       })
       .select("*")
       .single();
@@ -311,7 +305,7 @@ export async function removeDocumentFromSupabase(itemId: string): Promise<void> 
     const supabase = createClient();
     const { data, error } = await supabase
       .from("documents")
-      .select("id,url,attachment")
+      .select("id,url")
       .eq("id", itemId)
       .maybeSingle();
     if (error) throw error;
@@ -347,10 +341,10 @@ export async function addAnnouncementToSupabase(
     const { data, error } = await supabase
       .from("annonces")
       .insert({
-        date: todayLabel(),
-        title,
-        content,
-        priority,
+        date: todayIsoDate(),
+        titre: title,
+        contenu: content,
+        niveau: toDbAnnouncementLevel(priority),
       })
       .select("*")
       .single();
@@ -401,7 +395,7 @@ export async function syncInfosFromSupabase() {
       const nextCategories: InfoCategory[] = infoCategories.map((category) => ({ ...category, items: [] }));
 
       documentsRows.forEach((row: Record<string, unknown>) => {
-        const categoryId = String(row.category_id ?? row.category ?? "proc");
+        const categoryId = INFO_CATEGORY_FROM_DB[String(row.category_id ?? row.category ?? row.categorie ?? "proc").toLowerCase()] ?? "proc";
         if (!categoryExists(categoryId, nextCategories)) return;
 
         const item = mapDocumentRowToItem(row);

@@ -391,7 +391,7 @@ export async function syncInfosFromSupabase() {
 
     let hasData = false;
 
-    if (Array.isArray(documentsRows) && documentsRows.length > 0) {
+    if (Array.isArray(documentsRows)) {
       const nextCategories: InfoCategory[] = infoCategories.map((category) => ({ ...category, items: [] }));
 
       documentsRows.forEach((row: Record<string, unknown>) => {
@@ -407,7 +407,7 @@ export async function syncInfosFromSupabase() {
       hasData = true;
     }
 
-    if (Array.isArray(annoncesRows) && annoncesRows.length > 0) {
+    if (Array.isArray(annoncesRows)) {
       const nextAnnouncements: InfoAnnouncement[] = annoncesRows.map((row: Record<string, unknown>) => (
         mapAnnouncementRowToItem(row)
       ));

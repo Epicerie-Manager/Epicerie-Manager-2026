@@ -129,7 +129,7 @@ export function loadInfoAnnouncements(): InfoAnnouncement[] {
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return infoAnnouncements;
     const valid = parsed.filter(isAnnouncement);
-    return valid.length ? valid : infoAnnouncements;
+    return valid;
   } catch {
     return infoAnnouncements;
   }

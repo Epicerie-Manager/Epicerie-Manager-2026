@@ -8,18 +8,18 @@ import { moduleThemes } from "@/lib/theme";
 import {
   infoAnnouncements as defaultInfoAnnouncements,
   infoCategories as defaultInfoCategories,
-  type InfoAnnouncement,
   type InfoAnnouncementPriority,
   type InfoCategoryId,
-  type InfoDocumentAttachment,
   type InfoItem,
 } from "@/lib/infos-data";
 import {
+  addAnnouncementToSupabase,
+  addDocumentToSupabase,
   getInfosUpdatedEventName,
   loadInfoAnnouncements,
   loadInfoCategories,
-  saveInfoAnnouncements,
-  saveInfoCategories,
+  removeAnnouncementFromSupabase,
+  removeDocumentFromSupabase,
   syncInfosFromSupabase,
 } from "@/lib/infos-store";
 
@@ -152,35 +152,11 @@ function getAttachmentType(item: InfoItem): keyof typeof TYPE_STYLE {
   return "file";
 }
 
-function toId(prefix: string) {
-  return `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`;
-}
-
 function formatBytes(bytes: number) {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 o";
   if (bytes < 1024) return `${bytes} o`;
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} Ko`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
-}
-
-function todayLabel() {
-  return new Date().toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
-}
-
-async function fileToAttachment(file: File): Promise<InfoDocumentAttachment> {
-  const dataUrl = await new Promise<string>((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onload = () => resolve(typeof reader.result === "string" ? reader.result : "");
-    reader.onerror = () => reject(new Error("Impossible de lire le fichier."));
-    reader.readAsDataURL(file);
-  });
-  return {
-    name: file.name,
-    mimeType: file.type || "application/octet-stream",
-    size: file.size,
-    dataUrl,
-    uploadedAt: new Date().toISOString(),
-  };
 }
 
 export default function InfosPage() {
@@ -199,6 +175,8 @@ export default function InfosPage() {
   const [announcementTitle, setAnnouncementTitle] = useState("");
   const [announcementContent, setAnnouncementContent] = useState("");
   const [announcementPriority, setAnnouncementPriority] = useState<InfoAnnouncementPriority>("normal");
+  const [announcementBusy, setAnnouncementBusy] = useState(false);
+  const [announcementError, setAnnouncementError] = useState("");
 
   const theme = moduleThemes.infos;
   const activeCategory = categories.find((category) => category.id === activeCategoryId) ?? categories[0];
@@ -256,68 +234,79 @@ export default function InfosPage() {
 
     setDocBusy(true);
     try {
-      const attachment = docFile ? await fileToAttachment(docFile) : undefined;
-      const nextItem: InfoItem = {
-        id: toId("doc"),
-        title,
-        description,
-        attachment,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-      };
+      const nextItem = await addDocumentToSupabase(activeCategory.id, title, description, docFile ?? undefined);
       const nextCategories = categories.map((category) =>
         category.id === activeCategory.id ? { ...category, items: [nextItem, ...category.items] } : category,
       );
       setCategories(nextCategories);
-      saveInfoCategories(nextCategories);
 
       setDocTitle("");
       setDocDescription("");
       setDocFile(null);
       setSelectedItemId(nextItem.id);
-    } catch {
-      setDocError("Le fichier est trop lourd ou illisible. Essaie un document plus leger.");
+    } catch (error) {
+      setDocError(error instanceof Error ? error.message : "Impossible d'ajouter le document.");
     } finally {
       setDocBusy(false);
     }
   }
 
-  function removeDocument(itemId: string) {
+  async function removeDocument(itemId: string) {
     if (!activeCategory) return;
-    const nextCategories = categories.map((category) =>
-      category.id === activeCategory.id
-        ? { ...category, items: category.items.filter((item) => item.id !== itemId) }
-        : category,
-    );
-    setCategories(nextCategories);
-    saveInfoCategories(nextCategories);
-    if (selectedItemId === itemId) setSelectedItemId(null);
+    setDocError("");
+    setDocBusy(true);
+    try {
+      await removeDocumentFromSupabase(itemId);
+      const nextCategories = categories.map((category) =>
+        category.id === activeCategory.id
+          ? { ...category, items: category.items.filter((item) => item.id !== itemId) }
+          : category,
+      );
+      setCategories(nextCategories);
+      if (selectedItemId === itemId) setSelectedItemId(null);
+    } catch (error) {
+      setDocError(error instanceof Error ? error.message : "Impossible de supprimer le document.");
+    } finally {
+      setDocBusy(false);
+    }
   }
 
-  function addAnnouncement() {
+  async function addAnnouncement() {
     const title = announcementTitle.trim();
     const content = announcementContent.trim();
-    if (!title || !content) return;
+    setAnnouncementError("");
+    if (!title || !content) {
+      setAnnouncementError("Le titre et le contenu sont obligatoires.");
+      return;
+    }
 
-    const next: InfoAnnouncement = {
-      id: toId("announcement"),
-      date: todayLabel(),
-      title,
-      content,
-      priority: announcementPriority,
-    };
-    const nextAnnouncements = [next, ...announcements];
-    setAnnouncements(nextAnnouncements);
-    saveInfoAnnouncements(nextAnnouncements);
-    setAnnouncementTitle("");
-    setAnnouncementContent("");
-    setAnnouncementPriority("normal");
+    setAnnouncementBusy(true);
+    try {
+      const next = await addAnnouncementToSupabase(title, content, announcementPriority);
+      const nextAnnouncements = [next, ...announcements];
+      setAnnouncements(nextAnnouncements);
+      setAnnouncementTitle("");
+      setAnnouncementContent("");
+      setAnnouncementPriority("normal");
+    } catch (error) {
+      setAnnouncementError(error instanceof Error ? error.message : "Impossible de publier l'annonce.");
+    } finally {
+      setAnnouncementBusy(false);
+    }
   }
 
-  function removeAnnouncement(id: string) {
-    const nextAnnouncements = announcements.filter((announcement) => announcement.id !== id);
-    setAnnouncements(nextAnnouncements);
-    saveInfoAnnouncements(nextAnnouncements);
+  async function removeAnnouncement(id: string) {
+    setAnnouncementError("");
+    setAnnouncementBusy(true);
+    try {
+      await removeAnnouncementFromSupabase(id);
+      const nextAnnouncements = announcements.filter((announcement) => announcement.id !== id);
+      setAnnouncements(nextAnnouncements);
+    } catch (error) {
+      setAnnouncementError(error instanceof Error ? error.message : "Impossible de supprimer l'annonce.");
+    } finally {
+      setAnnouncementBusy(false);
+    }
   }
 
   return (
@@ -482,7 +471,8 @@ export default function InfosPage() {
                   color: theme.color,
                   fontWeight: 700,
                   fontSize: "12px",
-                  cursor: "pointer",
+                  cursor: docBusy ? "not-allowed" : "pointer",
+                  opacity: docBusy ? 0.7 : 1,
                 }}
               >
                 {docBusy ? "Ajout..." : "Ajouter la section"}
@@ -532,7 +522,8 @@ export default function InfosPage() {
                       <button
                         type="button"
                         onClick={() => removeDocument(item.id)}
-                        style={{ border: "none", background: "transparent", fontSize: "11px", color: "#b91c1c", cursor: "pointer", fontWeight: 700 }}
+                        disabled={docBusy}
+                        style={{ border: "none", background: "transparent", fontSize: "11px", color: "#b91c1c", cursor: docBusy ? "not-allowed" : "pointer", fontWeight: 700, opacity: docBusy ? 0.7 : 1 }}
                       >
                         Supprimer
                       </button>
@@ -638,9 +629,11 @@ export default function InfosPage() {
               <option value="important">Important</option>
               <option value="urgent">Urgent</option>
             </select>
+            {announcementError ? <span style={{ fontSize: "11px", color: "#b91c1c" }}>{announcementError}</span> : null}
             <button
               type="button"
               onClick={addAnnouncement}
+              disabled={announcementBusy}
               style={{
                 minHeight: "34px",
                 borderRadius: "8px",
@@ -649,10 +642,11 @@ export default function InfosPage() {
                 color: theme.color,
                 fontWeight: 700,
                 fontSize: "12px",
-                cursor: "pointer",
+                cursor: announcementBusy ? "not-allowed" : "pointer",
+                opacity: announcementBusy ? 0.7 : 1,
               }}
             >
-              Publier l'annonce
+              {announcementBusy ? "Publication..." : "Publier l'annonce"}
             </button>
           </div>
 
@@ -683,7 +677,8 @@ export default function InfosPage() {
                 <button
                   type="button"
                   onClick={() => removeAnnouncement(announcement.id)}
-                  style={{ border: "none", background: "transparent", fontSize: "11px", color: "#b91c1c", cursor: "pointer", padding: 0 }}
+                  disabled={announcementBusy}
+                  style={{ border: "none", background: "transparent", fontSize: "11px", color: "#b91c1c", cursor: announcementBusy ? "not-allowed" : "pointer", padding: 0, opacity: announcementBusy ? 0.7 : 1 }}
                 >
                   Supprimer
                 </button>

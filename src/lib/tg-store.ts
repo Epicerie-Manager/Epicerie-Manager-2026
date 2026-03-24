@@ -175,7 +175,20 @@ function parseWeekNumber(value: string) {
   return Number.isFinite(num) ? num : null;
 }
 
+function normalizeWeekKey(value: string) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
+}
+
 function getWeekIdFromDbLabel(label: string, semaineDe: string | null) {
+  const normalizedLabel = normalizeWeekKey(label);
+  const exact = tgWeeks.find((week) => normalizeWeekKey(week.id) === normalizedLabel);
+  if (exact) return exact.id;
+
   const weekNumber = parseWeekNumber(semaineDe || label);
   if (!weekNumber) return null;
   const prefix = String(weekNumber).padStart(2, "0");

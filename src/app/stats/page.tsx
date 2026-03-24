@@ -72,6 +72,17 @@ function getDynamicStatus(total: number, monthId: string, today = new Date()) {
   return "Alerte";
 }
 
+function getCurrentBalisageMonthIndex(today = new Date()) {
+  const monthKeys = ["JANV", "FEVR", "MARS", "AVRIL", "MAI", "JUIN", "JUIL", "AOUT", "SEPT", "OCT", "NOV", "DEC"];
+  const key = monthKeys[today.getMonth()] ?? "JANV";
+  const fullId = `${key}_${today.getFullYear()}`;
+  const exactIndex = balisageMonths.findIndex((month) => month.id === fullId);
+  if (exactIndex >= 0) return exactIndex;
+  const monthOnlyIndex = balisageMonths.findIndex((month) => month.id.startsWith(`${key}_`));
+  if (monthOnlyIndex >= 0) return monthOnlyIndex;
+  return 0;
+}
+
 export default function StatsPage() {
   const [activeMonthIndex, setActiveMonthIndex] = useState(0);
   const [sortBy, setSortBy] = useState<SortBy>("name");
@@ -94,6 +105,10 @@ export default function StatsPage() {
   useEffect(() => {
     saveBalisageData(localData);
   }, [localData]);
+
+  useEffect(() => {
+    setActiveMonthIndex(getCurrentBalisageMonthIndex());
+  }, []);
 
   useEffect(() => {
     const refresh = () => setLocalData(loadBalisageData());

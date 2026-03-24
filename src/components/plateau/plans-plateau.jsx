@@ -191,6 +191,21 @@ const detectPlateauxFromText = (text) => {
   return plateaux;
 };
 
+const getISOWeekNumber = (date) => {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+};
+
+const getCurrentPlateauWeek = () => {
+  const isoWeek = getISOWeekNumber(new Date());
+  if (isoWeek < S_MIN) return S_MIN;
+  if (isoWeek > S_MAX) return S_MAX;
+  return isoWeek;
+};
+
 const IMPORT_RENDER_SCALE = 2.8;
 const IMPORT_MAX_SIDE = 5200;
 
@@ -388,7 +403,7 @@ const AnnotationBox=({notes,onChange})=>{
    ═══════════════════════════════════════════════════════════ */
 export default function PlateauApp(){
   const [selectedOp,setSelectedOp]=useState("a3");
-  const [focusWeek,setFocusWeek]=useState(12); // S12 par défaut
+  const [focusWeek,setFocusWeek]=useState(12);
   const [images,setImages]=useState({});
   const [weekImages,setWeekImages]=useState({});
   const [notes,setNotes]=useState({
@@ -553,6 +568,10 @@ export default function PlateauApp(){
 
   const prevW=()=>{if(focusWeek>S_MIN)setFocusWeek(w=>w-1);};
   const nextW=()=>{if(focusWeek<S_MAX)setFocusWeek(w=>w+1);};
+
+  useEffect(()=>{
+    setFocusWeek(getCurrentPlateauWeek());
+  },[]);
 
   // Keep detail pane synced with selected week (avoid "frozen" lower section).
   useEffect(()=>{

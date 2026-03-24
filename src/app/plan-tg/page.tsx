@@ -34,6 +34,33 @@ const BASE_MECHANICS = ["2EME 60%","2EME 50%","2EME 40%","2EME 30%","2EME 60% CO
 
 const chipStyle = (active:boolean,color:string,medium:string):React.CSSProperties => ({ borderRadius:"999px", border:`1px solid ${active ? color : "#dbe3eb"}`, background:active?medium:"#fff", color:active?color:"#64748b", fontWeight:active?700:500, fontSize:"12px", padding:"7px 12px" });
 
+function getISOWeekNumber(date: Date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  const dayNum = d.getUTCDay() || 7;
+  d.setUTCDate(d.getUTCDate() + 4 - dayNum);
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1));
+  return Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7);
+}
+
+function getCurrentWeekId() {
+  if (!tgWeeks.length) return "";
+  const isoWeek = getISOWeekNumber(new Date());
+  const padded = String(isoWeek).padStart(2, "0");
+  const exact = tgWeeks.find((week) => week.id.startsWith(`${padded} `));
+  if (exact) return exact.id;
+
+  const parsed = tgWeeks
+    .map((week) => {
+      const match = week.id.match(/^(\d{1,2})\s/);
+      if (!match) return null;
+      return { id: week.id, num: Number(match[1]) };
+    })
+    .filter((row): row is { id: string; num: number } => row !== null);
+  if (!parsed.length) return tgWeeks[0].id;
+  parsed.sort((a, b) => Math.abs(a.num - isoWeek) - Math.abs(b.num - isoWeek));
+  return parsed[0].id;
+}
+
 function formatWeekLabel(weekId:string){
   const m=/^(\d{1,2}).*?(\d{2})$/.exec(weekId.trim());
   if(!m) return weekId;
@@ -84,11 +111,11 @@ export default function PlanTgPage(){
     const rs=resequence(loadTgRayons()); const as=loadTgDefaultAssignments();
     return normalizePlans(loadTgWeekPlans(),rs,new Map(as.map((i)=>[i.rayon,i.employee])));
   });
-  const [activeWeekId,setActiveWeekId]=useState(tgWeeks[0]?.id??"");
+  const [activeWeekId,setActiveWeekId]=useState(tgWeeks[0]?.id ?? "");
   const [familyFilter,setFamilyFilter]=useState<FamilyFilter>("ALL");
   const [search,setSearch]=useState("");
   const [selectedRayon,setSelectedRayon]=useState("");
-  const [rangeEndWeekId,setRangeEndWeekId]=useState(tgWeeks[0]?.id??"");
+  const [rangeEndWeekId,setRangeEndWeekId]=useState(tgWeeks[0]?.id ?? "");
   const [planVisible,setPlanVisible]=useState(false);
   const [customMechanics,setCustomMechanics]=useState<string[]>(()=>loadTgCustomMechanics());
   const [mecaCustomInput,setMecaCustomInput]=useState("");
@@ -98,7 +125,7 @@ export default function PlanTgPage(){
   const [newRayonResponsible,setNewRayonResponsible]=useState("");
   const [newRayonAnchor,setNewRayonAnchor]=useState("");
   const [newRayonPositionMode,setNewRayonPositionMode]=useState<PositionMode>("end");
-  const [newRayonStartWeekId,setNewRayonStartWeekId]=useState(tgWeeks[0]?.id??"");
+  const [newRayonStartWeekId,setNewRayonStartWeekId]=useState(tgWeeks[0]?.id ?? "");
 
   const employees=tgEmployees.filter((e)=>e.active).map((e)=>e.name);
   const assignmentMap=useMemo(()=>new Map(assignments.map((i)=>[i.rayon,i.employee])),[assignments]);
@@ -122,6 +149,13 @@ export default function PlanTgPage(){
   useEffect(()=>{saveTgRayons(orderedRayons);},[orderedRayons]);
   useEffect(()=>{saveTgDefaultAssignments(assignments);},[assignments]);
   useEffect(()=>{saveTgWeekPlans(normalizePlans(plans,orderedRayons,assignmentMap));},[assignmentMap,orderedRayons,plans]);
+  useEffect(() => {
+    const currentWeekId = getCurrentWeekId();
+    if (!currentWeekId) return;
+    setActiveWeekId(currentWeekId);
+    setRangeEndWeekId(currentWeekId);
+    setNewRayonStartWeekId(currentWeekId);
+  }, []);
   useEffect(()=>{
     const refresh=()=>{
       const nextRayons = resequence(loadTgRayons());

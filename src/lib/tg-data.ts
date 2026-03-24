@@ -453,7 +453,7 @@ export const tgEmployees: TgEmployee[] = [
     "active": true
   },
   {
-    "name": "NADIA",
+    "name": "",
     "polyvalent": true,
     "active": true
   },
@@ -1538,7 +1538,7 @@ export const tgWeekPlans: TgWeekPlanRow[] = [
     "family": "Sale",
     "defaultResponsible": "MOHAMED",
     "gbProduct": "AUCHAN NOIX DE CAJOU  364UVC    2EME 40% RI \n   \n  • AUCHAN PISTACHES 288 UVC 2EME 40% RI",
-    "tgResponsible": "NADIA",
+    "tgResponsible": "",
     "tgProduct": "",
     "tgQuantity": "1425 / 1425",
     "tgMechanic": "2+1",
@@ -1742,7 +1742,7 @@ export const tgWeekPlans: TgWeekPlanRow[] = [
     "family": "Sucre",
     "defaultResponsible": "CECILE",
     "gbProduct": "",
-    "tgResponsible": "NADIA",
+    "tgResponsible": "",
     "tgProduct": "KELLOGG'S FROSTIES MIEL POPS 620G",
     "tgQuantity": "05/04/2026",
     "tgMechanic": "2EME 60%",
@@ -5618,7 +5618,7 @@ export const tgWeekPlans: TgWeekPlanRow[] = [
     "family": "Sale",
     "defaultResponsible": "MOHAMED",
     "gbProduct": "AUCHAN CHIPS CUITE CHAUDRON 120G  80/100/40/80  \n2EME 40% COC \n\n•  VICO CHIPS DE LENTILLES NATUR BON  56/56/56/56/56/56",
-    "tgResponsible": "NADIA",
+    "tgResponsible": "",
     "tgProduct": "",
     "tgQuantity": "2 BOX",
     "tgMechanic": "2+1",
@@ -5630,7 +5630,7 @@ export const tgWeekPlans: TgWeekPlanRow[] = [
     "family": "Sale",
     "defaultResponsible": "ROSALIE",
     "gbProduct": "• OLD EL PASO 1/1  \n2EME 60%\n\n• MAGGI NOUILLES CUP 32/24/24/24/32/32/48  2EME 68%",
-    "tgResponsible": "NADIA",
+    "tgResponsible": "",
     "tgProduct": "",
     "tgQuantity": "2BOX",
     "tgMechanic": "2+1",
@@ -5786,7 +5786,7 @@ export const tgWeekPlans: TgWeekPlanRow[] = [
     "family": "Sucre",
     "defaultResponsible": "MOHAMED",
     "gbProduct": "",
-    "tgResponsible": "NADIA",
+    "tgResponsible": "",
     "tgProduct": "KELLOGG'S EXTRA 500G",
     "tgQuantity": "120/240/48",
     "tgMechanic": "2EME 50%",
@@ -5822,7 +5822,7 @@ export const tgWeekPlans: TgWeekPlanRow[] = [
     "family": "Sucre",
     "defaultResponsible": "CECILE",
     "gbProduct": "",
-    "tgResponsible": "NADIA",
+    "tgResponsible": "",
     "tgProduct": "TRESOR CHOCOLAT",
     "tgQuantity": "04/04/2026",
     "tgMechanic": "2EME 50%",
@@ -14086,7 +14086,7 @@ export const tgDataFeedRows: TgDataFeedRow[] = [
     "rayon": "CHIPS",
     "family": "Sale",
     "type": "TG",
-    "responsible": "NADIA",
+    "responsible": "",
     "product": "PRINGLES  ORIGINAK CREA ONION 195G",
     "quantity": "1425 / 1425",
     "mechanic": "2+1"
@@ -14196,7 +14196,7 @@ export const tgDataFeedRows: TgDataFeedRow[] = [
     "rayon": "ANIMALERIE",
     "family": "Sucre",
     "type": "TG",
-    "responsible": "NADIA",
+    "responsible": "",
     "product": "KELLOGG'S FROSTIES MIEL POPS 620G",
     "quantity": "05/04/2026",
     "mechanic": "2EME 60%"
@@ -15037,3 +15037,4 @@ export const tgEntries: TgEntry[] = tgDataFeedRows
     quantity: row.quantity || undefined,
     mechanic: row.mechanic || undefined,
   }));
+

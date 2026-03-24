@@ -552,7 +552,7 @@ export default function PlanningApp(){
   const [view,setView]=useState("mois");
   const [year,setYear]=useState(2026);
   const [month,setMonth]=useState(2);
-  const [selectedDate,setSelectedDate]=useState(new Date());
+  const [selectedDate,setSelectedDate]=useState(new Date(2026,2,1));
   const [filter,setFilter]=useState("ALL");
   const [overrides,setOverrides]=useState(()=>loadPlanningOverrides()); // key: "NAME_2026-03-20" → {s:"CP",h:"6h-13h"}
   const [editing,setEditing]=useState(null);
@@ -572,6 +572,13 @@ export default function PlanningApp(){
   useEffect(()=>{
     savePlanningBinomes(binomes);
   },[binomes]);
+
+  useEffect(()=>{
+    const now = new Date();
+    setYear(now.getFullYear());
+    setMonth(now.getMonth());
+    setSelectedDate(now);
+  },[]);
 
   useEffect(()=>{
     syncPlanningDataFromRh();

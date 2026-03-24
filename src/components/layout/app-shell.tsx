@@ -123,6 +123,36 @@ export function AppShell({ version, children }: AppShellProps) {
     setTodayLabel(getTodayLabel());
   }, []);
 
+  useEffect(() => {
+    if (pathname === "/login") return;
+    const guardPasswordFlow = async () => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        router.replace("/login");
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("password_changed")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      const passwordChanged = profile?.password_changed === true;
+      if (!passwordChanged && pathname !== "/change-password") {
+        router.replace("/change-password");
+        return;
+      }
+      if (passwordChanged && pathname === "/change-password") {
+        router.replace("/");
+      }
+    };
+    void guardPasswordFlow();
+  }, [pathname, router]);
+
   const handleSignOut = async () => {
     if (isSigningOut) return;
     setIsSigningOut(true);

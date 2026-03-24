@@ -36,15 +36,6 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const getPasswordChanged = async (userId: string) => {
-    const { data } = await supabase
-      .from("profiles")
-      .select("password_changed")
-      .eq("id", userId)
-      .maybeSingle();
-    return data?.password_changed === true;
-  };
-
   if (!user && !isLoginPage && !isChangePasswordPage) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
@@ -57,26 +48,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  if (user) {
-    const passwordChanged = await getPasswordChanged(user.id);
-
-    if (!passwordChanged && !isChangePasswordPage) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/change-password";
-      return NextResponse.redirect(url);
-    }
-
-    if (passwordChanged && isChangePasswordPage) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/";
-      return NextResponse.redirect(url);
-    }
-
-    if (isLoginPage) {
-      const url = request.nextUrl.clone();
-      url.pathname = passwordChanged ? "/" : "/change-password";
-      return NextResponse.redirect(url);
-    }
+  if (user && isLoginPage) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/";
+    return NextResponse.redirect(url);
   }
 
   return response;

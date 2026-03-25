@@ -26,15 +26,15 @@ const V = {
 };
 
 const ST = {
-  PRESENT:{c:V.green,bg:"#ecfdf5",l:"Présent",short:"P"},
-  RH:{c:V.purple,bg:"#f5f3ff",l:"Repos hebdo",short:"RH"},
-  CP:{c:V.amber,bg:"#fffbeb",l:"Congé payé",short:"CP"},
-  MAL:{c:V.red,bg:"#fef2f2",l:"Maladie",short:"MAL"},
-  ABS:{c:V.pink,bg:"#fdf2f8",l:"Absence",short:"ABS"},
-  FORM:{c:"#2563eb",bg:"#eff6ff",l:"Formation",short:"FOR"},
-  FERIE:{c:"#475569",bg:"#f1f5f9",l:"Jour férié",short:"FÉR"},
-  X:{c:"#9ca3af",bg:"#f9fafb",l:"Non travaillé",short:"X"},
-  CONGE_MAT:{c:V.orange,bg:"#fff7ed",l:"Congé mat.",short:"C.M"},
+  PRESENT:{c:"#166534",bg:"#dcfce7",l:"Présent",short:"P"},
+  RH:{c:"#5b21b6",bg:"#ede9fe",l:"Repos hebdo",short:"RH"},
+  CP:{c:"#b45309",bg:"#fef3c7",l:"Congé payé",short:"CP"},
+  MAL:{c:"#b91c1c",bg:"#fee2e2",l:"Maladie",short:"MAL"},
+  ABS:{c:"#be185d",bg:"#fce7f3",l:"Absence",short:"ABS"},
+  FORM:{c:"#1d4ed8",bg:"#dbeafe",l:"Formation",short:"FOR"},
+  FERIE:{c:"#334155",bg:"#e2e8f0",l:"Jour férié",short:"FÉR"},
+  X:{c:"#94a3b8",bg:"#f3f4f6",l:"Non travaillé",short:"X"},
+  CONGE_MAT:{c:"#c2410c",bg:"#ffedd5",l:"Congé mat.",short:"C.M"},
 };
 
 /* ═══════════════════════════════════════════════════════════
@@ -114,7 +114,7 @@ function syncPlanningDataFromRh(){
 const JL=["","LUN","MAR","MER","JEU","VEN","SAM","DIM"];
 const JL_FULL=["","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi","Dimanche"];
 const MOIS_FR=["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
-const JC=["D","L","M","M","J","V","S"];
+const JC_SHORT=["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"];
 
 function getISOWeek(d){const t=new Date(d);t.setHours(0,0,0,0);t.setDate(t.getDate()+3-(t.getDay()+6)%7);const w=new Date(t.getFullYear(),0,4);return 1+Math.round(((t-w)/864e5-3+(w.getDay()+6)%7)/7);}
 function daysInMonth(y,m){return new Date(y,m+1,0).getDate();}
@@ -349,20 +349,21 @@ const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
             {dates.map(d=>{
               const dow=d.getDay();if(dow===0)return null;
               const isW=dow===6;const isT=d.toISOString().slice(0,10)===todayS;
-              return(<th key={d.getDate()} style={{padding:"4px 1px",fontSize:9,fontWeight:isT?800:600,textAlign:"center",borderBottom:`2px solid ${V.line}`,minWidth:62,color:isT?V.mc:isW?V.mc+"80":V.light,background:isT?V.mL:"transparent"}}>
-                <div style={{fontSize:8,color:isW?V.mc+"50":V.light}}>{JC[dow]}</div>{d.getDate()}
+              return(<th key={d.getDate()} style={{padding:"6px 2px",fontSize:10,fontWeight:isT?800:700,textAlign:"center",borderBottom:`2px solid ${V.line}`,minWidth:68,color:isT?V.mc:isW?V.mc+"90":V.light,background:isT?"#dbeafe":"transparent",boxShadow:isT?"inset 0 -2px 0 rgba(29,95,160,0.2)":"none"}}>
+                <div style={{fontSize:9,color:isT?V.mc:isW?V.mc+"70":V.light,fontWeight:700}}>{JC_SHORT[dow]}</div>{d.getDate()}
               </th>);
             })}
             <th style={{padding:"8px 4px",fontSize:10,fontWeight:700,color:V.mc,textAlign:"center",borderBottom:`2px solid ${V.line}`,position:"sticky",right:0,background:"#f8fafc",zIndex:3,minWidth:30}}>Jrs</th>
           </tr>
         </thead>
         <tbody>
-          {filtered.map(emp=>{
+          {filtered.map((emp,rowIndex)=>{
             let presCount=0;
             const isCoordinator=isCoordinatorEmployee(emp.n);
+            const rowBackground=rowIndex%2===0?"#ffffff":"#f8fbff";
             return(
               <tr key={emp.n} style={{opacity:emp.actif?1:0.45}}>
-                <td style={{padding:"4px 8px",fontSize:11,fontWeight:700,borderBottom:`1px solid ${V.line}`,position:"sticky",left:0,background:isCoordinator?"#f3f8ff":"#fff",zIndex:2,whiteSpace:"nowrap"}}>
+                <td style={{padding:"6px 8px",fontSize:11,fontWeight:700,borderBottom:`2px solid #d7e2ee`,position:"sticky",left:0,background:isCoordinator?"#f3f8ff":rowBackground,zIndex:2,whiteSpace:"nowrap"}}>
                   <div style={{display:"flex",alignItems:"center",gap:6,padding:isCoordinator?"4px 8px":"0",borderRadius:isCoordinator?8:0,background:isCoordinator?"#e7f0fb":"transparent",color:isCoordinator?V.mc:V.body}}>
                     <span style={{width:5,height:5,borderRadius:3,background:isCoordinator?V.amber:emp.t==="M"?V.mc:emp.t==="S"?V.purple:"#9ca3af",flexShrink:0}}/>{emp.n}
                   </div>
@@ -379,15 +380,17 @@ const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
 
                   return(
                     <td key={date.getDate()} onClick={()=>onEdit(emp,date)} style={{
-                      padding:"2px 1px",textAlign:"center",borderBottom:`1px solid ${V.line}`,cursor:"pointer",
-                      background:isT?`${V.mc}04`:"transparent",position:"relative",
+                      padding:"4px 2px",textAlign:"center",borderBottom:`2px solid #d7e2ee`,cursor:"pointer",
+                      background:isT?"#edf5ff":rowBackground,position:"relative",
+                      boxShadow:isT?"inset 0 0 0 1px rgba(29,95,160,0.14)":"none",
                     }}>
                       {s==="PRESENT"?(
                         <div style={{
-                          fontSize:8,fontWeight:600,color:isCustomH?V.mc:V.body,
-                          background:isCustomH?V.mL:"transparent",
-                          borderRadius:4,padding:"3px 2px",lineHeight:1.2,
-                          border:triC?`1px solid ${V.amber}40`:"1px solid transparent",
+                          fontSize:8,fontWeight:700,color:isCustomH?V.mc:V.body,
+                          background:isCustomH?"#dbeafe":"rgba(255,255,255,0.7)",
+                          borderRadius:6,padding:"4px 2px",lineHeight:1.2,
+                          border:triC?`1px solid ${V.amber}70`:"1px solid rgba(148,163,184,0.14)",
+                          boxShadow:isT?"0 0 0 1px rgba(29,95,160,0.08)":"none",
                         }}>
                           {h||"P"}
                           {triC&&(
@@ -412,9 +415,9 @@ const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
                         </div>
                       ):(
                         <div style={{
-                          fontSize:8,fontWeight:700,color:sc.c,
-                          background:sc.bg,borderRadius:4,padding:"3px 2px",
-                          border:`1px solid ${sc.c}15`,lineHeight:1.2,
+                          fontSize:8,fontWeight:800,color:sc.c,
+                          background:sc.bg,borderRadius:6,padding:"4px 2px",
+                          border:`1px solid ${sc.c}35`,lineHeight:1.2,
                         }}>
                           {sc.short}
                         </div>
@@ -422,7 +425,7 @@ const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
                     </td>
                   );
                 })}
-                <td style={{padding:"4px 4px",fontSize:11,fontWeight:800,textAlign:"center",borderBottom:`1px solid ${V.line}`,color:V.mc,position:"sticky",right:0,background:"#fff",zIndex:2}}>
+                <td style={{padding:"4px 4px",fontSize:11,fontWeight:800,textAlign:"center",borderBottom:`2px solid #d7e2ee`,color:V.mc,position:"sticky",right:0,background:rowBackground,zIndex:2}}>
                   {presCount||""}
                 </td>
               </tr>

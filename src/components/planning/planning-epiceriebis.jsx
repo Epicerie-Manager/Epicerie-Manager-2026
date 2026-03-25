@@ -349,7 +349,19 @@ const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
             {dates.map(d=>{
               const dow=d.getDay();if(dow===0)return null;
               const isW=dow===6;const isT=d.toISOString().slice(0,10)===todayS;
-              return(<th key={d.getDate()} style={{padding:"6px 2px",fontSize:10,fontWeight:isT?800:700,textAlign:"center",borderBottom:`2px solid ${V.line}`,minWidth:68,color:isT?V.mc:isW?V.mc+"90":V.light,background:isT?"#dbeafe":"transparent",boxShadow:isT?"inset 0 -2px 0 rgba(29,95,160,0.2)":"none"}}>
+              return(<th key={d.getDate()} style={{
+                padding:"6px 2px",
+                fontSize:10,
+                fontWeight:isT?800:700,
+                textAlign:"center",
+                borderBottom:isT?"2px solid #16a34a":`2px solid ${V.line}`,
+                borderTop:isT?"2px solid #16a34a":"2px solid transparent",
+                borderLeft:isT?"2px solid #16a34a":"none",
+                borderRight:isT?"2px solid #16a34a":"none",
+                minWidth:68,
+                color:isT?V.mc:isW?V.mc+"90":V.light,
+                background:"transparent",
+              }}>
                 <div style={{fontSize:9,color:isT?V.mc:isW?V.mc+"70":V.light,fontWeight:700}}>{JC_SHORT[dow]}</div>{d.getDate()}
               </th>);
             })}
@@ -381,8 +393,9 @@ const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
                   return(
                     <td key={date.getDate()} onClick={()=>onEdit(emp,date)} style={{
                       padding:"4px 2px",textAlign:"center",borderBottom:`2px solid #d7e2ee`,cursor:"pointer",
-                      background:isT?"#edf5ff":rowBackground,position:"relative",
-                      boxShadow:isT?"inset 0 0 0 1px rgba(29,95,160,0.14)":"none",
+                      background:rowBackground,position:"relative",
+                      borderLeft:isT?"2px solid #16a34a":"none",
+                      borderRight:isT?"2px solid #16a34a":"none",
                     }}>
                       {s==="PRESENT"?(
                         <div style={{
@@ -436,10 +449,19 @@ const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
             <td style={{padding:"6px 8px",fontSize:10,fontWeight:800,borderTop:`2px solid ${V.line}`,position:"sticky",left:0,background:"#f8fafc",zIndex:2,color:V.mc}}>EFFECTIF</td>
             {dates.map(date=>{
               const dow=date.getDay();if(dow===0)return null;
+              const isT=date.toISOString().slice(0,10)===todayS;
               const m=EMPS.filter(e=>e.t==="M"&&getStatus(e,date,overrides)==="PRESENT").length;
               const s=EMPS.filter(e=>e.t==="S"&&getStatus(e,date,overrides)==="PRESENT").length;
               const alert=m<8;
-              return(<td key={date.getDate()} style={{textAlign:"center",padding:"4px 0",borderTop:`2px solid ${V.line}`,background:alert?"#fef2f2":"#f8fafc"}}>
+              return(<td key={date.getDate()} style={{
+                textAlign:"center",
+                padding:"4px 0",
+                borderTop:isT?"2px solid #16a34a":`2px solid ${V.line}`,
+                borderBottom:isT?"2px solid #16a34a":"none",
+                borderLeft:isT?"2px solid #16a34a":"none",
+                borderRight:isT?"2px solid #16a34a":"none",
+                background:alert?"#fef2f2":"#f8fafc"
+              }}>
                 <div style={{fontSize:11,fontWeight:800,color:alert?V.red:V.mc}}>{m}</div>
                 <div style={{fontSize:9,fontWeight:600,color:V.purple}}>{s}</div>
               </td>);

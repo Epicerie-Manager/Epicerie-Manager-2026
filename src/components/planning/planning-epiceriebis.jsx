@@ -5,9 +5,9 @@ import {
   loadPlanningBinomes,
   loadPlanningOverrides,
   loadPlanningTriData,
-  savePlanningBinomes,
-  savePlanningOverrides,
-  savePlanningTriData,
+  savePlanningBinomeToSupabase,
+  savePlanningOverridesToSupabase,
+  savePlanningTriPairToSupabase,
   syncPlanningFromSupabase,
 } from "@/lib/planning-store";
 import { getRhUpdatedEventName, loadRhCycles, loadRhEmployees } from "@/lib/rh-store";
@@ -156,6 +156,21 @@ const EditIcon=<svg width="12" height="12" viewBox="0 0 24 24" fill="none" strok
 
 const Legend=()=>(<div style={{display:"flex",gap:12,flexWrap:"wrap",padding:"8px 0"}}>{Object.entries(ST).filter(([k])=>k!=="X").map(([k,v])=>(<div key={k} style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:V.muted}}><div style={{width:10,height:10,borderRadius:3,background:v.c,opacity:0.8}}/>{v.l}</div>))}<div style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:V.muted}}><span style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:14,height:12,borderRadius:4,background:`${V.amber}12`,border:`1px solid ${V.amber}30`}}><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={V.amber} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg></span>Tri caddie</div></div>);
 
+const EditScopeOption=({value,label,desc,scope,setScope})=>(
+  <label onClick={()=>setScope(value)} style={{
+    display:"flex",alignItems:"flex-start",gap:10,padding:"10px 14px",borderRadius:10,cursor:"pointer",
+    background:scope===value?"#f8fafc":"transparent",
+    border:scope===value?`2px solid ${V.mc}`:`1px solid ${V.line}`,transition:"all 0.15s",
+  }}>
+    <input type="radio" name="scope" checked={scope===value} onChange={()=>setScope(value)}
+      style={{accentColor:V.mc,marginTop:2}}/>
+    <div>
+      <div style={{fontSize:13,fontWeight:700,color:scope===value?V.mc:V.body}}>{label}</div>
+      <div style={{fontSize:11,color:V.muted,lineHeight:1.3,marginTop:1}}>{desc}</div>
+    </div>
+  </label>
+);
+
 /* ═══════════════════════════════════════════════════════════
    EDIT CELL MODAL — statut + horaire ponctuel
    ═══════════════════════════════════════════════════════════ */
@@ -164,21 +179,6 @@ const EditCellModal=({empName,date,currentStatut,currentHoraire,defaultHoraire,m
   const [h,setH]=useState(currentHoraire||"");
   const [scope,setScope]=useState("default"); // "default" | "jour" | "mois"
   const dn=date.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"});
-
-  const RadioOpt=({value,label,desc,accent})=>(
-    <label onClick={()=>setScope(value)} style={{
-      display:"flex",alignItems:"flex-start",gap:10,padding:"10px 14px",borderRadius:10,cursor:"pointer",
-      background:scope===value?(accent?`${V.mc}08`:"#f8fafc"):"transparent",
-      border:scope===value?`2px solid ${V.mc}`:`1px solid ${V.line}`,transition:"all 0.15s",
-    }}>
-      <input type="radio" name="scope" checked={scope===value} onChange={()=>setScope(value)}
-        style={{accentColor:V.mc,marginTop:2}}/>
-      <div>
-        <div style={{fontSize:13,fontWeight:700,color:scope===value?V.mc:V.body}}>{label}</div>
-        <div style={{fontSize:11,color:V.muted,lineHeight:1.3,marginTop:1}}>{desc}</div>
-      </div>
-    </label>
-  );
 
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000}} onClick={onClose}>
@@ -207,13 +207,13 @@ const EditCellModal=({empName,date,currentStatut,currentHoraire,defaultHoraire,m
             </div>
 
             <div style={{display:"grid",gap:6}}>
-              <RadioOpt value="default"
+              <EditScopeOption value="default" scope={scope} setScope={setScope}
                 label="Garder l'horaire par défaut"
                 desc="L'horaire RH s'applique normalement"/>
-              <RadioOpt value="jour"
+              <EditScopeOption value="jour" scope={scope} setScope={setScope}
                 label="Modifier pour ce jour uniquement"
                 desc={`Exception ponctuelle le ${dn}`}/>
-              <RadioOpt value="mois"
+              <EditScopeOption value="mois" scope={scope} setScope={setScope}
                 label={`Modifier pour tout ${monthLabel}`}
                 desc="Applique le nouvel horaire sur tous les jours présent du mois"/>
             </div>
@@ -431,7 +431,6 @@ const VueSemaine=({weekStart,overrides,triData,onEdit})=>{
         const dow=date.getDay();const isT=date.toISOString().slice(0,10)===todayS;
         const matP=EMPS.filter(e=>e.t==="M"&&getStatus(e,date,overrides)==="PRESENT");
         const soirP=EMPS.filter(e=>e.t==="S"&&getStatus(e,date,overrides)==="PRESENT");
-        const etuP=EMPS.filter(e=>e.t==="E"&&getStatus(e,date,overrides)==="PRESENT");
         const absents=EMPS.filter(e=>e.actif&&!["PRESENT","X"].includes(getStatus(e,date,overrides)));
         const triPair=triData[dow];const alert=matP.length<8;
 
@@ -510,7 +509,7 @@ const VueJour=({date,overrides,triData,binomes,onEdit})=>{
     <div>
       <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:16}}>
         <div style={{fontSize:22,fontWeight:800,color:isT?V.mc:V.body}}>{dayLabel}</div>
-        {isT&&<span style={{fontSize:11,fontWeight:700,color:"#fff",background:V.mc,padding:"4px 12px",borderRadius:8}}>Aujourd'hui</span>}
+        {isT&&<span style={{fontSize:11,fontWeight:700,color:"#fff",background:V.mc,padding:"4px 12px",borderRadius:8}}>Aujourd&apos;hui</span>}
         {alert&&<span style={{fontSize:11,fontWeight:700,color:V.red,background:"#fef2f2",padding:"4px 12px",borderRadius:8}}>Sous-effectif</span>}
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:16}}>
@@ -560,18 +559,8 @@ export default function PlanningApp(){
   const [binomes,setBinomes]=useState(()=>loadPlanningBinomes());
   const [editTri,setEditTri]=useState(null); // dow number
   const [editBinome,setEditBinome]=useState(null); // index
-
-  useEffect(()=>{
-    savePlanningOverrides(overrides);
-  },[overrides]);
-
-  useEffect(()=>{
-    savePlanningTriData(triData);
-  },[triData]);
-
-  useEffect(()=>{
-    savePlanningBinomes(binomes);
-  },[binomes]);
+  const [busy,setBusy]=useState(false);
+  const [error,setError]=useState("");
 
   useEffect(()=>{
     const now = new Date();
@@ -616,40 +605,55 @@ export default function PlanningApp(){
     setEditing({emp,date,s,h,dh});
   };
 
-  const saveEdit=(s,h,scope)=>{
+  const saveEdit=async(s,h,scope)=>{
     if(!editing)return;
-    if(scope==="mois"&&h){
-      // Apply to all working days of the month for this employee
-      const emp=editing.emp;
-      const d=editing.date;
-      const y=d.getFullYear();const m=d.getMonth();
-      const days=daysInMonth(y,m);
-      setOverrides(p=>{
-        const next={...p};
+    setBusy(true);
+    setError("");
+    try {
+      const nextOverrides={...overrides};
+      const mutations=[];
+      if(scope==="mois"&&h){
+        const emp=editing.emp;
+        const d=editing.date;
+        const y=d.getFullYear();const m=d.getMonth();
+        const days=daysInMonth(y,m);
         for(let day=1;day<=days;day++){
           const dt=new Date(y,m,day);
           const dow=dt.getDay();
-          if(dow===0) continue; // skip sunday
-          const curS=getStatus(emp,dt,p);
+          if(dow===0) continue;
+          const curS=getStatus(emp,dt,overrides);
           if(curS==="PRESENT"){
-            const key=`${emp.n}_${dt.toISOString().slice(0,10)}`;
-            next[key]={s:"PRESENT",h};
+            const iso=dt.toISOString().slice(0,10);
+            const key=`${emp.n}_${iso}`;
+            nextOverrides[key]={s:"PRESENT",h};
+            mutations.push({employeeName:emp.n,date:iso,status:"PRESENT",horaire:h});
           }
         }
-        // Also apply the statut change for the clicked day
-        const key=`${emp.n}_${d.toISOString().slice(0,10)}`;
-        next[key]={s,h};
-        return next;
-      });
-    } else {
-      const key=`${editing.emp.n}_${editing.date.toISOString().slice(0,10)}`;
-      setOverrides(p=>({...p,[key]:{s,h}}));
+        const iso=editing.date.toISOString().slice(0,10);
+        const key=`${emp.n}_${iso}`;
+        nextOverrides[key]={s,h};
+        mutations.push({employeeName:emp.n,date:iso,status:s,horaire:h});
+      } else {
+        const iso=editing.date.toISOString().slice(0,10);
+        const key=`${editing.emp.n}_${iso}`;
+        nextOverrides[key]={s,h};
+        mutations.push({employeeName:editing.emp.n,date:iso,status:s,horaire:h});
+      }
+
+      const syncedOverrides = await savePlanningOverridesToSupabase(mutations,nextOverrides);
+      setOverrides(syncedOverrides);
+      setEditing(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Erreur Supabase.");
+    } finally {
+      setBusy(false);
     }
-    setEditing(null);
   };
 
-  const kpiDate=view==="jour"?selectedDate:new Date();
-  const kpiGroups=useMemo(()=>getDayGroups(kpiDate,overrides),[kpiDate,overrides]);
+  const kpiGroups=useMemo(()=>{
+    const kpiDate=view==="jour"?selectedDate:new Date();
+    return getDayGroups(kpiDate,overrides);
+  },[selectedDate,view,overrides]);
   const mCount=kpiGroups.matin.length;
   const sCount=kpiGroups.soir.length;
   const eCount=kpiGroups.etu.length;
@@ -687,6 +691,11 @@ export default function PlanningApp(){
             )}
           </div>
         </Card>
+        {(error||busy)&&(
+          <div style={{marginBottom:14,padding:"12px 14px",borderRadius:14,border:`1px solid ${(error?V.red:V.mc)}22`,background:error?"#fff5f5":"#eff6ff",color:error?V.red:V.mc,fontSize:13,fontWeight:600}}>
+            {error||"Enregistrement en cours..."}
+          </div>
+        )}
 
         {/* KPIs */}
         {view!=="jour"&&(
@@ -744,8 +753,35 @@ export default function PlanningApp(){
 
       {/* MODALS */}
       {editing&&<EditCellModal empName={editing.emp.n} date={editing.date} currentStatut={editing.s} currentHoraire={editing.h} defaultHoraire={editing.dh} monthLabel={`${MOIS_FR[editing.date.getMonth()]} ${editing.date.getFullYear()}`} onSave={saveEdit} onClose={()=>setEditing(null)}/>}
-      {editTri!==null&&<EditTriModal dow={editTri} pair={triData[editTri]} allNames={getAllEmpNames()} onSave={(pair)=>{setTriData(p=>({...p,[editTri]:pair}));setEditTri(null);}} onClose={()=>setEditTri(null)}/>}
-      {editBinome!==null&&<EditBinomeModal index={editBinome} pair={binomes[editBinome]} allNames={getAllEmpNames()} onSave={(pair)=>{setBinomes(p=>{const n=[...p];n[editBinome]=pair;return n;});setEditBinome(null);}} onClose={()=>setEditBinome(null)}/>}
+      {editTri!==null&&<EditTriModal dow={editTri} pair={triData[editTri]} allNames={getAllEmpNames()} onSave={async(pair)=>{
+        setBusy(true);
+        setError("");
+        try{
+          const nextTriData={...triData,[editTri]:pair};
+          const syncedTriData = await savePlanningTriPairToSupabase(editTri,pair,nextTriData);
+          setTriData(syncedTriData);
+          setEditTri(null);
+        }catch(err){
+          setError(err instanceof Error ? err.message : "Erreur Supabase.");
+        }finally{
+          setBusy(false);
+        }
+      }} onClose={()=>setEditTri(null)}/>}
+      {editBinome!==null&&<EditBinomeModal index={editBinome} pair={binomes[editBinome]} allNames={getAllEmpNames()} onSave={async(pair)=>{
+        setBusy(true);
+        setError("");
+        try{
+          const nextBinomes=[...binomes];
+          nextBinomes[editBinome]=pair;
+          const syncedBinomes = await savePlanningBinomeToSupabase(editBinome,pair,nextBinomes);
+          setBinomes(syncedBinomes);
+          setEditBinome(null);
+        }catch(err){
+          setError(err instanceof Error ? err.message : "Erreur Supabase.");
+        }finally{
+          setBusy(false);
+        }
+      }} onClose={()=>setEditBinome(null)}/>}
     </div>
   );
 }

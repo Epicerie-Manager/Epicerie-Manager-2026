@@ -91,15 +91,18 @@ export function formatPlanningDate(date: Date) {
 }
 
 function normalizePlanningStatusFromDb(status: string) {
-  const upper = String(status || "").toUpperCase();
-  if (upper === "ABSENT") return "X";
-  if (upper === "CONGE_MAT") return "CONGE_MAT";
-  if (upper === "FORMATION") return "FORM";
-  if (upper === "FERIE") return "FERIE";
-  if (upper === "CP") return "CP";
+  const upper = String(status || "").toUpperCase().trim();
+  if (upper === "PRESENT") return "PRESENT";
   if (upper === "RH") return "RH";
+  if (upper === "CP") return "CP";
   if (upper === "MAL") return "MAL";
-  return "PRESENT";
+  if (upper === "CONGE_MAT") return "CONGE_MAT";
+  if (upper === "FERIE") return "FERIE";
+  if (upper === "FORMATION") return "FORM";
+  if (upper === "FORM") return "FORM";
+  if (upper === "ABSENT") return "X";
+  if (upper === "X") return "X";
+  return upper || "X";
 }
 
 function normalizePlanningStatusToDb(status: string) {
@@ -208,7 +211,23 @@ export async function syncPlanningFromSupabase() {
       .lte("date", "2026-12-31")
       .limit(25000);
     if (Array.isArray(planningRows) && planningRows.length > 0) {
-      const overrides: PlanningOverrides = { ...sheetPlanningOverrides };
+      const existingStorage = (() => {
+        try {
+          const raw = window.localStorage.getItem(PLANNING_OVERRIDES_KEY);
+          if (!raw) return {} as PlanningOverrides;
+          const parsed = JSON.parse(raw);
+          return parsed && typeof parsed === "object"
+            ? (parsed as PlanningOverrides)
+            : ({} as PlanningOverrides);
+        } catch {
+          return {} as PlanningOverrides;
+        }
+      })();
+
+      const overrides: PlanningOverrides = {
+        ...sheetPlanningOverrides,
+        ...existingStorage,
+      };
       planningRows.forEach((row) => {
         const name = employeeNameById.get(String(row.employee_id));
         if (!name || !row.date) return;

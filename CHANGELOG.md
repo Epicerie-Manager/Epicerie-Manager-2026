@@ -21,6 +21,13 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.6 - 2026-03-25
+
+- Correctif `Planning` sur la reconstruction des overrides lors du sync Supabase.
+- La sync preserve maintenant le contenu deja present dans `localStorage` avant d'appliquer les donnees venant du Sheet et de Supabase.
+- Normalisation des statuts Supabase durcie pour mieux couvrir `CONGE_MAT`, `FORM`, `X` et les valeurs inattendues.
+- Verification technique : lint OK, build OK.
+
 ## v0.5.5 - 2026-03-25
 
 - Correction de la rehydratation du module `Planning` au refresh navigateur.

@@ -83,6 +83,13 @@ const DAY_CODE_TO_INDEX: Record<string, number> = {
   SAM: 6,
 };
 
+export function formatPlanningDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
 function normalizePlanningStatusFromDb(status: string) {
   const upper = String(status || "").toUpperCase();
   if (upper === "ABSENT") return "X";
@@ -474,7 +481,7 @@ function dayToCode(day: number) {
 }
 
 export function getPlanningStatus(emp: PlanningEmployee, date: Date, overrides: PlanningOverrides) {
-  const key = `${emp.n}_${date.toISOString().slice(0, 10)}`;
+  const key = `${emp.n}_${formatPlanningDate(date)}`;
   if (overrides[key]) return overrides[key].s;
   const dow = date.getDay();
   if (dow === 0) return "X";

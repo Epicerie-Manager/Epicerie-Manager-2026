@@ -1,0 +1,89 @@
+# Changelog
+
+Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Manager 2026`.
+
+## Regle de maintenance
+
+- A chaque fin de session de travail, ajouter une entree dans ce fichier.
+- Toute modification visible ou fonctionnelle livre dans l'application doit etre referencee ici.
+- Si une version est bump dans `package.json`, la section correspondante doit etre renseignee dans ce changelog.
+- Si une information plus ancienne n'est pas certaine, la marquer explicitement comme `a confirmer`.
+
+## Format conseille
+
+```md
+## vX.Y.Z - YYYY-MM-DD
+
+- changement visible 1
+- changement fonctionnel 2
+- correction notable 3
+```
+
+## Historique
+
+## v0.5.4 - 2026-03-25
+
+- Correction des dates du module `Planning` pour utiliser une cle date locale au lieu de `toISOString()`.
+- Correction du repere "aujourd'hui" dans la vue mois quand le jour affiche un decalage.
+- Correction de la persistance des modifications de planning qui pouvaient etre enregistrees sur un mauvais jour puis disparaitre apres actualisation.
+- Verification technique : lint OK, build OK.
+
+## v0.5.3 - 2026-03-25
+
+- Vue mois du planning : remplacement du fond de la colonne du jour courant par un lisere vert vertical sur toute la colonne.
+- Correction du rendu pour conserver des cellules blanches tout en gardant un repere plus net sur "aujourd'hui".
+- Verification technique : lint OK, build OK.
+
+## v0.5.2 - 2026-03-25
+
+- Vue mois du planning retravaillee pour une lecture plus lisible.
+- Alternance legere des lignes et separateurs de lignes renforces.
+- Couleurs des statuts (`RH`, `CP`, `MAL`, `CONGE_MAT`, etc.) rendues plus franches.
+- En-tete des jours amelioree avec abrevations 3 lettres (`Lun`, `Mar`, `Mer`, etc.).
+- Colonne du jour courant rendue plus visible sur toute sa hauteur.
+
+## v0.5.1 - 2026-03-25
+
+- Ordre d'affichage du planning ajuste : `ABDOU` en premier, `CECILE` en deuxieme, puis ordre alphabetique.
+- Etudiants deplaces a la fin de la liste et tries alphabetiquement.
+- Mise en avant visuelle d'Abdou dans les vues du planning.
+
+## v0.5.0 - 2026-03-25
+
+- Module `Planning` branche sur Supabase pour les ecritures.
+- Sauvegarde des cellules du planning dans `planning_entries`.
+- Sauvegarde du tri caddie dans `tri_caddie`.
+- Sauvegarde des binomes dans `binomes_repos`.
+- Messages d'erreur et etat d'enregistrement ajoutes dans l'interface planning.
+
+## v0.4.0 - 2026-03-25
+
+- Module `RH` branche sur Supabase pour les ecritures.
+- Creation d'employes dans `employees`.
+- Mise a jour des fiches RH en base.
+- Sauvegarde des cycles de repos dans `cycle_repos`.
+- Synchronisation du cache local pour garder le reste de l'application a jour.
+
+## v0.3.0 - 2026-03-25
+
+- Module `Infos` branche sur Supabase pour les ecritures.
+- Annonces enregistrees en base dans `annonces`.
+- Documents enregistres en base dans `documents`.
+- Upload des fichiers via Supabase Storage (`infos-documents`).
+- Correction des ecarts entre le code front et le schema reel de Supabase.
+- Correction des bugs de cache et de fallback sur le module `Infos`.
+
+## v0.2.3 - 2026-03-25
+
+- Nettoyage de la top bar et du dashboard.
+- Affichage du `full_name` du profil connecte dans la barre du haut.
+- Suppression du bouton `Vue d'ensemble`.
+- Version deplacee sous le nom du module a gauche.
+- Date enrichie avec une horloge digitale dans la top bar.
+- Tuile hero du dashboard allegee en retirant la date et la version en doublon.
+
+## v0.2.2 - a confirmer
+
+- Etat de depart constate au debut de cette phase de travail.
+- Version visible dans l'interface avant les ajustements effectues pendant cette session.
+- Historique detaille anterieur a confirmer avec les anciennes conversations ou les commits git.

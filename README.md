@@ -1,5 +1,11 @@
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
+## Project Workflow
+
+- Visible and functional releases are tracked in [`CHANGELOG.md`](./CHANGELOG.md).
+- At the end of each working session, the changelog should be updated with the delivered changes.
+- When the app version changes in `package.json`, the matching changelog entry should be added or completed.
+
 ## Getting Started
 
 First, run the development server:

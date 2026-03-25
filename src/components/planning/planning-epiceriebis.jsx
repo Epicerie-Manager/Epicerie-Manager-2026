@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  formatPlanningDate,
   loadPlanningBinomes,
   loadPlanningOverrides,
   loadPlanningTriData,
@@ -127,7 +128,7 @@ function getDefaultHoraire(emp,date){
 }
 
 function getStatus(emp,date,overrides){
-  const key=`${emp.n}_${date.toISOString().slice(0,10)}`;
+  const key=`${emp.n}_${formatPlanningDate(date)}`;
   if(overrides[key]) return overrides[key].s;
   const dow=date.getDay();
   if(dow===0) return "X";
@@ -139,7 +140,7 @@ function getStatus(emp,date,overrides){
 }
 
 function getHoraire(emp,date,overrides){
-  const key=`${emp.n}_${date.toISOString().slice(0,10)}`;
+  const key=`${emp.n}_${formatPlanningDate(date)}`;
   if(overrides[key]?.h) return overrides[key].h;
   return getDefaultHoraire(emp,date);
 }
@@ -338,7 +339,7 @@ const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
   const days=daysInMonth(year,month);
   const dates=Array.from({length:days},(_,i)=>new Date(year,month,i+1));
   const filtered=sortPlanningEmployees(filter==="ALL"?EMPS:EMPS.filter(e=>e.t===(filter==="M"?"M":filter==="S"?"S":"E")));
-  const todayS=new Date().toISOString().slice(0,10);
+  const todayS=formatPlanningDate(new Date());
 
   return(
     <div style={{overflowX:"auto"}}>
@@ -348,7 +349,7 @@ const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
             <th style={{padding:"8px 8px",fontSize:11,fontWeight:700,color:V.light,textAlign:"left",borderBottom:`2px solid ${V.line}`,position:"sticky",left:0,background:"#f8fafc",zIndex:3,minWidth:85}}>Employé</th>
             {dates.map(d=>{
               const dow=d.getDay();if(dow===0)return null;
-              const isW=dow===6;const isT=d.toISOString().slice(0,10)===todayS;
+              const isW=dow===6;const isT=formatPlanningDate(d)===todayS;
               return(<th key={d.getDate()} style={{
                 padding:"6px 2px",
                 fontSize:10,
@@ -385,9 +386,9 @@ const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
                   const s=getStatus(emp,date,overrides);
                   const sc=ST[s]||ST.X;
                   const h=s==="PRESENT"?getHoraire(emp,date,overrides):null;
-                  const isCustomH=overrides[`${emp.n}_${date.toISOString().slice(0,10)}`]?.h;
+                  const isCustomH=overrides[`${emp.n}_${formatPlanningDate(date)}`]?.h;
                   const triC=isTriCaddie(emp.n,dow,triData);
-                  const isT=date.toISOString().slice(0,10)===todayS;
+                  const isT=formatPlanningDate(date)===todayS;
                   if(s==="PRESENT") presCount++;
 
                   return(
@@ -449,7 +450,7 @@ const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
             <td style={{padding:"6px 8px",fontSize:10,fontWeight:800,borderTop:`2px solid ${V.line}`,position:"sticky",left:0,background:"#f8fafc",zIndex:2,color:V.mc}}>EFFECTIF</td>
             {dates.map(date=>{
               const dow=date.getDay();if(dow===0)return null;
-              const isT=date.toISOString().slice(0,10)===todayS;
+              const isT=formatPlanningDate(date)===todayS;
               const m=EMPS.filter(e=>e.t==="M"&&getStatus(e,date,overrides)==="PRESENT").length;
               const s=EMPS.filter(e=>e.t==="S"&&getStatus(e,date,overrides)==="PRESENT").length;
               const alert=m<8;
@@ -479,12 +480,12 @@ const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
    ═══════════════════════════════════════════════════════════ */
 const VueSemaine=({weekStart,overrides,triData,onEdit})=>{
   const days=Array.from({length:6},(_,i)=>{const d=new Date(weekStart);d.setDate(d.getDate()+i);return d;});
-  const todayS=new Date().toISOString().slice(0,10);
+  const todayS=formatPlanningDate(new Date());
 
   return(
     <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:10}}>
       {days.map(date=>{
-        const dow=date.getDay();const isT=date.toISOString().slice(0,10)===todayS;
+        const dow=date.getDay();const isT=formatPlanningDate(date)===todayS;
         const matP=sortPlanningEmployees(EMPS.filter(e=>e.t==="M"&&getStatus(e,date,overrides)==="PRESENT"));
         const soirP=sortPlanningEmployees(EMPS.filter(e=>e.t==="S"&&getStatus(e,date,overrides)==="PRESENT"));
         const absents=sortPlanningEmployees(EMPS.filter(e=>e.actif&&!["PRESENT","X"].includes(getStatus(e,date,overrides))));
@@ -545,7 +546,7 @@ const VueSemaine=({weekStart,overrides,triData,onEdit})=>{
    ═══════════════════════════════════════════════════════════ */
 const VueJour=({date,overrides,triData,binomes,onEdit})=>{
   const dow=date.getDay();const dayLabel=date.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
-  const todayS=new Date().toISOString().slice(0,10);const isT=date.toISOString().slice(0,10)===todayS;
+  const todayS=formatPlanningDate(new Date());const isT=formatPlanningDate(date)===todayS;
   const grouped=getDayGroups(date,overrides);
   const triPair=triData[dow];const alert=grouped.matin.length<8;
 
@@ -679,18 +680,18 @@ export default function PlanningApp(){
           if(dow===0) continue;
           const curS=getStatus(emp,dt,overrides);
           if(curS==="PRESENT"){
-            const iso=dt.toISOString().slice(0,10);
+            const iso=formatPlanningDate(dt);
             const key=`${emp.n}_${iso}`;
             nextOverrides[key]={s:"PRESENT",h};
             mutations.push({employeeName:emp.n,date:iso,status:"PRESENT",horaire:h});
           }
         }
-        const iso=editing.date.toISOString().slice(0,10);
+        const iso=formatPlanningDate(editing.date);
         const key=`${emp.n}_${iso}`;
         nextOverrides[key]={s,h};
         mutations.push({employeeName:emp.n,date:iso,status:s,horaire:h});
       } else {
-        const iso=editing.date.toISOString().slice(0,10);
+        const iso=formatPlanningDate(editing.date);
         const key=`${editing.emp.n}_${iso}`;
         nextOverrides[key]={s,h};
         mutations.push({employeeName:editing.emp.n,date:iso,status:s,horaire:h});

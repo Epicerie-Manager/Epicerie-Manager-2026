@@ -64,8 +64,31 @@ let EMPS=[
   {n:"ACHRAF",t:"E",hs:null,hm:null,obs:"Étudiant",actif:true},
 ];
 
+function isCoordinatorEmployee(name){
+  return String(name||"").trim().toUpperCase()==="ABDOU";
+}
+
+function comparePlanningEmployees(a,b){
+  const nameA=String(a?.n??"").trim().toUpperCase();
+  const nameB=String(b?.n??"").trim().toUpperCase();
+  if(nameA==="ABDOU") return -1;
+  if(nameB==="ABDOU") return 1;
+  if(nameA==="CECILE") return -1;
+  if(nameB==="CECILE") return 1;
+
+  const isStudentA=a?.t==="E";
+  const isStudentB=b?.t==="E";
+  if(isStudentA!==isStudentB) return isStudentA?1:-1;
+
+  return nameA.localeCompare(nameB,"fr");
+}
+
+function sortPlanningEmployees(employees){
+  return [...employees].sort(comparePlanningEmployees);
+}
+
 function getAllEmpNames(){
-  return EMPS.filter((e)=>e.t!=="E").map((e)=>e.n);
+  return sortPlanningEmployees(EMPS.filter((e)=>e.t!=="E")).map((e)=>e.n);
 }
 
 let CYCLE={ABDOU:["VEN","VEN","VEN","VEN","VEN"],CECILE:["MER","MER","MER","MER","SAM"],MASSIMO:["JEU","JEU","JEU","JEU","JEU"],DILAXSHAN:["SAM","MER","MER","MER","MER"],KAMAR:["MAR","MAR","MAR","MAR","MAR"],YASSINE:["JEU","JEU","JEU","JEU","SAM"],WASIM:["VEN","VEN","SAM","VEN","VEN"],JEREMY:["VEN","VEN","VEN","SAM","VEN"],KAMEL:["SAM","MAR","MAR","MAR","MAR"],PASCALE:["SAM","LUN","LUN","LUN","LUN"],MOHCINE:["MER","MER","MER","SAM","MER"],LIYAKATH:["LUN","LUN","SAM","LUN","LUN"],KHANH:["JEU","JEU","JEU","JEU","SAM"],ROSALIE:["JEU","SAM","JEU","JEU","JEU"],JAMAA:["MER","MER","SAM","MER","MER"],"EL HASSANE":["VEN","SAM","VEN","VEN","VEN"]};
@@ -138,6 +161,13 @@ function getDayGroups(date, overrides){
     if(s==="MAL"){ grouped.absMAL.push(e); return; }
     if(s!=="X") grouped.absOther.push({...e,statut:s});
   });
+  grouped.matin=sortPlanningEmployees(grouped.matin);
+  grouped.soir=sortPlanningEmployees(grouped.soir);
+  grouped.etu=sortPlanningEmployees(grouped.etu);
+  grouped.absRH=sortPlanningEmployees(grouped.absRH);
+  grouped.absCP=sortPlanningEmployees(grouped.absCP);
+  grouped.absMAL=sortPlanningEmployees(grouped.absMAL);
+  grouped.absOther=sortPlanningEmployees(grouped.absOther);
   return grouped;
 }
 
@@ -307,7 +337,7 @@ const EditBinomeModal=({index,pair,allNames,onSave,onClose})=>{
 const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
   const days=daysInMonth(year,month);
   const dates=Array.from({length:days},(_,i)=>new Date(year,month,i+1));
-  const filtered=filter==="ALL"?EMPS:EMPS.filter(e=>e.t===(filter==="M"?"M":filter==="S"?"S":"E"));
+  const filtered=sortPlanningEmployees(filter==="ALL"?EMPS:EMPS.filter(e=>e.t===(filter==="M"?"M":filter==="S"?"S":"E")));
   const todayS=new Date().toISOString().slice(0,10);
 
   return(
@@ -329,11 +359,12 @@ const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
         <tbody>
           {filtered.map(emp=>{
             let presCount=0;
+            const isCoordinator=isCoordinatorEmployee(emp.n);
             return(
               <tr key={emp.n} style={{opacity:emp.actif?1:0.45}}>
-                <td style={{padding:"4px 8px",fontSize:11,fontWeight:700,borderBottom:`1px solid ${V.line}`,position:"sticky",left:0,background:"#fff",zIndex:2,whiteSpace:"nowrap"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:4}}>
-                    <span style={{width:5,height:5,borderRadius:3,background:emp.t==="M"?V.mc:emp.t==="S"?V.purple:"#9ca3af",flexShrink:0}}/>{emp.n}
+                <td style={{padding:"4px 8px",fontSize:11,fontWeight:700,borderBottom:`1px solid ${V.line}`,position:"sticky",left:0,background:isCoordinator?"#f3f8ff":"#fff",zIndex:2,whiteSpace:"nowrap"}}>
+                  <div style={{display:"flex",alignItems:"center",gap:6,padding:isCoordinator?"4px 8px":"0",borderRadius:isCoordinator?8:0,background:isCoordinator?"#e7f0fb":"transparent",color:isCoordinator?V.mc:V.body}}>
+                    <span style={{width:5,height:5,borderRadius:3,background:isCoordinator?V.amber:emp.t==="M"?V.mc:emp.t==="S"?V.purple:"#9ca3af",flexShrink:0}}/>{emp.n}
                   </div>
                 </td>
                 {dates.map(date=>{
@@ -429,9 +460,9 @@ const VueSemaine=({weekStart,overrides,triData,onEdit})=>{
     <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:10}}>
       {days.map(date=>{
         const dow=date.getDay();const isT=date.toISOString().slice(0,10)===todayS;
-        const matP=EMPS.filter(e=>e.t==="M"&&getStatus(e,date,overrides)==="PRESENT");
-        const soirP=EMPS.filter(e=>e.t==="S"&&getStatus(e,date,overrides)==="PRESENT");
-        const absents=EMPS.filter(e=>e.actif&&!["PRESENT","X"].includes(getStatus(e,date,overrides)));
+        const matP=sortPlanningEmployees(EMPS.filter(e=>e.t==="M"&&getStatus(e,date,overrides)==="PRESENT"));
+        const soirP=sortPlanningEmployees(EMPS.filter(e=>e.t==="S"&&getStatus(e,date,overrides)==="PRESENT"));
+        const absents=sortPlanningEmployees(EMPS.filter(e=>e.actif&&!["PRESENT","X"].includes(getStatus(e,date,overrides))));
         const triPair=triData[dow];const alert=matP.length<8;
 
         return(
@@ -458,7 +489,7 @@ const VueSemaine=({weekStart,overrides,triData,onEdit})=>{
             <div style={{display:"flex",flexWrap:"wrap",gap:2,marginBottom:6}}>
               {matP.map(e=>(
                 <span key={e.n} onClick={()=>onEdit(e,date)} style={{
-                  fontSize:8,fontWeight:600,color:V.body,background:"#f0f4f8",padding:"2px 5px",borderRadius:4,cursor:"pointer",
+                  fontSize:8,fontWeight:600,color:isCoordinatorEmployee(e.n)?V.mc:V.body,background:isCoordinatorEmployee(e.n)?"#e7f0fb":"#f0f4f8",padding:"2px 5px",borderRadius:4,cursor:"pointer",
                   border:isTriCaddie(e.n,dow,triData)?`1px solid ${V.amber}`:"1px solid transparent",
                 }}>{e.n}</span>
               ))}
@@ -494,11 +525,11 @@ const VueJour=({date,overrides,triData,binomes,onEdit})=>{
   const triPair=triData[dow];const alert=grouped.matin.length<8;
 
   const EmpCard=({e,horaire,tri})=>(
-    <div onClick={()=>onEdit(e,date)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:14,background:"rgba(248,250,252,0.6)",border:`1px solid ${V.border}`,cursor:"pointer",borderLeft:tri?`3px solid ${V.amber}`:"3px solid transparent"}}
-      onMouseEnter={ev=>ev.currentTarget.style.background=V.mL} onMouseLeave={ev=>ev.currentTarget.style.background="rgba(248,250,252,0.6)"}>
-      <div style={{width:32,height:32,borderRadius:10,background:V.mIG,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,color:V.mc}}>{e.n.substring(0,2)}</div>
+    <div onClick={()=>onEdit(e,date)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:14,background:isCoordinatorEmployee(e.n)?"#f3f8ff":"rgba(248,250,252,0.6)",border:`1px solid ${isCoordinatorEmployee(e.n)?`${V.mc}25`:V.border}`,cursor:"pointer",borderLeft:tri?`3px solid ${V.amber}`:isCoordinatorEmployee(e.n)?`3px solid ${V.mc}`:"3px solid transparent"}}
+      onMouseEnter={ev=>ev.currentTarget.style.background=isCoordinatorEmployee(e.n)?"#eaf3fe":V.mL} onMouseLeave={ev=>ev.currentTarget.style.background=isCoordinatorEmployee(e.n)?"#f3f8ff":"rgba(248,250,252,0.6)"}>
+      <div style={{width:32,height:32,borderRadius:10,background:isCoordinatorEmployee(e.n)?"#dbeafe":V.mIG,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,color:V.mc}}>{e.n.substring(0,2)}</div>
       <div style={{flex:1}}>
-        <div style={{fontSize:13,fontWeight:700,color:V.body}}>{e.n}</div>
+        <div style={{fontSize:13,fontWeight:700,color:isCoordinatorEmployee(e.n)?V.mc:V.body}}>{e.n}</div>
         <div style={{fontSize:11,color:V.muted}}>{e.obs}{tri?" — Tri caddie":""}</div>
       </div>
       {horaire&&<span style={{fontSize:12,fontWeight:700,color:V.mc,background:V.mL,padding:"4px 10px",borderRadius:8}}>{horaire}</span>}

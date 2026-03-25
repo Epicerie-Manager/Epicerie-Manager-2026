@@ -627,6 +627,9 @@ export default function PlanningApp(){
   },[]);
 
   useEffect(()=>{
+    setOverrides(loadPlanningOverrides());
+    setTriData(loadPlanningTriData());
+    setBinomes(loadPlanningBinomes());
     syncPlanningDataFromRh();
     setRhVersion((v)=>v+1);
     void syncPlanningFromSupabase().then((synced)=>{

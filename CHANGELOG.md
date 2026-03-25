@@ -21,6 +21,13 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.5 - 2026-03-25
+
+- Correction de la rehydratation du module `Planning` au refresh navigateur.
+- Le planning relit maintenant immediatement le cache local navigateur au montage du composant avant le resync Supabase.
+- Correction ciblee pour eviter qu'une modification visible avant refresh semble disparaitre apres `Ctrl+F5` alors qu'elle existe deja en base.
+- Verification technique : lint OK, build OK.
+
 ## v0.5.4 - 2026-03-25
 
 - Correction des dates du module `Planning` pour utiliser une cle date locale au lieu de `toISOString()`.

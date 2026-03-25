@@ -1,7 +1,10 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { sheetPlanningBinomes, sheetPlanningOverrides } from "@/lib/planning-sheet-data";
 import {
+  defaultPlanningBinomes,
+  defaultPlanningTriData,
   formatPlanningDate,
   loadPlanningBinomes,
   loadPlanningOverrides,
@@ -116,6 +119,22 @@ const JL=["","LUN","MAR","MER","JEU","VEN","SAM","DIM"];
 const JL_FULL=["","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi","Dimanche"];
 const MOIS_FR=["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 const JC_SHORT=["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"];
+
+function cloneTriDataForInit(){
+  return Object.fromEntries(
+    Object.entries(defaultPlanningTriData).map(([key, pair]) => [Number(key), [pair[0], pair[1]]]),
+  );
+}
+
+function cloneBinomesForInit(){
+  return (sheetPlanningBinomes?.length ? sheetPlanningBinomes : defaultPlanningBinomes).map((pair)=>[pair[0],pair[1]]);
+}
+
+function cloneOverridesForInit(){
+  return Object.fromEntries(
+    Object.entries(sheetPlanningOverrides).map(([key, value]) => [key, { ...value }]),
+  );
+}
 
 function getISOWeek(d){const t=new Date(d);t.setHours(0,0,0,0);t.setDate(t.getDate()+3-(t.getDay()+6)%7);const w=new Date(t.getFullYear(),0,4);return 1+Math.round(((t-w)/864e5-3+(w.getDay()+6)%7)/7);}
 function daysInMonth(y,m){return new Date(y,m+1,0).getDate();}
@@ -606,14 +625,14 @@ const VueJour=({date,overrides,triData,binomes,onEdit})=>{
 export default function PlanningApp(){
   const [,setRhVersion]=useState(0);
   const [view,setView]=useState("mois");
-  const [year,setYear]=useState(2026);
-  const [month,setMonth]=useState(2);
-  const [selectedDate,setSelectedDate]=useState(new Date(2026,2,1));
+  const [year,setYear]=useState(null);
+  const [month,setMonth]=useState(null);
+  const [selectedDate,setSelectedDate]=useState(null);
   const [filter,setFilter]=useState("ALL");
-  const [overrides,setOverrides]=useState(()=>loadPlanningOverrides()); // key: "NAME_2026-03-20" → {s:"CP",h:"6h-13h"}
+  const [overrides,setOverrides]=useState(()=>cloneOverridesForInit()); // key: "NAME_2026-03-20" → {s:"CP",h:"6h-13h"}
   const [editing,setEditing]=useState(null);
-  const [triData,setTriData]=useState(()=>loadPlanningTriData());
-  const [binomes,setBinomes]=useState(()=>loadPlanningBinomes());
+  const [triData,setTriData]=useState(()=>cloneTriDataForInit());
+  const [binomes,setBinomes]=useState(()=>cloneBinomesForInit());
   const [editTri,setEditTri]=useState(null); // dow number
   const [editBinome,setEditBinome]=useState(null); // index
   const [busy,setBusy]=useState(false);
@@ -649,10 +668,18 @@ export default function PlanningApp(){
     return ()=>window.removeEventListener(eventName,onRhUpdate);
   },[]);
 
-  const weekStart=useMemo(()=>{const d=new Date(selectedDate);d.setDate(d.getDate()-((d.getDay()+6)%7));return d;},[selectedDate]);
-  const weekLabel=`${weekStart.getDate()} ${MOIS_FR[weekStart.getMonth()].substring(0,3)} → ${new Date(weekStart.getTime()+5*864e5).getDate()} ${MOIS_FR[new Date(weekStart.getTime()+5*864e5).getMonth()].substring(0,3)}`;
+  const weekStart=useMemo(()=>{
+    if(!selectedDate) return null;
+    const d=new Date(selectedDate);
+    d.setDate(d.getDate()-((d.getDay()+6)%7));
+    return d;
+  },[selectedDate]);
+  const weekLabel=weekStart
+    ? `${weekStart.getDate()} ${MOIS_FR[weekStart.getMonth()].substring(0,3)} → ${new Date(weekStart.getTime()+5*864e5).getDate()} ${MOIS_FR[new Date(weekStart.getTime()+5*864e5).getMonth()].substring(0,3)}`
+    : "";
 
   const nav=(dir)=>{
+    if(year===null || month===null || !selectedDate) return;
     if(view==="mois"){if(dir<0){if(month===0){setMonth(11);setYear(y=>y-1);}else setMonth(m=>m-1);}else{if(month===11){setMonth(0);setYear(y=>y+1);}else setMonth(m=>m+1);}}
     else if(view==="semaine"){setSelectedDate(d=>{const n=new Date(d);n.setDate(n.getDate()+(dir*7));return n;});}
     else{setSelectedDate(d=>{const n=new Date(d);n.setDate(n.getDate()+dir);if(n.getDay()===0)n.setDate(n.getDate()+dir);return n;});}
@@ -711,6 +738,9 @@ export default function PlanningApp(){
   };
 
   const kpiGroups=useMemo(()=>{
+    if(!selectedDate) {
+      return {matin:[],soir:[],etu:[],absRH:[],absCP:[],absMAL:[],absOther:[]};
+    }
     const kpiDate=view==="jour"?selectedDate:new Date();
     return getDayGroups(kpiDate,overrides);
   },[selectedDate,view,overrides]);
@@ -718,6 +748,14 @@ export default function PlanningApp(){
   const sCount=kpiGroups.soir.length;
   const eCount=kpiGroups.etu.length;
   const absCount=kpiGroups.absRH.length+kpiGroups.absCP.length+kpiGroups.absMAL.length+kpiGroups.absOther.length;
+
+  if(year===null || month===null || !selectedDate || !weekStart){
+    return(
+      <div style={{padding:"40px",textAlign:"center",color:"#94a3b8",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
+        Chargement...
+      </div>
+    );
+  }
 
   return(
     <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",color:V.body,minHeight:"100vh",background:`radial-gradient(circle at top left,rgba(29,95,160,0.06),transparent 24%),linear-gradient(180deg,#f9fbfd 0%,${V.bg} 100%)`}}>

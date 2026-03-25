@@ -21,6 +21,13 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.7 - 2026-03-25
+
+- Correctif d'hydratation SSR/client sur le module `Planning`.
+- Les etats initiaux sensibles (`year`, `month`, `selectedDate`, `overrides`, `triData`, `binomes`) utilisent maintenant des valeurs stables cote serveur.
+- Chargement client reporte dans `useEffect` pour eviter les mismatchs React lies a `localStorage` et `new Date()`.
+- Verification technique : lint OK, build OK.
+
 ## v0.5.6 - 2026-03-25
 
 - Correctif `Planning` sur la reconstruction des overrides lors du sync Supabase.

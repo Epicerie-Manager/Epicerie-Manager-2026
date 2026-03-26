@@ -14,6 +14,7 @@ import {
   type AbsenceTypeId,
 } from "@/lib/absences-data";
 import {
+  applyApprovedAbsenceToPlanning,
   createAbsenceRequestInSupabase,
   deleteAbsenceRequestInSupabase,
   getAbsencesUpdatedEventName,
@@ -151,6 +152,9 @@ export default function AbsencesPage() {
     try {
       await updateAbsenceStatusInSupabase(request.dbId, status);
       setRequests((current) => current.map((item) => (item.id === id ? { ...item, status } : item)));
+      if (status === "APPROUVE") {
+        await applyApprovedAbsenceToPlanning({ ...request, status });
+      }
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Impossible de mettre à jour le statut.");
     } finally {

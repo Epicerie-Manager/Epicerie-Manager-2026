@@ -21,6 +21,14 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.11 - 2026-03-26
+
+- Integration du module `Absences` avec le `Planning` lors de l'approbation d'une demande.
+- Une absence passee en `APPROUVE` cree maintenant automatiquement des overrides dans `planning_entries` sur toute la plage concernee, hors dimanches.
+- Les lignes deja presentes dans `planning_entries` sont preservees pour ne pas ecraser une modification manuelle existante.
+- Prise en charge du cas `TOUS` cote projection planning en iterant sur les employes RH actifs.
+- Verification technique : lint OK, build OK.
+
 ## v0.5.10 - 2026-03-26
 
 - Diagnostic et correctif du module `RH` pour les cycles de repos bloques par la contrainte SQL `cycle_repos_semaine_cycle_check`.

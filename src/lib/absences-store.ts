@@ -1,4 +1,6 @@
 import { absenceRequests, type AbsenceRequest } from "@/lib/absences-data";
+import { loadPlanningOverrides, savePlanningOverridesToSupabase, type PlanningOverrides } from "@/lib/planning-store";
+import { loadRhEmployees } from "@/lib/rh-store";
 import { createClient } from "@/lib/supabase";
 
 const ABSENCES_STORAGE_KEY = "epicerie-manager-absences-requests-v3";
@@ -93,6 +95,42 @@ function employeeFromNote(note: unknown) {
   return match[1].trim().toUpperCase();
 }
 
+function formatIsoDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function listAbsenceDates(startDate: string, endDate: string) {
+  const dates: string[] = [];
+  const current = new Date(`${startDate}T00:00:00`);
+  const end = new Date(`${endDate}T00:00:00`);
+  while (current <= end) {
+    if (current.getDay() !== 0) {
+      dates.push(formatIsoDate(current));
+    }
+    current.setDate(current.getDate() + 1);
+  }
+  return dates;
+}
+
+function getPlanningStatusFromAbsenceType(type: AbsenceRequest["type"]) {
+  if (type === "CP") return "CP";
+  if (type === "MAL") return "MAL";
+  if (type === "CONGE_MAT") return "CONGE_MAT";
+  if (type === "FORM") return "FORM";
+  if (type === "FERIE") return "FERIE";
+  return "X";
+}
+
+function getTargetEmployees(absence: AbsenceRequest) {
+  if (absence.employee !== "TOUS") return [absence.employee.trim().toUpperCase()];
+  return loadRhEmployees()
+    .filter((employee) => employee.actif)
+    .map((employee) => employee.n.trim().toUpperCase());
+}
+
 async function getEmployeeIdByName() {
   const supabase = createClient();
   const { data: employees, error } = await supabase
@@ -184,6 +222,67 @@ export async function updateAbsenceStatusInSupabase(dbId: string, status: Absenc
       .eq("id", dbId);
     if (error) throw error;
     emitAbsencesUpdated();
+  } catch (error) {
+    throw normalizeActionError(error);
+  }
+}
+
+export async function applyApprovedAbsenceToPlanning(absence: AbsenceRequest) {
+  if (typeof window === "undefined") return;
+
+  const targetEmployees = getTargetEmployees(absence);
+  const targetDates = listAbsenceDates(absence.startDate, absence.endDate);
+  if (!targetEmployees.length || !targetDates.length) return;
+
+  try {
+    const supabase = createClient();
+    const employeeIdByName = await getEmployeeIdByName();
+    const employeeIds = targetEmployees
+      .map((employeeName) => employeeIdByName.get(employeeName))
+      .filter((value): value is string => Boolean(value));
+    if (!employeeIds.length) return;
+
+    const planningStatus = getPlanningStatusFromAbsenceType(absence.type);
+    const nextOverrides: PlanningOverrides = { ...loadPlanningOverrides() };
+    const mutations: {
+      employeeName: string;
+      date: string;
+      status: string;
+      horaire: string | null;
+    }[] = [];
+
+    const { data: existingRows, error: existingError } = await supabase
+      .from("planning_entries")
+      .select("employee_id,date")
+      .in("employee_id", employeeIds)
+      .gte("date", targetDates[0])
+      .lte("date", targetDates[targetDates.length - 1])
+      .limit(5000);
+    if (existingError) throw existingError;
+
+    const existingKeys = new Set(
+      (existingRows ?? []).map((row) => `${String(row.employee_id)}_${String(row.date)}`),
+    );
+
+    targetEmployees.forEach((employeeName) => {
+      const employeeId = employeeIdByName.get(employeeName);
+      if (!employeeId) return;
+      targetDates.forEach((date) => {
+        const existingKey = `${employeeId}_${date}`;
+        if (existingKeys.has(existingKey)) return;
+        const key = `${employeeName}_${date}`;
+        nextOverrides[key] = { s: planningStatus, h: null };
+        mutations.push({
+          employeeName,
+          date,
+          status: planningStatus,
+          horaire: null,
+        });
+      });
+    });
+
+    if (!mutations.length) return;
+    await savePlanningOverridesToSupabase(mutations, nextOverrides);
   } catch (error) {
     throw normalizeActionError(error);
   }

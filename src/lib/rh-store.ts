@@ -242,6 +242,7 @@ export async function syncRhFromSupabase() {
   try {
     const supabase = createClient();
     const cachedEmployees = loadRhEmployees();
+    const cachedCycles = loadRhCycles();
     const photos = getPhotoLookup(cachedEmployees);
     const { data: employeeRows, error: employeeError } = await supabase
       .from("employees")
@@ -261,6 +262,14 @@ export async function syncRhFromSupabase() {
       .limit(5000);
 
     const mappedCycles: RhCycles = {};
+    mappedEmployees.forEach((employee) => {
+      mappedCycles[employee.n] = [
+        ...(cachedCycles[employee.n] ?? defaultRhCycles[employee.n] ?? ["LUN", "LUN", "LUN", "LUN", "LUN"]),
+      ].slice(0, 5);
+      while (mappedCycles[employee.n].length < 5) {
+        mappedCycles[employee.n].push("LUN");
+      }
+    });
     if (Array.isArray(cycleRows)) {
       cycleRows.forEach((row) => {
         const name = nameById.get(String(row.employee_id));

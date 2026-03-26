@@ -21,6 +21,13 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.8 - 2026-03-25
+
+- Correctif du module `RH` sur l'affichage et la conservation des cycles de repos.
+- La sync RH preserve maintenant les cycles existants et les valeurs par defaut 5 semaines avant d'appliquer les lignes renvoyees par `cycle_repos`.
+- Correction pour eviter qu'un employe sans lignes completes dans `cycle_repos` perde l'affichage de son cycle dans la fiche RH.
+- Verification technique : lint OK, build OK.
+
 ## v0.5.7 - 2026-03-25
 
 - Correctif d'hydratation SSR/client sur le module `Planning`.

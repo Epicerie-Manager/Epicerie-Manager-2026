@@ -8,6 +8,9 @@ import { createClient } from "@/lib/supabase";
 const BALISAGE_STORAGE_KEY = "epicerie-manager-balisage-data-v1";
 const BALISAGE_UPDATED_EVENT = "epicerie-manager:balisage-updated";
 
+// Cache name → id pour les upserts (populé lors de la sync)
+let employeeIdByName = new Map<string, string>();
+
 type BalisageDataset = Record<string, BalisageEmployeeStat[]>;
 
 function cloneDefaultData(): BalisageDataset {
@@ -71,6 +74,43 @@ export function getBalisageUpdatedEventName() {
   return BALISAGE_UPDATED_EVENT;
 }
 
+export async function saveBalisageEntryToSupabase(
+  monthId: string,
+  name: string,
+  total: number,
+  errorRate: number | null,
+): Promise<boolean> {
+  if (typeof window === "undefined") return false;
+  try {
+    const supabase = createClient();
+
+    // Si le cache est vide (page rechargée sans sync), on le recharge
+    if (employeeIdByName.size === 0) {
+      const { data: rows } = await supabase.from("employees").select("id,name").limit(5000);
+      if (rows) {
+        employeeIdByName = new Map(
+          rows.map((e) => [String(e.name ?? "").trim().toUpperCase(), String(e.id)]),
+        );
+      }
+    }
+
+    const employeeId = employeeIdByName.get(name.trim().toUpperCase());
+    if (!employeeId) return false;
+
+    const { error } = await supabase
+      .from("balisage_mensuel")
+      .upsert(
+        { mois: monthId, employee_id: employeeId, total_controles: total, taux_erreur: errorRate },
+        { onConflict: "mois,employee_id" },
+      );
+
+    if (error) throw error;
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function syncBalisageFromSupabase() {
   if (typeof window === "undefined") return false;
 
@@ -85,6 +125,11 @@ export async function syncBalisageFromSupabase() {
 
     const employeeNameById = new Map(
       employeeRows.map((employee) => [String(employee.id), String(employee.name ?? "").trim().toUpperCase()]),
+    );
+
+    // Peupler le cache inverse pour les sauvegardes
+    employeeIdByName = new Map(
+      employeeRows.map((employee) => [String(employee.name ?? "").trim().toUpperCase(), String(employee.id)]),
     );
 
     const { data: balisageRows, error: balisageError } = await supabase

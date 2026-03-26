@@ -23,6 +23,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## v0.5.12 - 2026-03-26
 
+- Correction du module `Absences` pour qu'un etat vide en base reste vraiment vide dans l'interface, sans retomber sur les donnees par defaut.
+- Correction du module `Planning` pour utiliser un mois `YYYY-MM` dynamique sur `tri_caddie` et `binomes_repos` au lieu d'un filtre fige sur `2026-01`.
+- Le planning charge et sauvegarde maintenant `tri caddie` et `binomes` en fonction du mois affiche dans la vue.
+- Verification technique : lint OK, build OK.
+
 - Correction bug critique balisage : les modifications saisies dans le tableau mensuel disparaissaient a chaque rechargement de page.
 - Cause : `saveEdit()` sauvegardait uniquement en localStorage, mais `syncBalisageFromSupabase()` repartait toujours des donnees par defaut et ecrasait le localStorage a chaque montage de page.
 - Fix : ajout de `saveBalisageEntryToSupabase()` dans `balisage-store.ts` qui upsert directement dans la table `balisage_mensuel` lors de chaque edition.

@@ -36,7 +36,7 @@ export function loadAbsenceRequests(): AbsenceRequest[] {
       return absenceRequests;
     }
     const sanitized = parsed.filter(isValidRequest);
-    return sanitized.length ? sanitized : absenceRequests;
+    return sanitized.length || parsed.length === 0 ? sanitized : absenceRequests;
   } catch {
     return absenceRequests;
   }

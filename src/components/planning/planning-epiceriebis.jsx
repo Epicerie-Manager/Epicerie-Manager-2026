@@ -6,6 +6,7 @@ import {
   defaultPlanningBinomes,
   defaultPlanningTriData,
   formatPlanningDate,
+  getPlanningMonthKey,
   loadPlanningBinomes,
   loadPlanningOverrides,
   loadPlanningTriData,
@@ -637,6 +638,10 @@ export default function PlanningApp(){
   const [editBinome,setEditBinome]=useState(null); // index
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState("");
+  const activeMonthKey=useMemo(()=>{
+    if(year===null || month===null) return getPlanningMonthKey(new Date());
+    return getPlanningMonthKey(new Date(year,month,1));
+  },[year,month]);
 
   useEffect(()=>{
     const now = new Date();
@@ -647,18 +652,8 @@ export default function PlanningApp(){
 
   useEffect(()=>{
     setOverrides(loadPlanningOverrides());
-    setTriData(loadPlanningTriData());
-    setBinomes(loadPlanningBinomes());
     syncPlanningDataFromRh();
     setRhVersion((v)=>v+1);
-    void syncPlanningFromSupabase().then((synced)=>{
-      if(!synced) return;
-      setOverrides(loadPlanningOverrides());
-      setTriData(loadPlanningTriData());
-      setBinomes(loadPlanningBinomes());
-      syncPlanningDataFromRh();
-      setRhVersion((v)=>v+1);
-    });
     const eventName=getRhUpdatedEventName();
     const onRhUpdate=()=>{
       syncPlanningDataFromRh();
@@ -667,6 +662,20 @@ export default function PlanningApp(){
     window.addEventListener(eventName,onRhUpdate);
     return ()=>window.removeEventListener(eventName,onRhUpdate);
   },[]);
+
+  useEffect(()=>{
+    if(year===null || month===null) return;
+    setTriData(loadPlanningTriData(activeMonthKey));
+    setBinomes(loadPlanningBinomes(activeMonthKey));
+    void syncPlanningFromSupabase(activeMonthKey).then((synced)=>{
+      if(!synced) return;
+      setOverrides(loadPlanningOverrides());
+      setTriData(loadPlanningTriData(activeMonthKey));
+      setBinomes(loadPlanningBinomes(activeMonthKey));
+      syncPlanningDataFromRh();
+      setRhVersion((v)=>v+1);
+    });
+  },[activeMonthKey,year,month]);
 
   const weekStart=useMemo(()=>{
     if(!selectedDate) return null;
@@ -856,7 +865,7 @@ export default function PlanningApp(){
         setError("");
         try{
           const nextTriData={...triData,[editTri]:pair};
-          const syncedTriData = await savePlanningTriPairToSupabase(editTri,pair,nextTriData);
+          const syncedTriData = await savePlanningTriPairToSupabase(editTri,pair,nextTriData,activeMonthKey);
           setTriData(syncedTriData);
           setEditTri(null);
         }catch(err){
@@ -871,7 +880,7 @@ export default function PlanningApp(){
         try{
           const nextBinomes=[...binomes];
           nextBinomes[editBinome]=pair;
-          const syncedBinomes = await savePlanningBinomeToSupabase(editBinome,pair,nextBinomes);
+          const syncedBinomes = await savePlanningBinomeToSupabase(editBinome,pair,nextBinomes,activeMonthKey);
           setBinomes(syncedBinomes);
           setEditBinome(null);
         }catch(err){

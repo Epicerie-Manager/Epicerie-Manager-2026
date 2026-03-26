@@ -25,10 +25,9 @@ export type PlanningEmployee = {
 };
 
 const PLANNING_OVERRIDES_KEY = "epicerie-manager-planning-overrides-v2";
-const PLANNING_TRI_KEY = "epicerie-manager-planning-tri-v1";
-const PLANNING_BINOMES_KEY = "epicerie-manager-planning-binomes-v1";
+const PLANNING_TRI_KEY_PREFIX = "epicerie-manager-planning-tri-v1";
+const PLANNING_BINOMES_KEY_PREFIX = "epicerie-manager-planning-binomes-v1";
 const PLANNING_UPDATED_EVENT = "epicerie-manager:planning-updated";
-const PLANNING_MONTH_KEY = "2026-01";
 
 export let planningEmployees: PlanningEmployee[] = sheetPlanningEmployees;
 
@@ -57,6 +56,18 @@ function cloneBinomes(binomes: PlanningBinomes): PlanningBinomes {
 
 function canUseStorage() {
   return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+}
+
+export function getPlanningMonthKey(date: Date) {
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function getPlanningTriStorageKey(monthKey: string) {
+  return `${PLANNING_TRI_KEY_PREFIX}:${monthKey}`;
+}
+
+function getPlanningBinomesStorageKey(monthKey: string) {
+  return `${PLANNING_BINOMES_KEY_PREFIX}:${monthKey}`;
 }
 
 function cloneOverrides(overrides: PlanningOverrides) {
@@ -120,7 +131,7 @@ function normalizeRhType(value: string): "M" | "S" | "E" {
   return "M";
 }
 
-export async function syncPlanningFromSupabase() {
+export async function syncPlanningFromSupabase(monthKey = getPlanningMonthKey(new Date())) {
   if (!canUseStorage()) return false;
 
   try {
@@ -169,7 +180,7 @@ export async function syncPlanningFromSupabase() {
     const { data: triRows } = await supabase
       .from("tri_caddie")
       .select("jour_semaine,employee1_id,employee2_id")
-      .eq("mois", "2026-01")
+      .eq("mois", monthKey)
       .limit(100);
     if (Array.isArray(triRows) && triRows.length > 0) {
       const triData = cloneTriData(defaultPlanningTriData);
@@ -181,13 +192,13 @@ export async function syncPlanningFromSupabase() {
         if (!name1 || !name2) return;
         triData[index] = [name1, name2];
       });
-      window.localStorage.setItem(PLANNING_TRI_KEY, JSON.stringify(triData));
+      window.localStorage.setItem(getPlanningTriStorageKey(monthKey), JSON.stringify(triData));
     }
 
     const { data: binomeRows } = await supabase
       .from("binomes_repos")
       .select("binome_number,employee1_id,employee2_id")
-      .eq("mois", "2026-01")
+      .eq("mois", monthKey)
       .order("binome_number", { ascending: true })
       .limit(20);
     if (Array.isArray(binomeRows) && binomeRows.length > 0) {
@@ -200,7 +211,7 @@ export async function syncPlanningFromSupabase() {
         })
         .filter((row): row is [string, string] => Boolean(row));
       if (binomes.length > 0) {
-        window.localStorage.setItem(PLANNING_BINOMES_KEY, JSON.stringify(binomes));
+        window.localStorage.setItem(getPlanningBinomesStorageKey(monthKey), JSON.stringify(binomes));
       }
     }
 
@@ -266,10 +277,12 @@ export function savePlanningOverrides(overrides: PlanningOverrides) {
   emitPlanningUpdated();
 }
 
-export function loadPlanningTriData(): PlanningTriData {
+export function loadPlanningTriData(monthKey = getPlanningMonthKey(new Date())): PlanningTriData {
   if (!canUseStorage()) return cloneTriData(defaultPlanningTriData);
   try {
-    const raw = window.localStorage.getItem(PLANNING_TRI_KEY);
+    const raw =
+      window.localStorage.getItem(getPlanningTriStorageKey(monthKey)) ??
+      window.localStorage.getItem(PLANNING_TRI_KEY_PREFIX);
     if (!raw) return cloneTriData(defaultPlanningTriData);
     const parsed = JSON.parse(raw);
     if (!parsed || typeof parsed !== "object") return cloneTriData(defaultPlanningTriData);
@@ -286,14 +299,16 @@ export function loadPlanningTriData(): PlanningTriData {
 
 export function savePlanningTriData(data: PlanningTriData) {
   if (!canUseStorage()) return;
-  window.localStorage.setItem(PLANNING_TRI_KEY, JSON.stringify(data));
+  window.localStorage.setItem(getPlanningTriStorageKey(getPlanningMonthKey(new Date())), JSON.stringify(data));
   emitPlanningUpdated();
 }
 
-export function loadPlanningBinomes(): PlanningBinomes {
+export function loadPlanningBinomes(monthKey = getPlanningMonthKey(new Date())): PlanningBinomes {
   if (!canUseStorage()) return cloneBinomes(defaultPlanningBinomes);
   try {
-    const raw = window.localStorage.getItem(PLANNING_BINOMES_KEY);
+    const raw =
+      window.localStorage.getItem(getPlanningBinomesStorageKey(monthKey)) ??
+      window.localStorage.getItem(PLANNING_BINOMES_KEY_PREFIX);
     if (!raw) return cloneBinomes(defaultPlanningBinomes);
     const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return cloneBinomes(defaultPlanningBinomes);
@@ -308,7 +323,7 @@ export function loadPlanningBinomes(): PlanningBinomes {
 
 export function savePlanningBinomes(binomes: PlanningBinomes) {
   if (!canUseStorage()) return;
-  window.localStorage.setItem(PLANNING_BINOMES_KEY, JSON.stringify(binomes));
+  window.localStorage.setItem(getPlanningBinomesStorageKey(getPlanningMonthKey(new Date())), JSON.stringify(binomes));
   emitPlanningUpdated();
 }
 
@@ -406,6 +421,7 @@ export async function savePlanningTriPairToSupabase(
   dayIndex: number,
   pair: [string, string],
   nextTriData: PlanningTriData,
+  monthKey = getPlanningMonthKey(new Date()),
 ) {
   const supabase = createClient();
 
@@ -416,13 +432,13 @@ export async function savePlanningTriPairToSupabase(
     const { data: existingRow, error: existingError } = await supabase
       .from("tri_caddie")
       .select("id")
-      .eq("mois", PLANNING_MONTH_KEY)
+      .eq("mois", monthKey)
       .eq("jour_semaine", jourSemaine)
       .maybeSingle();
     if (existingError) throw existingError;
 
     const payload = {
-      mois: PLANNING_MONTH_KEY,
+      mois: monthKey,
       jour_semaine: jourSemaine,
       employee1_id: employee1Id,
       employee2_id: employee2Id,
@@ -436,7 +452,7 @@ export async function savePlanningTriPairToSupabase(
       if (insertError) throw insertError;
     }
 
-    window.localStorage.setItem(PLANNING_TRI_KEY, JSON.stringify(nextTriData));
+    window.localStorage.setItem(getPlanningTriStorageKey(monthKey), JSON.stringify(nextTriData));
     emitPlanningUpdated();
     return cloneTriData(nextTriData);
   } catch (error) {
@@ -448,6 +464,7 @@ export async function savePlanningBinomeToSupabase(
   index: number,
   pair: [string, string],
   nextBinomes: PlanningBinomes,
+  monthKey = getPlanningMonthKey(new Date()),
 ) {
   const supabase = createClient();
 
@@ -459,13 +476,13 @@ export async function savePlanningBinomeToSupabase(
     const { data: existingRow, error: existingError } = await supabase
       .from("binomes_repos")
       .select("id")
-      .eq("mois", PLANNING_MONTH_KEY)
+      .eq("mois", monthKey)
       .eq("binome_number", binomeNumber)
       .maybeSingle();
     if (existingError) throw existingError;
 
     const payload = {
-      mois: PLANNING_MONTH_KEY,
+      mois: monthKey,
       binome_number: binomeNumber,
       employee1_id: employee1Id,
       employee2_id: employee2Id,
@@ -479,7 +496,7 @@ export async function savePlanningBinomeToSupabase(
       if (insertError) throw insertError;
     }
 
-    window.localStorage.setItem(PLANNING_BINOMES_KEY, JSON.stringify(nextBinomes));
+    window.localStorage.setItem(getPlanningBinomesStorageKey(monthKey), JSON.stringify(nextBinomes));
     emitPlanningUpdated();
     return cloneBinomes(nextBinomes);
   } catch (error) {

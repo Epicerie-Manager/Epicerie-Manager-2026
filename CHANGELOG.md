@@ -21,6 +21,14 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.10 - 2026-03-26
+
+- Diagnostic et correctif du module `RH` pour les cycles de repos bloques par la contrainte SQL `cycle_repos_semaine_cycle_check`.
+- Ajout d'un message d'erreur plus explicite dans l'application quand la base Supabase n'autorise encore que les semaines `1` et `2`.
+- La sauvegarde RH force maintenant un cycle complet de 5 semaines en memoire, et le modal de cycle affiche un etat `Enregistrement...` pendant la sauvegarde.
+- Ajout du patch SQL [`supabase/patch_cycle_repos_5_weeks.sql`](/D:/Epicerie%20Manager%202026/supabase/patch_cycle_repos_5_weeks.sql) pour autoriser `semaine_cycle` entre `1` et `5`.
+- Verification technique : lint OK, build OK.
+
 ## v0.5.9 - 2026-03-26
 
 - Correctif du module `RH` sur l'enregistrement des cycles de repos depuis la fiche employe.

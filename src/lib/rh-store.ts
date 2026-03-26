@@ -116,6 +116,9 @@ function normalizeActionError(error: unknown) {
   ) {
     return "Action reservee aux managers.";
   }
+  if (normalized.includes("cycle_repos_semaine_cycle_check")) {
+    return "La base Supabase n'accepte encore que 2 semaines de cycle. Il faut appliquer le patch SQL cycle_repos 5 semaines.";
+  }
   if (normalized.includes("jwt") || normalized.includes("not authenticated")) {
     return "Connexion requise.";
   }
@@ -296,6 +299,10 @@ export async function syncRhFromSupabase() {
         mappedCycles[name] = current;
       });
     }
+    mappedEmployees.forEach((employee) => {
+      const current = mappedCycles[employee.n] ?? [];
+      mappedCycles[employee.n] = Array.from({ length: 5 }, (_, index) => String(current[index] ?? "LUN").toUpperCase());
+    });
 
     writeRhCache(mappedEmployees, mappedCycles);
     return true;
@@ -408,7 +415,8 @@ export async function updateRhEmployeeInSupabase(employee: RhEmployee): Promise<
 export async function saveRhCycleInSupabase(employee: RhEmployee, cycle: string[]): Promise<string[]> {
   const supabase = createClient();
   const employeeDbId = employee.dbId ?? await getEmployeeDbIdByName(employee.n);
-  const normalizedCycle = cycle.slice(0, 5).map((jour) => String(jour || "LUN").toUpperCase());
+  const paddedCycle = Array.from({ length: 5 }, (_, index) => cycle[index] ?? "LUN");
+  const normalizedCycle = paddedCycle.map((jour) => String(jour || "LUN").toUpperCase());
 
   try {
     const { error: deleteError } = await supabase.from("cycle_repos").delete().eq("employee_id", employeeDbId);

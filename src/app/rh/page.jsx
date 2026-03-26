@@ -195,7 +195,7 @@ const EditEmpModal=({emp,availableRayons,onSave,onClose})=>{
 /* ═══════════════════════════════════════════════════════════
    EDIT CYCLE MODAL
    ═══════════════════════════════════════════════════════════ */
-const EditCycleModal=({empName,cycle,onSave,onClose})=>{
+const EditCycleModal=({empName,cycle,onSave,onClose,busy})=>{
   const [c,setC]=useState([...cycle]);
   const updWeek=(i,val)=>{const n=[...c];n[i]=val;setC(n);};
 
@@ -230,8 +230,17 @@ const EditCycleModal=({empName,cycle,onSave,onClose})=>{
           </div>
         </div>
         <div style={{padding:"14px 24px",borderTop:`1px solid ${V.line}`,display:"flex",gap:8,justifyContent:"flex-end"}}>
-          <button onClick={onClose} style={{padding:"10px 20px",borderRadius:10,border:`1px solid ${V.line}`,background:"#fafafa",color:V.muted,cursor:"pointer",fontSize:13}}>Annuler</button>
-          <button onClick={()=>onSave(c)} style={{padding:"10px 24px",borderRadius:10,border:"none",background:V.purple,color:"#fff",cursor:"pointer",fontSize:13,fontWeight:700}}>Enregistrer</button>
+          <button onClick={onClose} disabled={busy} style={{padding:"10px 20px",borderRadius:10,border:`1px solid ${V.line}`,background:"#fafafa",color:V.muted,cursor:busy?"not-allowed":"pointer",opacity:busy?0.6:1,fontSize:13}}>Annuler</button>
+          <button
+            onClick={()=>onSave(c)}
+            disabled={busy}
+            style={{
+              padding:"10px 24px",borderRadius:10,border:"none",background:V.purple,color:"#fff",
+              cursor:busy?"not-allowed":"pointer",fontSize:13,fontWeight:700,opacity:busy?0.7:1,
+            }}
+          >
+            {busy?"Enregistrement...":"Enregistrer"}
+          </button>
         </div>
       </div>
     </div>
@@ -618,8 +627,12 @@ export default function RHModule(){
     }
   };
   const saveCycle=async(name,newCycle)=>{
+    if(busy)return;
     const employee = emps.find((item)=>item.n===name);
-    if(!employee)return;
+    if(!employee){
+      setError(`Employe introuvable en memoire : ${name}`);
+      return;
+    }
     setBusy(true);
     setError("");
     try {
@@ -755,7 +768,7 @@ export default function RHModule(){
 
       {/* MODALS */}
       {editEmp&&<EditEmpModal emp={editEmp} availableRayons={availableRayons} onSave={saveEmp} onClose={()=>setEditEmp(null)}/>}
-      {editCycleFor&&<EditCycleModal empName={editCycleFor} cycle={cycles[editCycleFor]||["LUN","LUN","LUN","LUN","LUN"]} onSave={c=>saveCycle(editCycleFor,c)} onClose={()=>setEditCycleFor(null)}/>}
+      {editCycleFor&&<EditCycleModal empName={editCycleFor} cycle={cycles[editCycleFor]||["LUN","LUN","LUN","LUN","LUN"]} onSave={c=>saveCycle(editCycleFor,c)} onClose={()=>setEditCycleFor(null)} busy={busy}/>}
       {newEmpOpen&&<NewEmpModal availableRayons={availableRayons} onSave={createEmp} onClose={()=>setNewEmpOpen(false)}/>}
     </div>
   );

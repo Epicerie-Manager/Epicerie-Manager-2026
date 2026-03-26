@@ -236,6 +236,22 @@ function normalizeRhType(value: string): RhEmployeeType {
   return "M";
 }
 
+async function getEmployeeDbIdByName(name: string) {
+  const normalizedName = String(name || "").trim().toUpperCase();
+  const cached = loadRhEmployees().find((employee) => employee.n === normalizedName && employee.dbId);
+  if (cached?.dbId) return cached.dbId;
+
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("employees")
+    .select("id")
+    .eq("name", normalizedName)
+    .maybeSingle();
+  if (error) throw error;
+  if (!data?.id) throw new Error(`Employe introuvable: ${normalizedName}`);
+  return String(data.id);
+}
+
 export async function syncRhFromSupabase() {
   if (!canUseStorage()) return false;
 
@@ -390,17 +406,17 @@ export async function updateRhEmployeeInSupabase(employee: RhEmployee): Promise<
 }
 
 export async function saveRhCycleInSupabase(employee: RhEmployee, cycle: string[]): Promise<string[]> {
-  if (!employee.dbId) throw new Error("Employe non synchronise.");
   const supabase = createClient();
+  const employeeDbId = employee.dbId ?? await getEmployeeDbIdByName(employee.n);
   const normalizedCycle = cycle.slice(0, 5).map((jour) => String(jour || "LUN").toUpperCase());
 
   try {
-    const { error: deleteError } = await supabase.from("cycle_repos").delete().eq("employee_id", employee.dbId);
+    const { error: deleteError } = await supabase.from("cycle_repos").delete().eq("employee_id", employeeDbId);
     if (deleteError) throw deleteError;
 
     if (normalizedCycle.length) {
       const payload = normalizedCycle.map((jour, index) => ({
-        employee_id: employee.dbId,
+        employee_id: employeeDbId,
         semaine_cycle: index + 1,
         jour_repos: jour,
       }));

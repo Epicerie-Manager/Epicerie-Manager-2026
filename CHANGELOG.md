@@ -21,6 +21,13 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.9 - 2026-03-26
+
+- Correctif du module `RH` sur l'enregistrement des cycles de repos depuis la fiche employe.
+- La sauvegarde d'un cycle retombe maintenant sur l'ID employe en base meme si la fiche RH chargee en memoire n'a pas encore `dbId`.
+- Correction ciblee pour eviter qu'un clic sur `Enregistrer` semble sans effet sur certains profils comme `ROSALIE`.
+- Verification technique : lint OK, build OK.
+
 ## v0.5.8 - 2026-03-25
 
 - Correctif du module `RH` sur l'affichage et la conservation des cycles de repos.

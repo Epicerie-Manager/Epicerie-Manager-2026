@@ -21,6 +21,21 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.12 - 2026-03-26
+
+- Correction bug critique balisage : les modifications saisies dans le tableau mensuel disparaissaient a chaque rechargement de page.
+- Cause : `saveEdit()` sauvegardait uniquement en localStorage, mais `syncBalisageFromSupabase()` repartait toujours des donnees par defaut et ecrasait le localStorage a chaque montage de page.
+- Fix : ajout de `saveBalisageEntryToSupabase()` dans `balisage-store.ts` qui upsert directement dans la table `balisage_mensuel` lors de chaque edition.
+- Le cache `employeeIdByName` (name → id) est peuple lors de la sync initiale et recharge a la demande si vide.
+
+## v0.5.11 - 2026-03-26
+
+- Integration du module `Absences` avec le `Planning` lors de l'approbation d'une demande.
+- Une absence passee en `APPROUVE` cree maintenant automatiquement des overrides dans `planning_entries` sur toute la plage concernee, hors dimanches.
+- Les lignes deja presentes dans `planning_entries` sont preservees pour ne pas ecraser une modification manuelle existante.
+- Prise en charge du cas `TOUS` cote projection planning en iterant sur les employes RH actifs.
+- Verification technique : lint OK, build OK.
+
 ## v0.5.10 - 2026-03-26
 
 - Diagnostic et correctif du module `RH` pour les cycles de repos bloques par la contrainte SQL `cycle_repos_semaine_cycle_check`.

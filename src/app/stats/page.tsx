@@ -11,7 +11,7 @@ import {
   balisageObjective,
   type BalisageEmployeeStat,
 } from "@/lib/balisage-data";
-import { getBalisageUpdatedEventName, loadBalisageData, saveBalisageData, syncBalisageFromSupabase } from "@/lib/balisage-store";
+import { getBalisageUpdatedEventName, loadBalisageData, saveBalisageData, saveBalisageEntryToSupabase, syncBalisageFromSupabase } from "@/lib/balisage-store";
 import { moduleThemes } from "@/lib/theme";
 
 type SortBy = "name" | "total" | "alert";
@@ -137,23 +137,33 @@ export default function StatsPage() {
 
   const saveEdit = () => {
     if (!editingName) return;
-    setLocalData((current) => ({
-      ...current,
-      [activeMonth.id]: (current[activeMonth.id] ?? []).map((employee) =>
-        employee.name === editingName
+    const newTotal = Number.isNaN(Number(editingTotal)) ? null : Number(editingTotal);
+    const newErrorRate =
+      editingErrorRate.trim() === ""
+        ? null
+        : Number.isNaN(Number(editingErrorRate))
+          ? null
+          : Number(editingErrorRate);
+    const name = editingName;
+    const monthId = activeMonth.id;
+
+    setLocalData((current) => {
+      const updated = (current[monthId] ?? []).map((employee) =>
+        employee.name === name
           ? {
               ...employee,
-              total: Number.isNaN(Number(editingTotal)) ? employee.total : Number(editingTotal),
-              errorRate:
-                editingErrorRate.trim() === ""
-                  ? null
-                  : Number.isNaN(Number(editingErrorRate))
-                    ? employee.errorRate
-                    : Number(editingErrorRate),
+              total: newTotal ?? employee.total,
+              errorRate: editingErrorRate.trim() === "" ? null : (newErrorRate ?? employee.errorRate),
             }
           : employee,
-      ),
-    }));
+      );
+      const next = { ...current, [monthId]: updated };
+      const saved = updated.find((e) => e.name === name);
+      if (saved) {
+        void saveBalisageEntryToSupabase(monthId, name, saved.total, saved.errorRate);
+      }
+      return next;
+    });
     setEditingName(null);
   };
 

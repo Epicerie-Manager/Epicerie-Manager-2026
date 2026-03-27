@@ -34,6 +34,18 @@ const BASE_MECHANICS = ["2EME 60%","2EME 50%","2EME 40%","2EME 30%","2EME 60% CO
 
 const chipStyle = (active:boolean,color:string,medium:string):React.CSSProperties => ({ borderRadius:"999px", border:`1px solid ${active ? color : "#dbe3eb"}`, background:active?medium:"#fff", color:active?color:"#64748b", fontWeight:active?700:500, fontSize:"12px", padding:"7px 12px" });
 
+function buildAssignmentMap(assignments:TgDefaultAssignment[]){
+  return new Map(assignments.map((item)=>[item.rayon,item.employee]));
+}
+
+function hasOperationData(row:Pick<TgWeekPlanRow,"gbProduct"|"tgProduct"|"tgQuantity"|"tgMechanic">){
+  return Boolean(row.gbProduct||row.tgProduct||row.tgQuantity||row.tgMechanic);
+}
+
+function withOperationState(row:TgWeekPlanRow){
+  return {...row,hasOperation:hasOperationData(row)};
+}
+
 function getISOWeekNumber(date: Date) {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
   const dayNum = d.getUTCDay() || 7;
@@ -80,15 +92,35 @@ function resequence(rayons:TgRayon[]){
 }
 
 function normalizePlans(plans:TgWeekPlanRow[], rayons:TgRayon[], map:Map<string,string>){
-  const byKey=new Map(plans.map((r)=>[`${r.weekId}__${r.rayon}`,r])); const out:TgWeekPlanRow[]=[];
+  const byKey=new Map(plans.map((r)=>[`${r.weekId}__${r.rayon}`,r]));
+  const out:TgWeekPlanRow[]=[];
   const weekOrder=new Map(tgWeeks.map((w,i)=>[w.id,i]));
   tgWeeks.forEach((w)=>rayons.forEach((rayon)=>{
     const startIndex=weekOrder.get(rayon.startWeekId??tgWeeks[0]?.id??"")??0;
     const currentIndex=weekOrder.get(w.id)??0;
     if(currentIndex<startIndex) return;
-    const k=`${w.id}__${rayon.rayon}`; const ex=byKey.get(k);
-    if(ex){ out.push({...ex,family:rayon.family,defaultResponsible:map.get(rayon.rayon)??ex.defaultResponsible??"",hasOperation:Boolean(ex.gbProduct||ex.tgProduct||ex.tgQuantity||ex.tgMechanic)}); return; }
-    out.push({weekId:w.id,rayon:rayon.rayon,family:rayon.family,defaultResponsible:map.get(rayon.rayon)??"",gbProduct:"",tgResponsible:map.get(rayon.rayon)??"",tgProduct:"",tgQuantity:"",tgMechanic:"",hasOperation:false});
+    const key=`${w.id}__${rayon.rayon}`;
+    const existing=byKey.get(key);
+    if(existing){
+      out.push(withOperationState({
+        ...existing,
+        family:rayon.family,
+        defaultResponsible:map.get(rayon.rayon)??existing.defaultResponsible??"",
+      }));
+      return;
+    }
+    out.push({
+      weekId:w.id,
+      rayon:rayon.rayon,
+      family:rayon.family,
+      defaultResponsible:map.get(rayon.rayon)??"",
+      gbProduct:"",
+      tgResponsible:map.get(rayon.rayon)??"",
+      tgProduct:"",
+      tgQuantity:"",
+      tgMechanic:"",
+      hasOperation:false,
+    });
   }));
   return out;
 }
@@ -129,7 +161,7 @@ export default function PlanTgPage(){
   const [newRayonStartWeekId,setNewRayonStartWeekId]=useState(initialWeekId);
 
   const employees=tgEmployees.filter((e)=>e.active).map((e)=>e.name);
-  const assignmentMap=useMemo(()=>new Map(assignments.map((i)=>[i.rayon,i.employee])),[assignments]);
+  const assignmentMap=useMemo(()=>buildAssignmentMap(assignments),[assignments]);
   const weekOrder=useMemo(()=>new Map(tgWeeks.map((w,i)=>[w.id,i])),[]);
   const activeWeekIndex=weekOrder.get(activeWeekId)??0;
   const activeWeek=tgWeeks.find((w)=>w.id===activeWeekId)??tgWeeks[0];
@@ -154,7 +186,7 @@ export default function PlanTgPage(){
     const refresh=()=>{
       const nextRayons = resequence(loadTgRayons());
       const nextAssignments = loadTgDefaultAssignments();
-      const nextPlans = normalizePlans(loadTgWeekPlans(), nextRayons, new Map(nextAssignments.map((item)=>[item.rayon,item.employee])));
+      const nextPlans = normalizePlans(loadTgWeekPlans(), nextRayons, buildAssignmentMap(nextAssignments));
       setRayons(nextRayons);
       setAssignments(nextAssignments);
       setPlans(nextPlans);
@@ -168,17 +200,146 @@ export default function PlanTgPage(){
     return ()=>window.removeEventListener(eventName, refresh);
   },[]);
 
-  const updateSelectedRow=(patch:Partial<TgWeekPlanRow>)=>{ if(!selectedRow)return; setPlans((cur)=>cur.map((r)=>{if(r.weekId!==activeWeek.id||r.rayon!==selectedRow.rayon)return r;const n={...r,...patch};return {...n,hasOperation:Boolean(n.gbProduct||n.tgProduct||n.tgQuantity||n.tgMechanic)};})); };
-  const addCustomMechanic=()=>{ const v=mecaCustomInput.trim().toUpperCase(); if(!v||allMechanics.includes(v)){setMecaCustomInput("");setShowMecaInput(false);return;} const next=[...customMechanics,v]; setCustomMechanics(next); saveTgCustomMechanics(next); updateSelectedRow({tgMechanic:v}); setMecaCustomInput(""); setShowMecaInput(false); };
-  const applyRangeForSelectedRayon=()=>{ if(!selectedRow)return; const from=weekOrder.get(activeWeek.id)??0; const to=weekOrder.get(rangeEndWeekId)??from; const [start,end]=from<=to?[from,to]:[to,from]; setPlans((cur)=>cur.map((r)=>{const i=weekOrder.get(r.weekId)??-1; if(r.rayon!==selectedRow.rayon||i<start||i>end)return r; const n={...r,gbProduct:selectedRow.gbProduct,tgResponsible:selectedRow.tgResponsible,tgProduct:selectedRow.tgProduct,tgQuantity:selectedRow.tgQuantity,tgMechanic:selectedRow.tgMechanic}; return {...n,hasOperation:Boolean(n.gbProduct||n.tgProduct||n.tgQuantity||n.tgMechanic)};})); };
-  const copyPreviousWeek=()=>{ const prev=tgWeeks[activeWeekIndex-1]; if(!prev)return; const prevMap=new Map(plans.filter((r)=>r.weekId===prev.id).map((r)=>[r.rayon,r])); setPlans((cur)=>cur.map((r)=>{if(r.weekId!==activeWeek.id)return r; const s=prevMap.get(r.rayon); if(!s)return r; return {...r,gbProduct:s.gbProduct,tgResponsible:s.tgResponsible,tgProduct:s.tgProduct,tgQuantity:s.tgQuantity,tgMechanic:s.tgMechanic,hasOperation:s.hasOperation};})); };
+  const updateSelectedRow=(patch:Partial<TgWeekPlanRow>)=>{
+    if(!selectedRow) return;
+    setPlans((current)=>current.map((row)=>{
+      if(row.weekId!==activeWeek.id||row.rayon!==selectedRow.rayon) return row;
+      return withOperationState({...row,...patch});
+    }));
+  };
+
+  const addCustomMechanic=()=>{
+    const value=mecaCustomInput.trim().toUpperCase();
+    if(!value||allMechanics.includes(value)){
+      setMecaCustomInput("");
+      setShowMecaInput(false);
+      return;
+    }
+
+    const nextMechanics=[...customMechanics,value];
+    setCustomMechanics(nextMechanics);
+    saveTgCustomMechanics(nextMechanics);
+    updateSelectedRow({tgMechanic:value});
+    setMecaCustomInput("");
+    setShowMecaInput(false);
+  };
+
+  const applyRangeForSelectedRayon=()=>{
+    if(!selectedRow) return;
+
+    const from=weekOrder.get(activeWeek.id)??0;
+    const to=weekOrder.get(rangeEndWeekId)??from;
+    const [start,end]=from<=to?[from,to]:[to,from];
+
+    setPlans((current)=>current.map((row)=>{
+      const rowIndex=weekOrder.get(row.weekId)??-1;
+      if(row.rayon!==selectedRow.rayon||rowIndex<start||rowIndex>end) return row;
+
+      return withOperationState({
+        ...row,
+        gbProduct:selectedRow.gbProduct,
+        tgResponsible:selectedRow.tgResponsible,
+        tgProduct:selectedRow.tgProduct,
+        tgQuantity:selectedRow.tgQuantity,
+        tgMechanic:selectedRow.tgMechanic,
+      });
+    }));
+  };
+
+  const copyPreviousWeek=()=>{
+    const previousWeek=tgWeeks[activeWeekIndex-1];
+    if(!previousWeek) return;
+
+    const previousRowsByRayon=new Map(
+      plans
+        .filter((row)=>row.weekId===previousWeek.id)
+        .map((row)=>[row.rayon,row]),
+    );
+
+    setPlans((current)=>current.map((row)=>{
+      if(row.weekId!==activeWeek.id) return row;
+      const previousRow=previousRowsByRayon.get(row.rayon);
+      if(!previousRow) return row;
+
+      return {
+        ...row,
+        gbProduct:previousRow.gbProduct,
+        tgResponsible:previousRow.tgResponsible,
+        tgProduct:previousRow.tgProduct,
+        tgQuantity:previousRow.tgQuantity,
+        tgMechanic:previousRow.tgMechanic,
+        hasOperation:previousRow.hasOperation,
+      };
+    }));
+  };
+
   const clearSelectedRow=()=>updateSelectedRow({gbProduct:"",tgProduct:"",tgQuantity:"",tgMechanic:"",tgResponsible:selectedRow?.defaultResponsible??""});
   const goPrev=()=>{const p=tgWeeks[activeWeekIndex-1]; if(!p)return; setActiveWeekId(p.id); setRangeEndWeekId(p.id);};
   const goNext=()=>{const n=tgWeeks[activeWeekIndex+1]; if(!n)return; setActiveWeekId(n.id); setRangeEndWeekId(n.id);};
 
-  const addRayon=()=>{const name=newRayonName.trim().toUpperCase(); if(!name||orderedRayons.some((r)=>r.rayon===name))return; const startWeekId=newRayonStartWeekId||activeWeek.id; const item:TgRayon={rayon:name,family:newRayonFamily,order:"0",active:true,startWeekId}; const list=[...orderedRayons]; if(newRayonPositionMode==="end"||!newRayonAnchor) list.push(item); else {const idx=list.findIndex((r)=>r.rayon===newRayonAnchor); if(idx<0) list.push(item); else list.splice(newRayonPositionMode==="before"?idx:idx+1,0,item);} const rs=resequence(list); const as=newRayonResponsible?[...assignments.filter((i)=>i.rayon!==name),{employee:newRayonResponsible,rayon:name}]:assignments; const map=new Map(as.map((i)=>[i.rayon,i.employee])); setRayons(rs); setAssignments(as); setPlans(normalizePlans(plans,rs,map)); setSelectedRayon(name); setNewRayonName(""); setNewRayonResponsible(""); setNewRayonStartWeekId(activeWeek.id); };
-  const deleteSelectedRayon=()=>{ if(!selectedRow)return; const del=selectedRow.rayon; const confirmed=window.confirm(`Supprimer le rayon "${del}" ?\n\nCette action supprimera ce rayon sur toute l'année (toutes les semaines), y compris ses données TG/GB.`); if(!confirmed)return; const rs=resequence(orderedRayons.filter((r)=>r.rayon!==del)); const as=assignments.filter((i)=>i.rayon!==del); const map=new Map(as.map((i)=>[i.rayon,i.employee])); setRayons(rs); setAssignments(as); setPlans(normalizePlans(plans.filter((p)=>p.rayon!==del),rs,map)); setSelectedRayon(rs[0]?.rayon??""); };
-  const moveRayon=(rayonName:string,dir:-1|1)=>{const list=[...orderedRayons]; const idx=list.findIndex((r)=>r.rayon===rayonName); const target=idx+dir; if(idx<0||target<0||target>=list.length)return; const [item]=list.splice(idx,1); list.splice(target,0,item); const rs=resequence(list); const map=new Map(assignments.map((i)=>[i.rayon,i.employee])); setRayons(rs); setPlans(normalizePlans(plans,rs,map)); };
+  const addRayon=()=>{
+    const name=newRayonName.trim().toUpperCase();
+    if(!name||orderedRayons.some((row)=>row.rayon===name)) return;
+
+    const startWeekId=newRayonStartWeekId||activeWeek.id;
+    const nextRayon:TgRayon={rayon:name,family:newRayonFamily,order:"0",active:true,startWeekId};
+    const nextRayons=[...orderedRayons];
+
+    if(newRayonPositionMode==="end"||!newRayonAnchor){
+      nextRayons.push(nextRayon);
+    } else {
+      const anchorIndex=nextRayons.findIndex((row)=>row.rayon===newRayonAnchor);
+      if(anchorIndex<0){
+        nextRayons.push(nextRayon);
+      } else {
+        nextRayons.splice(newRayonPositionMode==="before"?anchorIndex:anchorIndex+1,0,nextRayon);
+      }
+    }
+
+    const resequencedRayons=resequence(nextRayons);
+    const nextAssignments=newRayonResponsible
+      ? [...assignments.filter((item)=>item.rayon!==name),{employee:newRayonResponsible,rayon:name}]
+      : assignments;
+
+    setRayons(resequencedRayons);
+    setAssignments(nextAssignments);
+    setPlans(normalizePlans(plans,resequencedRayons,buildAssignmentMap(nextAssignments)));
+    setSelectedRayon(name);
+    setNewRayonName("");
+    setNewRayonResponsible("");
+    setNewRayonStartWeekId(activeWeek.id);
+  };
+
+  const deleteSelectedRayon=()=>{
+    if(!selectedRow) return;
+
+    const rayonToDelete=selectedRow.rayon;
+    const confirmed=window.confirm(`Supprimer le rayon "${rayonToDelete}" ?\n\nCette action supprimera ce rayon sur toute l'année (toutes les semaines), y compris ses données TG/GB.`);
+    if(!confirmed) return;
+
+    const nextRayons=resequence(orderedRayons.filter((row)=>row.rayon!==rayonToDelete));
+    const nextAssignments=assignments.filter((item)=>item.rayon!==rayonToDelete);
+    const nextPlans=plans.filter((plan)=>plan.rayon!==rayonToDelete);
+
+    setRayons(nextRayons);
+    setAssignments(nextAssignments);
+    setPlans(normalizePlans(nextPlans,nextRayons,buildAssignmentMap(nextAssignments)));
+    setSelectedRayon(nextRayons[0]?.rayon??"");
+  };
+
+  const moveRayon=(rayonName:string,dir:-1|1)=>{
+    const nextRayons=[...orderedRayons];
+    const currentIndex=nextRayons.findIndex((row)=>row.rayon===rayonName);
+    const targetIndex=currentIndex+dir;
+    if(currentIndex<0||targetIndex<0||targetIndex>=nextRayons.length) return;
+
+    const [movedRayon]=nextRayons.splice(currentIndex,1);
+    nextRayons.splice(targetIndex,0,movedRayon);
+
+    const resequencedRayons=resequence(nextRayons);
+    setRayons(resequencedRayons);
+    setPlans(normalizePlans(plans,resequencedRayons,assignmentMap));
+  };
 
   return <section style={{display:"grid",gap:"14px",marginTop:"20px"}}>
     <ModuleHeader compact moduleKey="plantg" title="Plan TG / GB manager" description="Pilotage hebdomadaire des têtes de gondole et gondoles basses. Affectation dynamique des collaborateurs selon la charge." />

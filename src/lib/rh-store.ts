@@ -1,3 +1,4 @@
+import { hasBrowserWindow, purgeLegacyCacheKeys, readSessionCache, writeSessionCache } from "@/lib/browser-cache";
 import { createClient } from "@/lib/supabase";
 
 export type RhEmployeeType = "M" | "S" | "E";
@@ -66,7 +67,7 @@ export const defaultRhCycles: RhCycles = {
 };
 
 function canUseStorage() {
-  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+  return hasBrowserWindow();
 }
 
 function cloneEmployees(employees: RhEmployee[]) {
@@ -171,8 +172,8 @@ function mapEmployeeRowToRhEmployee(
 
 function writeRhCache(employees: RhEmployee[], cycles: RhCycles) {
   if (!canUseStorage()) return;
-  window.localStorage.setItem(EMPLOYEES_KEY, JSON.stringify(employees));
-  window.localStorage.setItem(CYCLES_KEY, JSON.stringify(cycles));
+  writeSessionCache(EMPLOYEES_KEY, employees);
+  writeSessionCache(CYCLES_KEY, cycles);
   emitRhUpdated();
 }
 
@@ -188,9 +189,9 @@ export function emitRhUpdated() {
 export function loadRhEmployees(): RhEmployee[] {
   if (!canUseStorage()) return cloneEmployees(defaultRhEmployees);
   try {
-    const raw = window.localStorage.getItem(EMPLOYEES_KEY);
-    if (!raw) return cloneEmployees(defaultRhEmployees);
-    const parsed = JSON.parse(raw);
+    purgeLegacyCacheKeys([EMPLOYEES_KEY]);
+    const parsed = readSessionCache<unknown[]>(EMPLOYEES_KEY);
+    if (!parsed) return cloneEmployees(defaultRhEmployees);
     if (!Array.isArray(parsed)) return cloneEmployees(defaultRhEmployees);
     const sanitized = parsed.filter(isRhEmployee);
     return sanitized.length || parsed.length === 0 ? cloneEmployees(sanitized) : cloneEmployees(defaultRhEmployees);
@@ -201,16 +202,16 @@ export function loadRhEmployees(): RhEmployee[] {
 
 export function saveRhEmployees(employees: RhEmployee[]) {
   if (!canUseStorage()) return;
-  window.localStorage.setItem(EMPLOYEES_KEY, JSON.stringify(employees));
+  writeSessionCache(EMPLOYEES_KEY, employees);
   emitRhUpdated();
 }
 
 export function loadRhCycles(): RhCycles {
   if (!canUseStorage()) return cloneCycles(defaultRhCycles);
   try {
-    const raw = window.localStorage.getItem(CYCLES_KEY);
-    if (!raw) return cloneCycles(defaultRhCycles);
-    const parsed = JSON.parse(raw);
+    purgeLegacyCacheKeys([CYCLES_KEY]);
+    const parsed = readSessionCache<Record<string, string[]>>(CYCLES_KEY);
+    if (!parsed) return cloneCycles(defaultRhCycles);
     if (!parsed || typeof parsed !== "object") return cloneCycles(defaultRhCycles);
     return cloneCycles(parsed as RhCycles);
   } catch {
@@ -220,7 +221,7 @@ export function loadRhCycles(): RhCycles {
 
 export function saveRhCycles(cycles: RhCycles) {
   if (!canUseStorage()) return;
-  window.localStorage.setItem(CYCLES_KEY, JSON.stringify(cycles));
+  writeSessionCache(CYCLES_KEY, cycles);
   emitRhUpdated();
 }
 
@@ -319,7 +320,7 @@ export function renameRhCycleCache(previousName: string, nextName: string) {
   const nextCycles = { ...cycles };
   delete nextCycles[previousName];
   nextCycles[nextName] = existing;
-  window.localStorage.setItem(CYCLES_KEY, JSON.stringify(nextCycles));
+  writeSessionCache(CYCLES_KEY, nextCycles);
   emitRhUpdated();
 }
 

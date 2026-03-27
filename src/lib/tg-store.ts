@@ -8,6 +8,7 @@ import {
   type TgRayon,
   type TgWeekPlanRow,
 } from "@/lib/tg-data";
+import { hasBrowserWindow, purgeLegacyCacheKeys, readSessionCache, writeSessionCache } from "@/lib/browser-cache";
 import { createClient } from "@/lib/supabase";
 
 const TG_WEEK_PLANS_KEY = "epicerie-manager-tg-week-plans-v1";
@@ -17,7 +18,7 @@ const TG_CUSTOM_MECHANICS_KEY = "epicerie-manager-tg-custom-mechanics-v1";
 const TG_UPDATED_EVENT = "epicerie-manager:tg-updated";
 
 function canUseStorage() {
-  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+  return hasBrowserWindow();
 }
 
 function clonePlans(plans: TgWeekPlanRow[]): TgWeekPlanRow[] {
@@ -78,9 +79,9 @@ function emitTgUpdated() {
 export function loadTgRayons(): TgRayon[] {
   if (!canUseStorage()) return cloneRayons(tgRayons);
   try {
-    const raw = window.localStorage.getItem(TG_RAYONS_KEY);
-    if (!raw) return cloneRayons(tgRayons);
-    const parsed = JSON.parse(raw);
+    purgeLegacyCacheKeys([TG_RAYONS_KEY]);
+    const parsed = readSessionCache<unknown[]>(TG_RAYONS_KEY);
+    if (!parsed) return cloneRayons(tgRayons);
     if (!Array.isArray(parsed)) return cloneRayons(tgRayons);
     const sanitized = parsed.filter(isRayonRow);
     return sanitized.length ? sanitized : cloneRayons(tgRayons);
@@ -91,19 +92,16 @@ export function loadTgRayons(): TgRayon[] {
 
 export function saveTgRayons(rayons: TgRayon[]) {
   if (!canUseStorage()) return;
-  const nextRaw = JSON.stringify(rayons);
-  const prevRaw = window.localStorage.getItem(TG_RAYONS_KEY);
-  if (prevRaw === nextRaw) return;
-  window.localStorage.setItem(TG_RAYONS_KEY, nextRaw);
+  writeSessionCache(TG_RAYONS_KEY, rayons);
   emitTgUpdated();
 }
 
 export function loadTgDefaultAssignments(): TgDefaultAssignment[] {
   if (!canUseStorage()) return cloneAssignments(tgDefaultAssignments);
   try {
-    const raw = window.localStorage.getItem(TG_DEFAULT_ASSIGNMENTS_KEY);
-    if (!raw) return cloneAssignments(tgDefaultAssignments);
-    const parsed = JSON.parse(raw);
+    purgeLegacyCacheKeys([TG_DEFAULT_ASSIGNMENTS_KEY]);
+    const parsed = readSessionCache<unknown[]>(TG_DEFAULT_ASSIGNMENTS_KEY);
+    if (!parsed) return cloneAssignments(tgDefaultAssignments);
     if (!Array.isArray(parsed)) return cloneAssignments(tgDefaultAssignments);
     const sanitized = parsed.filter(isAssignmentRow);
     return sanitized.length ? sanitized : cloneAssignments(tgDefaultAssignments);
@@ -114,19 +112,16 @@ export function loadTgDefaultAssignments(): TgDefaultAssignment[] {
 
 export function saveTgDefaultAssignments(assignments: TgDefaultAssignment[]) {
   if (!canUseStorage()) return;
-  const nextRaw = JSON.stringify(assignments);
-  const prevRaw = window.localStorage.getItem(TG_DEFAULT_ASSIGNMENTS_KEY);
-  if (prevRaw === nextRaw) return;
-  window.localStorage.setItem(TG_DEFAULT_ASSIGNMENTS_KEY, nextRaw);
+  writeSessionCache(TG_DEFAULT_ASSIGNMENTS_KEY, assignments);
   emitTgUpdated();
 }
 
 export function loadTgWeekPlans(): TgWeekPlanRow[] {
   if (!canUseStorage()) return clonePlans(tgWeekPlans);
   try {
-    const raw = window.localStorage.getItem(TG_WEEK_PLANS_KEY);
-    if (!raw) return clonePlans(tgWeekPlans);
-    const parsed = JSON.parse(raw);
+    purgeLegacyCacheKeys([TG_WEEK_PLANS_KEY]);
+    const parsed = readSessionCache<unknown[]>(TG_WEEK_PLANS_KEY);
+    if (!parsed) return clonePlans(tgWeekPlans);
     if (!Array.isArray(parsed)) return clonePlans(tgWeekPlans);
     const sanitized = parsed.filter(isWeekPlanRow);
     return sanitized.length ? sanitized : clonePlans(tgWeekPlans);
@@ -137,19 +132,16 @@ export function loadTgWeekPlans(): TgWeekPlanRow[] {
 
 export function saveTgWeekPlans(plans: TgWeekPlanRow[]) {
   if (!canUseStorage()) return;
-  const nextRaw = JSON.stringify(plans);
-  const prevRaw = window.localStorage.getItem(TG_WEEK_PLANS_KEY);
-  if (prevRaw === nextRaw) return;
-  window.localStorage.setItem(TG_WEEK_PLANS_KEY, nextRaw);
+  writeSessionCache(TG_WEEK_PLANS_KEY, plans);
   emitTgUpdated();
 }
 
 export function loadTgCustomMechanics(): string[] {
   if (!canUseStorage()) return [];
   try {
-    const raw = window.localStorage.getItem(TG_CUSTOM_MECHANICS_KEY);
-    if (!raw) return [];
-    const parsed = JSON.parse(raw);
+    purgeLegacyCacheKeys([TG_CUSTOM_MECHANICS_KEY]);
+    const parsed = readSessionCache<unknown[]>(TG_CUSTOM_MECHANICS_KEY);
+    if (!parsed) return [];
     if (!Array.isArray(parsed)) return [];
     return parsed.filter((item): item is string => typeof item === "string");
   } catch {
@@ -159,7 +151,7 @@ export function loadTgCustomMechanics(): string[] {
 
 export function saveTgCustomMechanics(mechanics: string[]) {
   if (!canUseStorage()) return;
-  window.localStorage.setItem(TG_CUSTOM_MECHANICS_KEY, JSON.stringify(mechanics));
+  writeSessionCache(TG_CUSTOM_MECHANICS_KEY, mechanics);
 }
 
 function normalizeFamilyFromDb(value: string): TgFamily {
@@ -267,8 +259,8 @@ export async function syncTgFromSupabase() {
       employee: assignmentMap.get(assignment.rayon) ?? assignment.employee,
     }));
 
-    window.localStorage.setItem(TG_WEEK_PLANS_KEY, JSON.stringify(nextPlans));
-    window.localStorage.setItem(TG_DEFAULT_ASSIGNMENTS_KEY, JSON.stringify(nextAssignments));
+    writeSessionCache(TG_WEEK_PLANS_KEY, nextPlans);
+    writeSessionCache(TG_DEFAULT_ASSIGNMENTS_KEY, nextAssignments);
     emitTgUpdated();
     return true;
   } catch {

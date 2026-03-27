@@ -3,6 +3,7 @@ import {
   balisageMonths,
   type BalisageEmployeeStat,
 } from "@/lib/balisage-data";
+import { hasBrowserWindow, purgeLegacyCacheKeys, readSessionCache, writeSessionCache } from "@/lib/browser-cache";
 import { createClient } from "@/lib/supabase";
 
 const BALISAGE_STORAGE_KEY = "epicerie-manager-balisage-data-v1";
@@ -33,17 +34,17 @@ function isStatRow(value: unknown): value is BalisageEmployeeStat {
 }
 
 export function loadBalisageData(): BalisageDataset {
-  if (typeof window === "undefined") {
+  if (!hasBrowserWindow()) {
     return cloneDefaultData();
   }
 
-  const raw = window.localStorage.getItem(BALISAGE_STORAGE_KEY);
-  if (!raw) {
+  purgeLegacyCacheKeys([BALISAGE_STORAGE_KEY]);
+  const parsed = readSessionCache<Record<string, unknown>>(BALISAGE_STORAGE_KEY);
+  if (!parsed) {
     return cloneDefaultData();
   }
 
   try {
-    const parsed = JSON.parse(raw) as Record<string, unknown>;
     const sanitized = cloneDefaultData();
 
     balisageMonths.forEach((month) => {
@@ -62,11 +63,8 @@ export function loadBalisageData(): BalisageDataset {
 }
 
 export function saveBalisageData(data: BalisageDataset) {
-  if (typeof window === "undefined") return;
-  const nextRaw = JSON.stringify(data);
-  const prevRaw = window.localStorage.getItem(BALISAGE_STORAGE_KEY);
-  if (prevRaw === nextRaw) return;
-  window.localStorage.setItem(BALISAGE_STORAGE_KEY, nextRaw);
+  if (!hasBrowserWindow()) return;
+  writeSessionCache(BALISAGE_STORAGE_KEY, data);
   window.dispatchEvent(new Event(BALISAGE_UPDATED_EVENT));
 }
 
@@ -80,7 +78,7 @@ export async function saveBalisageEntryToSupabase(
   total: number,
   errorRate: number | null,
 ): Promise<boolean> {
-  if (typeof window === "undefined") return false;
+  if (!hasBrowserWindow()) return false;
   try {
     const supabase = createClient();
 
@@ -112,7 +110,7 @@ export async function saveBalisageEntryToSupabase(
 }
 
 export async function syncBalisageFromSupabase() {
-  if (typeof window === "undefined") return false;
+  if (!hasBrowserWindow()) return false;
 
   try {
     const supabase = createClient();
@@ -162,7 +160,7 @@ export async function syncBalisageFromSupabase() {
       else next[monthId].push(mapped);
     });
 
-    window.localStorage.setItem(BALISAGE_STORAGE_KEY, JSON.stringify(next));
+    writeSessionCache(BALISAGE_STORAGE_KEY, next);
     window.dispatchEvent(new Event(BALISAGE_UPDATED_EVENT));
     return true;
   } catch {

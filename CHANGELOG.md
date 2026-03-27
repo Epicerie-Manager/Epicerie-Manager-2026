@@ -21,6 +21,14 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.13 - 2026-03-28
+
+- Nettoyage technique du repo : `lint` repasse au vert et `build` reste OK apres exclusion des artefacts `.claude` de l'analyse.
+- Le module `Balisage` remonte maintenant un message clair quand la sauvegarde Supabase echoue, au lieu de laisser une perte de synchro silencieuse.
+- Simplification du composant `Agenda` du dashboard avec retrait des commentaires/instructions IA laisses dans le code et rendu conserve.
+- Refactor du module `Plan TG / GB` pour rendre les handlers et transformations de lignes plus lisibles sans changer le comportement.
+- Suppression des fichiers temporaires suivis `tmp_planning_data.js` et `tmp_planning_extract.txt`.
+
 ## v0.5.12 - 2026-03-26
 
 - Correction du module `Absences` pour qu'un etat vide en base reste vraiment vide dans l'interface, sans retomber sur les donnees par defaut.

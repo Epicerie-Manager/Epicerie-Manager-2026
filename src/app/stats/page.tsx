@@ -128,6 +128,7 @@ export default function StatsPage() {
   );
 
   const openEdit = (employee: BalisageEmployeeStat) => {
+    setSaveError(null);
     setEditingName(employee.name);
     setEditingTotal(String(employee.total));
     setEditingErrorRate(employee.errorRate === null ? "" : String(employee.errorRate));
@@ -399,7 +400,10 @@ export default function StatsPage() {
             <div style={{ display: "flex", justifyContent: "flex-end", gap: "8px", marginTop: "14px" }}>
               <button
                 type="button"
-                onClick={() => setEditingName(null)}
+                onClick={() => {
+                  setSaveError(null);
+                  setEditingName(null);
+                }}
                 disabled={isSaving}
                 style={{ border: "1px solid #dbe3eb", borderRadius: "999px", background: "#fff", color: "#1e293b", fontSize: "12px", padding: "7px 12px" }}
               >

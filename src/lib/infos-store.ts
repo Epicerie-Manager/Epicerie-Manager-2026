@@ -8,6 +8,7 @@ import {
   type InfoDocumentAttachment,
   type InfoItem,
 } from "@/lib/infos-data";
+import { hasBrowserWindow, purgeLegacyCacheKeys, readSessionCache, writeSessionCache } from "@/lib/browser-cache";
 import { createClient } from "@/lib/supabase";
 
 const INFO_CATEGORIES_STORAGE_KEY = "epicerie-manager-info-categories-v1";
@@ -35,7 +36,7 @@ const INFO_CATEGORY_FROM_DB: Record<string, InfoCategoryId> = {
 type DbRow = Record<string, unknown>;
 
 function canUseStorage() {
-  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+  return hasBrowserWindow();
 }
 
 function emitUpdated() {
@@ -100,10 +101,10 @@ function isAnnouncement(value: unknown): value is InfoAnnouncement {
 
 export function loadInfoCategories(): InfoCategory[] {
   if (!canUseStorage()) return infoCategories;
-  const raw = window.localStorage.getItem(INFO_CATEGORIES_STORAGE_KEY);
-  if (!raw) return infoCategories;
+  purgeLegacyCacheKeys([INFO_CATEGORIES_STORAGE_KEY]);
+  const parsed = readSessionCache<unknown[]>(INFO_CATEGORIES_STORAGE_KEY);
+  if (!parsed) return infoCategories;
   try {
-    const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return infoCategories;
     const valid = parsed.filter(isCategory);
     return valid.length ? valid : infoCategories;
@@ -114,19 +115,16 @@ export function loadInfoCategories(): InfoCategory[] {
 
 export function saveInfoCategories(categories: InfoCategory[]) {
   if (!canUseStorage()) return;
-  const nextRaw = JSON.stringify(categories);
-  const prevRaw = window.localStorage.getItem(INFO_CATEGORIES_STORAGE_KEY);
-  if (prevRaw === nextRaw) return;
-  window.localStorage.setItem(INFO_CATEGORIES_STORAGE_KEY, nextRaw);
+  writeSessionCache(INFO_CATEGORIES_STORAGE_KEY, categories);
   emitUpdated();
 }
 
 export function loadInfoAnnouncements(): InfoAnnouncement[] {
   if (!canUseStorage()) return infoAnnouncements;
-  const raw = window.localStorage.getItem(INFO_ANNOUNCEMENTS_STORAGE_KEY);
-  if (!raw) return infoAnnouncements;
+  purgeLegacyCacheKeys([INFO_ANNOUNCEMENTS_STORAGE_KEY]);
+  const parsed = readSessionCache<unknown[]>(INFO_ANNOUNCEMENTS_STORAGE_KEY);
+  if (!parsed) return infoAnnouncements;
   try {
-    const parsed = JSON.parse(raw);
     if (!Array.isArray(parsed)) return infoAnnouncements;
     const valid = parsed.filter(isAnnouncement);
     return valid;
@@ -137,10 +135,7 @@ export function loadInfoAnnouncements(): InfoAnnouncement[] {
 
 export function saveInfoAnnouncements(announcements: InfoAnnouncement[]) {
   if (!canUseStorage()) return;
-  const nextRaw = JSON.stringify(announcements);
-  const prevRaw = window.localStorage.getItem(INFO_ANNOUNCEMENTS_STORAGE_KEY);
-  if (prevRaw === nextRaw) return;
-  window.localStorage.setItem(INFO_ANNOUNCEMENTS_STORAGE_KEY, nextRaw);
+  writeSessionCache(INFO_ANNOUNCEMENTS_STORAGE_KEY, announcements);
   emitUpdated();
 }
 
@@ -403,7 +398,7 @@ export async function syncInfosFromSupabase() {
         if (category) category.items.push(item);
       });
 
-      window.localStorage.setItem(INFO_CATEGORIES_STORAGE_KEY, JSON.stringify(nextCategories));
+      writeSessionCache(INFO_CATEGORIES_STORAGE_KEY, nextCategories);
       hasData = true;
     }
 
@@ -411,7 +406,7 @@ export async function syncInfosFromSupabase() {
       const nextAnnouncements: InfoAnnouncement[] = annoncesRows.map((row: Record<string, unknown>) => (
         mapAnnouncementRowToItem(row)
       ));
-      window.localStorage.setItem(INFO_ANNOUNCEMENTS_STORAGE_KEY, JSON.stringify(nextAnnouncements));
+      writeSessionCache(INFO_ANNOUNCEMENTS_STORAGE_KEY, nextAnnouncements);
       hasData = true;
     }
 

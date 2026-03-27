@@ -4,6 +4,13 @@ import {
   sheetPlanningEmployees,
   sheetPlanningOverrides,
 } from "@/lib/planning-sheet-data";
+import {
+  hasBrowserWindow,
+  purgeLegacyCacheByPrefixes,
+  purgeLegacyCacheKeys,
+  readSessionCache,
+  writeSessionCache,
+} from "@/lib/browser-cache";
 import { createClient } from "@/lib/supabase";
 
 export type PlanningOverrideEntry = {
@@ -55,7 +62,7 @@ function cloneBinomes(binomes: PlanningBinomes): PlanningBinomes {
 }
 
 function canUseStorage() {
-  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
+  return hasBrowserWindow();
 }
 
 export function getPlanningMonthKey(date: Date) {
@@ -85,6 +92,11 @@ function emitPlanningUpdated() {
   window.dispatchEvent(new Event(PLANNING_UPDATED_EVENT));
 }
 
+function purgePlanningLegacyCache() {
+  purgeLegacyCacheKeys([PLANNING_OVERRIDES_KEY]);
+  purgeLegacyCacheByPrefixes([PLANNING_TRI_KEY_PREFIX, PLANNING_BINOMES_KEY_PREFIX]);
+}
+
 const DAY_CODE_TO_INDEX: Record<string, number> = {
   LUN: 1,
   MAR: 2,
@@ -93,6 +105,38 @@ const DAY_CODE_TO_INDEX: Record<string, number> = {
   VEN: 5,
   SAM: 6,
 };
+
+function employeeFromAbsenceNote(note: unknown) {
+  const text = String(note ?? "");
+  const match = text.match(/^EMPLOYEE:([^|]+)(\||$)/i);
+  if (!match) return null;
+  return match[1].trim().toUpperCase();
+}
+
+function listPlanningAbsenceDates(startDate: string, endDate: string) {
+  const dates: string[] = [];
+  const current = new Date(`${startDate}T00:00:00`);
+  const end = new Date(`${endDate}T00:00:00`);
+
+  while (current <= end) {
+    if (current.getDay() !== 0) {
+      dates.push(formatPlanningDate(current));
+    }
+    current.setDate(current.getDate() + 1);
+  }
+
+  return dates;
+}
+
+function getPlanningStatusFromAbsenceType(type: string) {
+  const upper = String(type ?? "").toUpperCase();
+  if (upper === "CP") return "CP";
+  if (upper === "MAL") return "MAL";
+  if (upper === "CONGE_MAT") return "CONGE_MAT";
+  if (upper === "FORM") return "FORM";
+  if (upper === "FERIE") return "FERIE";
+  return "X";
+}
 
 export function formatPlanningDate(date: Date) {
   const year = date.getFullYear();
@@ -133,6 +177,7 @@ function normalizeRhType(value: string): "M" | "S" | "E" {
 
 export async function syncPlanningFromSupabase(monthKey = getPlanningMonthKey(new Date())) {
   if (!canUseStorage()) return false;
+  purgePlanningLegacyCache();
 
   try {
     const supabase = createClient();
@@ -177,24 +222,25 @@ export async function syncPlanningFromSupabase(monthKey = getPlanningMonthKey(ne
       }
     }
 
+    const nextTriData = cloneTriData(defaultPlanningTriData);
     const { data: triRows } = await supabase
       .from("tri_caddie")
       .select("jour_semaine,employee1_id,employee2_id")
       .eq("mois", monthKey)
       .limit(100);
     if (Array.isArray(triRows) && triRows.length > 0) {
-      const triData = cloneTriData(defaultPlanningTriData);
       triRows.forEach((row) => {
         const index = DAY_CODE_TO_INDEX[String(row.jour_semaine ?? "").toUpperCase()];
         if (!index) return;
         const name1 = employeeNameById.get(String(row.employee1_id));
         const name2 = employeeNameById.get(String(row.employee2_id));
         if (!name1 || !name2) return;
-        triData[index] = [name1, name2];
+        nextTriData[index] = [name1, name2];
       });
-      window.localStorage.setItem(getPlanningTriStorageKey(monthKey), JSON.stringify(triData));
     }
+    writeSessionCache(getPlanningTriStorageKey(monthKey), nextTriData);
 
+    let nextBinomes = cloneBinomes(defaultPlanningBinomes);
     const { data: binomeRows } = await supabase
       .from("binomes_repos")
       .select("binome_number,employee1_id,employee2_id")
@@ -211,10 +257,12 @@ export async function syncPlanningFromSupabase(monthKey = getPlanningMonthKey(ne
         })
         .filter((row): row is [string, string] => Boolean(row));
       if (binomes.length > 0) {
-        window.localStorage.setItem(getPlanningBinomesStorageKey(monthKey), JSON.stringify(binomes));
+        nextBinomes = cloneBinomes(binomes);
       }
     }
+    writeSessionCache(getPlanningBinomesStorageKey(monthKey), nextBinomes);
 
+    const overrides: PlanningOverrides = cloneOverrides(sheetPlanningOverrides);
     const { data: planningRows } = await supabase
       .from("planning_entries")
       .select("date,employee_id,statut,horaire_custom")
@@ -222,23 +270,6 @@ export async function syncPlanningFromSupabase(monthKey = getPlanningMonthKey(ne
       .lte("date", "2026-12-31")
       .limit(25000);
     if (Array.isArray(planningRows) && planningRows.length > 0) {
-      const existingStorage = (() => {
-        try {
-          const raw = window.localStorage.getItem(PLANNING_OVERRIDES_KEY);
-          if (!raw) return {} as PlanningOverrides;
-          const parsed = JSON.parse(raw);
-          return parsed && typeof parsed === "object"
-            ? (parsed as PlanningOverrides)
-            : ({} as PlanningOverrides);
-        } catch {
-          return {} as PlanningOverrides;
-        }
-      })();
-
-      const overrides: PlanningOverrides = {
-        ...sheetPlanningOverrides,
-        ...existingStorage,
-      };
       planningRows.forEach((row) => {
         const name = employeeNameById.get(String(row.employee_id));
         if (!name || !row.date) return;
@@ -248,8 +279,38 @@ export async function syncPlanningFromSupabase(monthKey = getPlanningMonthKey(ne
           h: row.horaire_custom ?? null,
         };
       });
-      window.localStorage.setItem(PLANNING_OVERRIDES_KEY, JSON.stringify(overrides));
     }
+
+    const { data: absencesRows } = await supabase
+      .from("absences")
+      .select("employee_id,type,date_debut,date_fin,statut,note")
+      .eq("statut", "APPROUVE")
+      .limit(5000);
+    if (Array.isArray(absencesRows) && absencesRows.length > 0) {
+      absencesRows.forEach((row) => {
+        const baseEmployeeName =
+          employeeNameById.get(String(row.employee_id ?? "")) ??
+          employeeFromAbsenceNote(row.note);
+        if (!baseEmployeeName) return;
+
+        const targetEmployees = baseEmployeeName === "TOUS"
+          ? mappedEmployees.filter((employee) => employee.actif).map((employee) => employee.n)
+          : [baseEmployeeName];
+        const targetDates = listPlanningAbsenceDates(
+          String(row.date_debut ?? ""),
+          String(row.date_fin ?? row.date_debut ?? ""),
+        );
+        const planningStatus = getPlanningStatusFromAbsenceType(String(row.type ?? "AUTRE"));
+
+        targetEmployees.forEach((employeeName) => {
+          targetDates.forEach((date) => {
+            overrides[`${employeeName}_${date}`] = { s: planningStatus, h: null };
+          });
+        });
+      });
+    }
+
+    writeSessionCache(PLANNING_OVERRIDES_KEY, overrides);
 
     emitPlanningUpdated();
     return true;
@@ -261,9 +322,9 @@ export async function syncPlanningFromSupabase(monthKey = getPlanningMonthKey(ne
 export function loadPlanningOverrides(): PlanningOverrides {
   if (!canUseStorage()) return { ...sheetPlanningOverrides };
   try {
-    const raw = window.localStorage.getItem(PLANNING_OVERRIDES_KEY);
-    if (!raw) return { ...sheetPlanningOverrides };
-    const parsed = JSON.parse(raw);
+    purgePlanningLegacyCache();
+    const parsed = readSessionCache<PlanningOverrides>(PLANNING_OVERRIDES_KEY);
+    if (!parsed) return { ...sheetPlanningOverrides };
     if (!parsed || typeof parsed !== "object") return { ...sheetPlanningOverrides };
     return { ...sheetPlanningOverrides, ...(parsed as PlanningOverrides) };
   } catch {
@@ -273,18 +334,16 @@ export function loadPlanningOverrides(): PlanningOverrides {
 
 export function savePlanningOverrides(overrides: PlanningOverrides) {
   if (!canUseStorage()) return;
-  window.localStorage.setItem(PLANNING_OVERRIDES_KEY, JSON.stringify(overrides));
+  writeSessionCache(PLANNING_OVERRIDES_KEY, overrides);
   emitPlanningUpdated();
 }
 
 export function loadPlanningTriData(monthKey = getPlanningMonthKey(new Date())): PlanningTriData {
   if (!canUseStorage()) return cloneTriData(defaultPlanningTriData);
   try {
-    const raw =
-      window.localStorage.getItem(getPlanningTriStorageKey(monthKey)) ??
-      window.localStorage.getItem(PLANNING_TRI_KEY_PREFIX);
-    if (!raw) return cloneTriData(defaultPlanningTriData);
-    const parsed = JSON.parse(raw);
+    purgePlanningLegacyCache();
+    const parsed = readSessionCache<Record<string, unknown>>(getPlanningTriStorageKey(monthKey));
+    if (!parsed) return cloneTriData(defaultPlanningTriData);
     if (!parsed || typeof parsed !== "object") return cloneTriData(defaultPlanningTriData);
     const merged = cloneTriData(defaultPlanningTriData);
     Object.entries(parsed as Record<string, unknown>).forEach(([key, value]) => {
@@ -299,18 +358,16 @@ export function loadPlanningTriData(monthKey = getPlanningMonthKey(new Date())):
 
 export function savePlanningTriData(data: PlanningTriData) {
   if (!canUseStorage()) return;
-  window.localStorage.setItem(getPlanningTriStorageKey(getPlanningMonthKey(new Date())), JSON.stringify(data));
+  writeSessionCache(getPlanningTriStorageKey(getPlanningMonthKey(new Date())), data);
   emitPlanningUpdated();
 }
 
 export function loadPlanningBinomes(monthKey = getPlanningMonthKey(new Date())): PlanningBinomes {
   if (!canUseStorage()) return cloneBinomes(defaultPlanningBinomes);
   try {
-    const raw =
-      window.localStorage.getItem(getPlanningBinomesStorageKey(monthKey)) ??
-      window.localStorage.getItem(PLANNING_BINOMES_KEY_PREFIX);
-    if (!raw) return cloneBinomes(defaultPlanningBinomes);
-    const parsed = JSON.parse(raw);
+    purgePlanningLegacyCache();
+    const parsed = readSessionCache<unknown[]>(getPlanningBinomesStorageKey(monthKey));
+    if (!parsed) return cloneBinomes(defaultPlanningBinomes);
     if (!Array.isArray(parsed)) return cloneBinomes(defaultPlanningBinomes);
     const rows = parsed
       .filter((row: unknown) => Array.isArray(row) && row.length >= 2)
@@ -323,7 +380,7 @@ export function loadPlanningBinomes(monthKey = getPlanningMonthKey(new Date())):
 
 export function savePlanningBinomes(binomes: PlanningBinomes) {
   if (!canUseStorage()) return;
-  window.localStorage.setItem(getPlanningBinomesStorageKey(getPlanningMonthKey(new Date())), JSON.stringify(binomes));
+  writeSessionCache(getPlanningBinomesStorageKey(getPlanningMonthKey(new Date())), binomes);
   emitPlanningUpdated();
 }
 
@@ -409,7 +466,7 @@ export async function savePlanningOverridesToSupabase(
       }
     }
 
-    window.localStorage.setItem(PLANNING_OVERRIDES_KEY, JSON.stringify(nextOverrides));
+    writeSessionCache(PLANNING_OVERRIDES_KEY, nextOverrides);
     emitPlanningUpdated();
     return cloneOverrides(nextOverrides);
   } catch (error) {
@@ -452,7 +509,7 @@ export async function savePlanningTriPairToSupabase(
       if (insertError) throw insertError;
     }
 
-    window.localStorage.setItem(getPlanningTriStorageKey(monthKey), JSON.stringify(nextTriData));
+    writeSessionCache(getPlanningTriStorageKey(monthKey), nextTriData);
     emitPlanningUpdated();
     return cloneTriData(nextTriData);
   } catch (error) {
@@ -496,7 +553,7 @@ export async function savePlanningBinomeToSupabase(
       if (insertError) throw insertError;
     }
 
-    window.localStorage.setItem(getPlanningBinomesStorageKey(monthKey), JSON.stringify(nextBinomes));
+    writeSessionCache(getPlanningBinomesStorageKey(monthKey), nextBinomes);
     emitPlanningUpdated();
     return cloneBinomes(nextBinomes);
   } catch (error) {

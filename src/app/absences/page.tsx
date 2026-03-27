@@ -14,11 +14,12 @@ import {
   type AbsenceTypeId,
 } from "@/lib/absences-data";
 import {
-  applyApprovedAbsenceToPlanning,
   createAbsenceRequestInSupabase,
   deleteAbsenceRequestInSupabase,
   getAbsencesUpdatedEventName,
   loadAbsenceRequests,
+  saveAbsenceRequests,
+  syncPlanningFromAbsenceRequest,
   syncAbsencesFromSupabase,
   updateAbsenceStatusInSupabase,
 } from "@/lib/absences-store";
@@ -134,7 +135,9 @@ export default function AbsencesPage() {
         note: draft.note.trim() || undefined,
         status: "EN_ATTENTE",
       });
-      setRequests((current) => [...current, { ...created, id: nextId }]);
+      const nextRequests = [...requests, { ...created, id: nextId }];
+      setRequests(nextRequests);
+      saveAbsenceRequests(nextRequests);
       setDraft({ employee: employees[0] ?? "", type: "CP", startDate: "", endDate: "", note: "" });
       setShowForm(false);
     } catch (nextError) {
@@ -151,9 +154,11 @@ export default function AbsencesPage() {
     setBusy(true);
     try {
       await updateAbsenceStatusInSupabase(request.dbId, status);
-      setRequests((current) => current.map((item) => (item.id === id ? { ...item, status } : item)));
-      if (status === "APPROUVE") {
-        await applyApprovedAbsenceToPlanning({ ...request, status });
+      const nextRequests = requests.map((item) => (item.id === id ? { ...item, status } : item));
+      setRequests(nextRequests);
+      saveAbsenceRequests(nextRequests);
+      if (request.status === "APPROUVE" || status === "APPROUVE") {
+        await syncPlanningFromAbsenceRequest(request);
       }
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Impossible de mettre à jour le statut.");
@@ -169,7 +174,12 @@ export default function AbsencesPage() {
     setBusy(true);
     try {
       await deleteAbsenceRequestInSupabase(request.dbId);
-      setRequests((current) => current.filter((item) => item.id !== id));
+      const nextRequests = requests.filter((item) => item.id !== id);
+      setRequests(nextRequests);
+      saveAbsenceRequests(nextRequests);
+      if (request.status === "APPROUVE") {
+        await syncPlanningFromAbsenceRequest(request);
+      }
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Impossible de supprimer la demande.");
     } finally {

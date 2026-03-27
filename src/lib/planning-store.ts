@@ -51,6 +51,21 @@ export const defaultPlanningTriData: PlanningTriData = {
 
 export const defaultPlanningBinomes: PlanningBinomes = sheetPlanningBinomes;
 
+function isAbsencePlanningStatus(status: string) {
+  const upper = String(status ?? "").toUpperCase().trim();
+  return ["ABS", "ABSENT", "CP", "MAL", "CONGE_MAT", "FERIE", "FORM", "X"].includes(upper);
+}
+
+function buildPlanningBaseOverrides(source: PlanningOverrides) {
+  return Object.fromEntries(
+    Object.entries(source)
+      .filter(([, value]) => !isAbsencePlanningStatus(value.s))
+      .map(([key, value]) => [key, { ...value }]),
+  ) as PlanningOverrides;
+}
+
+export const defaultPlanningOverrides: PlanningOverrides = buildPlanningBaseOverrides(sheetPlanningOverrides);
+
 function cloneTriData(data: PlanningTriData): PlanningTriData {
   return Object.fromEntries(
     Object.entries(data).map(([key, pair]) => [Number(key), [pair[0], pair[1]] as [string, string]]),
@@ -81,6 +96,10 @@ function cloneOverrides(overrides: PlanningOverrides) {
   return Object.fromEntries(
     Object.entries(overrides).map(([key, value]) => [key, { ...value }]),
   ) as PlanningOverrides;
+}
+
+function cloneDefaultPlanningOverrides() {
+  return cloneOverrides(defaultPlanningOverrides);
 }
 
 export function getPlanningUpdatedEventName() {
@@ -262,7 +281,7 @@ export async function syncPlanningFromSupabase(monthKey = getPlanningMonthKey(ne
     }
     writeSessionCache(getPlanningBinomesStorageKey(monthKey), nextBinomes);
 
-    const overrides: PlanningOverrides = cloneOverrides(sheetPlanningOverrides);
+    const overrides: PlanningOverrides = cloneDefaultPlanningOverrides();
     const { data: planningRows } = await supabase
       .from("planning_entries")
       .select("date,employee_id,statut,horaire_custom")
@@ -273,9 +292,11 @@ export async function syncPlanningFromSupabase(monthKey = getPlanningMonthKey(ne
       planningRows.forEach((row) => {
         const name = employeeNameById.get(String(row.employee_id));
         if (!name || !row.date) return;
+        const normalizedStatus = normalizePlanningStatusFromDb(String(row.statut ?? ""));
+        if (isAbsencePlanningStatus(normalizedStatus)) return;
         const key = `${name}_${String(row.date)}`;
         overrides[key] = {
-          s: normalizePlanningStatusFromDb(String(row.statut ?? "")),
+          s: normalizedStatus,
           h: row.horaire_custom ?? null,
         };
       });
@@ -320,15 +341,15 @@ export async function syncPlanningFromSupabase(monthKey = getPlanningMonthKey(ne
 }
 
 export function loadPlanningOverrides(): PlanningOverrides {
-  if (!canUseStorage()) return { ...sheetPlanningOverrides };
+  if (!canUseStorage()) return cloneDefaultPlanningOverrides();
   try {
     purgePlanningLegacyCache();
     const parsed = readSessionCache<PlanningOverrides>(PLANNING_OVERRIDES_KEY);
-    if (!parsed) return { ...sheetPlanningOverrides };
-    if (!parsed || typeof parsed !== "object") return { ...sheetPlanningOverrides };
-    return { ...sheetPlanningOverrides, ...(parsed as PlanningOverrides) };
+    if (!parsed) return cloneDefaultPlanningOverrides();
+    if (!parsed || typeof parsed !== "object") return cloneDefaultPlanningOverrides();
+    return { ...cloneDefaultPlanningOverrides(), ...(parsed as PlanningOverrides) };
   } catch {
-    return { ...sheetPlanningOverrides };
+    return cloneDefaultPlanningOverrides();
   }
 }
 
@@ -439,12 +460,7 @@ export async function savePlanningOverridesToSupabase(
   try {
     for (const mutation of mutations) {
       const employeeId = await getEmployeeIdByName(mutation.employeeName);
-      const payload = {
-        date: mutation.date,
-        employee_id: employeeId,
-        statut: normalizePlanningStatusToDb(mutation.status),
-        horaire_custom: mutation.horaire,
-      };
+      const normalizedStatus = normalizePlanningStatusToDb(mutation.status);
 
       const { data: existingRow, error: existingError } = await supabase
         .from("planning_entries")
@@ -453,6 +469,24 @@ export async function savePlanningOverridesToSupabase(
         .eq("employee_id", employeeId)
         .maybeSingle();
       if (existingError) throw existingError;
+
+      if (isAbsencePlanningStatus(mutation.status)) {
+        if (existingRow?.id) {
+          const { error: deleteError } = await supabase
+            .from("planning_entries")
+            .delete()
+            .eq("id", existingRow.id);
+          if (deleteError) throw deleteError;
+        }
+        continue;
+      }
+
+      const payload = {
+        date: mutation.date,
+        employee_id: employeeId,
+        statut: normalizedStatus,
+        horaire_custom: mutation.horaire,
+      };
 
       if (existingRow?.id) {
         const { error: updateError } = await supabase

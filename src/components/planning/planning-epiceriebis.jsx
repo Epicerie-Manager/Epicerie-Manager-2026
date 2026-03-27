@@ -1,12 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { sheetPlanningBinomes, sheetPlanningOverrides } from "@/lib/planning-sheet-data";
+import { sheetPlanningBinomes } from "@/lib/planning-sheet-data";
+import { syncPlanningStatusToAbsenceInSupabase } from "@/lib/absences-store";
 import {
+  defaultPlanningOverrides,
   defaultPlanningBinomes,
   defaultPlanningTriData,
   formatPlanningDate,
   getPlanningMonthKey,
+  getPlanningUpdatedEventName,
   loadPlanningBinomes,
   loadPlanningOverrides,
   loadPlanningTriData,
@@ -133,7 +136,7 @@ function cloneBinomesForInit(){
 
 function cloneOverridesForInit(){
   return Object.fromEntries(
-    Object.entries(sheetPlanningOverrides).map(([key, value]) => [key, { ...value }]),
+    Object.entries(defaultPlanningOverrides).map(([key, value]) => [key, { ...value }]),
   );
 }
 
@@ -665,8 +668,19 @@ export default function PlanningApp(){
 
   useEffect(()=>{
     if(year===null || month===null) return;
-    setTriData(loadPlanningTriData(activeMonthKey));
-    setBinomes(loadPlanningBinomes(activeMonthKey));
+    const refreshPlanningState=()=>{
+      setOverrides(loadPlanningOverrides());
+      setTriData(loadPlanningTriData(activeMonthKey));
+      setBinomes(loadPlanningBinomes(activeMonthKey));
+    };
+    refreshPlanningState();
+    const eventName=getPlanningUpdatedEventName();
+    window.addEventListener(eventName,refreshPlanningState);
+    return ()=>window.removeEventListener(eventName,refreshPlanningState);
+  },[activeMonthKey,year,month]);
+
+  useEffect(()=>{
+    if(year===null || month===null) return;
     void syncPlanningFromSupabase(activeMonthKey).then((synced)=>{
       if(!synced) return;
       setOverrides(loadPlanningOverrides());
@@ -705,6 +719,8 @@ export default function PlanningApp(){
     if(!editing)return;
     setBusy(true);
     setError("");
+    const selectedEmployeeName=editing.emp.n;
+    const selectedDateIso=formatPlanningDate(editing.date);
     try {
       const nextOverrides={...overrides};
       const mutations=[];
@@ -736,11 +752,22 @@ export default function PlanningApp(){
         mutations.push({employeeName:editing.emp.n,date:iso,status:s,horaire:h});
       }
 
-      const syncedOverrides = await savePlanningOverridesToSupabase(mutations,nextOverrides);
-      setOverrides(syncedOverrides);
+      await savePlanningOverridesToSupabase(mutations,nextOverrides);
+      await syncPlanningStatusToAbsenceInSupabase({
+        employeeName:selectedEmployeeName,
+        date:selectedDateIso,
+        status:s,
+      });
+      setOverrides(loadPlanningOverrides());
+      setTriData(loadPlanningTriData(activeMonthKey));
+      setBinomes(loadPlanningBinomes(activeMonthKey));
       setEditing(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur Supabase.");
+      await syncPlanningFromSupabase(activeMonthKey);
+      setOverrides(loadPlanningOverrides());
+      setTriData(loadPlanningTriData(activeMonthKey));
+      setBinomes(loadPlanningBinomes(activeMonthKey));
     } finally {
       setBusy(false);
     }

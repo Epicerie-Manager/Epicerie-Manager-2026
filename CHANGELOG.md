@@ -21,6 +21,13 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.14 - 2026-03-28
+
+- Suppression de la persistance navigateur sur le flux `Planning` / `Absences` : les anciens caches `localStorage` sont purges et remplaces par un cache memoire de session.
+- Le planning recharge maintenant les absences approuvees depuis Supabase comme source de verite pour les statuts d'absence, sans reintroduire les anciennes ombres locales.
+- Une absence journee saisie depuis le planning se synchronise desormais dans la table `absences`, puis force un rechargement coherent du planning et du module absences.
+- Une validation, un refus ou une suppression dans `Absences` remet maintenant a jour le planning au lieu de laisser un etat stale entre les deux modules.
+
 ## v0.5.13 - 2026-03-28
 
 - Nettoyage technique du repo : `lint` repasse au vert et `build` reste OK apres exclusion des artefacts `.claude` de l'analyse.

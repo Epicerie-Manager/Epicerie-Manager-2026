@@ -27,13 +27,14 @@ export function Card({
   className,
   style,
   hero = false,
-  static: _isStatic = false,
+  static: isStatic = false,
   onClick,
 }: CardProps) {
   const resolvedStyle: React.CSSProperties = {
     ...baseStyle,
     ...(hero ? { background: "linear-gradient(135deg, #f8fbff 0%, #ffffff 100%)" } : {}),
     ...(onClick ? { cursor: "pointer" } : {}),
+    ...(isStatic ? { transition: "none" } : {}),
     ...style,
   };
 

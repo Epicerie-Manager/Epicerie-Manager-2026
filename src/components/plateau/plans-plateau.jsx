@@ -311,6 +311,8 @@ const ImageViewer=({image,opName,onUpload,onRemove})=>{
       }}>
         {image?(
           <>
+            {/* Data URL / user-imported image preview intentionally uses img. */}
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={image} alt={opName} onClick={openZoom} style={{width:"100%",display:"block",cursor:"zoom-in"}}/>
             <div style={{position:"absolute",top:10,right:10,display:"flex",gap:6}}>
               <button onClick={openZoom} style={{width:32,height:32,borderRadius:8,background:"rgba(255,255,255,0.9)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 6px rgba(0,0,0,0.1)"}}>{IC.zoom(V.mc,16)}</button>
@@ -346,6 +348,7 @@ const ImageViewer=({image,opName,onUpload,onRemove})=>{
               </div>
             </div>
             <div style={{flex:1,overflow:"auto",background:"#f5f7fb",padding:16}}>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
               <img
                 src={image}
                 alt={opName}

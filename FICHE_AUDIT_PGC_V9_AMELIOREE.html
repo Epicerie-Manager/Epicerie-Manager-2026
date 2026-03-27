@@ -1,0 +1,1625 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fiche Audit PGC - Version Amelioree</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        :root {
+            --bg: #f6f1e8;
+            --bg-alt: #fffaf2;
+            --paper: rgba(255, 255, 255, 0.92);
+            --ink: #17202a;
+            --muted: #66717d;
+            --line: rgba(23, 32, 42, 0.12);
+            --brand: #c7432b;
+            --brand-dark: #8f2617;
+            --navy: #12344d;
+            --navy-soft: #1f4c6b;
+            --green: #198754;
+            --amber: #f59f00;
+            --red: #dc3545;
+            --shadow: 0 24px 60px rgba(18, 52, 77, 0.16);
+            --radius-xl: 24px;
+            --radius-lg: 18px;
+            --radius-md: 12px;
+            --radius-sm: 10px;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: "Manrope", sans-serif;
+            color: var(--ink);
+            min-height: 100vh;
+            padding: 24px;
+            background:
+                radial-gradient(circle at top left, rgba(199, 67, 43, 0.16), transparent 30%),
+                radial-gradient(circle at top right, rgba(18, 52, 77, 0.12), transparent 28%),
+                linear-gradient(180deg, #f8f4ec 0%, #efe7da 100%);
+        }
+
+        .shell {
+            max-width: 1240px;
+            margin: 0 auto;
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 16px;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+        }
+
+        .title-block h1 {
+            font-size: clamp(1.8rem, 2.5vw, 2.7rem);
+            font-weight: 800;
+            letter-spacing: -0.04em;
+        }
+
+        .title-block p {
+            color: var(--muted);
+            margin-top: 8px;
+            max-width: 720px;
+        }
+
+        .draft-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px 16px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.72);
+            border: 1px solid rgba(18, 52, 77, 0.12);
+            backdrop-filter: blur(10px);
+            box-shadow: 0 12px 28px rgba(18, 52, 77, 0.08);
+            color: var(--navy);
+            font-size: 0.92rem;
+            font-weight: 700;
+        }
+
+        .layout {
+            display: grid;
+            grid-template-columns: minmax(0, 1.6fr) minmax(320px, 0.8fr);
+            gap: 22px;
+            align-items: start;
+        }
+
+        .page,
+        .sidebar-card {
+            background: var(--paper);
+            border: 1px solid rgba(255, 255, 255, 0.9);
+            border-radius: var(--radius-xl);
+            box-shadow: var(--shadow);
+            backdrop-filter: blur(16px);
+        }
+
+        .page {
+            padding: 24px;
+        }
+
+        .hero {
+            display: grid;
+            grid-template-columns: 1.2fr 1fr;
+            gap: 18px;
+            margin-bottom: 22px;
+        }
+
+        .hero-card {
+            padding: 22px;
+            border-radius: var(--radius-lg);
+            min-height: 100%;
+        }
+
+        .hero-brand {
+            color: white;
+            background:
+                linear-gradient(135deg, rgba(199, 67, 43, 0.96), rgba(143, 38, 23, 0.96)),
+                linear-gradient(45deg, rgba(255, 255, 255, 0.08), transparent);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .hero-brand::after {
+            content: "";
+            position: absolute;
+            inset: auto -10% -50% auto;
+            width: 220px;
+            height: 220px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.08);
+        }
+
+        .hero-brand h2 {
+            font-size: 1.35rem;
+            font-weight: 800;
+            margin-bottom: 10px;
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-brand p,
+        .hero-brand ul {
+            position: relative;
+            z-index: 1;
+        }
+
+        .hero-brand p {
+            color: rgba(255, 255, 255, 0.88);
+            margin-bottom: 14px;
+            max-width: 44ch;
+        }
+
+        .hero-brand ul {
+            list-style: none;
+            display: grid;
+            gap: 8px;
+            color: rgba(255, 255, 255, 0.96);
+            font-size: 0.94rem;
+        }
+
+        .hero-summary {
+            background:
+                linear-gradient(160deg, rgba(18, 52, 77, 0.96), rgba(31, 76, 107, 0.96));
+            color: white;
+            display: grid;
+            gap: 14px;
+        }
+
+        .summary-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: start;
+            gap: 12px;
+        }
+
+        .summary-top h3 {
+            font-size: 0.95rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: rgba(255, 255, 255, 0.72);
+        }
+
+        .score-ring {
+            width: 92px;
+            height: 92px;
+            border-radius: 50%;
+            display: grid;
+            place-items: center;
+            background:
+                conic-gradient(var(--score-color, var(--green)) calc(var(--score, 0) * 1%), rgba(255, 255, 255, 0.16) 0);
+            padding: 8px;
+            margin-left: auto;
+        }
+
+        .score-ring::before {
+            content: "";
+            width: 100%;
+            height: 100%;
+            border-radius: 50%;
+            background: #12344d;
+            display: block;
+        }
+
+        .score-ring-value {
+            position: absolute;
+            font-size: 1.1rem;
+            font-weight: 800;
+        }
+
+        .score-label {
+            font-size: 2.7rem;
+            font-weight: 800;
+            line-height: 0.95;
+        }
+
+        .score-caption {
+            color: rgba(255, 255, 255, 0.76);
+            max-width: 28ch;
+        }
+
+        .progress-area {
+            display: grid;
+            gap: 10px;
+        }
+
+        .progress-row {
+            display: flex;
+            justify-content: space-between;
+            gap: 8px;
+            font-size: 0.92rem;
+            color: rgba(255, 255, 255, 0.82);
+        }
+
+        .progress-track {
+            height: 12px;
+            border-radius: 999px;
+            overflow: hidden;
+            background: rgba(255, 255, 255, 0.16);
+        }
+
+        .progress-fill {
+            height: 100%;
+            width: 0%;
+            background: linear-gradient(90deg, #ffe3a3 0%, #ffce54 50%, #f59f00 100%);
+            transition: width 0.25s ease;
+        }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 12px;
+            border-radius: 999px;
+            font-size: 0.85rem;
+            font-weight: 800;
+            letter-spacing: 0.03em;
+            background: rgba(255, 255, 255, 0.1);
+            width: fit-content;
+        }
+
+        .meta-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+            margin-bottom: 22px;
+        }
+
+        .field {
+            display: grid;
+            gap: 8px;
+        }
+
+        .field label {
+            font-size: 0.78rem;
+            font-weight: 800;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+            color: var(--navy);
+        }
+
+        .field input,
+        .field textarea {
+            width: 100%;
+            border: 1px solid var(--line);
+            background: rgba(255, 255, 255, 0.92);
+            border-radius: var(--radius-md);
+            padding: 14px 16px;
+            color: var(--ink);
+            font: inherit;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+        }
+
+        .field input:focus,
+        .field textarea:focus {
+            outline: none;
+            border-color: rgba(18, 52, 77, 0.35);
+            box-shadow: 0 0 0 4px rgba(18, 52, 77, 0.08);
+            transform: translateY(-1px);
+        }
+
+        .meta-note {
+            margin-bottom: 16px;
+            padding: 14px 16px;
+            border-radius: var(--radius-md);
+            background: rgba(18, 52, 77, 0.06);
+            color: var(--navy);
+            font-size: 0.93rem;
+        }
+
+        .section-list {
+            display: grid;
+            gap: 18px;
+        }
+
+        .section-card {
+            border-radius: var(--radius-lg);
+            overflow: hidden;
+            border: 1px solid rgba(18, 52, 77, 0.08);
+            background: linear-gradient(180deg, rgba(255,255,255,0.98), rgba(250,248,243,0.98));
+        }
+
+        .section-head {
+            padding: 18px 18px 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 14px;
+            background: linear-gradient(180deg, rgba(18, 52, 77, 0.05), rgba(18, 52, 77, 0));
+        }
+
+        .section-title-wrap {
+            display: grid;
+            gap: 6px;
+        }
+
+        .section-title-wrap h3 {
+            font-size: 1.02rem;
+            font-weight: 800;
+            letter-spacing: -0.02em;
+        }
+
+        .section-title-wrap p {
+            color: var(--muted);
+            font-size: 0.92rem;
+        }
+
+        .section-weight {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            min-width: 74px;
+            padding: 10px 12px;
+            border-radius: 999px;
+            background: rgba(18, 52, 77, 0.08);
+            color: var(--navy);
+            font-weight: 800;
+        }
+
+        .section-body {
+            padding: 0 18px 18px;
+            display: grid;
+            gap: 14px;
+        }
+
+        .criterion {
+            padding: 16px;
+            border-radius: var(--radius-md);
+            background: rgba(255, 255, 255, 0.85);
+            border: 1px solid rgba(18, 52, 77, 0.08);
+            display: grid;
+            gap: 12px;
+        }
+
+        .criterion-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .criterion-title {
+            font-weight: 700;
+        }
+
+        .criterion-tag {
+            font-size: 0.76rem;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+            color: var(--muted);
+        }
+
+        .rating-control,
+        .binary-control {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+
+        .rating-btn,
+        .binary-btn {
+            border: 1px solid var(--line);
+            border-radius: 999px;
+            background: white;
+            color: var(--navy);
+            font: inherit;
+            font-weight: 700;
+            cursor: pointer;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease, background 0.2s ease, color 0.2s ease;
+        }
+
+        .rating-btn {
+            min-width: 54px;
+            padding: 11px 12px;
+        }
+
+        .binary-btn {
+            min-width: 92px;
+            padding: 11px 14px;
+        }
+
+        .rating-btn:hover,
+        .binary-btn:hover {
+            transform: translateY(-1px);
+            border-color: rgba(18, 52, 77, 0.25);
+            box-shadow: 0 10px 22px rgba(18, 52, 77, 0.08);
+        }
+
+        .rating-btn.active[data-value="1"] {
+            background: rgba(220, 53, 69, 0.14);
+            border-color: rgba(220, 53, 69, 0.4);
+            color: #9f1d2f;
+        }
+
+        .rating-btn.active[data-value="2"],
+        .rating-btn.active[data-value="3"] {
+            background: rgba(245, 159, 0, 0.16);
+            border-color: rgba(245, 159, 0, 0.45);
+            color: #8a5b00;
+        }
+
+        .rating-btn.active[data-value="4"],
+        .rating-btn.active[data-value="5"] {
+            background: rgba(25, 135, 84, 0.16);
+            border-color: rgba(25, 135, 84, 0.42);
+            color: #0d6c40;
+        }
+
+        .binary-btn.active-good {
+            background: rgba(25, 135, 84, 0.16);
+            border-color: rgba(25, 135, 84, 0.42);
+            color: #0d6c40;
+        }
+
+        .binary-btn.active-bad {
+            background: rgba(220, 53, 69, 0.14);
+            border-color: rgba(220, 53, 69, 0.4);
+            color: #9f1d2f;
+        }
+
+        .section-comment textarea,
+        .notes-card textarea {
+            min-height: 92px;
+            resize: vertical;
+        }
+
+        .notes-card,
+        .signature-wrap {
+            margin-top: 18px;
+            padding: 18px;
+            border-radius: var(--radius-lg);
+            background: linear-gradient(180deg, rgba(18, 52, 77, 0.04), rgba(255,255,255,0.86));
+            border: 1px solid rgba(18, 52, 77, 0.08);
+        }
+
+        .notes-card h3,
+        .signature-wrap h3 {
+            font-size: 1rem;
+            margin-bottom: 12px;
+            font-weight: 800;
+        }
+
+        .signatures {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 16px;
+        }
+
+        .signature-box {
+            display: grid;
+            gap: 10px;
+        }
+
+        .signature-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .signature-label {
+            font-weight: 800;
+            color: var(--navy);
+        }
+
+        canvas {
+            width: 100%;
+            height: 128px;
+            background: white;
+            border-radius: var(--radius-md);
+            border: 2px dashed rgba(18, 52, 77, 0.18);
+            cursor: crosshair;
+            touch-action: none;
+        }
+
+        .mini-btn,
+        .action-btn {
+            font: inherit;
+            border: none;
+            cursor: pointer;
+            border-radius: 999px;
+            font-weight: 800;
+            transition: transform 0.2s ease, box-shadow 0.2s ease, filter 0.2s ease;
+        }
+
+        .mini-btn {
+            padding: 10px 14px;
+            background: rgba(18, 52, 77, 0.08);
+            color: var(--navy);
+        }
+
+        .mini-btn:hover,
+        .action-btn:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 12px 24px rgba(18, 52, 77, 0.1);
+            filter: saturate(1.05);
+        }
+
+        .sidebar {
+            display: grid;
+            gap: 18px;
+            position: sticky;
+            top: 20px;
+        }
+
+        .sidebar-card {
+            padding: 18px;
+        }
+
+        .sidebar-card h3 {
+            font-size: 0.96rem;
+            font-weight: 800;
+            margin-bottom: 12px;
+            color: var(--navy);
+        }
+
+        .metric-grid {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 12px;
+        }
+
+        .metric-card {
+            padding: 14px;
+            border-radius: var(--radius-md);
+            background: rgba(18, 52, 77, 0.05);
+            border: 1px solid rgba(18, 52, 77, 0.08);
+        }
+
+        .metric-card strong {
+            display: block;
+            font-size: 1.4rem;
+            font-weight: 800;
+            margin-top: 4px;
+        }
+
+        .metric-card span {
+            color: var(--muted);
+            font-size: 0.85rem;
+        }
+
+        .section-status-list {
+            display: grid;
+            gap: 10px;
+        }
+
+        .section-status-item {
+            display: flex;
+            justify-content: space-between;
+            gap: 12px;
+            align-items: center;
+            padding: 12px 14px;
+            border-radius: var(--radius-md);
+            background: rgba(18, 52, 77, 0.04);
+        }
+
+        .section-status-item strong {
+            font-size: 0.92rem;
+        }
+
+        .section-status-item span {
+            font-size: 0.84rem;
+            font-weight: 800;
+            white-space: nowrap;
+        }
+
+        .legend-list {
+            display: grid;
+            gap: 10px;
+            color: var(--muted);
+            font-size: 0.92rem;
+        }
+
+        .legend-chip {
+            display: inline-flex;
+            gap: 6px;
+            align-items: center;
+            font-weight: 800;
+            color: var(--ink);
+        }
+
+        .legend-dot {
+            width: 12px;
+            height: 12px;
+            border-radius: 999px;
+        }
+
+        .actions {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(0, 1fr));
+            gap: 10px;
+        }
+
+        .action-btn {
+            padding: 14px 16px;
+            color: white;
+        }
+
+        .action-btn.primary {
+            background: linear-gradient(135deg, var(--brand), var(--brand-dark));
+        }
+
+        .action-btn.secondary {
+            background: linear-gradient(135deg, var(--navy), var(--navy-soft));
+        }
+
+        .action-btn.ghost {
+            background: linear-gradient(135deg, #787f87, #5e666f);
+        }
+
+        .footer-note {
+            margin-top: 18px;
+            text-align: center;
+            color: var(--muted);
+            font-size: 0.84rem;
+        }
+
+        @media print {
+            body {
+                padding: 0;
+                background: white;
+            }
+
+            .topbar,
+            .sidebar,
+            .mini-btn,
+            .actions,
+            .draft-indicator {
+                display: none !important;
+            }
+
+            .layout {
+                grid-template-columns: 1fr;
+            }
+
+            .page,
+            .sidebar-card {
+                box-shadow: none;
+                border: none;
+                background: white;
+            }
+        }
+
+        @media (max-width: 1080px) {
+            .layout {
+                grid-template-columns: 1fr;
+            }
+
+            .sidebar {
+                position: static;
+            }
+        }
+
+        @media (max-width: 760px) {
+            body {
+                padding: 12px;
+            }
+
+            .page,
+            .sidebar-card {
+                padding: 16px;
+            }
+
+            .hero,
+            .meta-grid,
+            .signatures,
+            .metric-grid,
+            .actions {
+                grid-template-columns: 1fr;
+            }
+
+            .criterion-top,
+            .summary-top,
+            .signature-header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .score-ring {
+                margin-left: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <div class="topbar">
+            <div class="title-block">
+                <h1>Fiche audit PGC</h1>
+                <p>Version retravaillee pour un audit plus lisible, plus rapide a remplir et plus fidele a la qualite reelle du rayon.</p>
+            </div>
+            <div class="draft-indicator" id="draftIndicator">Brouillon local actif</div>
+        </div>
+
+        <div class="layout">
+            <main class="page">
+                <section class="hero">
+                    <article class="hero-card hero-brand">
+                        <h2>Mieux piloter l'audit terrain</h2>
+                        <p>Cette fiche distingue maintenant l'avancement de saisie et la performance reelle du rayon, avec une synthese plus exploitable en fin d'entretien.</p>
+                        <ul>
+                            <li>Score qualite pondere par section</li>
+                            <li>Suivi de completion independant</li>
+                            <li>Sauvegarde automatique dans le navigateur</li>
+                        </ul>
+                    </article>
+                    <article class="hero-card hero-summary">
+                        <div class="summary-top">
+                            <div>
+                                <h3>Score global</h3>
+                                <div class="score-label" id="scoreLabel">0%</div>
+                                <p class="score-caption" id="scoreCaption">Commencez l'audit pour obtenir une evaluation globale.</p>
+                            </div>
+                            <div class="score-ring" id="scoreRing">
+                                <div class="score-ring-value" id="scoreRingValue">0%</div>
+                            </div>
+                        </div>
+                        <div class="progress-area">
+                            <div class="progress-row">
+                                <span>Completion de la fiche</span>
+                                <strong id="completionLabel">0%</strong>
+                            </div>
+                            <div class="progress-track">
+                                <div class="progress-fill" id="completionBar"></div>
+                            </div>
+                        </div>
+                        <div class="status-pill" id="statusPill">En attente de saisie</div>
+                    </article>
+                </section>
+
+                <section class="meta-grid">
+                    <div class="field">
+                        <label for="dateAudit">Date</label>
+                        <input type="date" id="dateAudit" data-meta>
+                    </div>
+                    <div class="field">
+                        <label for="heureAudit">Heure</label>
+                        <input type="time" id="heureAudit" data-meta>
+                    </div>
+                    <div class="field">
+                        <label for="rayon">Rayon</label>
+                        <input type="text" id="rayon" placeholder="Ex: Epicerie sucree" data-meta>
+                    </div>
+                    <div class="field">
+                        <label for="manager">Manager</label>
+                        <input type="text" id="manager" placeholder="Nom du manager" data-meta>
+                    </div>
+                    <div class="field">
+                        <label for="collaborateur">Collaborateur</label>
+                        <input type="text" id="collaborateur" placeholder="Nom du collaborateur" data-meta>
+                    </div>
+                    <div class="field">
+                        <label for="ovni">Ovni / Etat casquette</label>
+                        <input type="text" id="ovni" placeholder="Observation libre" data-meta>
+                    </div>
+                </section>
+
+                <div class="meta-note">
+                    Echelle de notation presentation rayon : 1 = insuffisant, 3 = correct, 5 = excellent. Les questions Oui / Non sont corrigees selon la reponse attendue.
+                </div>
+
+                <section class="section-list" id="sectionsContainer"></section>
+
+                <section class="notes-card">
+                    <h3>Axes de progres et remarques finales</h3>
+                    <div class="field">
+                        <label for="remarques">Synthese manager</label>
+                        <textarea id="remarques" placeholder="Points forts, priorites, plan d'action, accompagnement attendu..." data-meta></textarea>
+                    </div>
+                </section>
+
+                <section class="signature-wrap">
+                    <h3>Signatures</h3>
+                    <div class="signatures">
+                        <div class="signature-box">
+                            <div class="signature-header">
+                                <div class="signature-label">Manager</div>
+                                <button class="mini-btn" type="button" data-clear-signature="sigManager">Effacer</button>
+                            </div>
+                            <canvas id="sigManager" width="600" height="240"></canvas>
+                        </div>
+                        <div class="signature-box">
+                            <div class="signature-header">
+                                <div class="signature-label">Collaborateur</div>
+                                <button class="mini-btn" type="button" data-clear-signature="sigCollab">Effacer</button>
+                            </div>
+                            <canvas id="sigCollab" width="600" height="240"></canvas>
+                        </div>
+                    </div>
+                </section>
+
+                <div class="footer-note">Version amelioree V9 - score qualite et export de synthese</div>
+            </main>
+
+            <aside class="sidebar">
+                <section class="sidebar-card">
+                    <h3>Resume instantane</h3>
+                    <div class="metric-grid">
+                        <div class="metric-card">
+                            <span>Points forts</span>
+                            <strong id="goodCount">0</strong>
+                        </div>
+                        <div class="metric-card">
+                            <span>Points critiques</span>
+                            <strong id="criticalCount">0</strong>
+                        </div>
+                        <div class="metric-card">
+                            <span>Sections completees</span>
+                            <strong id="completedSections">0/5</strong>
+                        </div>
+                        <div class="metric-card">
+                            <span>Taux de reponse</span>
+                            <strong id="answeredCount">0/20</strong>
+                        </div>
+                    </div>
+                </section>
+                <section class="sidebar-card">
+                    <h3>Niveau par section</h3>
+                    <div class="section-status-list" id="sectionStatusList"></div>
+                </section>
+
+                <section class="sidebar-card">
+                    <h3>Legende rapide</h3>
+                    <div class="legend-list">
+                        <div><span class="legend-chip"><span class="legend-dot" style="background:#dc3545"></span>Critique</span> reponse insuffisante ou non conforme.</div>
+                        <div><span class="legend-chip"><span class="legend-dot" style="background:#f59f00"></span>Vigilance</span> niveau moyen ou section partielle.</div>
+                        <div><span class="legend-chip"><span class="legend-dot" style="background:#198754"></span>Maitrise</span> execution conforme ou tres bien tenue.</div>
+                    </div>
+                </section>
+
+                <section class="sidebar-card">
+                    <h3>Actions</h3>
+                    <div class="actions">
+                        <button class="action-btn primary" type="button" id="downloadPdfBtn">Telecharger PDF</button>
+                        <button class="action-btn secondary" type="button" id="printBtn">Imprimer</button>
+                        <button class="action-btn secondary" type="button" id="mailBtn">Envoyer email</button>
+                        <button class="action-btn ghost" type="button" id="resetBtn">Reinitialiser</button>
+                    </div>
+                </section>
+            </aside>
+        </div>
+    </div>
+
+    <script>
+        const STORAGE_KEY = "audit-pgc-v9-amelioree";
+        const SIGNATURES_KEY = "audit-pgc-v9-signatures";
+        const SECTION_CONFIG = [
+            {
+                id: "presentation",
+                title: "Presentation rayon",
+                description: "Tenue, lisibilite et securite du lineaire.",
+                weight: 20,
+                type: "rating",
+                commentPlaceholder: "Commentaire presentation rayon...",
+                items: [
+                    { id: "remplissage", label: "Taux de remplissage" },
+                    { id: "implantation", label: "Respect implantation" },
+                    { id: "facing", label: "Facing / coherence" },
+                    { id: "casquette", label: "Etat casquette (OVNI)" },
+                    { id: "securite", label: "Hauteur / securite" }
+                ]
+            },
+            {
+                id: "balisage",
+                title: "Balisage et signaletique",
+                description: "Conformite des supports prix et reperage client.",
+                weight: 15,
+                type: "binary",
+                commentPlaceholder: "Commentaire balisage...",
+                items: [
+                    { id: "bal-10x10", label: "Balisage 10x10 present", expected: "OUI" },
+                    { id: "bal-20x10", label: "Balisage 20x10 present", expected: "OUI" },
+                    { id: "bal-a4tg", label: "Balisage A4 TG present", expected: "OUI" },
+                    { id: "prix", label: "Etiquettes prix lisibles", expected: "OUI" }
+                ]
+            },
+            {
+                id: "ruptures",
+                title: "Ruptures et fraicheur",
+                description: "Reaction face aux ruptures et maitrise des dates.",
+                weight: 20,
+                type: "binary",
+                commentPlaceholder: "Commentaire ruptures...",
+                items: [
+                    { id: "rupture-flash", label: "Rupture flashee", expected: "OUI" },
+                    { id: "rupture-trait", label: "Traitement rupture", expected: "OUI" },
+                    { id: "dates", label: "Controle des dates", expected: "OUI" },
+                    { id: "perimes", label: "Produits perimes enleves", expected: "OUI" }
+                ]
+            },
+            {
+                id: "reserve",
+                title: "Reserve et logistique",
+                description: "Organisation, proprete et securite de la reserve.",
+                weight: 20,
+                type: "binary",
+                commentPlaceholder: "Commentaire reserve...",
+                items: [
+                    { id: "pal-film", label: "Palettes filmees", expected: "OUI" },
+                    { id: "pal-bal", label: "Palette balisee", expected: "OUI" },
+                    { id: "tri-caddie", label: "Tri caddie effectue", expected: "OUI" },
+                    { id: "cartons", label: "Cartons / plastiques presents", expected: "NON" },
+                    { id: "casse", label: "Casse presente", expected: "NON" }
+                ]
+            },
+            {
+                id: "epi",
+                title: "EPI - equipement de protection",
+                description: "Presence des equipements obligatoires.",
+                weight: 25,
+                type: "binary",
+                commentPlaceholder: "Commentaire EPI...",
+                items: [
+                    { id: "gilet", label: "Gilet de securite", expected: "OUI" },
+                    { id: "chaussures", label: "Chaussures de securite", expected: "OUI" }
+                ]
+            }
+        ];
+
+        function renderSections() {
+            const sectionsContainer = document.getElementById("sectionsContainer");
+            const statusList = document.getElementById("sectionStatusList");
+            sectionsContainer.innerHTML = "";
+            statusList.innerHTML = "";
+
+            SECTION_CONFIG.forEach((section) => {
+                const article = document.createElement("article");
+                article.className = "section-card";
+                article.dataset.sectionId = section.id;
+
+                const itemsHtml = section.items.map((item, index) => {
+                    if (section.type === "rating") {
+                        const ratingButtons = [1, 2, 3, 4, 5].map((value) => `
+                            <button
+                                type="button"
+                                class="rating-btn"
+                                data-type="rating"
+                                data-section="${section.id}"
+                                data-item="${item.id}"
+                                data-value="${value}"
+                                aria-label="${item.label} - note ${value} sur 5"
+                            >${value}/5</button>
+                        `).join("");
+
+                        return `
+                            <div class="criterion">
+                                <div class="criterion-top">
+                                    <div class="criterion-title">${item.label}</div>
+                                    <div class="criterion-tag">Critere ${index + 1}</div>
+                                </div>
+                                <div class="rating-control">${ratingButtons}</div>
+                            </div>
+                        `;
+                    }
+
+                    return `
+                        <div class="criterion">
+                            <div class="criterion-top">
+                                <div class="criterion-title">${item.label}</div>
+                                <div class="criterion-tag">Attendu : ${item.expected}</div>
+                            </div>
+                            <div class="binary-control">
+                                <button type="button" class="binary-btn" data-type="binary" data-section="${section.id}" data-item="${item.id}" data-value="OUI">Oui</button>
+                                <button type="button" class="binary-btn" data-type="binary" data-section="${section.id}" data-item="${item.id}" data-value="NON">Non</button>
+                            </div>
+                        </div>
+                    `;
+                }).join("");
+
+                article.innerHTML = `
+                    <div class="section-head">
+                        <div class="section-title-wrap">
+                            <h3>${section.title}</h3>
+                            <p>${section.description}</p>
+                        </div>
+                        <div class="section-weight">${section.weight}%</div>
+                    </div>
+                    <div class="section-body">
+                        ${itemsHtml}
+                        <div class="section-comment field">
+                            <label for="comment-${section.id}">Commentaire de section</label>
+                            <textarea id="comment-${section.id}" data-comment="${section.id}" placeholder="${section.commentPlaceholder}"></textarea>
+                        </div>
+                    </div>
+                `;
+                sectionsContainer.appendChild(article);
+
+                const statusItem = document.createElement("div");
+                statusItem.className = "section-status-item";
+                statusItem.innerHTML = `<strong>${section.title}</strong><span id="status-${section.id}">Non commencee</span>`;
+                statusList.appendChild(statusItem);
+            });
+        }
+
+        function getRatingValue(sectionId, itemId) {
+            const active = document.querySelector(`.rating-btn.active[data-section="${sectionId}"][data-item="${itemId}"]`);
+            return active ? Number(active.dataset.value) : null;
+        }
+
+        function getBinaryValue(sectionId, itemId) {
+            const active = document.querySelector(`.binary-btn[data-section="${sectionId}"][data-item="${itemId}"].active-good, .binary-btn[data-section="${sectionId}"][data-item="${itemId}"].active-bad`);
+            return active ? active.dataset.value : null;
+        }
+
+        function setRating(sectionId, itemId, value) {
+            document.querySelectorAll(`.rating-btn[data-section="${sectionId}"][data-item="${itemId}"]`).forEach((button) => {
+                button.classList.toggle("active", Number(button.dataset.value) === value);
+            });
+            persistDraft();
+            updateDashboard();
+        }
+
+        function setBinary(sectionId, itemId, value) {
+            const itemConfig = SECTION_CONFIG.flatMap((section) => section.items.map((item) => ({ ...item, sectionId: section.id })))
+                .find((item) => item.sectionId === sectionId && item.id === itemId);
+
+            document.querySelectorAll(`.binary-btn[data-section="${sectionId}"][data-item="${itemId}"]`).forEach((button) => {
+                button.classList.remove("active-good", "active-bad");
+                if (button.dataset.value === value) {
+                    const isExpected = value === itemConfig.expected;
+                    button.classList.add(isExpected ? "active-good" : "active-bad");
+                }
+            });
+            persistDraft();
+            updateDashboard();
+        }
+
+        function classifyScore(score) {
+            if (score >= 90) return { label: "Excellente maitrise", color: "var(--green)", caption: "Le rayon est tenu avec constance et peu de points de vigilance." };
+            if (score >= 75) return { label: "Bon niveau", color: "#3f9c6b", caption: "Base solide avec quelques ajustements pour renforcer la regularite." };
+            if (score >= 60) return { label: "Sous vigilance", color: "var(--amber)", caption: "Le rayon reste exploitable mais plusieurs points doivent etre consolides." };
+            if (score > 0) return { label: "Priorite d'action", color: "var(--red)", caption: "Un accompagnement terrain rapide est recommande pour remettre le standard au bon niveau." };
+            return { label: "En attente de saisie", color: "rgba(255,255,255,0.65)", caption: "Commencez l'audit pour obtenir une evaluation globale." };
+        }
+
+        function computeSectionState(section) {
+            let answered = 0;
+            let earned = 0;
+            let positiveCount = 0;
+            let criticalCount = 0;
+
+            section.items.forEach((item) => {
+                if (section.type === "rating") {
+                    const value = getRatingValue(section.id, item.id);
+                    if (value !== null) {
+                        answered += 1;
+                        earned += value / 5;
+                        if (value >= 4) positiveCount += 1;
+                        if (value <= 2) criticalCount += 1;
+                    }
+                } else {
+                    const value = getBinaryValue(section.id, item.id);
+                    if (value !== null) {
+                        answered += 1;
+                        const isExpected = value === item.expected;
+                        earned += isExpected ? 1 : 0;
+                        if (isExpected) {
+                            positiveCount += 1;
+                        } else {
+                            criticalCount += 1;
+                        }
+                    }
+                }
+            });
+
+            const completion = section.items.length ? answered / section.items.length : 0;
+            const quality = answered ? (earned / section.items.length) * 100 : 0;
+            const weightedScore = quality * (section.weight / 100);
+
+            return {
+                answered,
+                total: section.items.length,
+                completion,
+                quality,
+                weightedScore,
+                positiveCount,
+                criticalCount
+            };
+        }
+
+        function updateDashboard() {
+            let weightedTotal = 0;
+            let answeredTotal = 0;
+            let totalQuestions = 0;
+            let positiveTotal = 0;
+            let criticalTotal = 0;
+            let completedSections = 0;
+
+            SECTION_CONFIG.forEach((section) => {
+                const state = computeSectionState(section);
+                weightedTotal += state.weightedScore;
+                answeredTotal += state.answered;
+                totalQuestions += state.total;
+                positiveTotal += state.positiveCount;
+                criticalTotal += state.criticalCount;
+                if (state.answered === state.total) completedSections += 1;
+
+                const statusEl = document.getElementById(`status-${section.id}`);
+                if (!statusEl) return;
+
+                let label = "Non commencee";
+                let color = "var(--muted)";
+                if (state.answered === 0) {
+                    label = "Non commencee";
+                } else if (state.answered < state.total) {
+                    label = `${Math.round(state.completion * 100)}% rempli`;
+                    color = "#8a5b00";
+                } else if (state.quality >= 85) {
+                    label = "Tres bon niveau";
+                    color = "#0d6c40";
+                } else if (state.quality >= 65) {
+                    label = "Correct";
+                    color = "#8a5b00";
+                } else {
+                    label = "A retravailler";
+                    color = "#9f1d2f";
+                }
+
+                statusEl.textContent = label;
+                statusEl.style.color = color;
+            });
+
+            const score = Math.round(weightedTotal);
+            const completion = totalQuestions ? Math.round((answeredTotal / totalQuestions) * 100) : 0;
+            const scoreMeta = classifyScore(score);
+
+            document.getElementById("scoreLabel").textContent = `${score}%`;
+            document.getElementById("scoreRingValue").textContent = `${score}%`;
+            document.getElementById("scoreCaption").textContent = scoreMeta.caption;
+            document.getElementById("statusPill").textContent = scoreMeta.label;
+            document.getElementById("statusPill").style.background = score === 0 ? "rgba(255,255,255,0.1)" : `${scoreMeta.color.replace("var(--green)", "rgba(25, 135, 84, 0.18)").replace("var(--amber)", "rgba(245, 159, 0, 0.18)").replace("var(--red)", "rgba(220, 53, 69, 0.16)")}`;
+            document.getElementById("scoreRing").style.setProperty("--score", score);
+            document.getElementById("scoreRing").style.setProperty("--score-color", scoreMeta.color);
+
+            document.getElementById("completionLabel").textContent = `${completion}%`;
+            document.getElementById("completionBar").style.width = `${completion}%`;
+
+            document.getElementById("goodCount").textContent = positiveTotal;
+            document.getElementById("criticalCount").textContent = criticalTotal;
+            document.getElementById("completedSections").textContent = `${completedSections}/${SECTION_CONFIG.length}`;
+            document.getElementById("answeredCount").textContent = `${answeredTotal}/${totalQuestions}`;
+        }
+
+        function gatherDraft() {
+            const meta = {};
+            document.querySelectorAll("[data-meta]").forEach((input) => {
+                meta[input.id] = input.value;
+            });
+
+            const comments = {};
+            document.querySelectorAll("[data-comment]").forEach((textarea) => {
+                comments[textarea.dataset.comment] = textarea.value;
+            });
+
+            const ratings = {};
+            document.querySelectorAll(".rating-btn.active").forEach((button) => {
+                ratings[`${button.dataset.section}:${button.dataset.item}`] = Number(button.dataset.value);
+            });
+
+            const binaries = {};
+            document.querySelectorAll(".binary-btn.active-good, .binary-btn.active-bad").forEach((button) => {
+                binaries[`${button.dataset.section}:${button.dataset.item}`] = button.dataset.value;
+            });
+
+            return { meta, comments, ratings, binaries };
+        }
+
+        function persistDraft() {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(gatherDraft()));
+            document.getElementById("draftIndicator").textContent = `Brouillon enregistre a ${new Date().toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`;
+        }
+
+        function loadDraft() {
+            const raw = localStorage.getItem(STORAGE_KEY);
+            if (!raw) return;
+
+            try {
+                const draft = JSON.parse(raw);
+                Object.entries(draft.meta || {}).forEach(([id, value]) => {
+                    const input = document.getElementById(id);
+                    if (input) input.value = value;
+                });
+
+                Object.entries(draft.comments || {}).forEach(([sectionId, value]) => {
+                    const textarea = document.querySelector(`[data-comment="${sectionId}"]`);
+                    if (textarea) textarea.value = value;
+                });
+
+                Object.entries(draft.ratings || {}).forEach(([key, value]) => {
+                    const [sectionId, itemId] = key.split(":");
+                    setRating(sectionId, itemId, Number(value));
+                });
+
+                Object.entries(draft.binaries || {}).forEach(([key, value]) => {
+                    const [sectionId, itemId] = key.split(":");
+                    setBinary(sectionId, itemId, value);
+                });
+
+                document.getElementById("draftIndicator").textContent = "Brouillon local restaure";
+            } catch (error) {
+                console.error("Impossible de restaurer le brouillon", error);
+            }
+        }
+
+        function clearDraft() {
+            localStorage.removeItem(STORAGE_KEY);
+        }
+
+        function initializeMetaDefaults() {
+            const today = new Date();
+            const dateInput = document.getElementById("dateAudit");
+            const timeInput = document.getElementById("heureAudit");
+            if (!dateInput.value) {
+                dateInput.value = today.toISOString().split("T")[0];
+            }
+            if (!timeInput.value) {
+                timeInput.value = today.toTimeString().slice(0, 5);
+            }
+        }
+
+        function getSectionComment(sectionId) {
+            return document.querySelector(`[data-comment="${sectionId}"]`)?.value || "";
+        }
+
+        function gatherReportRows() {
+            return SECTION_CONFIG.map((section) => {
+                const state = computeSectionState(section);
+                const details = section.items.map((item) => {
+                    if (section.type === "rating") {
+                        const value = getRatingValue(section.id, item.id);
+                        return `${item.label}: ${value ? `${value}/5` : "Non renseigne"}`;
+                    }
+
+                    const value = getBinaryValue(section.id, item.id);
+                    const expected = item.expected;
+                    return `${item.label}: ${value || "Non renseigne"} (attendu ${expected})`;
+                });
+
+                return {
+                    section,
+                    state,
+                    details,
+                    comment: getSectionComment(section.id)
+                };
+            });
+        }
+
+        function downloadPDF() {
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({ unit: "mm", format: "a4" });
+            const meta = gatherDraft().meta;
+            const score = document.getElementById("scoreLabel").textContent;
+            const completion = document.getElementById("completionLabel").textContent;
+            const reportRows = gatherReportRows();
+            const pageWidth = doc.internal.pageSize.getWidth();
+            const pageHeight = doc.internal.pageSize.getHeight();
+            const margin = 12;
+            let y = 14;
+
+            const addWrappedText = (text, x, maxWidth, lineHeight = 4.2, fontStyle = "normal", color = [23, 32, 42]) => {
+                doc.setFont("helvetica", fontStyle);
+                doc.setTextColor(...color);
+                const lines = doc.splitTextToSize(text, maxWidth);
+                lines.forEach((line) => {
+                    if (y > pageHeight - 14) {
+                        doc.addPage();
+                        y = 14;
+                    }
+                    doc.text(line, x, y);
+                    y += lineHeight;
+                });
+            };
+
+            doc.setFillColor(199, 67, 43);
+            doc.roundedRect(margin, y, pageWidth - margin * 2, 24, 4, 4, "F");
+            doc.setTextColor(255, 255, 255);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(15);
+            doc.text("Fiche audit PGC - synthese", margin + 6, y + 8);
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(9);
+            doc.text(`Rayon: ${meta.rayon || "-"}   Date: ${meta.dateAudit || "-"}   Heure: ${meta.heureAudit || "-"}`, margin + 6, y + 14);
+            doc.text(`Manager: ${meta.manager || "-"}   Collaborateur: ${meta.collaborateur || "-"}`, margin + 6, y + 19);
+            y += 30;
+
+            doc.setFillColor(18, 52, 77);
+            doc.roundedRect(margin, y, pageWidth - margin * 2, 16, 4, 4, "F");
+            doc.setTextColor(255, 255, 255);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(12);
+            doc.text(`Score qualite: ${score}`, margin + 6, y + 10);
+            doc.text(`Completion: ${completion}`, pageWidth - margin - 42, y + 10);
+            y += 22;
+
+            reportRows.forEach(({ section, state, details, comment }) => {
+                if (y > pageHeight - 36) {
+                    doc.addPage();
+                    y = 14;
+                }
+
+                doc.setFillColor(240, 243, 246);
+                doc.roundedRect(margin, y, pageWidth - margin * 2, 8, 3, 3, "F");
+                doc.setTextColor(18, 52, 77);
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(10);
+                doc.text(`${section.title} - ${Math.round(state.quality)}%`, margin + 4, y + 5.5);
+                y += 13;
+
+                doc.setFontSize(8.5);
+                details.forEach((detail) => {
+                    addWrappedText(`- ${detail}`, margin + 4, pageWidth - margin * 2 - 8, 4.1);
+                });
+
+                if (comment.trim()) {
+                    addWrappedText(`Commentaire: ${comment}`, margin + 4, pageWidth - margin * 2 - 8, 4, "italic", [102, 113, 125]);
+                }
+
+                y += 3;
+            });
+
+            if ((meta.remarques || "").trim()) {
+                if (y > pageHeight - 28) {
+                    doc.addPage();
+                    y = 14;
+                }
+                doc.setFillColor(240, 243, 246);
+                doc.roundedRect(margin, y, pageWidth - margin * 2, 8, 3, 3, "F");
+                doc.setTextColor(18, 52, 77);
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(10);
+                doc.text("Axes de progres", margin + 4, y + 5.5);
+                y += 13;
+                addWrappedText(meta.remarques, margin + 4, pageWidth - margin * 2 - 8, 4.2);
+            }
+
+            const signatures = [
+                { id: "sigManager", label: "Manager" },
+                { id: "sigCollab", label: "Collaborateur" }
+            ];
+
+            if (y > pageHeight - 46) {
+                doc.addPage();
+                y = 14;
+            }
+
+            doc.setFillColor(240, 243, 246);
+            doc.roundedRect(margin, y, pageWidth - margin * 2, 8, 3, 3, "F");
+            doc.setTextColor(18, 52, 77);
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(10);
+            doc.text("Signatures", margin + 4, y + 5.5);
+            y += 14;
+
+            signatures.forEach((signature, index) => {
+                const canvas = document.getElementById(signature.id);
+                const x = margin + index * ((pageWidth - margin * 2) / 2);
+                doc.setFont("helvetica", "bold");
+                doc.setFontSize(8);
+                doc.text(signature.label, x + 4, y);
+                doc.addImage(canvas.toDataURL("image/png"), "PNG", x + 4, y + 3, 78, 22);
+            });
+
+            const pageCount = doc.getNumberOfPages();
+            for (let i = 1; i <= pageCount; i += 1) {
+                doc.setPage(i);
+                doc.setFont("helvetica", "normal");
+                doc.setFontSize(8);
+                doc.setTextColor(120, 128, 136);
+                doc.text(`Page ${i}/${pageCount}`, pageWidth / 2, pageHeight - 6, { align: "center" });
+            }
+
+            const safeRayon = (meta.rayon || "rayon").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "").toLowerCase();
+            doc.save(`audit_pgc_${safeRayon || "rayon"}_${meta.dateAudit || "sans_date"}.pdf`);
+        }
+
+        function sendEmail() {
+            const meta = gatherDraft().meta;
+            const score = document.getElementById("scoreLabel").textContent;
+            const completion = document.getElementById("completionLabel").textContent;
+            const subject = encodeURIComponent(`Audit PGC - ${meta.rayon || "Rayon"} - ${meta.dateAudit || "Date"}`);
+            const body = encodeURIComponent(
+                `Bonjour,\n\n` +
+                `Voici la synthese de l'audit PGC.\n\n` +
+                `Rayon : ${meta.rayon || "-"}\n` +
+                `Date : ${meta.dateAudit || "-"} ${meta.heureAudit || ""}\n` +
+                `Manager : ${meta.manager || "-"}\n` +
+                `Collaborateur : ${meta.collaborateur || "-"}\n` +
+                `Score qualite : ${score}\n` +
+                `Completion : ${completion}\n\n` +
+                `Axes de progres :\n${meta.remarques || "-"}\n\n` +
+                `Le PDF peut etre joint avant envoi.\n`
+            );
+            window.location.href = `mailto:?subject=${subject}&body=${body}`;
+        }
+
+        function resetForm() {
+            if (!window.confirm("Reinitialiser toute la fiche et supprimer le brouillon local ?")) {
+                return;
+            }
+
+            document.querySelectorAll("[data-meta]").forEach((input) => {
+                input.value = "";
+            });
+            document.querySelectorAll("[data-comment]").forEach((textarea) => {
+                textarea.value = "";
+            });
+            document.querySelectorAll(".rating-btn").forEach((button) => {
+                button.classList.remove("active");
+            });
+            document.querySelectorAll(".binary-btn").forEach((button) => {
+                button.classList.remove("active-good", "active-bad");
+            });
+            clearSignature("sigManager", false);
+            clearSignature("sigCollab", false);
+            clearDraft();
+            localStorage.removeItem(SIGNATURES_KEY);
+            initializeMetaDefaults();
+            persistDraft();
+            updateDashboard();
+        }
+
+        function setupInteractions() {
+            document.addEventListener("click", (event) => {
+                const ratingButton = event.target.closest(".rating-btn");
+                if (ratingButton) {
+                    setRating(ratingButton.dataset.section, ratingButton.dataset.item, Number(ratingButton.dataset.value));
+                    return;
+                }
+
+                const binaryButton = event.target.closest(".binary-btn");
+                if (binaryButton) {
+                    setBinary(binaryButton.dataset.section, binaryButton.dataset.item, binaryButton.dataset.value);
+                    return;
+                }
+            });
+
+            document.querySelectorAll("[data-meta], [data-comment]").forEach((element) => {
+                element.addEventListener("input", () => {
+                    persistDraft();
+                    updateDashboard();
+                });
+            });
+
+            document.querySelectorAll("[data-clear-signature]").forEach((button) => {
+                button.addEventListener("click", () => clearSignature(button.dataset.clearSignature));
+            });
+
+            document.getElementById("downloadPdfBtn").addEventListener("click", downloadPDF);
+            document.getElementById("mailBtn").addEventListener("click", sendEmail);
+            document.getElementById("printBtn").addEventListener("click", () => window.print());
+            document.getElementById("resetBtn").addEventListener("click", resetForm);
+        }
+
+        const signaturePads = {};
+
+        function resizeCanvas(canvas) {
+            const ratio = window.devicePixelRatio || 1;
+            const rect = canvas.getBoundingClientRect();
+            const ctx = canvas.getContext("2d");
+            canvas.width = Math.round(rect.width * ratio);
+            canvas.height = Math.round(rect.height * ratio);
+            ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+            ctx.lineCap = "round";
+            ctx.lineJoin = "round";
+            ctx.lineWidth = 2;
+            ctx.strokeStyle = "#12344d";
+        }
+
+        function saveSignatures() {
+            const payload = {};
+            Object.keys(signaturePads).forEach((id) => {
+                payload[id] = signaturePads[id].canvas.toDataURL("image/png");
+            });
+            localStorage.setItem(SIGNATURES_KEY, JSON.stringify(payload));
+        }
+
+        function restoreSignatures() {
+            const raw = localStorage.getItem(SIGNATURES_KEY);
+            if (!raw) return;
+
+            try {
+                const data = JSON.parse(raw);
+                Object.entries(data).forEach(([id, source]) => {
+                    const canvas = document.getElementById(id);
+                    const ctx = canvas.getContext("2d");
+                    const image = new Image();
+                    image.onload = () => {
+                        ctx.clearRect(0, 0, canvas.width, canvas.height);
+                        ctx.drawImage(image, 0, 0, canvas.width / (window.devicePixelRatio || 1), canvas.height / (window.devicePixelRatio || 1));
+                    };
+                    image.src = source;
+                });
+            } catch (error) {
+                console.error("Impossible de restaurer les signatures", error);
+            }
+        }
+
+        function initSignaturePad(canvasId) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext("2d");
+            let drawing = false;
+
+            resizeCanvas(canvas);
+
+            const getPoint = (event) => {
+                const rect = canvas.getBoundingClientRect();
+                const point = event.touches ? event.touches[0] : event;
+                return {
+                    x: point.clientX - rect.left,
+                    y: point.clientY - rect.top
+                };
+            };
+
+            const start = (event) => {
+                drawing = true;
+                const point = getPoint(event);
+                ctx.beginPath();
+                ctx.moveTo(point.x, point.y);
+            };
+
+            const move = (event) => {
+                if (!drawing) return;
+                event.preventDefault();
+                const point = getPoint(event);
+                ctx.lineTo(point.x, point.y);
+                ctx.stroke();
+            };
+
+            const end = () => {
+                if (!drawing) return;
+                drawing = false;
+                saveSignatures();
+            };
+
+            canvas.addEventListener("mousedown", start);
+            canvas.addEventListener("mousemove", move);
+            canvas.addEventListener("mouseup", end);
+            canvas.addEventListener("mouseleave", end);
+            canvas.addEventListener("touchstart", start, { passive: false });
+            canvas.addEventListener("touchmove", move, { passive: false });
+            canvas.addEventListener("touchend", end);
+
+            signaturePads[canvasId] = { canvas, ctx };
+        }
+
+        function clearSignature(canvasId, persist = true) {
+            const canvas = document.getElementById(canvasId);
+            const ctx = canvas.getContext("2d");
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            if (persist) {
+                saveSignatures();
+            }
+        }
+
+        window.addEventListener("resize", () => {
+            Object.keys(signaturePads).forEach((id) => {
+                resizeCanvas(signaturePads[id].canvas);
+            });
+            restoreSignatures();
+        });
+
+        window.addEventListener("load", () => {
+            renderSections();
+            initializeMetaDefaults();
+            setupInteractions();
+            initSignaturePad("sigManager");
+            initSignaturePad("sigCollab");
+            loadDraft();
+            restoreSignatures();
+            updateDashboard();
+            persistDraft();
+        });
+    </script>
+</body>
+</html>

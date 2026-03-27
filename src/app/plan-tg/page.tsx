@@ -105,17 +105,18 @@ function RayonCardPlan({row,isSelected,onClick,theme}:{row:TgWeekPlanRow;isSelec
 
 export default function PlanTgPage(){
   const theme=moduleThemes.plantg;
+  const initialWeekId = getCurrentWeekId() || tgWeeks[0]?.id || "";
   const [rayons,setRayons]=useState<TgRayon[]>(()=>resequence(loadTgRayons()));
   const [assignments,setAssignments]=useState<TgDefaultAssignment[]>(()=>loadTgDefaultAssignments());
   const [plans,setPlans]=useState<TgWeekPlanRow[]>(()=>{
     const rs=resequence(loadTgRayons()); const as=loadTgDefaultAssignments();
     return normalizePlans(loadTgWeekPlans(),rs,new Map(as.map((i)=>[i.rayon,i.employee])));
   });
-  const [activeWeekId,setActiveWeekId]=useState(tgWeeks[0]?.id ?? "");
+  const [activeWeekId,setActiveWeekId]=useState(initialWeekId);
   const [familyFilter,setFamilyFilter]=useState<FamilyFilter>("ALL");
   const [search,setSearch]=useState("");
   const [selectedRayon,setSelectedRayon]=useState("");
-  const [rangeEndWeekId,setRangeEndWeekId]=useState(tgWeeks[0]?.id ?? "");
+  const [rangeEndWeekId,setRangeEndWeekId]=useState(initialWeekId);
   const [planVisible,setPlanVisible]=useState(false);
   const [customMechanics,setCustomMechanics]=useState<string[]>(()=>loadTgCustomMechanics());
   const [mecaCustomInput,setMecaCustomInput]=useState("");
@@ -125,7 +126,7 @@ export default function PlanTgPage(){
   const [newRayonResponsible,setNewRayonResponsible]=useState("");
   const [newRayonAnchor,setNewRayonAnchor]=useState("");
   const [newRayonPositionMode,setNewRayonPositionMode]=useState<PositionMode>("end");
-  const [newRayonStartWeekId,setNewRayonStartWeekId]=useState(tgWeeks[0]?.id ?? "");
+  const [newRayonStartWeekId,setNewRayonStartWeekId]=useState(initialWeekId);
 
   const employees=tgEmployees.filter((e)=>e.active).map((e)=>e.name);
   const assignmentMap=useMemo(()=>new Map(assignments.map((i)=>[i.rayon,i.employee])),[assignments]);
@@ -149,13 +150,6 @@ export default function PlanTgPage(){
   useEffect(()=>{saveTgRayons(orderedRayons);},[orderedRayons]);
   useEffect(()=>{saveTgDefaultAssignments(assignments);},[assignments]);
   useEffect(()=>{saveTgWeekPlans(normalizePlans(plans,orderedRayons,assignmentMap));},[assignmentMap,orderedRayons,plans]);
-  useEffect(() => {
-    const currentWeekId = getCurrentWeekId();
-    if (!currentWeekId) return;
-    setActiveWeekId(currentWeekId);
-    setRangeEndWeekId(currentWeekId);
-    setNewRayonStartWeekId(currentWeekId);
-  }, []);
   useEffect(()=>{
     const refresh=()=>{
       const nextRayons = resequence(loadTgRayons());

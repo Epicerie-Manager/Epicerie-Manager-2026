@@ -12,6 +12,7 @@
  */
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { signOut } from "next-auth/react";
 
 /* ═══════════════════════════════════════════════════════════
@@ -63,7 +64,7 @@ const EventIcon = ({ type, color, size = 13 }) => {
    AGENDA CARD COMPONENT
    ═══════════════════════════════════════════════════════════ */
 export default function AgendaCard({ events = MOCK_EVENTS, calendarUrl = "https://calendar.google.com" }) {
-  const [now, setNow] = useState(null);
+  const [now, setNow] = useState(() => new Date());
   const [loading, setLoading] = useState(true);
   const [connected, setConnected] = useState(false);
   const [apiEvents, setApiEvents] = useState([]);
@@ -102,7 +103,6 @@ export default function AgendaCard({ events = MOCK_EVENTS, calendarUrl = "https:
   }, []);
 
   useEffect(() => {
-    setNow(new Date());
     const timer = window.setInterval(() => {
       setNow(new Date());
     }, 60000);
@@ -160,7 +160,7 @@ export default function AgendaCard({ events = MOCK_EVENTS, calendarUrl = "https:
             <style>{`@keyframes gcal-pulse{0%,100%{opacity:1}50%{opacity:.4}}`}</style>
           </div>
         ) : (
-          <a
+          <Link
             href="/api/auth/signin/google?callbackUrl=%2F"
             style={{
               fontSize: 10,
@@ -174,13 +174,13 @@ export default function AgendaCard({ events = MOCK_EVENTS, calendarUrl = "https:
             }}
           >
             Se connecter
-          </a>
+          </Link>
         )}
       </div>
 
       {/* Title */}
       <h2 style={{ margin: "10px 0 4px", fontSize: 21, fontWeight: 700, letterSpacing: "-0.03em", color: "#13243b" }}>
-        Aujourd'hui
+        Aujourd&apos;hui
       </h2>
       <p style={{ margin: "0 0 14px", fontSize: 12, color: "#617286" }}>
         {displayedEvents.length} événement{displayedEvents.length > 1 ? "s" : ""} programmé{displayedEvents.length > 1 ? "s" : ""}

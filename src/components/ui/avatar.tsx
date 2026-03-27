@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { moduleThemes } from "@/lib/theme";
 
 type AvatarProps = {
@@ -24,9 +25,12 @@ export function Avatar({ name, photo, size = 42, active = true }: AvatarProps) {
           background: "#fff",
         }}
       >
-        <img
+        <Image
           src={photo}
           alt={name}
+          width={size}
+          height={size}
+          unoptimized
           style={{ width: "100%", height: "100%", objectFit: "cover" }}
         />
       </div>

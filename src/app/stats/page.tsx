@@ -84,11 +84,13 @@ function getCurrentBalisageMonthIndex(today = new Date()) {
 }
 
 export default function StatsPage() {
-  const [activeMonthIndex, setActiveMonthIndex] = useState(0);
+  const [activeMonthIndex, setActiveMonthIndex] = useState(() => getCurrentBalisageMonthIndex());
   const [sortBy, setSortBy] = useState<SortBy>("name");
   const [editingName, setEditingName] = useState<string | null>(null);
   const [editingTotal, setEditingTotal] = useState("");
   const [editingErrorRate, setEditingErrorRate] = useState("");
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const [isSaving, setIsSaving] = useState(false);
   const [localData, setLocalData] = useState<Record<string, BalisageEmployeeStat[]>>(() => loadBalisageData());
 
   const theme = moduleThemes.balisage;
@@ -105,10 +107,6 @@ export default function StatsPage() {
   useEffect(() => {
     saveBalisageData(localData);
   }, [localData]);
-
-  useEffect(() => {
-    setActiveMonthIndex(getCurrentBalisageMonthIndex());
-  }, []);
 
   useEffect(() => {
     const refresh = () => setLocalData(loadBalisageData());
@@ -135,7 +133,7 @@ export default function StatsPage() {
     setEditingErrorRate(employee.errorRate === null ? "" : String(employee.errorRate));
   };
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!editingName) return;
     const newTotal = Number.isNaN(Number(editingTotal)) ? null : Number(editingTotal);
     const newErrorRate =
@@ -146,7 +144,10 @@ export default function StatsPage() {
           : Number(editingErrorRate);
     const name = editingName;
     const monthId = activeMonth.id;
+    let savedEntry: BalisageEmployeeStat | undefined;
 
+    setSaveError(null);
+    setIsSaving(true);
     setLocalData((current) => {
       const updated = (current[monthId] ?? []).map((employee) =>
         employee.name === name
@@ -158,12 +159,30 @@ export default function StatsPage() {
           : employee,
       );
       const next = { ...current, [monthId]: updated };
-      const saved = updated.find((e) => e.name === name);
-      if (saved) {
-        void saveBalisageEntryToSupabase(monthId, name, saved.total, saved.errorRate);
-      }
+      savedEntry = updated.find((employee) => employee.name === name);
       return next;
     });
+
+    if (!savedEntry) {
+      setSaveError("Impossible de retrouver la ligne à enregistrer.");
+      setIsSaving(false);
+      return;
+    }
+
+    const synced = await saveBalisageEntryToSupabase(
+      monthId,
+      name,
+      savedEntry.total,
+      savedEntry.errorRate,
+    );
+
+    if (!synced) {
+      setSaveError("Modification enregistrée localement, mais la synchronisation Supabase a échoué.");
+      setIsSaving(false);
+      return;
+    }
+
+    setIsSaving(false);
     setEditingName(null);
   };
 
@@ -334,6 +353,23 @@ export default function StatsPage() {
             <Kicker moduleKey="balisage" label="Edition balisage" />
             <h2 style={{ marginTop: "6px", fontSize: "20px", color: "#0f172a" }}>{editingName}</h2>
 
+            {saveError ? (
+              <div
+                style={{
+                  marginTop: "10px",
+                  borderRadius: "10px",
+                  border: "1px solid #fecaca",
+                  background: "#fef2f2",
+                  color: "#991b1b",
+                  fontSize: "12px",
+                  lineHeight: 1.45,
+                  padding: "10px 12px",
+                }}
+              >
+                {saveError}
+              </div>
+            ) : null}
+
             <label style={{ display: "grid", gap: "5px", marginTop: "10px", fontSize: "12px", color: "#64748b" }}>
               <span>Total controles</span>
               <input
@@ -341,6 +377,7 @@ export default function StatsPage() {
                 onChange={(event) => setEditingTotal(event.target.value)}
                 type="number"
                 min={0}
+                disabled={isSaving}
                 style={{ minHeight: "36px", borderRadius: "10px", border: "1px solid #dbe3eb", padding: "0 10px" }}
               />
             </label>
@@ -354,6 +391,7 @@ export default function StatsPage() {
                 min={0}
                 step="0.1"
                 placeholder="Laisser vide si inconnu"
+                disabled={isSaving}
                 style={{ minHeight: "36px", borderRadius: "10px", border: "1px solid #dbe3eb", padding: "0 10px" }}
               />
             </label>
@@ -362,16 +400,18 @@ export default function StatsPage() {
               <button
                 type="button"
                 onClick={() => setEditingName(null)}
+                disabled={isSaving}
                 style={{ border: "1px solid #dbe3eb", borderRadius: "999px", background: "#fff", color: "#1e293b", fontSize: "12px", padding: "7px 12px" }}
               >
                 Annuler
               </button>
               <button
                 type="button"
-                onClick={saveEdit}
+                onClick={() => void saveEdit()}
+                disabled={isSaving}
                 style={{ border: `1px solid ${theme.color}`, borderRadius: "999px", background: theme.medium, color: theme.color, fontWeight: 700, fontSize: "12px", padding: "7px 12px" }}
               >
-                Enregistrer
+                {isSaving ? "Enregistrement..." : "Enregistrer"}
               </button>
             </div>
           </div>

@@ -571,6 +571,7 @@ export default function InfosPage() {
                         Ouvrir / telecharger
                       </a>
                       {selectedItem.attachment.mimeType.startsWith("image/") ? (
+                        // eslint-disable-next-line @next/next/no-img-element
                         <img
                           src={selectedItem.attachment.dataUrl}
                           alt={selectedItem.title}

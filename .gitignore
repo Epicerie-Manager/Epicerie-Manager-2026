@@ -18,4 +18,5 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
-.claude/worktrees/trusting-ritchie/
+.claude/
+tmp_planning_*

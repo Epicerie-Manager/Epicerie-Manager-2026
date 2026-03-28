@@ -616,7 +616,13 @@ const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
           ))}
           {/* Effectif row */}
           <tr style={{background:"#f8fafc"}}>
-            <td style={{padding:"6px 8px",fontSize:10,fontWeight:800,borderTop:`2px solid ${V.line}`,position:"sticky",left:0,background:"#f8fafc",zIndex:2,color:V.mc}}>EFFECTIF</td>
+            <td style={{padding:"6px 8px",fontSize:10,fontWeight:800,borderTop:`2px solid ${V.line}`,position:"sticky",left:0,background:"#f8fafc",zIndex:2,color:V.mc,minWidth:128}}>
+              <div style={{display:"grid",gridTemplateColumns:"auto auto",columnGap:8,rowGap:3,alignItems:"center",lineHeight:1}}>
+                <span style={{gridRow:"1 / span 2",fontSize:10,fontWeight:800,color:V.mc}}>EFFECTIF</span>
+                <span style={{fontSize:9,fontWeight:800,color:V.mc}}>matin</span>
+                <span style={{fontSize:9,fontWeight:800,color:V.purple}}>après-midi</span>
+              </div>
+            </td>
             {dates.map(date=>{
               const isT=formatPlanningDate(date)===todayS;
               const m=EMPS.filter(e=>e.t==="M"&&getStatus(e,date,overrides)==="PRESENT").length;
@@ -631,8 +637,8 @@ const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
                 borderRight:isT?"2px solid #16a34a":"none",
                 background:alert?"#fef2f2":"#f8fafc"
               }}>
-                <div style={{fontSize:11,fontWeight:800,color:alert?V.red:V.mc}}>{m}</div>
-                <div style={{fontSize:9,fontWeight:600,color:V.purple}}>{s}</div>
+                <div style={{fontSize:11,fontWeight:800,color:alert?V.red:V.mc,lineHeight:1.05}}>{m}</div>
+                <div style={{fontSize:10,fontWeight:800,color:V.purple,lineHeight:1.05,marginTop:4}}>{s}</div>
               </td>);
             })}
             <td style={{borderTop:`2px solid ${V.line}`,position:"sticky",right:0,background:"#f8fafc"}}/>

@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.26 - 2026-03-29
+
+- Planning mois : la ligne `Effectif` affiche maintenant une legende explicite `matin` et `après-midi` dans la cellule de gauche pour clarifier la lecture des deux niveaux.
+- Les effectifs du matin et de l'après-midi sont desormais tous les deux affiches en gras, avec un meilleur equilibre visuel entre la ligne du haut et celle du bas.
+
 ## v0.5.25 - 2026-03-29
 
 - Planning mois : les tuiles `Tri caddie` et `Binômes repos` passent en affichage compact sur deux colonnes internes pour reduire nettement leur hauteur.

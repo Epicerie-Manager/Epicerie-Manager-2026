@@ -172,6 +172,12 @@ function getHoraire(emp,date,overrides){
   return getDefaultHoraire(emp,date);
 }
 
+function isHoraireOverride(emp,date,overrides){
+  const displayedHoraire=getHoraire(emp,date,overrides);
+  const defaultHoraire=getDefaultHoraire(emp,date);
+  return displayedHoraire!==defaultHoraire;
+}
+
 function isTriCaddie(name,dow,triData){const p=triData[dow];return p&&p.includes(name);}
 
 function getDayGroups(date, overrides){
@@ -413,7 +419,7 @@ const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
                   const s=getStatus(emp,date,overrides);
                   const sc=ST[s]||ST.X;
                   const h=s==="PRESENT"?getHoraire(emp,date,overrides):null;
-                  const isCustomH=overrides[`${emp.n}_${formatPlanningDate(date)}`]?.h;
+                  const isCustomH=s==="PRESENT"&&isHoraireOverride(emp,date,overrides);
                   const triC=isTriCaddie(emp.n,dow,triData);
                   const isT=formatPlanningDate(date)===todayS;
                   if(s==="PRESENT") presCount++;
@@ -427,11 +433,11 @@ const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
                     }}>
                       {s==="PRESENT"?(
                         <div style={{
-                          fontSize:8,fontWeight:700,color:isCustomH?V.mc:V.body,
-                          background:isCustomH?"#dbeafe":"rgba(255,255,255,0.7)",
+                          fontSize:8,fontWeight:700,color:V.mc,
+                          background:isCustomH?"#bfdbfe":"#dbeafe",
                           borderRadius:6,padding:"4px 2px",lineHeight:1.2,
-                          border:triC?`1px solid ${V.amber}70`:"1px solid rgba(148,163,184,0.14)",
-                          boxShadow:isT?"0 0 0 1px rgba(29,95,160,0.08)":"none",
+                          border:triC?`1px solid ${V.amber}70`:isCustomH?"1px solid rgba(29,95,160,0.28)":"1px solid rgba(29,95,160,0.14)",
+                          boxShadow:isT?"0 0 0 1px rgba(29,95,160,0.08)":isCustomH?"inset 0 0 0 1px rgba(255,255,255,0.35)":"none",
                         }}>
                           {h||"P"}
                           {triC&&(

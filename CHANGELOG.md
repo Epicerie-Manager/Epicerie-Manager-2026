@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.18 - 2026-03-28
+
+- Ajustement visuel de la vue mois du planning : les cellules `Present` retrouvent un rendu coherent meme quand les overrides techniques ont ete nettoyes.
+- Les vrais horaires personnalises restent visibles, mais un retour a l'horaire par defaut reprend maintenant l'apparence normale des autres cellules.
+
 ## v0.5.17 - 2026-03-28
 
 - Correction du retour a l'horaire par defaut dans le planning : un horaire identique au referentiel RH n'est plus conserve comme un override visuel ou technique.

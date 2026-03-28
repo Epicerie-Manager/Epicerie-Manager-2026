@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { Fragment, useEffect, useMemo, useState } from "react";
 import { sheetPlanningBinomes } from "@/lib/planning-sheet-data";
 import { syncPlanningStatusToAbsenceInSupabase } from "@/lib/absences-store";
 import {
@@ -32,6 +32,14 @@ const V = {
   mIG:"linear-gradient(135deg,#dbeafe,#bdd5f7)",
   green:"#16a34a",amber:"#d97706",red:"#dc2626",purple:"#5635b8",orange:"#ea580c",pink:"#db2777",cyan:"#0891b2",
 };
+
+const MONTH_SECTION_META = {
+  leaders:{label:"Repères matin",desc:"Abdou et Cécile",row:"#f7fbff",sticky:"#edf6ff",border:"#d7e6f6",accent:V.mc,text:V.mc},
+  morning:{label:"Équipe matin",desc:"Collaborateurs du matin",row:"#f7fbff",sticky:"#edf6ff",border:"#d7e6f6",accent:V.mc,text:V.body},
+  afternoon:{label:"Équipe après-midi",desc:"Collaborateurs de l'après-midi",row:"#fff8f2",sticky:"#fff1e6",border:"#f5dec2",accent:V.orange,text:"#9a3412"},
+  students:{label:"Étudiants",desc:"Renforts et contrats étudiants",row:"#f8fafc",sticky:"#f1f5f9",border:"#dde5ee",accent:"#64748b",text:"#475569"},
+};
+const MONTH_SECTION_ORDER=["leaders","morning","afternoon","students"];
 
 const ST = {
   PRESENT:{c:"#166534",bg:"#dcfce7",l:"Présent",short:"P"},
@@ -76,27 +84,51 @@ function isCoordinatorEmployee(name){
   return String(name||"").trim().toUpperCase()==="ABDOU";
 }
 
+function normalizePlanningEmployeeName(name){
+  return String(name||"").trim().toUpperCase();
+}
+
 function isAbsenceStatus(status){
   return ["CP","MAL","CONGE_MAT","FORM","FERIE","X","ABS"].includes(String(status||"").toUpperCase());
 }
 
 function comparePlanningEmployees(a,b){
-  const nameA=String(a?.n??"").trim().toUpperCase();
-  const nameB=String(b?.n??"").trim().toUpperCase();
-  if(nameA==="ABDOU") return -1;
-  if(nameB==="ABDOU") return 1;
-  if(nameA==="CECILE") return -1;
-  if(nameB==="CECILE") return 1;
-
-  const isStudentA=a?.t==="E";
-  const isStudentB=b?.t==="E";
-  if(isStudentA!==isStudentB) return isStudentA?1:-1;
-
+  const nameA=normalizePlanningEmployeeName(a?.n);
+  const nameB=normalizePlanningEmployeeName(b?.n);
+  const rankA=nameA==="ABDOU"?0:nameA==="CECILE"?1:a?.t==="M"?2:a?.t==="S"?3:a?.t==="E"?4:5;
+  const rankB=nameB==="ABDOU"?0:nameB==="CECILE"?1:b?.t==="M"?2:b?.t==="S"?3:b?.t==="E"?4:5;
+  if(rankA!==rankB) return rankA-rankB;
   return nameA.localeCompare(nameB,"fr");
 }
 
 function sortPlanningEmployees(employees){
   return [...employees].sort(comparePlanningEmployees);
+}
+
+function matchesPlanningFilter(emp,filter){
+  if(filter==="ALL") return true;
+  if(filter==="M") return emp?.t==="M";
+  if(filter==="S") return emp?.t==="S";
+  if(filter==="E") return emp?.t==="E";
+  return true;
+}
+
+function getPlanningMonthSectionId(emp){
+  const name=normalizePlanningEmployeeName(emp?.n);
+  if(name==="ABDOU"||name==="CECILE") return "leaders";
+  if(emp?.t==="M") return "morning";
+  if(emp?.t==="S") return "afternoon";
+  return "students";
+}
+
+function getPlanningMonthSections(filter){
+  const grouped={leaders:[],morning:[],afternoon:[],students:[]};
+  sortPlanningEmployees(EMPS.filter((emp)=>matchesPlanningFilter(emp,filter))).forEach((emp)=>{
+    grouped[getPlanningMonthSectionId(emp)].push(emp);
+  });
+  return MONTH_SECTION_ORDER
+    .map((id)=>({id,...MONTH_SECTION_META[id],employees:grouped[id]}))
+    .filter((section)=>section.employees.length>0);
 }
 
 function getAllEmpNames(){
@@ -375,8 +407,9 @@ const EditBinomeModal=({index,pair,allNames,onSave,onClose})=>{
 const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
   const days=daysInMonth(year,month);
   const dates=Array.from({length:days},(_,i)=>new Date(year,month,i+1));
-  const filtered=sortPlanningEmployees(filter==="ALL"?EMPS:EMPS.filter(e=>e.t===(filter==="M"?"M":filter==="S"?"S":"E")));
+  const sections=getPlanningMonthSections(filter);
   const todayS=formatPlanningDate(new Date());
+  const totalColumns=dates.length+2;
 
   return(
     <div style={{overflowX:"auto"}}>
@@ -406,81 +439,106 @@ const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
           </tr>
         </thead>
         <tbody>
-          {filtered.map((emp,rowIndex)=>{
-            let presCount=0;
-            const isCoordinator=isCoordinatorEmployee(emp.n);
-            const rowBackground=rowIndex%2===0?"#ffffff":"#f8fbff";
-            return(
-              <tr key={emp.n} style={{opacity:emp.actif?1:0.45}}>
-                <td style={{padding:"6px 8px",fontSize:11,fontWeight:700,borderBottom:`2px solid #d7e2ee`,position:"sticky",left:0,background:isCoordinator?"#f3f8ff":rowBackground,zIndex:2,whiteSpace:"nowrap"}}>
-                  <div style={{display:"flex",alignItems:"center",gap:6,padding:isCoordinator?"4px 8px":"0",borderRadius:isCoordinator?8:0,background:isCoordinator?"#e7f0fb":"transparent",color:isCoordinator?V.mc:V.body}}>
-                    <span style={{width:5,height:5,borderRadius:3,background:isCoordinator?V.amber:emp.t==="M"?V.mc:emp.t==="S"?V.purple:"#9ca3af",flexShrink:0}}/>{emp.n}
+          {sections.map((section)=>(
+            <Fragment key={section.id}>
+              <tr>
+                <td colSpan={totalColumns} style={{
+                  padding:"7px 10px",
+                  fontSize:10,
+                  fontWeight:800,
+                  letterSpacing:"0.04em",
+                  color:section.text,
+                  background:section.sticky,
+                  borderTop:`2px solid ${section.border}`,
+                  borderBottom:`1px solid ${section.border}`,
+                }}>
+                  <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+                    <span style={{width:8,height:8,borderRadius:99,background:section.accent,flexShrink:0}}/>
+                    <span>{section.label.toUpperCase()}</span>
+                    <span style={{fontSize:10,fontWeight:600,color:`${section.text}B5`}}>{section.desc}</span>
                   </div>
                 </td>
-                {dates.map(date=>{
-                  const dow=date.getDay();
-                  const s=getStatus(emp,date,overrides);
-                  const sc=ST[s]||ST.X;
-                  const h=s==="PRESENT"?getHoraire(emp,date,overrides):null;
-                  const isCustomH=s==="PRESENT"&&isHoraireOverride(emp,date,overrides);
-                  const triC=isTriCaddie(emp.n,dow,triData);
-                  const isT=formatPlanningDate(date)===todayS;
-                  if(s==="PRESENT") presCount++;
-
-                  return(
-                    <td key={date.getDate()} onClick={()=>onEdit(emp,date)} style={{
-                      padding:"4px 2px",textAlign:"center",borderBottom:`2px solid #d7e2ee`,cursor:"pointer",
-                      background:rowBackground,position:"relative",
-                      borderLeft:isT?"2px solid #16a34a":"none",
-                      borderRight:isT?"2px solid #16a34a":"none",
-                    }}>
-                      {s==="PRESENT"?(
-                        <div style={{
-                          fontSize:8,fontWeight:700,color:V.mc,
-                          background:isCustomH?"#bfdbfe":"#dbeafe",
-                          borderRadius:6,padding:"4px 2px",lineHeight:1.2,
-                          border:triC?`1px solid ${V.amber}70`:isCustomH?"1px solid rgba(29,95,160,0.28)":"1px solid rgba(29,95,160,0.14)",
-                          boxShadow:isT?"0 0 0 1px rgba(29,95,160,0.08)":isCustomH?"inset 0 0 0 1px rgba(255,255,255,0.35)":"none",
-                        }}>
-                          {h||"P"}
-                          {triC&&(
-                            <span style={{
-                              display:"inline-flex",
-                              alignItems:"center",
-                              justifyContent:"center",
-                              width:14,
-                              height:10,
-                              margin:"2px auto 0",
-                              borderRadius:4,
-                              background:`${V.amber}12`,
-                              border:`1px solid ${V.amber}30`,
-                            }}>
-                              <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={V.amber} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-                                <circle cx="9" cy="21" r="1"/>
-                                <circle cx="20" cy="21" r="1"/>
-                                <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/>
-                              </svg>
-                            </span>
-                          )}
-                        </div>
-                      ):(
-                        <div style={{
-                          fontSize:8,fontWeight:800,color:sc.c,
-                          background:sc.bg,borderRadius:6,padding:"4px 2px",
-                          border:`1px solid ${sc.c}35`,lineHeight:1.2,
-                        }}>
-                          {sc.short}
-                        </div>
-                      )}
-                    </td>
-                  );
-                })}
-                <td style={{padding:"4px 4px",fontSize:11,fontWeight:800,textAlign:"center",borderBottom:`2px solid #d7e2ee`,color:V.mc,position:"sticky",right:0,background:rowBackground,zIndex:2}}>
-                  {presCount||""}
-                </td>
               </tr>
-            );
-          })}
+              {section.employees.map((emp)=>{
+                let presCount=0;
+                const isCoordinator=isCoordinatorEmployee(emp.n);
+                const rowBackground=section.row;
+                const stickyBackground=section.sticky;
+                const rowBorder=section.border;
+                return(
+                  <tr key={emp.n} style={{opacity:emp.actif?1:0.5}}>
+                    <td style={{padding:"6px 8px",fontSize:11,fontWeight:700,borderBottom:`1px solid ${rowBorder}`,position:"sticky",left:0,background:stickyBackground,zIndex:2,whiteSpace:"nowrap"}}>
+                      <div style={{display:"flex",alignItems:"center",gap:7,padding:isCoordinator?"4px 8px":"2px 4px",borderRadius:8,background:isCoordinator?"rgba(255,255,255,0.45)":"transparent",color:isCoordinator?section.accent:V.body}}>
+                        <span style={{width:7,height:7,borderRadius:99,background:section.accent,boxShadow:`0 0 0 2px ${rowBackground}`,flexShrink:0}}/>
+                        {emp.n}
+                      </div>
+                    </td>
+                    {dates.map(date=>{
+                      const dow=date.getDay();
+                      const s=getStatus(emp,date,overrides);
+                      const sc=ST[s]||ST.X;
+                      const h=s==="PRESENT"?getHoraire(emp,date,overrides):null;
+                      const isCustomH=s==="PRESENT"&&isHoraireOverride(emp,date,overrides);
+                      const triC=isTriCaddie(emp.n,dow,triData);
+                      const isT=formatPlanningDate(date)===todayS;
+                      if(s==="PRESENT") presCount++;
+
+                      return(
+                        <td key={date.getDate()} onClick={()=>onEdit(emp,date)} style={{
+                          padding:"4px 2px",textAlign:"center",borderBottom:`1px solid ${rowBorder}`,cursor:"pointer",
+                          background:rowBackground,position:"relative",
+                          borderLeft:isT?"2px solid #16a34a":"none",
+                          borderRight:isT?"2px solid #16a34a":"none",
+                        }}>
+                          {s==="PRESENT"?(
+                            <div style={{
+                              fontSize:8,fontWeight:700,color:V.mc,
+                              background:isCustomH?"#bfdbfe":"#dbeafe",
+                              borderRadius:6,padding:"4px 2px",lineHeight:1.2,
+                              border:triC?`1px solid ${V.amber}70`:isCustomH?"1px solid rgba(29,95,160,0.28)":"1px solid rgba(29,95,160,0.14)",
+                              boxShadow:isT?"0 0 0 1px rgba(29,95,160,0.08)":isCustomH?"inset 0 0 0 1px rgba(255,255,255,0.35)":"none",
+                            }}>
+                              {h||"P"}
+                              {triC&&(
+                                <span style={{
+                                  display:"inline-flex",
+                                  alignItems:"center",
+                                  justifyContent:"center",
+                                  width:14,
+                                  height:10,
+                                  margin:"2px auto 0",
+                                  borderRadius:4,
+                                  background:`${V.amber}12`,
+                                  border:`1px solid ${V.amber}30`,
+                                }}>
+                                  <svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={V.amber} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                    <circle cx="9" cy="21" r="1"/>
+                                    <circle cx="20" cy="21" r="1"/>
+                                    <path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/>
+                                  </svg>
+                                </span>
+                              )}
+                            </div>
+                          ):(
+                            <div style={{
+                              fontSize:8,fontWeight:800,color:sc.c,
+                              background:sc.bg,borderRadius:6,padding:"4px 2px",
+                              border:`1px solid ${sc.c}35`,lineHeight:1.2,
+                            }}>
+                              {sc.short}
+                            </div>
+                          )}
+                        </td>
+                      );
+                    })}
+                    <td style={{padding:"4px 4px",fontSize:11,fontWeight:800,textAlign:"center",borderBottom:`1px solid ${rowBorder}`,color:V.mc,position:"sticky",right:0,background:stickyBackground,zIndex:2}}>
+                      {presCount||""}
+                    </td>
+                  </tr>
+                );
+              })}
+            </Fragment>
+          ))}
           {/* Effectif row */}
           <tr style={{background:"#f8fafc"}}>
             <td style={{padding:"6px 8px",fontSize:10,fontWeight:800,borderTop:`2px solid ${V.line}`,position:"sticky",left:0,background:"#f8fafc",zIndex:2,color:V.mc}}>EFFECTIF</td>

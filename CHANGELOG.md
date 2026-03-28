@@ -21,6 +21,12 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.21 - 2026-03-28
+
+- Planning mois : les lignes sont maintenant regroupees en sections lisibles avec `Abdou`, `Cecile`, puis l'equipe du matin, l'equipe de l'apres-midi et enfin les etudiants.
+- Chaque grande categorie du planning mois dispose desormais d'un fond distinct pour mieux reperer les equipes d'un coup d'oeil.
+- Les pastilles a cote des noms ont ete harmonisees avec ces categories pour servir de vrai repere visuel au lieu d'un code implicite peu lisible.
+
 ## v0.5.20 - 2026-03-28
 
 - Planning : ajout du dimanche dans les vues mois, semaine et jour.

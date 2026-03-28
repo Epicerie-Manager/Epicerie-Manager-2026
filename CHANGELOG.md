@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.23 - 2026-03-28
+
+- Planning mois : `Abdou` et `Cecile` ont maintenant un bleu dedie, un peu plus soutenu que le reste de l'equipe du matin, pour mieux les distinguer visuellement.
+- Les couleurs de section se propagent desormais sur toute la ligne en vue mois, y compris dans les cellules des jours et des horaires, afin d'avoir un rendu coherent entre `repere matin`, `equipe matin`, `equipe apres-midi` et `etudiants`.
+
 ## v0.5.22 - 2026-03-28
 
 - Planning : `Massimo` est maintenant traite comme coordinateur, avec un repere visuel renforce comme `Abdou`.

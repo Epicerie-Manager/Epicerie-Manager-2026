@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.30 - 2026-03-29
+
+- Planning mois : les demandes d'absence `En attente` s'affichent maintenant directement sur les cases du planning avec un rendu hachure, sans etre confondues avec une absence deja validee.
+- La vue Planning se resynchronise aussi avec les demandes d'absence au chargement et lors des mises a jour, afin que la surbrillance pending apparaisse, disparaisse ou se transforme correctement apres validation ou suppression.
+
 ## v0.5.29 - 2026-03-29
 
 - Correctif `Plan TG` sur l'ajout de rayon : le positionnement `fin de liste`, `avant` et `après` respecte maintenant réellement l'emplacement choisi au lieu de remettre le nouveau rayon en tête.

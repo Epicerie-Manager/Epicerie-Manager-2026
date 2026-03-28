@@ -2,7 +2,12 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { sheetPlanningBinomes } from "@/lib/planning-sheet-data";
-import { syncPlanningStatusToAbsenceInSupabase } from "@/lib/absences-store";
+import {
+  getAbsencesUpdatedEventName,
+  loadAbsenceRequests,
+  syncAbsencesFromSupabase,
+  syncPlanningStatusToAbsenceInSupabase,
+} from "@/lib/absences-store";
 import {
   defaultPlanningOverrides,
   defaultPlanningBinomes,
@@ -153,6 +158,10 @@ function isAbsenceStatus(status){
   return ["CP","MAL","CONGE_MAT","FORM","FERIE","X","ABS"].includes(String(status||"").toUpperCase());
 }
 
+function isApprovedAbsenceStatus(status){
+  return ["CP","MAL","CONGE_MAT","FORM","FERIE","ABS"].includes(String(status||"").toUpperCase());
+}
+
 function comparePlanningEmployees(a,b){
   const nameA=normalizePlanningEmployeeName(a?.n);
   const nameB=normalizePlanningEmployeeName(b?.n);
@@ -277,6 +286,75 @@ function isPlanningAlertDay(date,morningCount){
   return date.getDay()!==0&&morningCount<8;
 }
 
+function getPendingPlanningStatus(absenceType){
+  const upper=String(absenceType||"").toUpperCase().trim();
+  if(upper==="CP") return "CP";
+  if(upper==="MAL") return "MAL";
+  if(upper==="CONGE_MAT") return "CONGE_MAT";
+  if(upper==="FORM") return "FORM";
+  if(upper==="FERIE") return "FERIE";
+  return "ABS";
+}
+
+function listPendingPlanningDates(startDate,endDate){
+  const current=new Date(`${startDate}T00:00:00`);
+  const end=new Date(`${endDate||startDate}T00:00:00`);
+  if(Number.isNaN(current.getTime())||Number.isNaN(end.getTime())) return [];
+  const dates=[];
+  while(current<=end){
+    if(current.getDay()!==0) dates.push(formatPlanningDate(current));
+    current.setDate(current.getDate()+1);
+  }
+  return dates;
+}
+
+function getPendingPlanningEmployees(employeeName){
+  const normalized=normalizePlanningEmployeeName(employeeName);
+  if(!normalized) return [];
+  if(normalized==="TOUS") return EMPS.map((emp)=>normalizePlanningEmployeeName(emp.n));
+  return [normalized];
+}
+
+function buildPendingAbsenceLookup(requests){
+  const lookup=new Map();
+  requests.forEach((request)=>{
+    if(request?.status!=="EN_ATTENTE") return;
+    const status=getPendingPlanningStatus(request.type);
+    const employees=getPendingPlanningEmployees(request.employee);
+    const dates=listPendingPlanningDates(request.startDate,request.endDate);
+    employees.forEach((employeeName)=>{
+      dates.forEach((date)=>{
+        lookup.set(`${employeeName}_${date}`,status);
+      });
+    });
+  });
+  return lookup;
+}
+
+function getPendingAbsenceStatusForDate(emp,date,pendingAbsenceLookup){
+  return pendingAbsenceLookup.get(`${normalizePlanningEmployeeName(emp?.n)}_${formatPlanningDate(date)}`) || null;
+}
+
+function hasBlockingApprovedAbsence(emp,date,status,overrides){
+  if(isApprovedAbsenceStatus(status)) return true;
+  if(String(status||"").toUpperCase()!=="X") return false;
+  const key=`${emp.n}_${formatPlanningDate(date)}`;
+  return String(overrides[key]?.s||"").toUpperCase()==="X";
+}
+
+function getPendingCellStyles(statusConfig){
+  return {
+    color:statusConfig.c,
+    background:`repeating-linear-gradient(135deg,rgba(255,255,255,0.72) 0px,rgba(255,255,255,0.72) 6px,rgba(255,255,255,0.16) 6px,rgba(255,255,255,0.16) 12px), ${statusConfig.bg}`,
+    border:`1px dashed ${statusConfig.c}66`,
+    boxShadow:"inset 0 0 0 1px rgba(255,255,255,0.32)",
+  };
+}
+
+function loadPendingAbsenceRequests(){
+  return loadAbsenceRequests().filter((request)=>request.status==="EN_ATTENTE");
+}
+
 function splitPlanningItemsInColumns(items,columnCount=2){
   const columnSize=Math.ceil(items.length/columnCount);
   return Array.from({length:columnCount},(_,index)=>items.slice(index*columnSize,(index+1)*columnSize));
@@ -319,7 +397,7 @@ const CartIcon=<svg width="14" height="14" viewBox="0 0 24 24" fill="none" strok
 const LinkIcon=<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={V.mc} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>;
 const EditIcon=<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
 
-const Legend=()=>(<div style={{display:"flex",gap:12,flexWrap:"wrap",padding:"8px 0"}}>{Object.entries(ST).filter(([k])=>k!=="X").map(([k,v])=>(<div key={k} style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:V.muted}}><div style={{width:10,height:10,borderRadius:3,background:v.c,opacity:0.8}}/>{v.l}</div>))}<div style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:V.muted}}><span style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:14,height:12,borderRadius:4,background:`${V.amber}12`,border:`1px solid ${V.amber}30`}}><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={V.amber} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg></span>Tri caddie</div></div>);
+const Legend=()=>(<div style={{display:"flex",gap:12,flexWrap:"wrap",padding:"8px 0"}}>{Object.entries(ST).filter(([k])=>k!=="X").map(([k,v])=>(<div key={k} style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:V.muted}}><div style={{width:10,height:10,borderRadius:3,background:v.c,opacity:0.8}}/>{v.l}</div>))}<div style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:V.muted}}><div style={{width:14,height:12,borderRadius:4,...getPendingCellStyles({c:"#475569",bg:"#f8fafc"})}}/>Demande en attente</div><div style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:V.muted}}><span style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:14,height:12,borderRadius:4,background:`${V.amber}12`,border:`1px solid ${V.amber}30`}}><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={V.amber} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg></span>Tri caddie</div></div>);
 
 const EditScopeOption=({value,label,desc,scope,setScope})=>(
   <label onClick={()=>setScope(value)} style={{
@@ -469,7 +547,7 @@ const EditBinomeModal=({index,pair,allNames,onSave,onClose})=>{
 /* ═══════════════════════════════════════════════════════════
    VUE MOIS — with hours displayed
    ═══════════════════════════════════════════════════════════ */
-const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
+const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,onEdit})=>{
   const days=daysInMonth(year,month);
   const dates=Array.from({length:days},(_,i)=>new Date(year,month,i+1));
   const sections=getPlanningMonthSections(filter);
@@ -552,6 +630,9 @@ const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
                       const dow=date.getDay();
                       const s=getStatus(emp,date,overrides);
                       const sc=ST[s]||ST.X;
+                      const pendingStatus=getPendingAbsenceStatusForDate(emp,date,pendingAbsenceLookup);
+                      const hasPendingDisplay=Boolean(pendingStatus)&&!hasBlockingApprovedAbsence(emp,date,s,overrides);
+                      const pendingConfig=hasPendingDisplay?(ST[pendingStatus]||ST.ABS):null;
                       const h=s==="PRESENT"?getHoraire(emp,date,overrides):null;
                       const isCustomH=s==="PRESENT"&&isHoraireOverride(emp,date,overrides);
                       const triC=isTriCaddie(emp.n,dow,triData);
@@ -565,7 +646,14 @@ const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
                           borderLeft:isT?"2px solid #16a34a":"none",
                           borderRight:isT?"2px solid #16a34a":"none",
                         }}>
-                          {s==="PRESENT"?(
+                          {hasPendingDisplay?(
+                            <div title={`Demande en attente — ${pendingConfig.l}`} style={{
+                              fontSize:8,fontWeight:800,borderRadius:6,padding:"4px 2px",lineHeight:1.2,
+                              ...getPendingCellStyles(pendingConfig),
+                            }}>
+                              {pendingConfig.short}
+                            </div>
+                          ):s==="PRESENT"?(
                             <div style={{
                               fontSize:8,fontWeight:700,color:section.presentText,
                               background:isCustomH?section.presentBgStrong:section.presentBg,
@@ -792,6 +880,7 @@ export default function PlanningApp(){
   const [editBinome,setEditBinome]=useState(null); // index
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState("");
+  const [pendingRequests,setPendingRequests]=useState(()=>loadPendingAbsenceRequests());
   const activeMonthKey=useMemo(()=>{
     if(year===null || month===null) return getPlanningMonthKey(new Date());
     return getPlanningMonthKey(new Date(year,month,1));
@@ -841,6 +930,19 @@ export default function PlanningApp(){
       setRhVersion((v)=>v+1);
     });
   },[activeMonthKey,year,month]);
+
+  useEffect(()=>{
+    const refreshPendingAbsences=()=>{
+      setPendingRequests(loadPendingAbsenceRequests());
+    };
+    refreshPendingAbsences();
+    void syncAbsencesFromSupabase().then((synced)=>{
+      if(synced) refreshPendingAbsences();
+    });
+    const eventName=getAbsencesUpdatedEventName();
+    window.addEventListener(eventName,refreshPendingAbsences);
+    return ()=>window.removeEventListener(eventName,refreshPendingAbsences);
+  },[]);
 
   const weekStart=useMemo(()=>{
     if(!selectedDate) return null;
@@ -937,6 +1039,7 @@ export default function PlanningApp(){
   const sCount=kpiGroups.soir.length;
   const eCount=kpiGroups.etu.length;
   const absCount=kpiGroups.absRH.length+kpiGroups.absCP.length+kpiGroups.absMAL.length+kpiGroups.absOther.length;
+  const pendingAbsenceLookup=buildPendingAbsenceLookup(pendingRequests);
   const triColumns=splitPlanningItemsInColumns(
     Object.entries(triData).sort(([a],[b])=>Number(a)-Number(b)),
     2,
@@ -1006,7 +1109,7 @@ export default function PlanningApp(){
         <Card style={view==="semaine"?{padding:14}:{}}>
           {view!=="semaine"&&<Legend/>}
           {view!=="semaine"&&<div style={{height:1,background:`linear-gradient(90deg,transparent,${V.line},transparent)`,margin:"8px 0 12px"}}/>}
-          {view==="mois"&&<VueMois year={year} month={month} filter={filter} overrides={overrides} triData={triData} onEdit={handleEdit}/>}
+          {view==="mois"&&<VueMois year={year} month={month} filter={filter} overrides={overrides} triData={triData} pendingAbsenceLookup={pendingAbsenceLookup} onEdit={handleEdit}/>}
           {view==="semaine"&&<VueSemaine weekStart={weekStart} overrides={overrides} triData={triData} onEdit={handleEdit}/>}
           {view==="jour"&&<VueJour date={selectedDate} overrides={overrides} triData={triData} binomes={binomes} onEdit={handleEdit}/>}
         </Card>

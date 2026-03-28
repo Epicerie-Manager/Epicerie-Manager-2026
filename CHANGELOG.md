@@ -21,6 +21,12 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.20 - 2026-03-28
+
+- Planning : ajout du dimanche dans les vues mois, semaine et jour.
+- Le dimanche est maintenant visible et editable, avec un statut par defaut `non travaille` pour toute l'equipe.
+- Les alertes de sous-effectif ne se declenchent plus a tort le dimanche, qui reste une journee exceptionnelle par defaut.
+
 ## v0.5.19 - 2026-03-28
 
 - Dashboard : retrait des encarts `Tri caddie` et `Binome repos` dans la tuile `Semaine / Effectifs par jour` pour eviter la redondance avec les autres cartes.

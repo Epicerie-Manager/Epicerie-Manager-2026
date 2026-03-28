@@ -123,8 +123,8 @@ function syncPlanningDataFromRh(){
   }
 }
 
-const JL=["","LUN","MAR","MER","JEU","VEN","SAM","DIM"];
-const JL_FULL=["","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi","Dimanche"];
+const JL=["DIM","LUN","MAR","MER","JEU","VEN","SAM"];
+const JL_FULL=["Dimanche","Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
 const MOIS_FR=["Janvier","Février","Mars","Avril","Mai","Juin","Juillet","Août","Septembre","Octobre","Novembre","Décembre"];
 const JC_SHORT=["Dim","Lun","Mar","Mer","Jeu","Ven","Sam"];
 
@@ -179,6 +179,10 @@ function isHoraireOverride(emp,date,overrides){
 }
 
 function isTriCaddie(name,dow,triData){const p=triData[dow];return p&&p.includes(name);}
+
+function isPlanningAlertDay(date,morningCount){
+  return date.getDay()!==0&&morningCount<8;
+}
 
 function getDayGroups(date, overrides){
   const grouped={matin:[],soir:[],etu:[],absRH:[],absCP:[],absMAL:[],absOther:[]};
@@ -381,8 +385,7 @@ const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
           <tr style={{background:"#f8fafc"}}>
             <th style={{padding:"8px 8px",fontSize:11,fontWeight:700,color:V.light,textAlign:"left",borderBottom:`2px solid ${V.line}`,position:"sticky",left:0,background:"#f8fafc",zIndex:3,minWidth:85}}>Employé</th>
             {dates.map(d=>{
-              const dow=d.getDay();if(dow===0)return null;
-              const isW=dow===6;const isT=formatPlanningDate(d)===todayS;
+              const dow=d.getDay();const isWeekend=dow===0||dow===6;const isT=formatPlanningDate(d)===todayS;
               return(<th key={d.getDate()} style={{
                 padding:"6px 2px",
                 fontSize:10,
@@ -393,10 +396,10 @@ const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
                 borderLeft:isT?"2px solid #16a34a":"none",
                 borderRight:isT?"2px solid #16a34a":"none",
                 minWidth:68,
-                color:isT?V.mc:isW?V.mc+"90":V.light,
+                color:isT?V.mc:isWeekend?V.mc+"90":V.light,
                 background:"transparent",
               }}>
-                <div style={{fontSize:9,color:isT?V.mc:isW?V.mc+"70":V.light,fontWeight:700}}>{JC_SHORT[dow]}</div>{d.getDate()}
+                <div style={{fontSize:9,color:isT?V.mc:isWeekend?V.mc+"70":V.light,fontWeight:700}}>{JC_SHORT[dow]}</div>{d.getDate()}
               </th>);
             })}
             <th style={{padding:"8px 4px",fontSize:10,fontWeight:700,color:V.mc,textAlign:"center",borderBottom:`2px solid ${V.line}`,position:"sticky",right:0,background:"#f8fafc",zIndex:3,minWidth:30}}>Jrs</th>
@@ -415,7 +418,7 @@ const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
                   </div>
                 </td>
                 {dates.map(date=>{
-                  const dow=date.getDay();if(dow===0)return null;
+                  const dow=date.getDay();
                   const s=getStatus(emp,date,overrides);
                   const sc=ST[s]||ST.X;
                   const h=s==="PRESENT"?getHoraire(emp,date,overrides):null;
@@ -482,11 +485,10 @@ const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
           <tr style={{background:"#f8fafc"}}>
             <td style={{padding:"6px 8px",fontSize:10,fontWeight:800,borderTop:`2px solid ${V.line}`,position:"sticky",left:0,background:"#f8fafc",zIndex:2,color:V.mc}}>EFFECTIF</td>
             {dates.map(date=>{
-              const dow=date.getDay();if(dow===0)return null;
               const isT=formatPlanningDate(date)===todayS;
               const m=EMPS.filter(e=>e.t==="M"&&getStatus(e,date,overrides)==="PRESENT").length;
               const s=EMPS.filter(e=>e.t==="S"&&getStatus(e,date,overrides)==="PRESENT").length;
-              const alert=m<8;
+              const alert=isPlanningAlertDay(date,m);
               return(<td key={date.getDate()} style={{
                 textAlign:"center",
                 padding:"4px 0",
@@ -512,17 +514,17 @@ const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
    VUE SEMAINE
    ═══════════════════════════════════════════════════════════ */
 const VueSemaine=({weekStart,overrides,triData,onEdit})=>{
-  const days=Array.from({length:6},(_,i)=>{const d=new Date(weekStart);d.setDate(d.getDate()+i);return d;});
+  const days=Array.from({length:7},(_,i)=>{const d=new Date(weekStart);d.setDate(d.getDate()+i);return d;});
   const todayS=formatPlanningDate(new Date());
 
   return(
-    <div style={{display:"grid",gridTemplateColumns:"repeat(6,1fr)",gap:10}}>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:10}}>
       {days.map(date=>{
         const dow=date.getDay();const isT=formatPlanningDate(date)===todayS;
         const matP=sortPlanningEmployees(EMPS.filter(e=>e.t==="M"&&getStatus(e,date,overrides)==="PRESENT"));
         const soirP=sortPlanningEmployees(EMPS.filter(e=>e.t==="S"&&getStatus(e,date,overrides)==="PRESENT"));
         const absents=sortPlanningEmployees(EMPS.filter(e=>e.actif&&!["PRESENT","X"].includes(getStatus(e,date,overrides))));
-        const triPair=triData[dow];const alert=matP.length<8;
+        const triPair=triData[dow];const alert=isPlanningAlertDay(date,matP.length);
 
         return(
           <Card key={date.getDate()} style={{padding:12,borderTop:isT?`3px solid ${V.mc}`:alert?`3px solid ${V.red}`:`3px solid transparent`}}>
@@ -581,7 +583,7 @@ const VueJour=({date,overrides,triData,binomes,onEdit})=>{
   const dow=date.getDay();const dayLabel=date.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
   const todayS=formatPlanningDate(new Date());const isT=formatPlanningDate(date)===todayS;
   const grouped=getDayGroups(date,overrides);
-  const triPair=triData[dow];const alert=grouped.matin.length<8;
+  const triPair=triData[dow];const alert=isPlanningAlertDay(date,grouped.matin.length);
 
   const EmpCard=({e,horaire,tri})=>(
     <div onClick={()=>onEdit(e,date)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:14,background:isCoordinatorEmployee(e.n)?"#f3f8ff":"rgba(248,250,252,0.6)",border:`1px solid ${isCoordinatorEmployee(e.n)?`${V.mc}25`:V.border}`,cursor:"pointer",borderLeft:tri?`3px solid ${V.amber}`:isCoordinatorEmployee(e.n)?`3px solid ${V.mc}`:"3px solid transparent"}}
@@ -708,14 +710,14 @@ export default function PlanningApp(){
     return d;
   },[selectedDate]);
   const weekLabel=weekStart
-    ? `${weekStart.getDate()} ${MOIS_FR[weekStart.getMonth()].substring(0,3)} → ${new Date(weekStart.getTime()+5*864e5).getDate()} ${MOIS_FR[new Date(weekStart.getTime()+5*864e5).getMonth()].substring(0,3)}`
+    ? `${weekStart.getDate()} ${MOIS_FR[weekStart.getMonth()].substring(0,3)} → ${new Date(weekStart.getTime()+6*864e5).getDate()} ${MOIS_FR[new Date(weekStart.getTime()+6*864e5).getMonth()].substring(0,3)}`
     : "";
 
   const nav=(dir)=>{
     if(year===null || month===null || !selectedDate) return;
     if(view==="mois"){if(dir<0){if(month===0){setMonth(11);setYear(y=>y-1);}else setMonth(m=>m-1);}else{if(month===11){setMonth(0);setYear(y=>y+1);}else setMonth(m=>m+1);}}
     else if(view==="semaine"){setSelectedDate(d=>{const n=new Date(d);n.setDate(n.getDate()+(dir*7));return n;});}
-    else{setSelectedDate(d=>{const n=new Date(d);n.setDate(n.getDate()+dir);if(n.getDay()===0)n.setDate(n.getDate()+dir);return n;});}
+    else{setSelectedDate(d=>{const n=new Date(d);n.setDate(n.getDate()+dir);return n;});}
   };
 
   const handleEdit=(emp,date)=>{

@@ -11,7 +11,7 @@ import {
   balisageObjective,
   type BalisageEmployeeStat,
 } from "@/lib/balisage-data";
-import { getBalisageUpdatedEventName, loadBalisageData, saveBalisageData, saveBalisageEntryToSupabase, syncBalisageFromSupabase } from "@/lib/balisage-store";
+import { getBalisageUpdatedEventName, loadBalisageData, saveBalisageEntryToSupabase, syncBalisageFromSupabase } from "@/lib/balisage-store";
 import { moduleThemes } from "@/lib/theme";
 
 type SortBy = "name" | "total" | "alert";
@@ -83,6 +83,24 @@ function getCurrentBalisageMonthIndex(today = new Date()) {
   return 0;
 }
 
+function areMonthStatsEqual(a: BalisageEmployeeStat[], b: BalisageEmployeeStat[]) {
+  return a.length === b.length && a.every((item, index) => (
+    item.name === b[index]?.name &&
+    item.total === b[index]?.total &&
+    item.errorRate === b[index]?.errorRate
+  ));
+}
+
+function areBalisageDataEqual(
+  a: Record<string, BalisageEmployeeStat[]>,
+  b: Record<string, BalisageEmployeeStat[]>,
+) {
+  const keysA = Object.keys(a);
+  const keysB = Object.keys(b);
+  if (keysA.length !== keysB.length) return false;
+  return keysA.every((key) => areMonthStatsEqual(a[key] ?? [], b[key] ?? []));
+}
+
 export default function StatsPage() {
   const [activeMonthIndex, setActiveMonthIndex] = useState(() => getCurrentBalisageMonthIndex());
   const [sortBy, setSortBy] = useState<SortBy>("name");
@@ -105,11 +123,10 @@ export default function StatsPage() {
   }, [activeStats, sortBy]);
 
   useEffect(() => {
-    saveBalisageData(localData);
-  }, [localData]);
-
-  useEffect(() => {
-    const refresh = () => setLocalData(loadBalisageData());
+    const refresh = () => {
+      const nextData = loadBalisageData();
+      setLocalData((current) => (areBalisageDataEqual(current, nextData) ? current : nextData));
+    };
     void syncBalisageFromSupabase().then((synced) => {
       if (synced) refresh();
     });
@@ -143,45 +160,31 @@ export default function StatsPage() {
         : Number.isNaN(Number(editingErrorRate))
           ? null
           : Number(editingErrorRate);
-    const name = editingName;
+    const name = editingName.trim().toUpperCase();
     const monthId = activeMonth.id;
-    let savedEntry: BalisageEmployeeStat | undefined;
+    const totalToSave = newTotal ?? 0;
 
     setSaveError(null);
     setIsSaving(true);
-    setLocalData((current) => {
-      const updated = (current[monthId] ?? []).map((employee) =>
-        employee.name === name
-          ? {
-              ...employee,
-              total: newTotal ?? employee.total,
-              errorRate: editingErrorRate.trim() === "" ? null : (newErrorRate ?? employee.errorRate),
-            }
-          : employee,
-      );
-      const next = { ...current, [monthId]: updated };
-      savedEntry = updated.find((employee) => employee.name === name);
-      return next;
-    });
-
-    if (!savedEntry) {
-      setSaveError("Impossible de retrouver la ligne à enregistrer.");
-      setIsSaving(false);
-      return;
-    }
 
     const synced = await saveBalisageEntryToSupabase(
       monthId,
       name,
-      savedEntry.total,
-      savedEntry.errorRate,
+      totalToSave,
+      newErrorRate,
     );
 
     if (!synced) {
-      setSaveError("Modification enregistrée localement, mais la synchronisation Supabase a échoué.");
+      setSaveError("Échec de l'enregistrement dans Supabase. Aucune donnée locale n'a été conservée.");
       setIsSaving(false);
       return;
     }
+
+    await syncBalisageFromSupabase();
+    setLocalData((current) => {
+      const nextData = loadBalisageData();
+      return areBalisageDataEqual(current, nextData) ? current : nextData;
+    });
 
     setIsSaving(false);
     setEditingName(null);

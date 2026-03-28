@@ -14,6 +14,11 @@ let employeeIdByName = new Map<string, string>();
 
 type BalisageDataset = Record<string, BalisageEmployeeStat[]>;
 
+function emitBalisageUpdated() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(BALISAGE_UPDATED_EVENT));
+}
+
 function cloneDefaultData(): BalisageDataset {
   return Object.fromEntries(
     Object.entries(balisageData).map(([monthId, stats]) => [
@@ -64,8 +69,8 @@ export function loadBalisageData(): BalisageDataset {
 
 export function saveBalisageData(data: BalisageDataset) {
   if (!hasBrowserWindow()) return;
-  writeSessionCache(BALISAGE_STORAGE_KEY, data);
-  window.dispatchEvent(new Event(BALISAGE_UPDATED_EVENT));
+  const changed = writeSessionCache(BALISAGE_STORAGE_KEY, data);
+  if (changed) emitBalisageUpdated();
 }
 
 export function getBalisageUpdatedEventName() {
@@ -160,9 +165,9 @@ export async function syncBalisageFromSupabase() {
       else next[monthId].push(mapped);
     });
 
-    writeSessionCache(BALISAGE_STORAGE_KEY, next);
-    window.dispatchEvent(new Event(BALISAGE_UPDATED_EVENT));
-    return true;
+    const changed = writeSessionCache(BALISAGE_STORAGE_KEY, next);
+    if (changed) emitBalisageUpdated();
+    return changed;
   } catch {
     return false;
   }

@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.28 - 2026-03-29
+
+- Correctif du module `Balisage` : la page ne resauvegarde plus automatiquement son état d'écran dans le cache local, ce qui évite une boucle de refresh pouvant figer la navigation.
+- Les mises à jour `Balisage` passent maintenant d'abord par `Supabase`, puis l'interface se recharge depuis la source synchronisée au lieu de conserver une modification locale seule.
+
 ## v0.5.27 - 2026-03-29
 
 - Correctif du module `Plan TG` : les sauvegardes locales n'émettent plus de rafraîchissement global quand elles réécrivent exactement les mêmes données.

@@ -1,6 +1,6 @@
 {
   "name": "epicerie-manager-web",
-  "version": "0.5.27",
+  "version": "0.5.28",
   "private": true,
   "scripts": {
     "dev": "next dev",

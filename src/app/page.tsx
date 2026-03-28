@@ -8,7 +8,6 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { NavCard, NavCardGrid } from "@/components/ui/nav-card";
 import AgendaCard from "@/components/dashboard/agenda-card";
 import { moduleThemes } from "@/lib/theme";
-import { absenceRequests } from "@/lib/absences-data";
 import { loadAbsenceRequests, getAbsencesUpdatedEventName, syncAbsencesFromSupabase } from "@/lib/absences-store";
 import { balisageData, balisageMonths, balisageObjective, type BalisageEmployeeStat } from "@/lib/balisage-data";
 import { loadBalisageData, getBalisageUpdatedEventName, syncBalisageFromSupabase } from "@/lib/balisage-store";
@@ -172,7 +171,7 @@ export default function DashboardPage() {
   const plan  = moduleThemes.planning;
   const bal   = moduleThemes.balisage;
   const [now, setNow] = useState(() => new Date("2026-03-22T12:00:00+01:00"));
-  const [absences, setAbsences] = useState(absenceRequests);
+  const [absences, setAbsences] = useState(() => loadAbsenceRequests());
   const [planningOverrides, setPlanningOverrides] = useState<PlanningOverrides>({});
   const [planningTriData, setPlanningTriData] = useState<PlanningTriData>(defaultPlanningTriData);
   const [balisageDataState, setBalisageDataState] = useState<Record<string, BalisageEmployeeStat[]>>(balisageData);

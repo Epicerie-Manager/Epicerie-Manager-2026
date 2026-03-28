@@ -7,7 +7,6 @@ import { KPI, KPIRow } from "@/components/ui/kpi";
 import { ModuleHeader } from "@/components/layout/module-header";
 import { moduleThemes } from "@/lib/theme";
 import {
-  absenceRequests,
   absenceTypes,
   type AbsenceRequest,
   type AbsenceStatusId,
@@ -18,7 +17,6 @@ import {
   deleteAbsenceRequestInSupabase,
   getAbsencesUpdatedEventName,
   loadAbsenceRequests,
-  saveAbsenceRequests,
   syncPlanningFromAbsenceRequest,
   syncAbsencesFromSupabase,
   updateAbsenceStatusInSupabase,
@@ -45,14 +43,13 @@ function getDayDiff(startDate: string, endDate: string) {
 export default function AbsencesPage() {
   const theme = moduleThemes.absences;
   const [isInitialized, setIsInitialized] = useState(false);
-  const [requests, setRequests] = useState<AbsenceRequest[]>(absenceRequests);
+  const [requests, setRequests] = useState<AbsenceRequest[]>(() => loadAbsenceRequests());
   const [employees, setEmployees] = useState<string[]>(
     defaultRhEmployees.map((employee) => employee.n).sort((a, b) => a.localeCompare(b)),
   );
   const [statusFilter, setStatusFilter] = useState<FilterStatus>("ALL");
   const [employeeFilter, setEmployeeFilter] = useState<string>("ALL");
   const [showForm, setShowForm] = useState(false);
-  const nextId = useMemo(() => Math.max(0, ...requests.map((item) => item.id)) + 1, [requests]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [draft, setDraft] = useState<{
@@ -127,7 +124,7 @@ export default function AbsencesPage() {
     setError("");
     setBusy(true);
     try {
-      const created = await createAbsenceRequestInSupabase({
+      await createAbsenceRequestInSupabase({
         employee: draft.employee,
         type: draft.type,
         startDate: draft.startDate,
@@ -135,9 +132,7 @@ export default function AbsencesPage() {
         note: draft.note.trim() || undefined,
         status: "EN_ATTENTE",
       });
-      const nextRequests = [...requests, { ...created, id: nextId }];
-      setRequests(nextRequests);
-      saveAbsenceRequests(nextRequests);
+      setRequests(loadAbsenceRequests());
       setDraft({ employee: employees[0] ?? "", type: "CP", startDate: "", endDate: "", note: "" });
       setShowForm(false);
     } catch (nextError) {
@@ -154,9 +149,7 @@ export default function AbsencesPage() {
     setBusy(true);
     try {
       await updateAbsenceStatusInSupabase(request.dbId, status);
-      const nextRequests = requests.map((item) => (item.id === id ? { ...item, status } : item));
-      setRequests(nextRequests);
-      saveAbsenceRequests(nextRequests);
+      setRequests(loadAbsenceRequests());
       if (request.status === "APPROUVE" || status === "APPROUVE") {
         await syncPlanningFromAbsenceRequest(request);
       }
@@ -174,9 +167,7 @@ export default function AbsencesPage() {
     setBusy(true);
     try {
       await deleteAbsenceRequestInSupabase(request.dbId);
-      const nextRequests = requests.filter((item) => item.id !== id);
-      setRequests(nextRequests);
-      saveAbsenceRequests(nextRequests);
+      setRequests(loadAbsenceRequests());
       if (request.status === "APPROUVE") {
         await syncPlanningFromAbsenceRequest(request);
       }

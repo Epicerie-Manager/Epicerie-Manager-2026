@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.31 - 2026-03-29
+
+- Module `Absences` : retrait du cache navigateur pour les demandes d'absence, qui ne sont plus relues ni reecrites dans un stockage local de session.
+- Les pages `Absences`, `Planning` et `Dashboard` se mettent maintenant a jour a partir des reponses `Supabase` et d'un miroir memoire non persistant, avec purge de l'ancienne cle locale legacy.
+
 ## v0.5.30 - 2026-03-29
 
 - Planning mois : les demandes d'absence `En attente` s'affichent maintenant directement sur les cases du planning avec un rendu hachure, sans etre confondues avec une absence deja validee.

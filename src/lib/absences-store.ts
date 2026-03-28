@@ -1,55 +1,57 @@
-import { absenceRequests, type AbsenceRequest } from "@/lib/absences-data";
-import { hasBrowserWindow, purgeLegacyCacheKeys, readSessionCache, writeSessionCache } from "@/lib/browser-cache";
+import type { AbsenceRequest } from "@/lib/absences-data";
 import { getPlanningMonthKey, syncPlanningFromSupabase } from "@/lib/planning-store";
 import { createClient } from "@/lib/supabase";
 
 const ABSENCES_STORAGE_KEY = "epicerie-manager-absences-requests-v3";
 const ABSENCES_UPDATED_EVENT = "epicerie-manager:absences-updated";
 const PLANNING_SOURCE_MARKER = "SOURCE:PLANNING";
+let absenceRequestsSnapshot: AbsenceRequest[] = [];
+let didPurgeLegacyAbsencesStorage = false;
 
-function canUseStorage() {
-  return hasBrowserWindow();
+function canUseBrowserWindow() {
+  return typeof window !== "undefined";
 }
 
 function cloneRequests(requests: AbsenceRequest[]) {
   return requests.map((request) => ({ ...request }));
 }
 
-function isValidRequest(value: unknown): value is AbsenceRequest {
-  if (!value || typeof value !== "object") return false;
-  const candidate = value as Record<string, unknown>;
-  return (
-    typeof candidate.id === "number" &&
-    (candidate.dbId === undefined || typeof candidate.dbId === "string") &&
-    typeof candidate.employee === "string" &&
-    typeof candidate.type === "string" &&
-    typeof candidate.startDate === "string" &&
-    typeof candidate.endDate === "string" &&
-    typeof candidate.status === "string"
+function purgeLegacyAbsencesStorageKey() {
+  if (!canUseBrowserWindow() || didPurgeLegacyAbsencesStorage) return;
+  if (typeof window.localStorage !== "undefined") {
+    window.localStorage.removeItem(ABSENCES_STORAGE_KEY);
+  }
+  didPurgeLegacyAbsencesStorage = true;
+}
+
+function replaceAbsenceRequestsSnapshot(requests: AbsenceRequest[]) {
+  absenceRequestsSnapshot = cloneRequests(requests);
+}
+
+function upsertAbsenceRequestSnapshot(request: AbsenceRequest) {
+  const nextRequests = cloneRequests(absenceRequestsSnapshot);
+  const requestKey = request.dbId ? `db:${request.dbId}` : `local:${request.employee}:${request.startDate}:${request.endDate}:${request.type}`;
+  const index = nextRequests.findIndex((item) => {
+    const itemKey = item.dbId ? `db:${item.dbId}` : `local:${item.employee}:${item.startDate}:${item.endDate}:${item.type}`;
+    return itemKey === requestKey;
+  });
+  if (index === -1) {
+    nextRequests.push({ ...request });
+  } else {
+    nextRequests[index] = { ...request };
+  }
+  replaceAbsenceRequestsSnapshot(nextRequests);
+}
+
+function removeAbsenceRequestSnapshot(dbId: string) {
+  replaceAbsenceRequestsSnapshot(
+    absenceRequestsSnapshot.filter((request) => String(request.dbId ?? "") !== dbId),
   );
 }
 
 export function loadAbsenceRequests(): AbsenceRequest[] {
-  if (!canUseStorage()) {
-    return cloneRequests(absenceRequests);
-  }
-
-  try {
-    purgeLegacyCacheKeys([ABSENCES_STORAGE_KEY]);
-    const parsed = readSessionCache<unknown[]>(ABSENCES_STORAGE_KEY);
-    if (!parsed) return cloneRequests(absenceRequests);
-    if (!Array.isArray(parsed)) return cloneRequests(absenceRequests);
-    const sanitized = parsed.filter(isValidRequest);
-    return sanitized.length || parsed.length === 0 ? cloneRequests(sanitized) : cloneRequests(absenceRequests);
-  } catch {
-    return cloneRequests(absenceRequests);
-  }
-}
-
-export function saveAbsenceRequests(requests: AbsenceRequest[]) {
-  if (!canUseStorage()) return;
-  writeSessionCache(ABSENCES_STORAGE_KEY, cloneRequests(requests));
-  window.dispatchEvent(new Event(ABSENCES_UPDATED_EVENT));
+  purgeLegacyAbsencesStorageKey();
+  return cloneRequests(absenceRequestsSnapshot);
 }
 
 export function getAbsencesUpdatedEventName() {
@@ -57,7 +59,7 @@ export function getAbsencesUpdatedEventName() {
 }
 
 function emitAbsencesUpdated() {
-  if (typeof window === "undefined") return;
+  if (!canUseBrowserWindow()) return;
   window.dispatchEvent(new Event(ABSENCES_UPDATED_EVENT));
 }
 
@@ -219,6 +221,8 @@ export async function createAbsenceRequestInSupabase(
     }
     const mapped = mapRowToAbsenceRequest(data as Record<string, unknown>, 0, employeeNameById);
     if (!mapped) throw new Error("Impossible de relire la demande créée.");
+    upsertAbsenceRequestSnapshot(mapped);
+    emitAbsencesUpdated();
     return mapped;
   } catch (error) {
     throw normalizeActionError(error);
@@ -228,18 +232,30 @@ export async function createAbsenceRequestInSupabase(
 export async function updateAbsenceStatusInSupabase(dbId: string, status: AbsenceRequest["status"]) {
   try {
     const supabase = createClient();
-    const { error } = await supabase
+    const employeeIdByName = await getEmployeeIdByName();
+    const employeeNameById = new Map<string, string>();
+    for (const [name, id] of employeeIdByName.entries()) {
+      employeeNameById.set(id, name);
+    }
+
+    const { data, error } = await supabase
       .from("absences")
       .update({ statut: status })
-      .eq("id", dbId);
+      .eq("id", dbId)
+      .select("*")
+      .single();
     if (error) throw error;
+    const mapped = mapRowToAbsenceRequest(data as Record<string, unknown>, 0, employeeNameById);
+    if (!mapped) throw new Error("Impossible de relire la demande mise à jour.");
+    upsertAbsenceRequestSnapshot(mapped);
+    emitAbsencesUpdated();
   } catch (error) {
     throw normalizeActionError(error);
   }
 }
 
 export async function syncPlanningFromAbsenceRequest(absence: Pick<AbsenceRequest, "startDate">) {
-  if (!canUseStorage()) return false;
+  if (!canUseBrowserWindow()) return false;
   return syncPlanningFromSupabase(getPlanningMonthKeyForDate(absence.startDate));
 }
 
@@ -344,13 +360,16 @@ export async function deleteAbsenceRequestInSupabase(dbId: string) {
       .delete()
       .eq("id", dbId);
     if (error) throw error;
+    removeAbsenceRequestSnapshot(dbId);
+    emitAbsencesUpdated();
   } catch (error) {
     throw normalizeActionError(error);
   }
 }
 
 export async function syncAbsencesFromSupabase() {
-  if (!canUseStorage()) return false;
+  if (!canUseBrowserWindow()) return false;
+  purgeLegacyAbsencesStorageKey();
 
   try {
     const supabase = createClient();
@@ -378,7 +397,7 @@ export async function syncAbsencesFromSupabase() {
       .map((row: Record<string, unknown>, index) => mapRowToAbsenceRequest(row, index, employeeNameById))
       .filter((row): row is AbsenceRequest => row !== null);
 
-    writeSessionCache(ABSENCES_STORAGE_KEY, cloneRequests(mapped));
+    replaceAbsenceRequestsSnapshot(mapped);
     emitAbsencesUpdated();
     return true;
   } catch {

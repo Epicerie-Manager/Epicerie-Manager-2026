@@ -21,6 +21,10 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.19 - 2026-03-28
+
+- Dashboard : retrait des encarts `Tri caddie` et `Binome repos` dans la tuile `Semaine / Effectifs par jour` pour eviter la redondance avec les autres cartes.
+
 ## v0.5.18 - 2026-03-28
 
 - Ajustement visuel de la vue mois du planning : les cellules `Present` retrouvent un rendu coherent meme quand les overrides techniques ont ete nettoyes.

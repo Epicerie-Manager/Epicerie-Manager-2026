@@ -14,19 +14,15 @@ import { balisageData, balisageMonths, balisageObjective, type BalisageEmployeeS
 import { loadBalisageData, getBalisageUpdatedEventName, syncBalisageFromSupabase } from "@/lib/balisage-store";
 import {
   planningEmployees,
-  defaultPlanningBinomes,
   defaultPlanningTriData,
-  loadPlanningBinomes,
   loadPlanningOverrides,
   loadPlanningTriData,
   getPlanningStatus,
   getPlanningTriPairForDate,
-  getPlanningBinomeForDate,
   getPlanningUpdatedEventName,
   syncPlanningFromSupabase,
   type PlanningOverrides,
   type PlanningTriData,
-  type PlanningBinomes,
 } from "@/lib/planning-store";
 import { getRhUpdatedEventName, syncRhFromSupabase } from "@/lib/rh-store";
 import { plateauOperationsByMonth } from "@/lib/plateau-data";
@@ -179,7 +175,6 @@ export default function DashboardPage() {
   const [absences, setAbsences] = useState(absenceRequests);
   const [planningOverrides, setPlanningOverrides] = useState<PlanningOverrides>({});
   const [planningTriData, setPlanningTriData] = useState<PlanningTriData>(defaultPlanningTriData);
-  const [planningBinomes, setPlanningBinomes] = useState<PlanningBinomes>(defaultPlanningBinomes);
   const [balisageDataState, setBalisageDataState] = useState<Record<string, BalisageEmployeeStat[]>>(balisageData);
 
   useEffect(() => {
@@ -188,7 +183,6 @@ export default function DashboardPage() {
       setAbsences(loadAbsenceRequests());
       setPlanningOverrides(loadPlanningOverrides());
       setPlanningTriData(loadPlanningTriData());
-      setPlanningBinomes(loadPlanningBinomes());
       setBalisageDataState(loadBalisageData());
     };
 
@@ -238,7 +232,6 @@ export default function DashboardPage() {
   }, [planningOverrides, today]);
 
   const triPair = getPlanningTriPairForDate(today, planningTriData) ?? [];
-  const binomePair = getPlanningBinomeForDate(today, planningBinomes) ?? [];
 
   const weekCards = useMemo(() => {
     const base = new Date(today);
@@ -563,31 +556,6 @@ export default function DashboardPage() {
                     fontWeight: (d as { alert?: boolean }).alert ? 700 : 400,
                   }}>
                     {d.sub}
-                  </div>
-                </div>
-              ))}
-            </div>
-
-            <Divider />
-
-            <div style={{ display: "flex", gap: "8px" }}>
-              {[
-                { label: "Tri caddie", value: triPair.length ? triPair.join(" · ") : "Non défini" },
-                { label: "Binôme repos", value: binomePair.length ? binomePair.join(" · ") : "Non défini" },
-              ].map((b) => (
-                <div key={b.label} style={{
-                  flex: 1,
-                  background: plan.light, border: `1px solid ${plan.medium}`,
-                  borderRadius: "12px", padding: "10px 14px",
-                }}>
-                  <div style={{
-                    fontSize: "10px", fontWeight: 700, textTransform: "uppercase",
-                    letterSpacing: "0.05em", color: plan.color, marginBottom: "4px",
-                  }}>
-                    {b.label}
-                  </div>
-                  <div style={{ fontSize: "12px", fontWeight: 600, color: "#0f172a" }}>
-                    {b.value}
                   </div>
                 </div>
               ))}

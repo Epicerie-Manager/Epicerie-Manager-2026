@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.24 - 2026-03-28
+
+- Planning mois : le bloc `Repères matin` de `Abdou` et `Cecile` passe d'un bleu discret a un vert clair plus visible pour mieux ressortir du reste de l'equipe matin.
+- Ce vert clair est applique sur toute la ligne en vue mois, y compris la colonne `Employe`, les cellules des jours et les horaires, pour un reperage immediat.
+
 ## v0.5.23 - 2026-03-28
 
 - Planning mois : `Abdou` et `Cecile` ont maintenant un bleu dedie, un peu plus soutenu que le reste de l'equipe du matin, pour mieux les distinguer visuellement.

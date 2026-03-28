@@ -53,8 +53,15 @@ export function readSessionCache<T>(key: string): T | null {
 }
 
 export function writeSessionCache(key: string, value: unknown) {
-  sessionCache.set(key, JSON.stringify(value));
+  const serialized = JSON.stringify(value);
+  if (sessionCache.get(key) === serialized) {
+    purgeLegacyCacheKeys([key]);
+    return false;
+  }
+
+  sessionCache.set(key, serialized);
   purgeLegacyCacheKeys([key]);
+  return true;
 }
 
 export function clearSessionCache(key: string) {

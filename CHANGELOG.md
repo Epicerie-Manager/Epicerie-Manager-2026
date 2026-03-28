@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.27 - 2026-03-29
+
+- Correctif du module `Plan TG` : les sauvegardes locales n'émettent plus de rafraîchissement global quand elles réécrivent exactement les mêmes données.
+- La page `Plan TG` ignore maintenant les rechargements redondants quand l'état reçu est identique, ce qui évite un effet de boucle pouvant figer la navigation vers les autres modules.
+
 ## v0.5.26 - 2026-03-29
 
 - Planning mois : la ligne `Effectif` affiche maintenant une legende explicite `matin` et `après-midi` dans la cellule de gauche pour clarifier la lecture des deux niveaux.

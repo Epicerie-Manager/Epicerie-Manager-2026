@@ -125,6 +125,42 @@ function normalizePlans(plans:TgWeekPlanRow[], rayons:TgRayon[], map:Map<string,
   return out;
 }
 
+function areStringListsEqual(a:string[],b:string[]){
+  return a.length===b.length && a.every((value,index)=>value===b[index]);
+}
+
+function areAssignmentsEqual(a:TgDefaultAssignment[],b:TgDefaultAssignment[]){
+  return a.length===b.length && a.every((value,index)=>(
+    value.employee===b[index]?.employee &&
+    value.rayon===b[index]?.rayon
+  ));
+}
+
+function areRayonsEqual(a:TgRayon[],b:TgRayon[]){
+  return a.length===b.length && a.every((value,index)=>(
+    value.rayon===b[index]?.rayon &&
+    value.family===b[index]?.family &&
+    value.order===b[index]?.order &&
+    value.active===b[index]?.active &&
+    (value.startWeekId ?? "")===(b[index]?.startWeekId ?? "")
+  ));
+}
+
+function arePlansEqual(a:TgWeekPlanRow[],b:TgWeekPlanRow[]){
+  return a.length===b.length && a.every((value,index)=>(
+    value.weekId===b[index]?.weekId &&
+    value.rayon===b[index]?.rayon &&
+    value.family===b[index]?.family &&
+    value.defaultResponsible===b[index]?.defaultResponsible &&
+    value.gbProduct===b[index]?.gbProduct &&
+    value.tgResponsible===b[index]?.tgResponsible &&
+    value.tgProduct===b[index]?.tgProduct &&
+    value.tgQuantity===b[index]?.tgQuantity &&
+    value.tgMechanic===b[index]?.tgMechanic &&
+    value.hasOperation===b[index]?.hasOperation
+  ));
+}
+
 function RayonCardPlan({row,isSelected,onClick,theme}:{row:TgWeekPlanRow;isSelected:boolean;onClick:()=>void;theme:{color:string;medium:string}}){
   const hasData=!!(row.tgProduct||row.gbProduct);
   return <div onClick={onClick} style={{borderRadius:10,border:isSelected?`2px solid ${theme.color}`:"1px solid #dbe3eb",overflow:"hidden",cursor:"pointer",background:"#fff",boxShadow:isSelected?`0 0 0 3px ${theme.medium}`:"none"}}>
@@ -187,10 +223,11 @@ export default function PlanTgPage(){
       const nextRayons = resequence(loadTgRayons());
       const nextAssignments = loadTgDefaultAssignments();
       const nextPlans = normalizePlans(loadTgWeekPlans(), nextRayons, buildAssignmentMap(nextAssignments));
-      setRayons(nextRayons);
-      setAssignments(nextAssignments);
-      setPlans(nextPlans);
-      setCustomMechanics(loadTgCustomMechanics());
+      const nextMechanics = loadTgCustomMechanics();
+      setRayons((current)=>areRayonsEqual(current,nextRayons)?current:nextRayons);
+      setAssignments((current)=>areAssignmentsEqual(current,nextAssignments)?current:nextAssignments);
+      setPlans((current)=>arePlansEqual(current,nextPlans)?current:nextPlans);
+      setCustomMechanics((current)=>areStringListsEqual(current,nextMechanics)?current:nextMechanics);
     };
     void syncTgFromSupabase().then((synced)=>{
       if(synced) refresh();

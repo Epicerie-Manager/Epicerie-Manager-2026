@@ -92,8 +92,8 @@ export function loadTgRayons(): TgRayon[] {
 
 export function saveTgRayons(rayons: TgRayon[]) {
   if (!canUseStorage()) return;
-  writeSessionCache(TG_RAYONS_KEY, rayons);
-  emitTgUpdated();
+  const changed = writeSessionCache(TG_RAYONS_KEY, rayons);
+  if (changed) emitTgUpdated();
 }
 
 export function loadTgDefaultAssignments(): TgDefaultAssignment[] {
@@ -112,8 +112,8 @@ export function loadTgDefaultAssignments(): TgDefaultAssignment[] {
 
 export function saveTgDefaultAssignments(assignments: TgDefaultAssignment[]) {
   if (!canUseStorage()) return;
-  writeSessionCache(TG_DEFAULT_ASSIGNMENTS_KEY, assignments);
-  emitTgUpdated();
+  const changed = writeSessionCache(TG_DEFAULT_ASSIGNMENTS_KEY, assignments);
+  if (changed) emitTgUpdated();
 }
 
 export function loadTgWeekPlans(): TgWeekPlanRow[] {
@@ -132,8 +132,8 @@ export function loadTgWeekPlans(): TgWeekPlanRow[] {
 
 export function saveTgWeekPlans(plans: TgWeekPlanRow[]) {
   if (!canUseStorage()) return;
-  writeSessionCache(TG_WEEK_PLANS_KEY, plans);
-  emitTgUpdated();
+  const changed = writeSessionCache(TG_WEEK_PLANS_KEY, plans);
+  if (changed) emitTgUpdated();
 }
 
 export function loadTgCustomMechanics(): string[] {
@@ -259,10 +259,12 @@ export async function syncTgFromSupabase() {
       employee: assignmentMap.get(assignment.rayon) ?? assignment.employee,
     }));
 
-    writeSessionCache(TG_WEEK_PLANS_KEY, nextPlans);
-    writeSessionCache(TG_DEFAULT_ASSIGNMENTS_KEY, nextAssignments);
-    emitTgUpdated();
-    return true;
+    const plansChanged = writeSessionCache(TG_WEEK_PLANS_KEY, nextPlans);
+    const assignmentsChanged = writeSessionCache(TG_DEFAULT_ASSIGNMENTS_KEY, nextAssignments);
+    if (plansChanged || assignmentsChanged) {
+      emitTgUpdated();
+    }
+    return plansChanged || assignmentsChanged;
   } catch {
     return false;
   }

@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.25 - 2026-03-29
+
+- Planning mois : les tuiles `Tri caddie` et `Binômes repos` passent en affichage compact sur deux colonnes internes pour reduire nettement leur hauteur.
+- `Tri caddie` affiche maintenant `lun/mar/mer` puis `jeu/ven/sam`, et les `Binômes repos` sont repartis en `1/2/3` puis `4/5/6`, tout en gardant chaque ligne modifiable.
+
 ## v0.5.24 - 2026-03-28
 
 - Planning mois : le bloc `Repères matin` de `Abdou` et `Cecile` passe d'un bleu discret a un vert clair plus visible pour mieux ressortir du reste de l'equipe matin.

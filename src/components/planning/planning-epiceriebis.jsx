@@ -277,6 +277,11 @@ function isPlanningAlertDay(date,morningCount){
   return date.getDay()!==0&&morningCount<8;
 }
 
+function splitPlanningItemsInColumns(items,columnCount=2){
+  const columnSize=Math.ceil(items.length/columnCount);
+  return Array.from({length:columnCount},(_,index)=>items.slice(index*columnSize,(index+1)*columnSize));
+}
+
 function getDayGroups(date, overrides){
   const grouped={matin:[],soir:[],etu:[],absRH:[],absCP:[],absMAL:[],absOther:[]};
   EMPS.forEach((e)=>{
@@ -307,7 +312,6 @@ function getDayGroups(date, overrides){
    ═══════════════════════════════════════════════════════════ */
 const Card=({children,style})=>(<div style={{background:V.card,backdropFilter:"blur(12px)",border:`1px solid ${V.border}`,borderRadius:20,boxShadow:V.shadow,padding:22,...style}}>{children}</div>);
 const Kicker=({label,icon})=>(<div style={{display:"inline-flex",alignItems:"center",gap:7,padding:"5px 14px",borderRadius:10,background:V.mM,color:V.mD,fontSize:11,fontWeight:700,letterSpacing:"0.04em"}}>{icon}<span>{label}</span></div>);
-const H2=({children})=>(<h2 style={{margin:"10px 0 6px",fontSize:20,fontWeight:700,letterSpacing:"-0.02em",color:V.text}}>{children}</h2>);
 const KPI=({value,label,color,gradient})=>(<div style={{borderRadius:16,padding:"16px 12px",textAlign:"center",background:gradient}}><strong style={{display:"block",fontSize:28,lineHeight:1,marginBottom:4,fontWeight:800,color}}>{value}</strong><span style={{fontSize:11,fontWeight:600,color:color+"99"}}>{label}</span></div>);
 const Chev=({dir,onClick})=>(<button onClick={onClick} style={{width:36,height:36,borderRadius:10,background:V.mL,border:`1px solid ${V.mc}15`,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke={V.mc} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><polyline points={dir==="l"?"15 18 9 12 15 6":"9 18 15 12 9 6"}/></svg></button>);
 const CalIcon=<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={V.mc} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
@@ -927,6 +931,14 @@ export default function PlanningApp(){
   const sCount=kpiGroups.soir.length;
   const eCount=kpiGroups.etu.length;
   const absCount=kpiGroups.absRH.length+kpiGroups.absCP.length+kpiGroups.absMAL.length+kpiGroups.absOther.length;
+  const triColumns=splitPlanningItemsInColumns(
+    Object.entries(triData).sort(([a],[b])=>Number(a)-Number(b)),
+    2,
+  );
+  const binomeColumns=splitPlanningItemsInColumns(
+    binomes.map((pair,index)=>({pair,index})),
+    2,
+  );
 
   if(year===null || month===null || !selectedDate || !weekStart){
     return(
@@ -996,30 +1008,62 @@ export default function PlanningApp(){
         {/* TRI CADDIE + BINÔMES (month view) */}
         {view==="mois"&&(
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginTop:14}}>
-            <Card>
-              <Kicker label="TRI CADDIE — cliquer pour modifier" icon={CartIcon}/>
-              <H2>Rotation mars</H2>
-              <div style={{display:"grid",gap:6,marginTop:12}}>
-                {Object.entries(triData).map(([dow,pair])=>(
-                  <div key={dow} onClick={()=>setEditTri(parseInt(dow))} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:12,background:"rgba(248,250,252,0.6)",border:`1px solid ${V.border}`,cursor:"pointer",transition:"all 0.15s"}}
-                    onMouseEnter={e=>e.currentTarget.style.borderColor=V.amber+"40"} onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(226,232,240,0.5)"}>
-                    <span style={{fontSize:12,fontWeight:700,color:V.mc,minWidth:40}}>{JL[dow]}</span>
-                    <span style={{fontSize:13,fontWeight:600,color:V.body,flex:1}}>{pair.join(" + ")}</span>
-                    <span style={{color:V.light}}>{EditIcon}</span>
+            <Card style={{padding:18}}>
+              <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
+                <div>
+                  <Kicker label="TRI CADDIE — cliquer pour modifier" icon={CartIcon}/>
+                  <div style={{marginTop:10,fontSize:16,fontWeight:800,color:V.text}}>
+                    Rotation {MOIS_FR[month].toLowerCase()}
+                  </div>
+                </div>
+                <div style={{fontSize:11,fontWeight:700,color:V.light,paddingTop:6}}>
+                  {Object.keys(triData).length} jours
+                </div>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:8,marginTop:12}}>
+                {triColumns.map((column,columnIndex)=>(
+                  <div key={`tri-col-${columnIndex}`} style={{display:"grid",gap:6}}>
+                    {column.map(([dow,pair])=>(
+                      <div key={dow} onClick={()=>setEditTri(parseInt(dow))} style={{
+                        display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:12,
+                        background:"rgba(248,250,252,0.72)",border:`1px solid ${V.border}`,cursor:"pointer",transition:"all 0.15s",
+                        minHeight:44,
+                      }}
+                        onMouseEnter={e=>e.currentTarget.style.borderColor=V.amber+"40"} onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(226,232,240,0.5)"}>
+                        <span style={{fontSize:11,fontWeight:800,color:V.mc,minWidth:40,letterSpacing:"0.03em"}}>{JL[dow]}</span>
+                        <span style={{fontSize:12,fontWeight:600,color:V.body,flex:1,lineHeight:1.25}}>{pair.join(" + ")}</span>
+                        <span style={{color:V.light,display:"flex",alignItems:"center",justifyContent:"center"}}>{EditIcon}</span>
+                      </div>
+                    ))}
                   </div>
                 ))}
               </div>
             </Card>
-            <Card>
-              <Kicker label="BINÔMES REPOS — cliquer pour modifier" icon={LinkIcon}/>
-              <H2>Paires fixes</H2>
-              <div style={{display:"grid",gap:6,marginTop:12}}>
-                {binomes.map((pair,i)=>(
-                  <div key={i} onClick={()=>setEditBinome(i)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:12,background:"rgba(248,250,252,0.6)",border:`1px solid ${V.border}`,cursor:"pointer",transition:"all 0.15s"}}
-                    onMouseEnter={e=>e.currentTarget.style.borderColor=V.mc+"40"} onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(226,232,240,0.5)"}>
-                    <span style={{width:24,height:24,borderRadius:8,background:V.mIG,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,color:V.mc}}>{i+1}</span>
-                    <span style={{fontSize:13,fontWeight:600,color:V.body,flex:1}}>{pair.join(" + ")}</span>
-                    <span style={{color:V.light}}>{EditIcon}</span>
+            <Card style={{padding:18}}>
+              <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
+                <div>
+                  <Kicker label="BINÔMES REPOS — cliquer pour modifier" icon={LinkIcon}/>
+                  <div style={{marginTop:10,fontSize:16,fontWeight:800,color:V.text}}>Paires fixes</div>
+                </div>
+                <div style={{fontSize:11,fontWeight:700,color:V.light,paddingTop:6}}>
+                  {binomes.length} binômes
+                </div>
+              </div>
+              <div style={{display:"grid",gridTemplateColumns:"repeat(2,minmax(0,1fr))",gap:8,marginTop:12}}>
+                {binomeColumns.map((column,columnIndex)=>(
+                  <div key={`binome-col-${columnIndex}`} style={{display:"grid",gap:6}}>
+                    {column.map(({pair,index})=>(
+                      <div key={index} onClick={()=>setEditBinome(index)} style={{
+                        display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:12,
+                        background:"rgba(248,250,252,0.72)",border:`1px solid ${V.border}`,cursor:"pointer",transition:"all 0.15s",
+                        minHeight:44,
+                      }}
+                        onMouseEnter={e=>e.currentTarget.style.borderColor=V.mc+"40"} onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(226,232,240,0.5)"}>
+                        <span style={{width:24,height:24,borderRadius:8,background:V.mIG,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,color:V.mc,flexShrink:0}}>{index+1}</span>
+                        <span style={{fontSize:12,fontWeight:600,color:V.body,flex:1,lineHeight:1.25}}>{pair.join(" + ")}</span>
+                        <span style={{color:V.light,display:"flex",alignItems:"center",justifyContent:"center"}}>{EditIcon}</span>
+                      </div>
+                    ))}
                   </div>
                 ))}
               </div>

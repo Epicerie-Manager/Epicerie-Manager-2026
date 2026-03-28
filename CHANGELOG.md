@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.15 - 2026-03-28
+
+- Correction du planning sur les modifications d'horaire seules : une edition d'horaire ne relance plus a tort la synchro `absences`, ce qui evitait l'effet de retour immediat a l'horaire par defaut.
+- La passerelle `Planning -> Absences` ne se declenche plus que lorsqu'un vrai statut d'absence est cree, modifie ou retire.
+
 ## v0.5.14 - 2026-03-28
 
 - Suppression de la persistance navigateur sur le flux `Planning` / `Absences` : les anciens caches `localStorage` sont purges et remplaces par un cache memoire de session.

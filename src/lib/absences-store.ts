@@ -258,6 +258,7 @@ export async function syncPlanningStatusToAbsenceInSupabase(input: {
 
     const { data: existingRows, error: existingError } = await existingRowsQuery.limit(50);
     if (existingError) throw existingError;
+    let didChangeAbsence = false;
 
     if (absenceType) {
       const primaryRow = Array.isArray(existingRows) && existingRows.length > 0 ? existingRows[0] : null;
@@ -276,6 +277,7 @@ export async function syncPlanningStatusToAbsenceInSupabase(input: {
           .update(payload)
           .eq("id", primaryRow.id);
         if (updateError) throw updateError;
+        didChangeAbsence = true;
 
         const duplicateIds = (existingRows ?? [])
           .slice(1)
@@ -287,10 +289,12 @@ export async function syncPlanningStatusToAbsenceInSupabase(input: {
             .delete()
             .in("id", duplicateIds);
           if (deleteDuplicatesError) throw deleteDuplicatesError;
+          didChangeAbsence = true;
         }
       } else {
         const { error: insertError } = await supabase.from("absences").insert(payload);
         if (insertError) throw insertError;
+        didChangeAbsence = true;
       }
     } else {
       const idsToDelete = (existingRows ?? [])
@@ -302,9 +306,11 @@ export async function syncPlanningStatusToAbsenceInSupabase(input: {
           .delete()
           .in("id", idsToDelete);
         if (deleteError) throw deleteError;
+        didChangeAbsence = true;
       }
     }
 
+    if (!didChangeAbsence) return;
     await syncAbsencesFromSupabase();
     await syncPlanningFromSupabase(getPlanningMonthKeyForDate(input.date));
   } catch (error) {

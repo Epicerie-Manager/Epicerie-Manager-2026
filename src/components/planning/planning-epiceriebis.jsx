@@ -76,6 +76,10 @@ function isCoordinatorEmployee(name){
   return String(name||"").trim().toUpperCase()==="ABDOU";
 }
 
+function isAbsenceStatus(status){
+  return ["CP","MAL","CONGE_MAT","FORM","FERIE","X","ABS"].includes(String(status||"").toUpperCase());
+}
+
 function comparePlanningEmployees(a,b){
   const nameA=String(a?.n??"").trim().toUpperCase();
   const nameB=String(b?.n??"").trim().toUpperCase();
@@ -753,11 +757,13 @@ export default function PlanningApp(){
       }
 
       await savePlanningOverridesToSupabase(mutations,nextOverrides);
-      await syncPlanningStatusToAbsenceInSupabase({
-        employeeName:selectedEmployeeName,
-        date:selectedDateIso,
-        status:s,
-      });
+      if(isAbsenceStatus(editing.s) || isAbsenceStatus(s)){
+        await syncPlanningStatusToAbsenceInSupabase({
+          employeeName:selectedEmployeeName,
+          date:selectedDateIso,
+          status:s,
+        });
+      }
       setOverrides(loadPlanningOverrides());
       setTriData(loadPlanningTriData(activeMonthKey));
       setBinomes(loadPlanningBinomes(activeMonthKey));

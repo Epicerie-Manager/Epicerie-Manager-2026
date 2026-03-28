@@ -34,10 +34,70 @@ const V = {
 };
 
 const MONTH_SECTION_META = {
-  leaders:{label:"Repères matin",desc:"Abdou et Cécile",row:"#f7fbff",sticky:"#edf6ff",border:"#d7e6f6",accent:V.mc,text:V.mc},
-  morning:{label:"Équipe matin",desc:"Collaborateurs du matin",row:"#f7fbff",sticky:"#edf6ff",border:"#d7e6f6",accent:V.mc,text:V.body},
-  afternoon:{label:"Équipe après-midi",desc:"Collaborateurs de l'après-midi",row:"#fff8f2",sticky:"#fff1e6",border:"#f5dec2",accent:V.orange,text:"#9a3412"},
-  students:{label:"Étudiants",desc:"Renforts et contrats étudiants",row:"#f8fafc",sticky:"#f1f5f9",border:"#dde5ee",accent:"#64748b",text:"#475569"},
+  leaders:{
+    label:"Repères matin",
+    desc:"Abdou et Cécile",
+    row:"#e9f2ff",
+    sticky:"#dce9fb",
+    border:"#bfd5f0",
+    accent:"#184f88",
+    text:"#184f88",
+    nameBg:"rgba(255,255,255,0.66)",
+    nameText:"#123f6b",
+    presentBg:"#c7dbf4",
+    presentBgStrong:"#acc8ed",
+    presentText:"#123f6b",
+    presentBorder:"#6f9fd5",
+    count:"#184f88",
+  },
+  morning:{
+    label:"Équipe matin",
+    desc:"Collaborateurs du matin",
+    row:"#f4f9ff",
+    sticky:"#edf6ff",
+    border:"#d7e6f6",
+    accent:V.mc,
+    text:V.body,
+    nameBg:"rgba(255,255,255,0.5)",
+    nameText:"#1d5fa0",
+    presentBg:"#dbeafe",
+    presentBgStrong:"#bfdbfe",
+    presentText:"#1d5fa0",
+    presentBorder:"#89b5e3",
+    count:V.mc,
+  },
+  afternoon:{
+    label:"Équipe après-midi",
+    desc:"Collaborateurs de l'après-midi",
+    row:"#fff8f2",
+    sticky:"#fff1e6",
+    border:"#f5dec2",
+    accent:V.orange,
+    text:"#9a3412",
+    nameBg:"rgba(255,255,255,0.56)",
+    nameText:"#9a3412",
+    presentBg:"#ffedd5",
+    presentBgStrong:"#fed7aa",
+    presentText:"#9a3412",
+    presentBorder:"#f59e0b",
+    count:"#c2410c",
+  },
+  students:{
+    label:"Étudiants",
+    desc:"Renforts et contrats étudiants",
+    row:"#f8fafc",
+    sticky:"#f1f5f9",
+    border:"#dde5ee",
+    accent:"#64748b",
+    text:"#475569",
+    nameBg:"rgba(255,255,255,0.58)",
+    nameText:"#475569",
+    presentBg:"#e2e8f0",
+    presentBgStrong:"#cbd5e1",
+    presentText:"#475569",
+    presentBorder:"#94a3b8",
+    count:"#475569",
+  },
 };
 const MONTH_SECTION_ORDER=["leaders","morning","afternoon","students"];
 
@@ -463,13 +523,23 @@ const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
               {section.employees.map((emp)=>{
                 let presCount=0;
                 const isCoordinator=isCoordinatorEmployee(emp.n);
+                const isLeaderRow=section.id==="leaders";
                 const rowBackground=section.row;
                 const stickyBackground=section.sticky;
                 const rowBorder=section.border;
                 return(
-                  <tr key={emp.n} style={{opacity:emp.actif?1:0.5}}>
+                  <tr key={emp.n} style={{opacity:emp.actif?1:0.5,background:rowBackground}}>
                     <td style={{padding:"6px 8px",fontSize:11,fontWeight:700,borderBottom:`1px solid ${rowBorder}`,position:"sticky",left:0,background:stickyBackground,zIndex:2,whiteSpace:"nowrap"}}>
-                      <div style={{display:"flex",alignItems:"center",gap:7,padding:isCoordinator?"4px 8px":"2px 4px",borderRadius:8,background:isCoordinator?"rgba(255,255,255,0.45)":"transparent",color:isCoordinator?section.accent:V.body}}>
+                      <div style={{
+                        display:"flex",
+                        alignItems:"center",
+                        gap:7,
+                        padding:isLeaderRow||isCoordinator?"4px 8px":"3px 6px",
+                        borderRadius:8,
+                        background:isLeaderRow||section.id==="morning"?section.nameBg:isCoordinator?"rgba(255,255,255,0.45)":"transparent",
+                        color:isLeaderRow||section.id==="morning"?section.nameText:isCoordinator?section.accent:V.body,
+                        border:isLeaderRow||section.id==="morning"?`1px solid ${rowBorder}`:"1px solid transparent",
+                      }}>
                         <span style={{width:7,height:7,borderRadius:99,background:section.accent,boxShadow:`0 0 0 2px ${rowBackground}`,flexShrink:0}}/>
                         {emp.n}
                       </div>
@@ -493,11 +563,11 @@ const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
                         }}>
                           {s==="PRESENT"?(
                             <div style={{
-                              fontSize:8,fontWeight:700,color:V.mc,
-                              background:isCustomH?"#bfdbfe":"#dbeafe",
+                              fontSize:8,fontWeight:700,color:section.presentText,
+                              background:isCustomH?section.presentBgStrong:section.presentBg,
                               borderRadius:6,padding:"4px 2px",lineHeight:1.2,
-                              border:triC?`1px solid ${V.amber}70`:isCustomH?"1px solid rgba(29,95,160,0.28)":"1px solid rgba(29,95,160,0.14)",
-                              boxShadow:isT?"0 0 0 1px rgba(29,95,160,0.08)":isCustomH?"inset 0 0 0 1px rgba(255,255,255,0.35)":"none",
+                              border:triC?`1px solid ${V.amber}70`:isCustomH?`1px solid ${section.presentBorder}7a`:`1px solid ${section.presentBorder}42`,
+                              boxShadow:isT?`0 0 0 1px ${section.presentBorder}1f`:isCustomH?"inset 0 0 0 1px rgba(255,255,255,0.35)":"none",
                             }}>
                               {h||"P"}
                               {triC&&(
@@ -532,7 +602,7 @@ const VueMois=({year,month,filter,overrides,triData,onEdit})=>{
                         </td>
                       );
                     })}
-                    <td style={{padding:"4px 4px",fontSize:11,fontWeight:800,textAlign:"center",borderBottom:`1px solid ${rowBorder}`,color:V.mc,position:"sticky",right:0,background:stickyBackground,zIndex:2}}>
+                    <td style={{padding:"4px 4px",fontSize:11,fontWeight:800,textAlign:"center",borderBottom:`1px solid ${rowBorder}`,color:section.count,position:"sticky",right:0,background:stickyBackground,zIndex:2}}>
                       {presCount||""}
                     </td>
                   </tr>

@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.29 - 2026-03-29
+
+- Correctif `Plan TG` sur l'ajout de rayon : le positionnement `fin de liste`, `avant` et `après` respecte maintenant réellement l'emplacement choisi au lieu de remettre le nouveau rayon en tête.
+- Le module distingue désormais le tri initial par ordre stocké et le simple réindexage des positions pour ne plus casser l'ordre après insertion ou déplacement.
+
 ## v0.5.28 - 2026-03-29
 
 - Correctif du module `Balisage` : la page ne resauvegarde plus automatiquement son état d'écran dans le cache local, ce qui évite une boucle de refresh pouvant figer la navigation.

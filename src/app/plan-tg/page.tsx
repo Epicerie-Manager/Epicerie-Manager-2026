@@ -87,8 +87,12 @@ function formatWeekLabel(weekId:string){
   return sameMonth?`S${week} - du ${sd} au ${ed} ${em} ${year}`:`S${week} - du ${sd} ${sm} au ${ed} ${em} ${year}`;
 }
 
-function resequence(rayons:TgRayon[]){
-  return [...rayons].sort((a,b)=>(Number(a.order)||0)-(Number(b.order)||0)).map((r,i)=>({...r,order:String((i+1)*10)}));
+function sortRayonsByOrder(rayons:TgRayon[]){
+  return [...rayons].sort((a,b)=>(Number(a.order)||0)-(Number(b.order)||0));
+}
+
+function assignSequentialRayonOrders(rayons:TgRayon[]){
+  return rayons.map((rayon,index)=>({...rayon,order:String((index+1)*10)}));
 }
 
 function normalizePlans(plans:TgWeekPlanRow[], rayons:TgRayon[], map:Map<string,string>){
@@ -174,10 +178,10 @@ function RayonCardPlan({row,isSelected,onClick,theme}:{row:TgWeekPlanRow;isSelec
 export default function PlanTgPage(){
   const theme=moduleThemes.plantg;
   const initialWeekId = getCurrentWeekId() || tgWeeks[0]?.id || "";
-  const [rayons,setRayons]=useState<TgRayon[]>(()=>resequence(loadTgRayons()));
+  const [rayons,setRayons]=useState<TgRayon[]>(()=>assignSequentialRayonOrders(sortRayonsByOrder(loadTgRayons())));
   const [assignments,setAssignments]=useState<TgDefaultAssignment[]>(()=>loadTgDefaultAssignments());
   const [plans,setPlans]=useState<TgWeekPlanRow[]>(()=>{
-    const rs=resequence(loadTgRayons()); const as=loadTgDefaultAssignments();
+    const rs=assignSequentialRayonOrders(sortRayonsByOrder(loadTgRayons())); const as=loadTgDefaultAssignments();
     return normalizePlans(loadTgWeekPlans(),rs,new Map(as.map((i)=>[i.rayon,i.employee])));
   });
   const [activeWeekId,setActiveWeekId]=useState(initialWeekId);
@@ -201,7 +205,7 @@ export default function PlanTgPage(){
   const weekOrder=useMemo(()=>new Map(tgWeeks.map((w,i)=>[w.id,i])),[]);
   const activeWeekIndex=weekOrder.get(activeWeekId)??0;
   const activeWeek=tgWeeks.find((w)=>w.id===activeWeekId)??tgWeeks[0];
-  const orderedRayons=useMemo(()=>resequence(rayons),[rayons]);
+  const orderedRayons=useMemo(()=>assignSequentialRayonOrders(sortRayonsByOrder(rayons)),[rayons]);
   const allMechanics=useMemo(()=>[...BASE_MECHANICS,...customMechanics.filter((m)=>!BASE_MECHANICS.includes(m))],[customMechanics]);
   const rayonStartMap=useMemo(()=>new Map(orderedRayons.map((r)=>[r.rayon,weekOrder.get(r.startWeekId??tgWeeks[0]?.id??"")??0])),[orderedRayons,weekOrder]);
 
@@ -220,7 +224,7 @@ export default function PlanTgPage(){
   useEffect(()=>{saveTgWeekPlans(normalizePlans(plans,orderedRayons,assignmentMap));},[assignmentMap,orderedRayons,plans]);
   useEffect(()=>{
     const refresh=()=>{
-      const nextRayons = resequence(loadTgRayons());
+      const nextRayons = assignSequentialRayonOrders(sortRayonsByOrder(loadTgRayons()));
       const nextAssignments = loadTgDefaultAssignments();
       const nextPlans = normalizePlans(loadTgWeekPlans(), nextRayons, buildAssignmentMap(nextAssignments));
       const nextMechanics = loadTgCustomMechanics();
@@ -333,7 +337,7 @@ export default function PlanTgPage(){
       }
     }
 
-    const resequencedRayons=resequence(nextRayons);
+    const resequencedRayons=assignSequentialRayonOrders(nextRayons);
     const nextAssignments=newRayonResponsible
       ? [...assignments.filter((item)=>item.rayon!==name),{employee:newRayonResponsible,rayon:name}]
       : assignments;
@@ -354,7 +358,7 @@ export default function PlanTgPage(){
     const confirmed=window.confirm(`Supprimer le rayon "${rayonToDelete}" ?\n\nCette action supprimera ce rayon sur toute l'année (toutes les semaines), y compris ses données TG/GB.`);
     if(!confirmed) return;
 
-    const nextRayons=resequence(orderedRayons.filter((row)=>row.rayon!==rayonToDelete));
+    const nextRayons=assignSequentialRayonOrders(orderedRayons.filter((row)=>row.rayon!==rayonToDelete));
     const nextAssignments=assignments.filter((item)=>item.rayon!==rayonToDelete);
     const nextPlans=plans.filter((plan)=>plan.rayon!==rayonToDelete);
 
@@ -373,7 +377,7 @@ export default function PlanTgPage(){
     const [movedRayon]=nextRayons.splice(currentIndex,1);
     nextRayons.splice(targetIndex,0,movedRayon);
 
-    const resequencedRayons=resequence(nextRayons);
+    const resequencedRayons=assignSequentialRayonOrders(nextRayons);
     setRayons(resequencedRayons);
     setPlans(normalizePlans(plans,resequencedRayons,assignmentMap));
   };

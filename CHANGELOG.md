@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.17 - 2026-03-28
+
+- Correction du retour a l'horaire par defaut dans le planning : un horaire identique au referentiel RH n'est plus conserve comme un override visuel ou technique.
+- Les cellules `PRESENT` qui correspondent simplement a l'horaire normal ne sont plus colorees comme des exceptions apres retour au defaut.
+
 ## v0.5.16 - 2026-03-28
 
 - Correction de la relecture Supabase sur `Planning` et `Absences` : les tables sont maintenant lues en pagination complete au lieu d'une seule tranche limitee, ce qui evitait de perdre des horaires personnalises au reload ou apres navigation.

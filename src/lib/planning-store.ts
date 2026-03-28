@@ -56,10 +56,66 @@ function isAbsencePlanningStatus(status: string) {
   return ["ABS", "ABSENT", "CP", "MAL", "CONGE_MAT", "FERIE", "FORM", "X"].includes(upper);
 }
 
+function getPlanningDefaultHoraire(employee: PlanningEmployee, date: Date) {
+  const dow = date.getDay();
+  if (dow === 2) return employee.hm;
+  if (dow === 6 && employee.t === "E") return "14h-21h30";
+  return employee.hs;
+}
+
+function getPlanningDefaultStatus(employee: PlanningEmployee, date: Date) {
+  const dow = date.getDay();
+  if (dow === 0) return "X";
+  if (employee.t === "E") return dow === 6 ? "PRESENT" : "X";
+  if (!employee.actif) return "CONGE_MAT";
+  const employeeCycle = cycle[employee.n];
+  if (employeeCycle) {
+    const cycleWeek = (getISOWeek(date) - 1) % 5;
+    if (employeeCycle[cycleWeek] === dayToCode(dow)) return "RH";
+  }
+  return "PRESENT";
+}
+
+function parsePlanningOverrideKey(key: string) {
+  const match = key.match(/^(.*)_(\d{4}-\d{2}-\d{2})$/);
+  if (!match) return null;
+  return {
+    employeeName: match[1],
+    date: match[2],
+  };
+}
+
+function shouldKeepPlanningOverrideEntry(
+  employeeName: string,
+  dateIso: string,
+  entry: PlanningOverrideEntry,
+  employees: PlanningEmployee[] = planningEmployees,
+) {
+  const employee = employees.find((item) => item.n === employeeName);
+  if (!employee) return true;
+
+  const date = new Date(`${dateIso}T00:00:00`);
+  if (Number.isNaN(date.getTime())) return true;
+
+  const defaultStatus = getPlanningDefaultStatus(employee, date);
+  const normalizedStatus = String(entry.s ?? "").toUpperCase().trim() || defaultStatus;
+  if (normalizedStatus !== defaultStatus) return true;
+  if (normalizedStatus !== "PRESENT") return false;
+
+  const defaultHoraire = getPlanningDefaultHoraire(employee, date);
+  const customHoraire = entry.h ?? null;
+  return Boolean(customHoraire && customHoraire !== defaultHoraire);
+}
+
 function buildPlanningBaseOverrides(source: PlanningOverrides) {
   return Object.fromEntries(
     Object.entries(source)
-      .filter(([, value]) => !isAbsencePlanningStatus(value.s))
+      .filter(([key, value]) => {
+        if (isAbsencePlanningStatus(value.s)) return false;
+        const parsed = parsePlanningOverrideKey(key);
+        if (!parsed) return true;
+        return shouldKeepPlanningOverrideEntry(parsed.employeeName, parsed.date, value, sheetPlanningEmployees);
+      })
       .map(([key, value]) => [key, { ...value }]),
   ) as PlanningOverrides;
 }
@@ -320,10 +376,12 @@ export async function syncPlanningFromSupabase(monthKey = getPlanningMonthKey(ne
         const normalizedStatus = normalizePlanningStatusFromDb(String(row.statut ?? ""));
         if (isAbsencePlanningStatus(normalizedStatus)) return;
         const key = `${name}_${String(row.date)}`;
-        overrides[key] = {
+        const nextEntry = {
           s: normalizedStatus,
           h: row.horaire_custom ?? null,
         };
+        if (!shouldKeepPlanningOverrideEntry(name, String(row.date), nextEntry, mappedEmployees)) return;
+        overrides[key] = nextEntry;
       });
     }
 
@@ -515,6 +573,20 @@ export async function savePlanningOverridesToSupabase(
         continue;
       }
 
+      if (!shouldKeepPlanningOverrideEntry(mutation.employeeName, mutation.date, {
+        s: mutation.status,
+        h: mutation.horaire,
+      })) {
+        if (existingRow?.id) {
+          const { error: deleteError } = await supabase
+            .from("planning_entries")
+            .delete()
+            .eq("id", existingRow.id);
+          if (deleteError) throw deleteError;
+        }
+        continue;
+      }
+
       const payload = {
         date: mutation.date,
         employee_id: employeeId,
@@ -644,16 +716,7 @@ function dayToCode(day: number) {
 export function getPlanningStatus(emp: PlanningEmployee, date: Date, overrides: PlanningOverrides) {
   const key = `${emp.n}_${formatPlanningDate(date)}`;
   if (overrides[key]) return overrides[key].s;
-  const dow = date.getDay();
-  if (dow === 0) return "X";
-  if (emp.t === "E") return dow === 6 ? "PRESENT" : "X";
-  if (!emp.actif) return "CONGE_MAT";
-  const c = cycle[emp.n];
-  if (c) {
-    const cw = (getISOWeek(date) - 1) % 5;
-    if (c[cw] === dayToCode(dow)) return "RH";
-  }
-  return "PRESENT";
+  return getPlanningDefaultStatus(emp, date);
 }
 
 export function getPlanningTriPairForDate(date: Date, triData: PlanningTriData) {

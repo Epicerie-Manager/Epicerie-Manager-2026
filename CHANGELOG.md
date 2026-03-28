@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.22 - 2026-03-28
+
+- Planning : `Massimo` est maintenant traite comme coordinateur, avec un repere visuel renforce comme `Abdou`.
+- Dans la vue mois, `Massimo` remonte en tete du bloc `equipe apres-midi` pour refleter son role de supervision sur l'apres-midi et les etudiants.
+
 ## v0.5.21 - 2026-03-28
 
 - Planning mois : les lignes sont maintenant regroupees en sections lisibles avec `Abdou`, `Cecile`, puis l'equipe du matin, l'equipe de l'apres-midi et enfin les etudiants.

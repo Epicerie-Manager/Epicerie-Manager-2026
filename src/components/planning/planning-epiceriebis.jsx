@@ -81,7 +81,8 @@ let EMPS=[
 ];
 
 function isCoordinatorEmployee(name){
-  return String(name||"").trim().toUpperCase()==="ABDOU";
+  const normalizedName=String(name||"").trim().toUpperCase();
+  return normalizedName==="ABDOU"||normalizedName==="MASSIMO";
 }
 
 function normalizePlanningEmployeeName(name){
@@ -95,8 +96,8 @@ function isAbsenceStatus(status){
 function comparePlanningEmployees(a,b){
   const nameA=normalizePlanningEmployeeName(a?.n);
   const nameB=normalizePlanningEmployeeName(b?.n);
-  const rankA=nameA==="ABDOU"?0:nameA==="CECILE"?1:a?.t==="M"?2:a?.t==="S"?3:a?.t==="E"?4:5;
-  const rankB=nameB==="ABDOU"?0:nameB==="CECILE"?1:b?.t==="M"?2:b?.t==="S"?3:b?.t==="E"?4:5;
+  const rankA=nameA==="ABDOU"?0:nameA==="CECILE"?1:a?.t==="M"?2:nameA==="MASSIMO"?3:a?.t==="S"?4:a?.t==="E"?5:6;
+  const rankB=nameB==="ABDOU"?0:nameB==="CECILE"?1:b?.t==="M"?2:nameB==="MASSIMO"?3:b?.t==="S"?4:b?.t==="E"?5:6;
   if(rankA!==rankB) return rankA-rankB;
   return nameA.localeCompare(nameB,"fr");
 }

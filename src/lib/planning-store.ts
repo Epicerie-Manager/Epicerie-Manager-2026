@@ -194,6 +194,24 @@ function normalizeRhType(value: string): "M" | "S" | "E" {
   return "M";
 }
 
+async function fetchAllRows<T>(
+  fetchPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+) {
+  const pageSize = 1000;
+  const rows: T[] = [];
+
+  for (let from = 0; ; from += pageSize) {
+    const to = from + pageSize - 1;
+    const { data, error } = await fetchPage(from, to);
+    if (error) throw error;
+    if (!Array.isArray(data) || data.length === 0) break;
+    rows.push(...data);
+    if (data.length < pageSize) break;
+  }
+
+  return rows;
+}
+
 export async function syncPlanningFromSupabase(monthKey = getPlanningMonthKey(new Date())) {
   if (!canUseStorage()) return false;
   purgePlanningLegacyCache();
@@ -282,12 +300,19 @@ export async function syncPlanningFromSupabase(monthKey = getPlanningMonthKey(ne
     writeSessionCache(getPlanningBinomesStorageKey(monthKey), nextBinomes);
 
     const overrides: PlanningOverrides = cloneDefaultPlanningOverrides();
-    const { data: planningRows } = await supabase
-      .from("planning_entries")
-      .select("date,employee_id,statut,horaire_custom")
-      .gte("date", "2026-01-01")
-      .lte("date", "2026-12-31")
-      .limit(25000);
+    const planningRows = await fetchAllRows<{
+      date: string | null;
+      employee_id: string | null;
+      statut: string | null;
+      horaire_custom: string | null;
+    }>((from, to) =>
+      supabase
+        .from("planning_entries")
+        .select("date,employee_id,statut,horaire_custom")
+        .gte("date", "2026-01-01")
+        .lte("date", "2026-12-31")
+        .range(from, to),
+    );
     if (Array.isArray(planningRows) && planningRows.length > 0) {
       planningRows.forEach((row) => {
         const name = employeeNameById.get(String(row.employee_id));
@@ -302,11 +327,20 @@ export async function syncPlanningFromSupabase(monthKey = getPlanningMonthKey(ne
       });
     }
 
-    const { data: absencesRows } = await supabase
-      .from("absences")
-      .select("employee_id,type,date_debut,date_fin,statut,note")
-      .eq("statut", "APPROUVE")
-      .limit(5000);
+    const absencesRows = await fetchAllRows<{
+      employee_id: string | null;
+      type: string | null;
+      date_debut: string | null;
+      date_fin: string | null;
+      statut: string | null;
+      note: string | null;
+    }>((from, to) =>
+      supabase
+        .from("absences")
+        .select("employee_id,type,date_debut,date_fin,statut,note")
+        .eq("statut", "APPROUVE")
+        .range(from, to),
+    );
     if (Array.isArray(absencesRows) && absencesRows.length > 0) {
       absencesRows.forEach((row) => {
         const baseEmployeeName =

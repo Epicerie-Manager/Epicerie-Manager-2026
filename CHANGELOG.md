@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.16 - 2026-03-28
+
+- Correction de la relecture Supabase sur `Planning` et `Absences` : les tables sont maintenant lues en pagination complete au lieu d'une seule tranche limitee, ce qui evitait de perdre des horaires personnalises au reload ou apres navigation.
+- Le planning retrouve maintenant bien les `horaire_custom` situes plus loin dans l'annee au lieu de retomber sur l'horaire issu du planning de base.
+
 ## v0.5.15 - 2026-03-28
 
 - Correction du planning sur les modifications d'horaire seules : une edition d'horaire ne relance plus a tort la synchro `absences`, ce qui evitait l'effet de retour immediat a l'horaire par defaut.

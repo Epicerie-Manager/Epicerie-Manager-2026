@@ -126,6 +126,24 @@ function getSyncedPlanningNote(employeeName: string, existingNote: unknown) {
   return buildPlanningSourceNote(employeeName);
 }
 
+async function fetchAllRows<T>(
+  fetchPage: (from: number, to: number) => PromiseLike<{ data: T[] | null; error: unknown }>,
+) {
+  const pageSize = 1000;
+  const rows: T[] = [];
+
+  for (let from = 0; ; from += pageSize) {
+    const to = from + pageSize - 1;
+    const { data, error } = await fetchPage(from, to);
+    if (error) throw error;
+    if (!Array.isArray(data) || data.length === 0) break;
+    rows.push(...data);
+    if (data.length < pageSize) break;
+  }
+
+  return rows;
+}
+
 async function getEmployeeIdByName() {
   const supabase = createClient();
   const { data: employees, error } = await supabase
@@ -348,11 +366,12 @@ export async function syncAbsencesFromSupabase() {
       ]),
     );
 
-    const { data, error } = await supabase
-      .from("absences")
-      .select("*")
-      .limit(5000);
-    if (error) throw error;
+    const data = await fetchAllRows<Record<string, unknown>>((from, to) =>
+      supabase
+        .from("absences")
+        .select("*")
+        .range(from, to),
+    );
     if (!Array.isArray(data)) return false;
 
     const mapped = data

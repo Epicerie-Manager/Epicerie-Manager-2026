@@ -17,6 +17,7 @@ import {
   defaultPlanningTriData,
   loadPlanningOverrides,
   loadPlanningTriData,
+  formatPlanningDate,
   getPlanningStatus,
   getPlanningTriPairForDate,
   getPlanningUpdatedEventName,
@@ -108,6 +109,40 @@ function getBalisageDynamicStatus(total: number, monthId: string, today = new Da
   if (paceRatio <= 1) return "OK";
   if (paceRatio <= 1.1) return "En retard";
   return "Alerte";
+}
+
+function getDashboardPlanningHoraire(
+  employee: { n: string; t: "M" | "S" | "E"; hs: string | null; hm: string | null },
+  date: Date,
+  overrides: PlanningOverrides,
+) {
+  const key = `${employee.n}_${formatPlanningDate(date)}`;
+  const override = overrides[key];
+  if (override?.h) return override.h;
+  const dow = date.getDay();
+  if (dow === 2) return employee.hm;
+  if (dow === 6 && employee.t === "E") return "14h-21h30";
+  return employee.hs;
+}
+
+function getDashboardShiftBuckets(horaire: string | null) {
+  let morning = false;
+  let afternoon = false;
+
+  String(horaire ?? "")
+    .split("/")
+    .map((slot) => slot.trim())
+    .filter(Boolean)
+    .forEach((slot) => {
+      const match = slot.match(/(\d{1,2})\s*h/i);
+      if (!match) return;
+      const startHour = Number(match[1]);
+      if (Number.isNaN(startHour)) return;
+      if (startHour < 12) morning = true;
+      else afternoon = true;
+    });
+
+  return { morning, afternoon };
 }
 
 // ── Icônes SVG inline (strokeWidth 1.8) ──────────
@@ -248,24 +283,31 @@ export default function DashboardPage() {
         day: "2-digit",
         month: "2-digit",
       });
-      const morningCount = planningEmployees.filter((employee) => employee.t === "M").reduce((sum, employee) => {
+      const dayCounts = planningEmployees.reduce((counts, employee) => {
         const status = getPlanningStatus(employee, date, planningOverrides);
-        return status === "PRESENT" ? sum + 1 : sum;
-      }, 0);
-      const alert = !isFuture && morningCount < 9;
+        if (status !== "PRESENT") return counts;
+        const horaire = getDashboardPlanningHoraire(employee, date, planningOverrides);
+        const shifts = getDashboardShiftBuckets(horaire);
+        return {
+          morningCount: counts.morningCount + (shifts.morning ? 1 : 0),
+          afternoonCount: counts.afternoonCount + (shifts.afternoon ? 1 : 0),
+        };
+      }, { morningCount: 0, afternoonCount: 0 });
+      const alert = !isFuture && dayCounts.morningCount < 9;
       return {
         dayIso,
         label,
         dateLabel,
-        value: morningCount,
-        sub: date.toDateString() === today.toDateString() ? "Aujourd'hui" : alert ? "⚠ bas" : "OK",
+        morningCount: dayCounts.morningCount,
+        afternoonCount: dayCounts.afternoonCount,
+        sub: date.toDateString() === today.toDateString() ? "Aujourd'hui" : alert ? "⚠ matin bas" : "OK",
         alert,
         active: dayIso === todayIso,
       };
     });
   }, [planningOverrides, today, todayIso]);
   const avgMorning = weekCards.length
-    ? (weekCards.reduce((sum, day) => sum + day.value, 0) / weekCards.length).toFixed(1)
+    ? (weekCards.reduce((sum, day) => sum + day.morningCount, 0) / weekCards.length).toFixed(1)
     : "0.0";
   const weekAlertCount = weekCards.filter((day) => day.alert).length;
   const activeMorningEmployees = planningEmployees.filter((employee) => employee.t === "M" && employee.actif).length;
@@ -549,10 +591,39 @@ export default function DashboardPage() {
                     {d.label} {d.dateLabel}
                   </div>
                   <div style={{
-                    fontSize: "22px", fontWeight: 700, letterSpacing: "-0.04em",
-                    color: d.active ? plan.color : "#0f172a", marginTop: "2px", lineHeight: 1,
+                    display: "grid", gap: "5px",
+                    marginTop: "10px", textAlign: "left",
                   }}>
-                    {d.value}
+                    {[
+                      { label: "Matin", value: d.morningCount, color: d.active ? plan.color : "#0f172a" },
+                      { label: "Après-midi", value: d.afternoonCount, color: d.active ? "#2563eb" : "#1e40af" },
+                    ].map((slot) => (
+                      <div key={slot.label} style={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "baseline",
+                        gap: "8px",
+                      }}>
+                        <span style={{
+                          fontSize: "9px",
+                          fontWeight: 700,
+                          letterSpacing: "0.05em",
+                          textTransform: "uppercase",
+                          color: "#64748b",
+                        }}>
+                          {slot.label}
+                        </span>
+                        <strong style={{
+                          fontSize: "18px",
+                          fontWeight: 700,
+                          letterSpacing: "-0.04em",
+                          color: slot.color,
+                          lineHeight: 1,
+                        }}>
+                          {slot.value}
+                        </strong>
+                      </div>
+                    ))}
                   </div>
                   <div style={{
                     fontSize: "9px", marginTop: "3px",

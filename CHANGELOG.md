@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.37 - 2026-03-29
+
+- Dashboard : la tuile `Effectifs par jour` affiche maintenant les effectifs `matin` et `apres-midi` sur chaque jour de la semaine, au lieu d'un seul compteur matin.
+- Dashboard : ces deux compteurs sont calcules a partir des horaires reels du jour, y compris les horaires personnalises et les etudiants quand leur creneau tombe l'apres-midi.
+
 ## v0.5.36 - 2026-03-29
 
 - Balisage : le module se cale maintenant sur le statut `actif / inactif` du RH, pour qu'un collaborateur inactif comme `KAMAR` n'entre plus dans les calculs actifs du suivi.

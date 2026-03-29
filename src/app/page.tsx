@@ -271,12 +271,12 @@ export default function DashboardPage() {
   const monthLabel = balisageMonths.find((month) => month.id === monthId)?.label ?? "Mois courant";
   const balisageStats = balisageDataState[monthId] ?? [];
   const balisageTotalControls = balisageStats.reduce((sum, row) => sum + row.total, 0);
-  const balisageEmployeeCount = Math.max(balisageStats.length, 1);
+  const balisageDashboardTeamCount = Math.max(balisageStats.length, 12);
+  const balisageDashboardTarget = balisageDashboardTeamCount * balisageObjective;
   const balisageGlobalPercent = Math.min(
-    Math.round((balisageTotalControls / (balisageEmployeeCount * balisageObjective)) * 100),
+    Math.round((balisageTotalControls / balisageDashboardTarget) * 100),
     100,
   );
-  const balisageAverage = Math.round(balisageTotalControls / balisageEmployeeCount);
   const balisageAlertsCount = balisageStats.filter((employee) => getBalisageDynamicStatus(employee.total, monthId, today) === "Alerte").length;
 
   const balisageRank = [...balisageStats]
@@ -582,7 +582,7 @@ export default function DashboardPage() {
           {/* Balisage */}
           <Card>
             <Kicker moduleKey="balisage" label="Suivi" icon={<IconCheck />} />
-            <h2 style={{ fontSize: "17px", fontWeight: 700, letterSpacing: "-0.02em", color: "#0f172a" }}>Balisage</h2>
+            <h2 style={{ fontSize: "17px", fontWeight: 700, letterSpacing: "-0.02em", color: "#0f172a" }}>Contrôle balisage</h2>
 
             {/* Gros chiffre */}
             <div style={{ textAlign: "center", padding: "14px 0 6px" }}>
@@ -590,10 +590,10 @@ export default function DashboardPage() {
                 fontSize: "44px", fontWeight: 700, letterSpacing: "-0.05em",
                 color: bal.color, lineHeight: 1,
               }}>
-                {balisageAverage} <span style={{ fontSize: "22px", color: "#64748b", fontWeight: 400 }}>/&nbsp;{balisageObjective}</span>
+                {balisageTotalControls} <span style={{ fontSize: "22px", color: "#64748b", fontWeight: 400 }}>/&nbsp;{balisageDashboardTarget}</span>
               </div>
               <div style={{ fontSize: "12px", color: "#64748b", marginTop: "6px" }}>
-                {balisageGlobalPercent}% atteint · {monthLabel}
+                {balisageGlobalPercent}% atteint · {monthLabel} · objectif équipe {balisageDashboardTeamCount} × {balisageObjective}
               </div>
             </div>
 

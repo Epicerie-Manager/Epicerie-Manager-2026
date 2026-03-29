@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.35 - 2026-03-29
+
+- Dashboard : la tuile `Suivi balisage` affiche maintenant l'objectif equipe complet sur `12 x 800` controles, au lieu d'une moyenne ramenee a `800` par collaborateur.
+- Dashboard : le titre de la tuile devient `Controle balisage` pour mieux refleter le suivi de l'equipe de controle.
+
 ## v0.5.34 - 2026-03-29
 
 - Dashboard : suppression de la tuile `Consigne / Note du jour`, qui affichait un message statique non relie a une source metier ou a Supabase.

@@ -359,6 +359,7 @@ export function TimelineSuivi({ absences, employees }: TimelineSuiviProps) {
   const legendTypeCounts = useMemo(() => {
     const counters: Record<AbsenceTypeId, number> = {
       CP: 0,
+      RTT: 0,
       MAL: 0,
       CONGE_MAT: 0,
       FORM: 0,
@@ -1167,12 +1168,13 @@ function VueResume({
 
   const rows = employees.map((employee) => {
     const mine = filtered.filter((absence) => absence.employee === employee);
-    const byType: Record<AbsenceTypeId, number> = {
-      CP: 0,
-      MAL: 0,
-      CONGE_MAT: 0,
-      FORM: 0,
-      FERIE: 0,
+  const byType: Record<AbsenceTypeId, number> = {
+    CP: 0,
+    RTT: 0,
+    MAL: 0,
+    CONGE_MAT: 0,
+    FORM: 0,
+    FERIE: 0,
       AUTRE: 0,
     };
     let totalDays = 0;

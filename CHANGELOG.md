@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.23 - 2026-03-30
+
+- Collaborateurs / Absences : le formulaire mobile `/collab/absences/new` est recentre sur deux choix (`Conge paye` et `Deplacement RH`), avec un champ conditionnel pour preciser la RH a deplacer et une note autoformatee `Deplacement RH : ...`.
+- Manager / Absences : ajout du type `Deplacement RH` (`RTT`) dans la liste partagee des types disponibles, sans retirer les autres types existants.
+
 ## v0.6.22 - 2026-03-30
 
 - Collaborateurs / Absences : alignement du formulaire `/collab/absences/new` avec les codes `type` attendus par `absence_requests` (`CP`, `RTT`, `MAL`, `EVENEMENT`, `AUTRE`) et ajout de logs de diagnostic sur `employee_id` et l'erreur exacte d'insert Supabase.

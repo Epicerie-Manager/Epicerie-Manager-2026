@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import packageJson from "../../../package.json";
 
 export const metadata: Metadata = {
   title: "Épicerie Villebon 2",
@@ -32,6 +33,25 @@ export default function CollabLayout({ children }: { children: React.ReactNode }
       }}
     >
       {children}
+      <div
+        style={{
+          position: "fixed",
+          right: 12,
+          bottom: 12,
+          padding: "6px 10px",
+          borderRadius: 999,
+          background: "rgba(255, 250, 246, 0.92)",
+          border: "1px solid rgba(226, 209, 182, 0.9)",
+          color: "#8a6b42",
+          fontSize: 11,
+          fontWeight: 700,
+          letterSpacing: "0.04em",
+          zIndex: 40,
+          boxShadow: "0 10px 30px rgba(138, 107, 66, 0.12)",
+        }}
+      >
+        v{packageJson.version}
+      </div>
     </div>
   );
 }

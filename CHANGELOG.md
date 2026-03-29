@@ -21,6 +21,10 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.8 - 2026-03-29
+
+- Collaborateurs : ajout d'un badge de version visible dans l'espace `/collab`, pour repérer rapidement la version en cours de la PWA collaborateur pendant les tests et recettes.
+
 ## v0.6.7 - 2026-03-29
 
 - Collaborateurs / PIN : ajout de logs explicites autour de la tentative `signInWithPassword`, avec affichage de l'email construit et des erreurs de connexion en console pour diagnostiquer plus facilement les échecs de connexion Supabase.

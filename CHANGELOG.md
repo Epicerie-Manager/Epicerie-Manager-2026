@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.49 - 2026-03-29
+
+- Planning vue `Mois` : `Cécile` garde sa place dans `Collaborateurs matin`, mais son étiquette nom reçoit désormais une surbrillance bleu foncé dédiée pour la distinguer clairement du reste de l'équipe.
+- Planning vue `Mois` : `Abdou` conserve sa surbrillance verte de coordinateur, afin de différencier visuellement les deux repères matin sans les confondre.
+
 ## v0.5.48 - 2026-03-29
 
 - Planning vue `Mois` : Cécile repasse dans la section `Collaborateurs matin`, tout en conservant sa surbrillance verte de repère visuel comme Abdou.

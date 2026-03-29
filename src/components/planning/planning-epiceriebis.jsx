@@ -54,7 +54,8 @@ const V = {
 };
 
 const MORNING_COORDINATOR_NAMES=new Set(["ABDOU"]);
-const MORNING_HIGHLIGHT_NAMES=new Set(["ABDOU","CECILE"]);
+const MORNING_GREEN_HIGHLIGHT_NAMES=new Set(["ABDOU"]);
+const MORNING_BLUE_HIGHLIGHT_NAMES=new Set(["CECILE"]);
 
 const MONTH_SECTION_META = {
   morningCoordinators:{
@@ -714,12 +715,22 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenc
                 let presCount=0;
                 const isCoordinator=isCoordinatorEmployee(emp);
                 const isCoordinatorSection=section.id==="morningCoordinators"||section.id==="afternoonCoordinators";
-                const isMorningHighlight=MORNING_HIGHLIGHT_NAMES.has(normalizePlanningEmployeeName(emp.n));
+                const normalizedEmployeeName=normalizePlanningEmployeeName(emp.n);
+                const isMorningGreenHighlight=MORNING_GREEN_HIGHLIGHT_NAMES.has(normalizedEmployeeName);
+                const isMorningBlueHighlight=MORNING_BLUE_HIGHLIGHT_NAMES.has(normalizedEmployeeName);
                 const rowBackground=section.row;
                 const stickyBackground=section.sticky;
                 const rowBorder=section.border;
                 const roleMeta=getPlanningEmployeeRoleMeta(emp);
-                const highlightedNameMeta=isMorningHighlight?MONTH_SECTION_META.morningCoordinators:section;
+                const highlightedNameMeta=isMorningGreenHighlight
+                  ? MONTH_SECTION_META.morningCoordinators
+                  : isMorningBlueHighlight
+                    ? {
+                      nameBg:"linear-gradient(135deg,#dbeafe,#bfdbfe)",
+                      nameText:"#143f6b",
+                      border:"#7aa2d6",
+                    }
+                    : section;
                 return(
                   <tr key={emp.n} style={{opacity:emp.actif?1:0.5,background:rowBackground}}>
                     <td style={{padding:"6px 8px",fontSize:11,fontWeight:700,borderBottom:`1px solid ${rowBorder}`,position:"sticky",left:0,background:stickyBackground,zIndex:2,whiteSpace:"nowrap"}}>
@@ -731,7 +742,8 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenc
                         borderRadius:8,
                         background:highlightedNameMeta.nameBg,
                         color:highlightedNameMeta.nameText,
-                        border:`1px solid ${isMorningHighlight?highlightedNameMeta.border:rowBorder}`,
+                        border:`1px solid ${(isMorningGreenHighlight||isMorningBlueHighlight)?highlightedNameMeta.border:rowBorder}`,
+                        boxShadow:isMorningBlueHighlight?"0 0 0 1px rgba(255,255,255,0.45) inset":"none",
                       }} title={`Statut RH : ${roleMeta.label}`}>
                         <RoleDot emp={emp} size={7} ringColor={rowBackground}/>
                         {emp.n}

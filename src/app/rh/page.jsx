@@ -42,6 +42,10 @@ const TYPE_LABELS = { M:{l:"Matin",c:V.blue,bg:"#eff6ff"}, S:{l:"Après-midi",c:
 const JOURS = ["LUN","MAR","MER","JEU","VEN","SAM"];
 const JOURS_FULL = ["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
 
+function compareEmployeesByName(a,b){
+  return String(a?.n||"").localeCompare(String(b?.n||""),"fr");
+}
+
 /* ═══════════════════════════════════════════════════════════
    ICONS
    ═══════════════════════════════════════════════════════════ */
@@ -51,7 +55,6 @@ const IC = {
   clock:(c,s=18)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
   refresh:(c,s=18)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>,
   edit:(c,s=18)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
-  search:(c,s=18)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>,
 };
 
 /* ═══════════════════════════════════════════════════════════
@@ -524,7 +527,9 @@ const EmpCard=({emp,cycle,onEditEmp,onEditCycle})=>{
    CYCLE OVERVIEW TABLE
    ═══════════════════════════════════════════════════════════ */
 const CycleOverview=({emps,cycles,onEditCycle})=>{
-  const filtered=emps.filter(e=>e.t!=="E"&&cycles[e.n]);
+  const filtered=[...emps]
+    .filter(e=>e.t!=="E"&&cycles[e.n])
+    .sort(compareEmployeesByName);
   return(
     <Card style={{padding:0,overflow:"hidden"}}>
       <div style={{padding:"14px 18px",borderBottom:`1px solid ${V.line}`}}>
@@ -608,7 +613,7 @@ export default function RHModule(){
   const [editCycleFor,setEditCycleFor]=useState(null);
   const [newEmpOpen,setNewEmpOpen]=useState(false);
   const [filterType,setFilterType]=useState("ALL");
-  const [search,setSearch]=useState("");
+  const [employeeFilter,setEmployeeFilter]=useState("ALL");
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState("");
   const availableRayons = useMemo(
@@ -627,18 +632,23 @@ export default function RHModule(){
     return map;
   },[tgAssignments]);
 
-  const filtered=useMemo(()=>{
+  const employeeOptions = useMemo(()=>{
     let list=[...emps];
     if(filterType!=="ALL") list=list.filter(e=>e.t===filterType);
-    if(search) {
-      const normalizedSearch=search.toLowerCase();
-      list=list.filter((e)=>
-        e.n.toLowerCase().includes(normalizedSearch)||
-        getRhEmployeeRoleLabel(e.obs,e.t).toLowerCase().includes(normalizedSearch),
-      );
-    }
+    return list.sort(compareEmployeesByName);
+  },[emps,filterType]);
+
+  const filtered=useMemo(()=>{
+    let list=[...employeeOptions];
+    if(employeeFilter!=="ALL") list=list.filter((employee)=>employee.n===employeeFilter);
     return list;
-  },[emps,filterType,search]);
+  },[employeeFilter,employeeOptions]);
+
+  useEffect(()=>{
+    if(employeeFilter==="ALL") return;
+    if(employeeOptions.some((employee)=>employee.n===employeeFilter)) return;
+    setEmployeeFilter("ALL");
+  },[employeeFilter,employeeOptions]);
 
   useEffect(() => {
     const refresh = () => {
@@ -818,11 +828,15 @@ export default function RHModule(){
         {/* FICHES VIEW */}
         {view==="fiches"&&(
           <>
-            {/* Search */}
-            <div style={{marginBottom:14,position:"relative"}}>
-              <div style={{position:"absolute",left:14,top:"50%",transform:"translateY(-50%)"}}>{IC.search(V.light,16)}</div>
-              <input value={search} onChange={e=>setSearch(e.target.value)} placeholder="Rechercher un employé..."
-                style={{width:"100%",padding:"12px 14px 12px 40px",borderRadius:14,border:`1px solid ${V.border}`,background:"rgba(255,255,255,0.92)",fontSize:13,color:V.body,outline:"none",boxSizing:"border-box",backdropFilter:"blur(12px)"}}/>
+            <div style={{marginBottom:14}}>
+              <label style={{fontSize:11,color:V.muted,fontWeight:700,display:"block",marginBottom:6,letterSpacing:"0.04em"}}>EMPLOYÉ</label>
+              <select value={employeeFilter} onChange={e=>setEmployeeFilter(e.target.value)}
+                style={{width:"100%",padding:"12px 14px",borderRadius:14,border:`1px solid ${V.border}`,background:"rgba(255,255,255,0.92)",fontSize:13,color:V.body,outline:"none",boxSizing:"border-box",backdropFilter:"blur(12px)",fontWeight:600}}>
+                <option value="ALL">Tous les employés</option>
+                {employeeOptions.map((employee)=>(
+                  <option key={employee.id} value={employee.n}>{employee.n}</option>
+                ))}
+              </select>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:14}}>
               {filtered.map(emp=>(

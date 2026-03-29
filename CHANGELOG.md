@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.33 - 2026-03-29
+
+- RH : les fiches employes sont maintenant triees par ordre alphabetique pour rendre la navigation plus naturelle.
+- Le champ de recherche libre est remplace par une liste deroulante `Tous les employes` ou `un employe precis`, afin de filtrer plus simplement les fiches RH.
+
 ## v0.5.32 - 2026-03-29
 
 - RH : le champ `Observation` devient un select de statut RH (`Coordinateur`, `Collaborateur`, `Etudiant`, `Stagiaire`, `Autre`) avec une pastille couleur visible directement sur les fiches employes.

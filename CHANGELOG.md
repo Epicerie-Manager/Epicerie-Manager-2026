@@ -21,6 +21,10 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.2 - 2026-03-29
+
+- Build / Vercel : la page /collab/pin passe en wrapper serveur + composant client pour éviter l'erreur de prerender App Router liée aux paramètres de recherche au build.
+
 ## v0.6.1 - 2026-03-29
 
 - Build / Vercel : le script de production passe en `next build --webpack` pour rester compatible avec `next-pwa`, et éviter l'échec du build Next.js 16 en Turbopack avec une configuration webpack.
@@ -412,4 +416,5 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 - Etat de depart constate au debut de cette phase de travail.
 - Version visible dans l'interface avant les ajustements effectues pendant cette session.
 - Historique detaille anterieur a confirmer avec les anciennes conversations ou les commits git.
+
 

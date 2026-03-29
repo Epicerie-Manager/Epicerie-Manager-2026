@@ -21,6 +21,10 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.29 - 2026-03-30
+
+- Planning / Absences : la synchronisation du planning prend maintenant aussi en compte les demandes approuvees venant de `absence_requests`, afin que les validations manager issues de la PWA collaborateur apparaissent bien dans le planning.
+
 ## v0.6.28 - 2026-03-30
 
 - Collaborateurs / Absences : ajout d'une pastille sur le menu `Absences` quand une demande a recu un retour (`approuve` ou `refuse`), avec effacement automatique apres consultation de l'onglet.

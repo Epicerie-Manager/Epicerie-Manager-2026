@@ -42,9 +42,12 @@ export async function getTeamWeekPlanning(startDate: string, endDate: string) {
 
 export async function getMyAbsences() {
   const supabase = createClient();
+  const profile = await getCollabProfile();
+  if (!profile?.employee_id) return [];
   const { data, error } = await supabase
     .from("absence_requests")
     .select("*")
+    .eq("employee_id", profile.employee_id)
     .order("created_at", { ascending: false });
   if (error) throw error;
   return data ?? [];

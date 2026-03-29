@@ -47,10 +47,10 @@ export const absenceStatuses: AbsenceStatus[] = [
 export const absenceEmployees = [
   "ABDOU",
   "ACHRAF",
-  "CARINE",
   "CECILE",
   "DILAXSHAN",
   "EL HASSANE",
+  "FLORIAN",
   "JAMAA",
   "JEREMY",
   "KAMAR",
@@ -66,7 +66,6 @@ export const absenceEmployees = [
   "ROSALIE",
   "TOUS",
   "WASIM",
-  "YASSINE",
   "YLEANA",
 ] as const;
 

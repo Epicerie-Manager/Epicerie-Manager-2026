@@ -21,6 +21,17 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.51 - 2026-03-29
+
+- RH / Planning / Absences : les jeux de données locaux de secours sont réalignés sur le roster actif Supabase, avec `Florian` à la place de l'ancien `Yassine` et les mêmes rôles, horaires et statuts RH que sur le site.
+- RH / Planning : `Massimo` est confirmé `Coordinateur` partout dans les sources runtime locales, et les cycles de repos de `Kamar` et `Liyakath` sont corrigés pour correspondre à Supabase.
+- Planning : les valeurs de repli du planning réutilisent désormais la base RH locale vérifiée, ce qui évite qu'un ancien statut ou un ancien employé réapparaisse si la synchro Supabase ne répond pas.
+
+## v0.5.50 - 2026-03-29
+
+- Planning vue `Mois` : `Massimo` est rétabli dans `Coordinateurs après-midi`, pour retrouver la structure attendue de l'équipe d'après-midi.
+- Planning vue `Mois` : `Dilaxshan` reste dans `Collaborateurs après-midi` et la séparation `Coordinateur / Collaborateurs` de l'après-midi revient comme sur les versions précédentes.
+
 ## v0.5.49 - 2026-03-29
 
 - Planning vue `Mois` : `Cécile` garde sa place dans `Collaborateurs matin`, mais son étiquette nom reçoit désormais une surbrillance bleu foncé dédiée pour la distinguer clairement du reste de l'équipe.

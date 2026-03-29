@@ -43,7 +43,7 @@ export const defaultPlanningTriData: PlanningTriData = {
   2: ["ROSALIE", "JAMAA"],
   3: ["JEREMY", "KAMEL"],
   4: ["EL HASSANE", "LIYAKATH"],
-  5: ["KHANH", "YASSINE"],
+  5: ["KHANH", "FLORIAN"],
   6: ["MOHCINE", "PASCALE"],
 };
 

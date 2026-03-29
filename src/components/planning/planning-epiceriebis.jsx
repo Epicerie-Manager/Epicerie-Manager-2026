@@ -9,6 +9,8 @@ import {
   syncPlanningStatusToAbsenceInSupabase,
 } from "@/lib/absences-store";
 import {
+  defaultRhCycles,
+  defaultRhEmployees,
   getRhEmployeeRoleLabel,
   getRhEmployeeRoleMeta,
   isRhEmployeeCoordinatorRole,
@@ -56,6 +58,7 @@ const V = {
 const MORNING_COORDINATOR_NAMES=new Set(["ABDOU"]);
 const MORNING_GREEN_HIGHLIGHT_NAMES=new Set(["ABDOU"]);
 const MORNING_BLUE_HIGHLIGHT_NAMES=new Set(["CECILE"]);
+const AFTERNOON_COORDINATOR_NAMES=new Set(["MASSIMO"]);
 
 const MONTH_SECTION_META = {
   morningCoordinators:{
@@ -156,29 +159,16 @@ const ST = {
 /* ═══════════════════════════════════════════════════════════
    DATA
    ═══════════════════════════════════════════════════════════ */
-let EMPS=[
-  {n:"ABDOU",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",obs:"Coordo",actif:true},
-  {n:"CECILE",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",obs:"Employé",actif:true},
-  {n:"KAMAR",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",obs:"Congé mat.",actif:false},
-  {n:"YASSINE",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",obs:"Employé",actif:true},
-  {n:"WASIM",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",obs:"Employé",actif:true},
-  {n:"JEREMY",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",obs:"Employé",actif:true},
-  {n:"KAMEL",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",obs:"Employé",actif:true},
-  {n:"PASCALE",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",obs:"Employé",actif:true},
-  {n:"MOHCINE",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",obs:"Employé",actif:true},
-  {n:"LIYAKATH",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",obs:"Employé",actif:true},
-  {n:"KHANH",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",obs:"Employé",actif:true},
-  {n:"ROSALIE",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",obs:"Employé",actif:true},
-  {n:"JAMAA",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",obs:"Employé",actif:true},
-  {n:"EL HASSANE",t:"M",hs:"3h50-11h20",hm:"3h00-10h30",obs:"Employé",actif:true},
-  {n:"MASSIMO",t:"S",hs:"14h-21h30",hm:"12h-19h30",obs:"Employé",actif:true},
-  {n:"DILAXSHAN",t:"S",hs:"14h-21h30",hm:"12h-19h30",obs:"Employé",actif:true},
-  {n:"YLEANA",t:"E",hs:null,hm:null,obs:"Étudiant",actif:true},
-  {n:"MOUNIR",t:"E",hs:null,hm:null,obs:"Étudiant",actif:true},
-  {n:"MAHIN",t:"E",hs:null,hm:null,obs:"Étudiant",actif:true},
-  {n:"MOHAMED",t:"E",hs:null,hm:null,obs:"Étudiant",actif:true},
-  {n:"ACHRAF",t:"E",hs:null,hm:null,obs:"Étudiant",actif:true},
-];
+function getPlanningFallbackEmployees(){
+  return defaultRhEmployees.map((employee)=>({
+    n:employee.n,
+    t:employee.t,
+    hs:employee.hs,
+    hm:employee.hm,
+    obs:employee.obs||"",
+    actif:Boolean(employee.actif),
+  }));
+}
 
 function normalizePlanningEmployeeName(name){
   return String(name||"").trim().toUpperCase();
@@ -231,7 +221,7 @@ function getPlanningMonthSectionId(emp){
     return MORNING_COORDINATOR_NAMES.has(name)||isCoordinatorEmployee(emp) ? "morningCoordinators" : "morningCollaborators";
   }
   if(emp?.t==="S"){
-    return isCoordinatorEmployee(emp) ? "afternoonCoordinators" : "afternoonCollaborators";
+    return AFTERNOON_COORDINATOR_NAMES.has(name)||isCoordinatorEmployee(emp) ? "afternoonCoordinators" : "afternoonCollaborators";
   }
   return "students";
 }
@@ -256,7 +246,8 @@ function getAllEmpNames(){
   return sortPlanningEmployees(EMPS.filter((e)=>e.t!=="E")).map((e)=>e.n);
 }
 
-let CYCLE={ABDOU:["VEN","VEN","VEN","VEN","VEN"],CECILE:["MER","MER","MER","MER","SAM"],MASSIMO:["JEU","JEU","JEU","JEU","JEU"],DILAXSHAN:["SAM","MER","MER","MER","MER"],KAMAR:["MAR","MAR","MAR","MAR","MAR"],YASSINE:["JEU","JEU","JEU","JEU","SAM"],WASIM:["VEN","VEN","SAM","VEN","VEN"],JEREMY:["VEN","VEN","VEN","SAM","VEN"],KAMEL:["SAM","MAR","MAR","MAR","MAR"],PASCALE:["SAM","LUN","LUN","LUN","LUN"],MOHCINE:["MER","MER","MER","SAM","MER"],LIYAKATH:["LUN","LUN","SAM","LUN","LUN"],KHANH:["JEU","JEU","JEU","JEU","SAM"],ROSALIE:["JEU","SAM","JEU","JEU","JEU"],JAMAA:["MER","MER","SAM","MER","MER"],"EL HASSANE":["VEN","SAM","VEN","VEN","VEN"]};
+let EMPS=getPlanningFallbackEmployees();
+let CYCLE=Object.fromEntries(Object.entries(defaultRhCycles).map(([name, cycle])=>[name,[...cycle]]));
 
 function syncPlanningDataFromRh(){
   const rhEmployees=loadRhEmployees();

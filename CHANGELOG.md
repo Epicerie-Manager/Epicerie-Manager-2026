@@ -21,6 +21,10 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.30 - 2026-03-30
+
+- Collaborateurs / Planning & Absences : la PWA collaborateur fusionne maintenant les absences saisies par le manager (`absences`) et les demandes collaborateur (`absence_requests`), ce qui permet de voir aussi les absences manager dans l'onglet `Absences` et de les superposer correctement au planning personnel.
+
 ## v0.6.29 - 2026-03-30
 
 - Planning / Absences : la synchronisation du planning prend maintenant aussi en compte les demandes approuvees venant de `absence_requests`, afin que les validations manager issues de la PWA collaborateur apparaissent bien dans le planning.

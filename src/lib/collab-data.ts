@@ -6,6 +6,75 @@ export type CollabAbsenceRequest = Record<string, unknown>;
 export type CollabDocument = Record<string, unknown>;
 export type CollabAnnonce = Record<string, unknown>;
 
+function normalizeCollabAbsenceStatus(status: unknown) {
+  const value = String(status ?? "").toLowerCase();
+  if (value.includes("ref")) return "refuse";
+  if (value.includes("appr")) return "approuve";
+  return "en_attente";
+}
+
+function listIsoDates(dateDebut: string, dateFin: string) {
+  const dates: string[] = [];
+  const current = new Date(`${dateDebut}T00:00:00`);
+  const end = new Date(`${dateFin}T00:00:00`);
+  while (current <= end) {
+    dates.push(current.toISOString().slice(0, 10));
+    current.setDate(current.getDate() + 1);
+  }
+  return dates;
+}
+
+function getPlanningStatusFromAbsenceType(type: unknown) {
+  const upper = String(type ?? "").toUpperCase();
+  if (upper === "CP") return "CP";
+  if (upper === "MAL") return "MAL";
+  if (upper === "CONGE_MAT") return "CONGE_MAT";
+  if (upper === "FORM") return "FORM";
+  if (upper === "FERIE") return "FERIE";
+  if (upper === "RTT" || upper === "DEPLACEMENT_RH") return "RH";
+  return "X";
+}
+
+function matchesGlobalAbsence(note: unknown) {
+  return String(note ?? "").toUpperCase().includes("EMPLOYEE:TOUS");
+}
+
+async function getApprovedCollabAbsenceRows(
+  employeeId: string,
+  startDate: string,
+  endDate: string,
+) {
+  const supabase = createClient();
+  const [managerAbsencesResult, collabRequestsResult] = await Promise.all([
+    supabase
+      .from("absences")
+      .select("employee_id,type,date_debut,date_fin,statut,note,created_at,updated_at")
+      .or(`employee_id.eq.${employeeId},note.ilike.%EMPLOYEE:TOUS%`)
+      .lte("date_debut", endDate)
+      .gte("date_fin", startDate),
+    supabase
+      .from("absence_requests")
+      .select("employee_id,type,date_debut,date_fin,statut,note,created_at,updated_at")
+      .eq("employee_id", employeeId)
+      .lte("date_debut", endDate)
+      .gte("date_fin", startDate),
+  ]);
+
+  if (managerAbsencesResult.error) throw managerAbsencesResult.error;
+  if (collabRequestsResult.error) throw collabRequestsResult.error;
+
+  const approvedRows = [
+    ...((managerAbsencesResult.data ?? []) as Array<Record<string, unknown>>).filter(
+      (row) => normalizeCollabAbsenceStatus(row.statut) === "approuve",
+    ),
+    ...((collabRequestsResult.data ?? []) as Array<Record<string, unknown>>).filter(
+      (row) => normalizeCollabAbsenceStatus(row.statut) === "approuve",
+    ),
+  ];
+
+  return approvedRows;
+}
+
 export async function getMyWeekPlanning(startDate: string, endDate: string) {
   const supabase = createClient();
   const profile = await getCollabProfile();
@@ -18,7 +87,29 @@ export async function getMyWeekPlanning(startDate: string, endDate: string) {
     .lte("date", endDate)
     .order("date");
   if (error) throw error;
-  return data ?? [];
+
+  const rows = [...(data ?? [])] as Array<Record<string, unknown>>;
+  const byDate = new Map(rows.map((row) => [String(row.date ?? ""), { ...row }]));
+  const approvedAbsences = await getApprovedCollabAbsenceRows(profile.employee_id, startDate, endDate);
+
+  approvedAbsences.forEach((row) => {
+    const dates = listIsoDates(String(row.date_debut ?? ""), String(row.date_fin ?? row.date_debut ?? ""));
+    const planningStatus = getPlanningStatusFromAbsenceType(row.type);
+    dates
+      .filter((date) => date >= startDate && date <= endDate)
+      .forEach((date) => {
+        const existing = byDate.get(date) ?? { date, employee_id: profile.employee_id };
+        byDate.set(date, {
+          ...existing,
+          date,
+          employee_id: profile.employee_id,
+          statut: planningStatus,
+          horaire_custom: null,
+        });
+      });
+  });
+
+  return Array.from(byDate.values()).sort((a, b) => String(a.date ?? "").localeCompare(String(b.date ?? "")));
 }
 
 export async function getMyMonthPlanning(year: number, month: number) {
@@ -44,13 +135,42 @@ export async function getMyAbsences() {
   const supabase = createClient();
   const profile = await getCollabProfile();
   if (!profile?.employee_id) return [];
-  const { data, error } = await supabase
-    .from("absence_requests")
-    .select("*")
-    .eq("employee_id", profile.employee_id)
-    .order("created_at", { ascending: false });
-  if (error) throw error;
-  return data ?? [];
+  const [requestsResult, managerAbsencesResult] = await Promise.all([
+    supabase
+      .from("absence_requests")
+      .select("*")
+      .eq("employee_id", profile.employee_id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("absences")
+      .select("*")
+      .or(`employee_id.eq.${profile.employee_id},note.ilike.%EMPLOYEE:TOUS%`)
+      .order("created_at", { ascending: false }),
+  ]);
+  if (requestsResult.error) throw requestsResult.error;
+  if (managerAbsencesResult.error) throw managerAbsencesResult.error;
+
+  const requests = ((requestsResult.data ?? []) as Array<Record<string, unknown>>).map((row) => ({
+    ...row,
+    source_table: "absence_requests",
+  }));
+  const managerAbsences = ((managerAbsencesResult.data ?? []) as Array<Record<string, unknown>>)
+    .filter((row) => {
+      const employeeId = String(row.employee_id ?? "");
+      return employeeId === profile.employee_id || matchesGlobalAbsence(row.note);
+    })
+    .map((row) => ({
+      ...row,
+      source_table: "absences",
+    }));
+
+  return [...requests, ...managerAbsences].sort((a, b) => {
+    const left = b as Record<string, unknown>;
+    const right = a as Record<string, unknown>;
+    return String(left.created_at ?? left.updated_at ?? "").localeCompare(
+      String(right.created_at ?? right.updated_at ?? ""),
+    );
+  });
 }
 
 export async function createAbsenceRequest(payload: {

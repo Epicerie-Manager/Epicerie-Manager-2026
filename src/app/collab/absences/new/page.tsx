@@ -8,16 +8,17 @@ import { getCollabProfile } from "@/lib/collab-auth";
 import { calcJoursOuvres, calcJoursTotal, createAbsenceRequest } from "@/lib/collab-data";
 
 const absenceTypes = [
-  { id: "Congé payé", label: "Congé payé" },
+  { id: "CP", label: "Congé payé" },
   { id: "RTT", label: "RTT" },
-  { id: "Événement familial", label: "Événement familial" },
-  { id: "Autre", label: "Autre" },
+  { id: "MAL", label: "Maladie" },
+  { id: "EVENEMENT", label: "Événement familial" },
+  { id: "AUTRE", label: "Autre" },
 ];
 
 export default function NewCollabAbsencePage() {
   const router = useRouter();
   const [ready, setReady] = useState(false);
-  const [type, setType] = useState("Congé payé");
+  const [type, setType] = useState("CP");
   const [dateDebut, setDateDebut] = useState("");
   const [dateFin, setDateFin] = useState("");
   const [note, setNote] = useState("");

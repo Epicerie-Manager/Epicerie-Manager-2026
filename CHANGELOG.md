@@ -21,6 +21,10 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.22 - 2026-03-30
+
+- Collaborateurs / Absences : alignement du formulaire `/collab/absences/new` avec les codes `type` attendus par `absence_requests` (`CP`, `RTT`, `MAL`, `EVENEMENT`, `AUTRE`) et ajout de logs de diagnostic sur `employee_id` et l'erreur exacte d'insert Supabase.
+
 ## v0.6.21 - 2026-03-30
 
 - Planning / Dashboard : `ABDOU` reste visible dans le planning, mais n'est plus comptabilise dans les effectifs et compteurs de presence matin / apres-midi, ni dans les indicateurs derives utilisant le calcul partage de presence.

@@ -64,6 +64,7 @@ export async function createAbsenceRequest(payload: {
   const supabase = createClient();
   const profile = await getCollabProfile();
   if (!profile?.employee_id) throw new Error("Profil non trouvé");
+  console.log("employee_id utilisé:", profile.employee_id);
   const { data, error } = await supabase
     .from("absence_requests")
     .insert({
@@ -73,7 +74,10 @@ export async function createAbsenceRequest(payload: {
     })
     .select()
     .single();
-  if (error) throw error;
+  if (error) {
+    console.log("erreur insert:", error);
+    throw error;
+  }
   return data;
 }
 

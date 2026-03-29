@@ -32,18 +32,18 @@ export default function CollabChangePinPage() {
       .catch(() => router.replace("/collab/login"));
   }, [router]);
 
-  const pinsMatch = firstPin.length === 4 && confirmPin.length === 4 && firstPin === confirmPin;
-  const mismatch = firstPin.length === 4 && confirmPin.length === 4 && firstPin !== confirmPin;
+  const pinsMatch = firstPin.length === 6 && confirmPin.length === 6 && firstPin === confirmPin;
+  const mismatch = firstPin.length === 6 && confirmPin.length === 6 && firstPin !== confirmPin;
 
   const handleDigit = (digit: string) => {
     setError("");
     if (step === "choose") {
-      const next = `${firstPin}${digit}`.slice(0, 4);
+      const next = `${firstPin}${digit}`.slice(0, 6);
       setFirstPin(next);
-      if (next.length === 4) setStep("confirm");
+      if (next.length === 6) setStep("confirm");
       return;
     }
-    setConfirmPin((current) => `${current}${digit}`.slice(0, 4));
+    setConfirmPin((current) => `${current}${digit}`.slice(0, 6));
   };
 
   const handleBackspace = () => {
@@ -78,12 +78,12 @@ export default function CollabChangePinPage() {
 
   return (
     <CollabPage>
-      <CollabHeader title="Votre nouveau code" subtitle="Première connexion : choisissez un code personnel à 4 chiffres." accent={false} />
+      <CollabHeader title="Votre nouveau code" subtitle="Première connexion : choisissez un code personnel à 6 chiffres." accent={false} />
       <SectionCard style={{ padding: "18px 16px", marginBottom: 16, background: "#fff8ec" }}>
         <div style={{ fontSize: 13, color: collabTheme.amber }}>Première connexion — choisissez un code personnel.</div>
       </SectionCard>
       <SectionCard style={{ padding: "22px 18px" }}>
-        <div style={{ fontSize: 14, fontWeight: 700 }}>Choisissez 4 chiffres</div>
+        <div style={{ fontSize: 14, fontWeight: 700 }}>Choisissez 6 chiffres</div>
         <PinDots value={firstPin} />
         <div style={{ fontSize: 14, fontWeight: 700, marginTop: 8 }}>Confirmez</div>
         <PinDots value={confirmPin} />
@@ -114,3 +114,4 @@ export default function CollabChangePinPage() {
     </CollabPage>
   );
 }
+

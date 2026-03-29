@@ -21,6 +21,10 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.16 - 2026-03-29
+
+- Collaborateurs / Auth : ajout du script `scripts/create-collabs.mjs` pour recreer proprement les comptes collaborateurs `@ep.fr` via l'API Admin Supabase avec la cle legacy locale.
+
 ## v0.6.15 - 2026-03-29
 
 - Documentation : mise a jour de `RETOUR_CODEX.md` avec le test complementaire effectue via `SUPABASE_SERVICE_ROLE_KEY_LEGACY`, confirmant que meme la cle legacy ne remonte aucun compte `@ep.fr` via l'API Admin Auth.
@@ -468,5 +472,6 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 - Etat de depart constate au debut de cette phase de travail.
 - Version visible dans l'interface avant les ajustements effectues pendant cette session.
 - Historique detaille anterieur a confirmer avec les anciennes conversations ou les commits git.
+
 
 

@@ -20,7 +20,7 @@ const keypadLetters: Record<string, string> = {
   "9": "wxyz",
 };
 
-export function PinDots({ value, length = 4 }: { value: string; length?: number }) {
+export function PinDots({ value, length = 6 }: { value: string; length?: number }) {
   return (
     <div style={{ display: "flex", justifyContent: "center", gap: 12, margin: "16px 0 22px" }}>
       {Array.from({ length }).map((_, index) => {
@@ -113,3 +113,4 @@ export function NumericKeypad({
     </div>
   );
 }
+

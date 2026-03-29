@@ -30,9 +30,9 @@ export function CollabPinPageClient({ selectedName }: { selectedName: string }) 
   const handleDigit = (digit: string) => {
     if (busy) return;
     setError("");
-    const nextPin = `${pin}${digit}`.slice(0, 4);
+    const nextPin = `${pin}${digit}`.slice(0, 6);
     setPin(nextPin);
-    if (nextPin.length !== 4 || !selectedName) return;
+    if (nextPin.length !== 6 || !selectedName) return;
 
     setBusy(true);
     void collabSignIn(selectedName, nextPin)
@@ -59,7 +59,7 @@ export function CollabPinPageClient({ selectedName }: { selectedName: string }) 
         ← Retour
       </Link>
       <div style={{ height: 10 }} />
-      <CollabHeader title="Votre code" subtitle="Entrez votre code personnel à 4 chiffres." accent={false} />
+      <CollabHeader title="Votre code" subtitle="Entrez votre code personnel à 6 chiffres." accent={false} />
       <SectionCard style={{ padding: "22px 18px" }}>
         <div style={{ display: "grid", justifyItems: "center" }}>
           <div style={{ width: 78, height: 78, borderRadius: 26, display: "grid", placeItems: "center", background: collabTheme.accentSoft, color: collabTheme.accent, fontSize: 28, fontWeight: 700 }}>
@@ -76,4 +76,5 @@ export function CollabPinPageClient({ selectedName }: { selectedName: string }) 
     </CollabPage>
   );
 }
+
 

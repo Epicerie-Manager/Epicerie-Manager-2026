@@ -108,8 +108,8 @@ export async function getCollabProfile() {
 
 export async function changeCollabPin(newPin: string) {
   const supabase = createClient();
-  if (!/^\d{4}$/.test(newPin)) {
-    throw new Error("Le PIN doit être composé de 4 chiffres");
+  if (!/^\d{6}$/.test(newPin)) {
+    throw new Error("Le PIN doit être composé de 6 chiffres");
   }
 
   const { error } = await supabase.auth.updateUser({ password: newPin });
@@ -131,3 +131,4 @@ export async function isCollabAuthenticated() {
   const profile = await getCollabProfile();
   return profile?.role === "collaborateur";
 }
+

@@ -10,6 +10,7 @@ import {
   plateauWeekDates as WEEK_DATES,
 } from "@/lib/plateau-data";
 import {
+  getBestPlateauAssetForWeek,
   getPlateauAssetLookup,
   getPlateauAssetsUpdatedEventName,
   loadPlateauAssets,
@@ -552,13 +553,11 @@ export default function PlateauApp(){
   const imageWeekForSelectedOp = op
     ? (focusWeek >= op.sFrom && focusWeek <= op.sTo ? focusWeek : op.sFrom)
     : focusWeek;
-  const selectedPersistedAsset = op
-    ? (
-      assetLookup.get(`${imageWeekForSelectedOp}:${op.pl}`) ||
-      assetLookup.get(`${imageWeekForSelectedOp}:WEEK`) ||
-      null
-    )
-    : null;
+  const selectedPersistedAsset = getBestPlateauAssetForWeek(
+    assetLookup,
+    imageWeekForSelectedOp,
+    op?.pl,
+  );
   const selectedOpImage = op
     ? (selectedPersistedAsset?.publicUrl || null)
     : null;

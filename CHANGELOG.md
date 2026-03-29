@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.59 - 2026-03-29
+
+- Plateau : l'affichage du plan prend maintenant le meilleur visuel disponible sur la semaine courante, même si aucun `Plateau A` n'est actif ou si l'image a été rangée sous un autre plateau lors de l'import.
+- Plateau : le retour sur des semaines déjà visitées garde un fallback stable entre `WEEK`, `A`, `B` et `C`, ce qui évite les zones vides alors qu'un plan existe bien pour la semaine.
+
 ## v0.5.58 - 2026-03-29
 
 - Infos : la page se recale maintenant sur le store partagé après chaque ajout ou suppression, ce qui supprime les écarts entre l'état local de l'écran et le snapshot mémoire synchronisé avec Supabase.

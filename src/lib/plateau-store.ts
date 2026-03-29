@@ -384,3 +384,21 @@ export function getPlateauAssetLookup(assets: PlateauAsset[]) {
   });
   return lookup;
 }
+
+export function getBestPlateauAssetForWeek(
+  assetLookup: Map<string, PlateauAsset>,
+  weekNumber: number,
+  preferredKey?: PlateauAssetKey,
+) {
+  const baseOrder: PlateauAssetKey[] = ["WEEK", "A", "B", "C"];
+  const fallbackOrder: PlateauAssetKey[] = preferredKey
+    ? [preferredKey, ...baseOrder.filter((key) => key !== preferredKey)]
+    : baseOrder;
+
+  for (const plateauKey of fallbackOrder) {
+    const asset = assetLookup.get(`${weekNumber}:${plateauKey}`);
+    if (asset) return asset;
+  }
+
+  return null;
+}

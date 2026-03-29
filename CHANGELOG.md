@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.46 - 2026-03-29
+
+- Planning vue `Mois` : les KPI bases sur la journee actuelle sont retires au profit d'indicateurs mensuels plus utiles (`jours critiques`, `jours en alerte`, `demandes en attente`, `demandes a risque`).
+- Planning : les demandes en attente affichees dans les KPI du mois sont maintenant filtrees sur le mois consulte, avec la meme logique de risque que le dashboard pour reperer les absences qui tombent sur des periodes fragiles.
+
 ## v0.5.45 - 2026-03-29
 
 - Authentification : le délai de déconnexion automatique pour inactivité passe de 30 minutes à 1 heure.

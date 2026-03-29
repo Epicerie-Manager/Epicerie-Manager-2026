@@ -395,6 +395,13 @@ function loadPendingAbsenceRequests(){
   return loadAbsenceRequests().filter((request)=>request.status==="EN_ATTENTE");
 }
 
+function doesRequestOverlapPlanningRange(request,startIso,endIso){
+  const requestStart=String(request?.startDate||"");
+  const requestEnd=String(request?.endDate||requestStart);
+  if(!requestStart) return false;
+  return requestStart<=endIso&&requestEnd>=startIso;
+}
+
 function splitPlanningItemsInColumns(items,columnCount=2){
   const columnSize=Math.ceil(items.length/columnCount);
   return Array.from({length:columnCount},(_,index)=>items.slice(index*columnSize,(index+1)*columnSize));
@@ -1126,6 +1133,60 @@ export default function PlanningApp(){
   const eCount=kpiGroups.etu.length;
   const absCount=kpiGroups.absRH.length+kpiGroups.absCP.length+kpiGroups.absMAL.length+kpiGroups.absOther.length;
   const pendingAbsenceLookup=buildPendingAbsenceLookup(pendingRequests);
+  const monthMetrics=useMemo(()=>{
+    if(year===null||month===null){
+      return {
+        pendingMonthRequests:[],
+        pendingRiskRequests:[],
+        alertDays:[],
+        criticalDays:[],
+        pendingCriticalRiskCount:0,
+      };
+    }
+    const totalDays=daysInMonth(year,month);
+    const monthStartIso=formatPlanningDate(new Date(year,month,1));
+    const monthEndIso=formatPlanningDate(new Date(year,month,totalDays));
+    const monthlyPlanningDays=Array.from({length:totalDays},(_,index)=>{
+      const date=new Date(year,month,index+1);
+      const counts=getPlanningDayPresence(date,overrides);
+      return {
+        dayIso:formatPlanningDate(date),
+        date,
+        morningCount:counts.morningCount,
+        afternoonCount:counts.afternoonCount,
+        level:getPlanningDayLevel(date,counts,presenceThresholds),
+      };
+    });
+    const monitoredDays=monthlyPlanningDays.filter((day)=>day.date.getDay()!==0);
+    const alertDays=monitoredDays.filter((day)=>day.level==="warning");
+    const criticalDays=monitoredDays.filter((day)=>day.level==="critical");
+    const riskDays=monitoredDays.filter((day)=>day.level!=="ok");
+    const criticalDaySet=new Set(criticalDays.map((day)=>day.dayIso));
+    const pendingMonthRequests=pendingRequests
+      .filter((request)=>doesRequestOverlapPlanningRange(request,monthStartIso,monthEndIso))
+      .sort((a,b)=>a.startDate.localeCompare(b.startDate));
+    const pendingRiskRequests=pendingMonthRequests
+      .map((request)=>{
+        const overlappingRiskDays=riskDays.filter((day)=>request.startDate<=day.dayIso&&request.endDate>=day.dayIso);
+        if(!overlappingRiskDays.length) return null;
+        return {
+          request,
+          highestLevel:overlappingRiskDays.some((day)=>criticalDaySet.has(day.dayIso))?"critical":"warning",
+        };
+      })
+      .filter(Boolean)
+      .sort((a,b)=>
+        (a.highestLevel==="critical"?-1:1)-(b.highestLevel==="critical"?-1:1)||
+        a.request.startDate.localeCompare(b.request.startDate),
+      );
+    return {
+      pendingMonthRequests,
+      pendingRiskRequests,
+      alertDays,
+      criticalDays,
+      pendingCriticalRiskCount:pendingRiskRequests.filter((item)=>item.highestLevel==="critical").length,
+    };
+  },[year,month,overrides,presenceThresholds,pendingRequests]);
   const currentPresenceCounts=useMemo(()=>{
     const targetDate=selectedDate&&view==="jour"?selectedDate:new Date();
     return getPlanningDayPresence(targetDate,overrides);
@@ -1186,7 +1247,39 @@ export default function PlanningApp(){
         )}
 
         {/* KPIs */}
-        {view!=="jour"&&(
+        {view==="mois"&&(
+          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}}>
+            <KPI
+              value={monthMetrics.criticalDays.length}
+              label="Jours critiques"
+              color={monthMetrics.criticalDays.length?V.red:V.green}
+              gradient={monthMetrics.criticalDays.length?"linear-gradient(135deg,#fef2f2,#fee2e2)":"linear-gradient(135deg,#ecfdf5,#f0fdf4)"}
+            />
+            <KPI
+              value={monthMetrics.alertDays.length}
+              label="Jours en alerte"
+              color={monthMetrics.alertDays.length?V.amber:V.green}
+              gradient={monthMetrics.alertDays.length?"linear-gradient(135deg,#fff7ed,#ffedd5)":"linear-gradient(135deg,#f0fdf4,#f7fee7)"}
+            />
+            <KPI
+              value={monthMetrics.pendingMonthRequests.length}
+              label="Demandes en attente"
+              color={monthMetrics.pendingMonthRequests.length?V.mc:V.light}
+              gradient={monthMetrics.pendingMonthRequests.length?"linear-gradient(135deg,#eff6ff,#dbeafe)":"linear-gradient(135deg,#f8fafc,#f1f5f9)"}
+            />
+            <KPI
+              value={monthMetrics.pendingRiskRequests.length}
+              label="Demandes à risque"
+              color={monthMetrics.pendingRiskRequests.length?(monthMetrics.pendingCriticalRiskCount?V.red:V.amber):V.green}
+              gradient={monthMetrics.pendingRiskRequests.length
+                ? monthMetrics.pendingCriticalRiskCount
+                  ? "linear-gradient(135deg,#fff1f2,#ffe4e6)"
+                  : "linear-gradient(135deg,#fff7ed,#ffedd5)"
+                : "linear-gradient(135deg,#ecfdf5,#f0fdf4)"}
+            />
+          </div>
+        )}
+        {view==="semaine"&&(
           <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}}>
             <KPI value={currentPresenceCounts.morningCount} label="Matin aujourd'hui" color={getPlanningLevelColor(getPlanningCountLevel(currentPresenceCounts.morningCount,"morning",presenceThresholds))} gradient={getPlanningCountLevel(currentPresenceCounts.morningCount,"morning",presenceThresholds)==="ok"?V.mG:"linear-gradient(135deg,#fef1f2,#fff8f8)"}/>
             <KPI value={currentPresenceCounts.afternoonCount} label="Après-midi" color={getPlanningLevelColor(getPlanningCountLevel(currentPresenceCounts.afternoonCount,"afternoon",presenceThresholds))} gradient={getPlanningCountLevel(currentPresenceCounts.afternoonCount,"afternoon",presenceThresholds)==="ok"?"linear-gradient(135deg,#f5f2fe,#faf8ff)":"linear-gradient(135deg,#fff7ed,#fffaf5)"}/>

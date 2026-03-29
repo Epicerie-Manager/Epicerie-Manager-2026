@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.56 - 2026-03-29
+
+- Dashboard / Plateau : la tuile `Plateau` reprend maintenant le `Focus semaine` du module `Plateau`, avec la même semaine courante, les mêmes opérations actives et le même découpage `Plateau A / B / C-D`.
+- Plateau : les données de frise sont mutualisées dans une source commune pour éviter que le dashboard et le module `Plateau` racontent deux versions différentes des opérations en cours.
+
 ## v0.5.55 - 2026-03-29
 
 - Dashboard : la tuile `Plateau` abandonne l'intitulé `Chantiers terrain` pour rester cohérente avec le nom du module.

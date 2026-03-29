@@ -34,7 +34,7 @@ import {
 } from "@/lib/planning-store";
 import { getPlanningPresenceCountsForDate } from "@/lib/planning-presence";
 import { getRhUpdatedEventName, loadRhEmployees, syncRhFromSupabase } from "@/lib/rh-store";
-import { plateauOperationsByMonth } from "@/lib/plateau-data";
+import { getPlateauWeekFocusData } from "@/lib/plateau-data";
 
 type AlertTone = "yellow" | "red" | "blue";
 type RankStatus = "ok" | "warn" | "alert";
@@ -410,26 +410,26 @@ export default function DashboardPage() {
     });
 
   const pendingAbsences = absences.filter((request) => request.status === "EN_ATTENTE").length;
-  const operationsMonthKey = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
-  const operationsByZone = plateauOperationsByMonth[operationsMonthKey] ?? {};
-  const operations = Object.entries(operationsByZone)
-    .flatMap(([zone, rows]) => rows.map((row) => ({ zone, ...row })))
-    .slice(0, 4)
-    .map((row, index) => {
-      const colorMap: Record<string, string> = {
-        "Plateau A": "#b91c2e",
-        "Plateau B": "#167a48",
-        "Plateau C/D": "#1d5fa0",
-      };
-      const color = colorMap[row.zone] ?? "#c05a0c";
-      return {
-        id: `${row.zone}-${index}`,
-        name: row.operation,
-        detail: `${row.slot}${row.zone ? ` · ${row.zone}` : ""}`,
-        color,
-        badge: row.zone.replace("Plateau ", "Plat. "),
-      };
-    });
+  const plateauFocus = getPlateauWeekFocusData();
+  const plateauOperations = plateauFocus.operations.map((operation) => {
+    const colorMap: Record<string, { color: string; badge: string; bg: string }> = {
+      A: { color: "#b91c2e", badge: "A", bg: "#fcebeb" },
+      B: { color: "#167a48", badge: "B", bg: "#eaf3de" },
+      C: { color: "#1d5fa0", badge: "C/D", bg: "#e6f1fb" },
+    };
+    const meta = colorMap[operation.pl] ?? { color: "#c05a0c", badge: operation.pl, bg: "#fef6ee" };
+    const isNew = operation.sFrom === plateauFocus.focusWeek;
+    const isEnd = operation.sTo === plateauFocus.focusWeek;
+    return {
+      id: operation.id,
+      name: operation.nom,
+      detail: operation.zone || (operation.pl === "A" ? "Entrée magasin + allée centrale" : operation.pl === "B" ? "Côté écolier + côté LSE" : "Zones thématiques"),
+      color: meta.color,
+      badge: meta.badge,
+      bg: meta.bg,
+      marker: isNew ? "Début" : isEnd ? "Fin" : null,
+    };
+  });
 
   const alerts = [
     ...(weekCards.some((item) => item.alert)
@@ -441,8 +441,8 @@ export default function DashboardPage() {
     ...(balisageAlertsCount > 0
       ? [{ id: "bal-alert", text: `${balisageAlertsCount} profil(s) balisage en alerte`, module: "Balisage", tone: "red" as AlertTone }]
       : []),
-    ...(operations.length > 0
-      ? [{ id: "plat-active", text: "Opérations plateau en cours ce mois", module: "Plateau", tone: "blue" as AlertTone }]
+    ...(plateauOperations.length > 0
+      ? [{ id: "plat-active", text: "Opérations plateau actives sur la semaine en cours", module: "Plateau", tone: "blue" as AlertTone }]
       : []),
   ];
 
@@ -556,9 +556,25 @@ export default function DashboardPage() {
           <Card>
             <Kicker moduleKey="plateau" label="Plateaux" icon={<IconMap />} />
             <h2 style={{ fontSize: "17px", fontWeight: 700, letterSpacing: "-0.02em", color: "#0f172a" }}>Plateau</h2>
-            <p style={{ fontSize: "12px", color: "#64748b", marginTop: "3px", marginBottom: "10px" }}>{monthLabel}</p>
+            <div style={{ marginTop: "6px", marginBottom: "10px" }}>
+              <div style={{ fontSize: "11px", fontWeight: 700, color: "#c05a0c", letterSpacing: "0.04em" }}>
+                FOCUS SEMAINE {plateauFocus.focusWeek}
+              </div>
+              <div style={{ fontSize: "14px", fontWeight: 700, color: "#0f172a", marginTop: "2px" }}>
+                Mardi {plateauFocus.weekLabel}
+              </div>
+              <div style={{ fontSize: "12px", color: "#64748b", marginTop: "3px" }}>
+                {plateauOperations.length} opération{plateauOperations.length > 1 ? "s" : ""} active{plateauOperations.length > 1 ? "s" : ""} cette semaine
+              </div>
+            </div>
 
-            {operations.map((op) => (
+            <div style={{ display: "flex", gap: "6px", flexWrap: "wrap", marginBottom: "10px" }}>
+              {plateauFocus.byPlateau.A.length > 0 ? <span style={{ padding: "4px 10px", borderRadius: "8px", background: "#fcebeb", color: "#a32d2d", fontSize: "11px", fontWeight: 700 }}>{plateauFocus.byPlateau.A.length} Plateau A</span> : null}
+              {plateauFocus.byPlateau.B.length > 0 ? <span style={{ padding: "4px 10px", borderRadius: "8px", background: "#eaf3de", color: "#27500a", fontSize: "11px", fontWeight: 700 }}>{plateauFocus.byPlateau.B.length} Plateau B</span> : null}
+              {plateauFocus.byPlateau.C.length > 0 ? <span style={{ padding: "4px 10px", borderRadius: "8px", background: "#e6f1fb", color: "#0c447c", fontSize: "11px", fontWeight: 700 }}>{plateauFocus.byPlateau.C.length} Plateau C/D</span> : null}
+            </div>
+
+            {plateauOperations.map((op) => (
               <div key={op.id} style={{
                 display: "flex", alignItems: "center", justifyContent: "space-between",
                 padding: "10px 0", borderBottom: "1px solid #dbe3eb",
@@ -573,18 +589,32 @@ export default function DashboardPage() {
                     <div style={{ fontSize: "11px", color: "#64748b", marginTop: "2px" }}>{op.detail}</div>
                   </div>
                 </div>
-                <span style={{
-                  fontSize: "10px", fontWeight: 700, letterSpacing: "0.04em",
-                  textTransform: "uppercase", padding: "3px 8px", borderRadius: "6px",
-                  background: `${op.color}18`, color: op.color,
-                }}>
-                  {op.badge}
-                </span>
+                <div style={{ display: "flex", alignItems: "center", gap: "6px", flexShrink: 0 }}>
+                  {op.marker ? (
+                    <span style={{
+                      fontSize: "9px",
+                      fontWeight: 700,
+                      color: "#fff",
+                      background: op.marker === "Début" ? "#16a34a" : "#d97706",
+                      padding: "2px 7px",
+                      borderRadius: "5px",
+                    }}>
+                      {op.marker}
+                    </span>
+                  ) : null}
+                  <span style={{
+                    fontSize: "10px", fontWeight: 700, letterSpacing: "0.04em",
+                    textTransform: "uppercase", padding: "3px 8px", borderRadius: "6px",
+                    background: op.bg, color: op.color,
+                  }}>
+                    {op.badge}
+                  </span>
+                </div>
               </div>
             ))}
-            {operations.length === 0 ? (
+            {plateauOperations.length === 0 ? (
               <div style={{ fontSize: "12px", color: "#64748b", padding: "8px 0" }}>
-                Aucune opération terrain sur ce mois.
+                Aucune opération cette semaine.
               </div>
             ) : null}
             {/* Enlever la bordure du dernier élément */}

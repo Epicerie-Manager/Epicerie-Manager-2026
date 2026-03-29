@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.40 - 2026-03-29
+
+- Dashboard : le panneau `Jours alerte` n'affiche plus les jours critiques, qui restent uniquement visibles dans la tuile et le panneau `Jours critiques`.
+- Dashboard : la tuile `Jour le plus tendu` est clarifiee en `Plus faible matin`, avec un detail explicite `matin / apres-midi` pour supprimer l'ambiguite sur la valeur affichee.
+
 ## v0.5.39 - 2026-03-29
 
 - Dashboard : la vue mensuelle ajoute maintenant un indicateur `Demandes a risque` pour reperer les demandes d'absence `En attente` qui tombent sur des jours deja fragiles du mois.

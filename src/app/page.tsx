@@ -344,7 +344,8 @@ export default function DashboardPage() {
   }, [planningOverrides, today]);
 
   const monthlyMonitoredDays = monthlyPlanningDays.filter((day) => day.date.getDay() !== 0);
-  const monthlyAlertDays = monthlyMonitoredDays.filter((day) => day.level !== "ok");
+  const monthlyRiskDays = monthlyMonitoredDays.filter((day) => day.level !== "ok");
+  const monthlyAlertDays = monthlyMonitoredDays.filter((day) => day.level === "warning");
   const monthlyCriticalDays = monthlyMonitoredDays.filter((day) => day.level === "critical");
   const mostTenseDay = [...monthlyMonitoredDays].sort((a, b) =>
     a.morningCount - b.morningCount ||
@@ -355,7 +356,7 @@ export default function DashboardPage() {
   const pendingRiskRequests = absences
     .filter((request) => request.status === "EN_ATTENTE")
     .map((request) => {
-      const overlappingRiskDays = monthlyAlertDays.filter((day) =>
+      const overlappingRiskDays = monthlyRiskDays.filter((day) =>
         request.startDate <= day.dayIso && request.endDate >= day.dayIso,
       );
       if (!overlappingRiskDays.length) return null;
@@ -370,7 +371,7 @@ export default function DashboardPage() {
     })
     .filter((item): item is {
       request: typeof absences[number];
-      overlappingRiskDays: typeof monthlyAlertDays;
+      overlappingRiskDays: typeof monthlyRiskDays;
       highestLevel: "critical" | "warning";
     } => Boolean(item))
     .sort((a, b) =>
@@ -723,7 +724,7 @@ export default function DashboardPage() {
                   key: "alerts",
                   value: monthlyAlertDays.length,
                   label: "Jours alerte",
-                  detail: monthlyCriticalDays.length ? `dont ${monthlyCriticalDays.length} critiques` : "Aucun jour critique",
+                  detail: monthlyAlertDays.length ? "Hors jours critiques" : "Aucun jour alerte",
                   tone: monthlyAlertDays.length ? "#c2410c" : "#0f766e",
                   bg: monthlyAlertDays.length ? "linear-gradient(135deg,#fff7ed,#ffedd5)" : "linear-gradient(135deg,#f0fdfa,#ecfeff)",
                   border: monthlyAlertDays.length ? "#fdba74" : "#99f6e4",
@@ -803,11 +804,11 @@ export default function DashboardPage() {
                   {mostTenseDay ? mostTenseDay.morningCount : "-"}
                 </div>
                 <div style={{ fontSize: "11px", fontWeight: 700, color: "#1d4ed8", marginTop: "6px" }}>
-                  Jour le plus tendu
+                  Plus faible matin
                 </div>
                 <div style={{ fontSize: "10px", color: "#64748b", marginTop: "4px", lineHeight: 1.35 }}>
                   {mostTenseDay
-                    ? `${mostTenseDay.date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} · ${mostTenseDay.afternoonCount} après-midi`
+                    ? `${mostTenseDay.date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} · ${mostTenseDay.morningCount} matin / ${mostTenseDay.afternoonCount} après-midi`
                     : "Aucune donnée mensuelle"}
                 </div>
               </div>
@@ -943,7 +944,7 @@ export default function DashboardPage() {
                 ? "Jours critiques du mois"
                 : monthlyIssuePanel === "pending"
                   ? "Demandes en attente sur périodes fragiles"
-                  : "Jours sous seuil du mois"}
+                  : "Jours alerte du mois"}
             </h2>
             <p style={{ marginTop: "4px", fontSize: "12px", color: "#64748b", lineHeight: 1.45 }}>
               {dashboardMonthLabel} · alerte &lt; {defaultPresenceThresholds.warningThreshold} · critique &lt; {defaultPresenceThresholds.criticalThreshold}

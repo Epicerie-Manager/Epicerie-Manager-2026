@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.42 - 2026-03-29
+
+- Planning semaine : la section `Présents` distingue maintenant clairement `Matin` et `Après-midi` sur chaque carte jour, au lieu d'afficher une seule liste.
+- La distinction est calculee a partir des horaires reels du jour, pour rester alignee avec les compteurs hebdomadaires et inclure correctement les profils d'apres-midi ou les etudiants selon leur creneau.
+
 ## v0.5.41 - 2026-03-29
 
 - Seuils de présence : ajout d'une configuration partagée `matin / après-midi` avec persistance prévue via `Supabase`, un store frontend commun et un patch SQL dédié `supabase/patch_presence_thresholds.sql`.

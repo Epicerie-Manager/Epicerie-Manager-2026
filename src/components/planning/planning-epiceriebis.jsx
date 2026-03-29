@@ -28,7 +28,7 @@ import {
   savePlanningTriPairToSupabase,
   syncPlanningFromSupabase,
 } from "@/lib/planning-store";
-import { getPlanningPresenceCountsForDate } from "@/lib/planning-presence";
+import { getPlanningPresenceCountsForDate, getPlanningShiftBuckets } from "@/lib/planning-presence";
 import {
   getPresenceCountLevel,
   getPresenceThresholdLevel,
@@ -794,7 +794,9 @@ const VueSemaine=({weekStart,overrides,triData,presenceThresholds,onEdit})=>{
     <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:10}}>
       {days.map(date=>{
         const dow=date.getDay();const isT=formatPlanningDate(date)===todayS;
-        const matP=sortPlanningEmployees(EMPS.filter(e=>e.t==="M"&&getStatus(e,date,overrides)==="PRESENT"));
+        const presentEmployees=sortPlanningEmployees(EMPS.filter(e=>getStatus(e,date,overrides)==="PRESENT"));
+        const matP=presentEmployees.filter(e=>getPlanningShiftBuckets(getHoraire(e,date,overrides)).morning);
+        const apmP=presentEmployees.filter(e=>getPlanningShiftBuckets(getHoraire(e,date,overrides)).afternoon);
         const absents=sortPlanningEmployees(EMPS.filter(e=>e.actif&&!["PRESENT","X"].includes(getStatus(e,date,overrides))));
         const triPair=triData[dow];
         const counts=getPlanningDayPresence(date,overrides);
@@ -819,21 +821,32 @@ const VueSemaine=({weekStart,overrides,triData,presenceThresholds,onEdit})=>{
               </div>
               <div style={{borderRadius:6,padding:"5px",background:"linear-gradient(135deg,#f5f2fe,#faf8ff)",textAlign:"center"}}>
                 <div style={{fontSize:18,fontWeight:800,color:getPlanningLevelColor(afternoonLevel)}}>{counts.afternoonCount}</div>
-                <div style={{fontSize:8,fontWeight:700,color:V.light}}>SOIR</div>
+                <div style={{fontSize:8,fontWeight:700,color:V.light}}>APRÈS-MIDI</div>
               </div>
             </div>
             {/* Présents */}
             <div style={{fontSize:9,fontWeight:700,color:V.light,marginBottom:3}}>PRÉSENTS</div>
-            <div style={{display:"flex",flexWrap:"wrap",gap:2,marginBottom:6}}>
-              {matP.map(e=>{
-                const roleMeta=getPlanningEmployeeRoleMeta(e);
-                return(
-                <span key={e.n} onClick={()=>onEdit(e,date)} style={{
-                  display:"inline-flex",alignItems:"center",gap:4,
-                  fontSize:8,fontWeight:600,color:isCoordinatorEmployee(e)?V.mc:V.body,background:isCoordinatorEmployee(e)?"#e7f0fb":"#f0f4f8",padding:"2px 5px",borderRadius:4,cursor:"pointer",
-                  border:isTriCaddie(e.n,dow,triData)?`1px solid ${V.amber}`:"1px solid transparent",
-                }} title={`Statut RH : ${roleMeta.label}`}><RoleDot emp={e} size={6}/>{e.n}</span>
-              );})}
+            <div style={{display:"grid",gap:4,marginBottom:6}}>
+              {[{label:"MATIN",list:matP,color:V.mc,bg:"#eff6ff"},{label:"APRÈS-MIDI",list:apmP,color:V.purple,bg:"#f5f3ff"}].map(group=>(
+                <div key={group.label}>
+                  <div style={{fontSize:8,fontWeight:700,color:group.color,marginBottom:3}}>{group.label}</div>
+                  {group.list.length?(
+                    <div style={{display:"flex",flexWrap:"wrap",gap:2}}>
+                      {group.list.map(e=>{
+                        const roleMeta=getPlanningEmployeeRoleMeta(e);
+                        return(
+                        <span key={`${group.label}-${e.n}`} onClick={()=>onEdit(e,date)} style={{
+                          display:"inline-flex",alignItems:"center",gap:4,
+                          fontSize:8,fontWeight:600,color:isCoordinatorEmployee(e)?V.mc:V.body,background:isCoordinatorEmployee(e)?"#e7f0fb":group.bg,padding:"2px 5px",borderRadius:4,cursor:"pointer",
+                          border:isTriCaddie(e.n,dow,triData)?`1px solid ${V.amber}`:"1px solid transparent",
+                        }} title={`Statut RH : ${roleMeta.label}`}><RoleDot emp={e} size={6}/>{e.n}</span>
+                      );})}
+                    </div>
+                  ):(
+                    <div style={{fontSize:8,color:V.light}}>Aucun présent</div>
+                  )}
+                </div>
+              ))}
             </div>
             {absents.length>0&&(<>
               <div style={{fontSize:9,fontWeight:700,color:V.red,marginBottom:3}}>ABSENTS</div>

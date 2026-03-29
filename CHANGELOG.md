@@ -21,6 +21,16 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.45 - 2026-03-29
+
+- Authentification : le délai de déconnexion automatique pour inactivité passe de 30 minutes à 1 heure.
+
+## v0.5.44 - 2026-03-29
+
+- Authentification : la session applicative n'est plus reprise automatiquement après fermeture complète du navigateur ; une réouverture demande maintenant une nouvelle connexion.
+- Sécurité : ajout d'une déconnexion automatique après 30 minutes d'inactivité, partagée entre les onglets ouverts de l'application.
+- Login / changement de mot de passe / shell principal : la session navigateur est maintenant revalidée à l'ouverture et nettoyée correctement lors d'une déconnexion manuelle ou automatique.
+
 ## v0.5.43 - 2026-03-29
 
 - Nettoyage technique des stores `RH`, `Plan TG`, `Planning`, `Balisage` et `Infos` : les données de travail ne passent plus par un cache navigateur de session masqué, mais par des snapshots mémoire de module.

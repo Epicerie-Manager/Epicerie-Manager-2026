@@ -2,7 +2,19 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import {
+  attachBrowserSessionResponder,
+  broadcastForceSignOut,
+  clearBrowserSessionState,
+  createBrowserSessionChannel,
+  getLastBrowserActivityAt,
+  INACTIVITY_CHECK_INTERVAL_MS,
+  INACTIVITY_TIMEOUT_MS,
+  markBrowserSessionActive,
+  recordBrowserActivity,
+  restoreBrowserSessionMarker,
+} from "@/lib/browser-session";
 import { colors, getThemeByPathname, moduleThemes, shadows } from "@/lib/theme";
 import { createClient } from "@/lib/supabase";
 
@@ -126,6 +138,7 @@ export function AppShell({ version, children }: AppShellProps) {
   const [timeLabel, setTimeLabel] = useState("");
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [userLabel, setUserLabel] = useState("");
+  const signingOutRef = useRef(false);
 
   useEffect(() => {
     const refreshClock = () => {
@@ -149,6 +162,16 @@ export function AppShell({ version, children }: AppShellProps) {
         router.replace("/login");
         return;
       }
+      const restored = await restoreBrowserSessionMarker();
+      if (!restored) {
+        clearBrowserSessionState();
+        await supabase.auth.signOut();
+        router.replace("/login");
+        router.refresh();
+        return;
+      }
+      markBrowserSessionActive();
+      recordBrowserActivity();
 
       const { data: profile } = await supabase
         .from("profiles")
@@ -170,16 +193,86 @@ export function AppShell({ version, children }: AppShellProps) {
     void guardPasswordFlow();
   }, [pathname, router]);
 
+  useEffect(() => {
+    if (pathname === "/login" || pathname === "/change-password") return;
+
+    const supabase = createClient();
+    const channel = createBrowserSessionChannel();
+    const signOutNow = async () => {
+      if (signingOutRef.current) return;
+      signingOutRef.current = true;
+      setIsSigningOut(true);
+      try {
+        clearBrowserSessionState();
+        broadcastForceSignOut(channel);
+        await supabase.auth.signOut();
+        router.replace("/login");
+        router.refresh();
+      } finally {
+        setIsSigningOut(false);
+        signingOutRef.current = false;
+      }
+    };
+
+    markBrowserSessionActive();
+    recordBrowserActivity();
+
+    const detachResponder = channel
+      ? attachBrowserSessionResponder(channel, () => {
+          void signOutNow();
+        })
+      : null;
+
+    const activityEvents: Array<keyof WindowEventMap> = [
+      "pointerdown",
+      "keydown",
+      "mousemove",
+      "scroll",
+      "touchstart",
+      "focus",
+    ];
+    const handleActivity = () => {
+      recordBrowserActivity();
+    };
+
+    activityEvents.forEach((eventName) => {
+      window.addEventListener(eventName, handleActivity, { passive: true });
+    });
+
+    const interval = window.setInterval(() => {
+      const lastActivityAt = getLastBrowserActivityAt();
+      if (!lastActivityAt) {
+        recordBrowserActivity();
+        return;
+      }
+      if (Date.now() - lastActivityAt >= INACTIVITY_TIMEOUT_MS) {
+        void signOutNow();
+      }
+    }, INACTIVITY_CHECK_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(interval);
+      activityEvents.forEach((eventName) => {
+        window.removeEventListener(eventName, handleActivity);
+      });
+      detachResponder?.();
+      channel?.close();
+    };
+  }, [pathname, router]);
+
   const handleSignOut = async () => {
-    if (isSigningOut) return;
+    if (isSigningOut || signingOutRef.current) return;
+    signingOutRef.current = true;
     setIsSigningOut(true);
     try {
       const supabase = createClient();
+      clearBrowserSessionState();
       await supabase.auth.signOut();
       router.replace("/login");
       router.refresh();
     } finally {
       setIsSigningOut(false);
+      signingOutRef.current = false;
     }
   };
 

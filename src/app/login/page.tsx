@@ -2,6 +2,12 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  clearBrowserSessionState,
+  markBrowserSessionActive,
+  recordBrowserActivity,
+  restoreBrowserSessionMarker,
+} from "@/lib/browser-session";
 import { createClient } from "@/lib/supabase";
 
 export default function LoginPage() {
@@ -18,6 +24,14 @@ export default function LoginPage() {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return;
+      const restored = await restoreBrowserSessionMarker();
+      if (!restored) {
+        clearBrowserSessionState();
+        await supabase.auth.signOut();
+        return;
+      }
+      markBrowserSessionActive();
+      recordBrowserActivity();
       const { data: profile } = await supabase
         .from("profiles")
         .select("password_changed")
@@ -42,6 +56,8 @@ export default function LoginPage() {
         setError(signInError.message);
         return;
       }
+      markBrowserSessionActive();
+      recordBrowserActivity();
       const {
         data: { user },
       } = await supabase.auth.getUser();

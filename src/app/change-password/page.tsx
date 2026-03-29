@@ -2,6 +2,12 @@
 
 import { FormEvent, useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import {
+  clearBrowserSessionState,
+  markBrowserSessionActive,
+  recordBrowserActivity,
+  restoreBrowserSessionMarker,
+} from "@/lib/browser-session";
 import { createClient } from "@/lib/supabase";
 
 function hasMinLength(value: string) {
@@ -69,6 +75,15 @@ export default function ChangePasswordPage() {
         router.replace("/login");
         return;
       }
+      const restored = await restoreBrowserSessionMarker();
+      if (!restored) {
+        clearBrowserSessionState();
+        await supabase.auth.signOut();
+        router.replace("/login");
+        return;
+      }
+      markBrowserSessionActive();
+      recordBrowserActivity();
       const { data: profile } = await supabase
         .from("profiles")
         .select("password_changed")
@@ -126,6 +141,8 @@ export default function ChangePasswordPage() {
         return;
       }
 
+      markBrowserSessionActive();
+      recordBrowserActivity();
       router.replace("/");
       router.refresh();
     } finally {

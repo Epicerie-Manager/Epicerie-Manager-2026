@@ -21,6 +21,14 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.5 - 2026-03-29
+
+- Documentation : enrichissement de `RETOUR_CODEX.md` avec un compte-rendu complet pour Claude AI sur le socle collaborateur, les correctifs deja livres et le point de blocage probable cote Supabase Auth / profils.
+
+## v0.6.4 - 2026-03-29
+
+- Build / Local : le script `npm run dev` passe en `next dev --webpack` pour éviter le conflit Next.js 16 entre Turbopack et la configuration webpack ajoutée par `next-pwa`, et permettre les tests locaux de l'espace collaborateur.
+
 ## v0.6.3 - 2026-03-29
 
 - Collaborateurs : le shell manager ne s'applique plus aux routes `/collab/*`, ce qui évite la redirection parasite vers `/login` quand on ouvre `/collab/login` ou les autres écrans collaborateurs.

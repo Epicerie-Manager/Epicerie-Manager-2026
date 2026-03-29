@@ -1,9 +1,9 @@
 {
   "name": "epicerie-manager-web",
-  "version": "0.6.3",
+  "version": "0.6.5",
   "private": true,
   "scripts": {
-    "dev": "next dev",
+    "dev": "next dev --webpack",
     "build": "next build --webpack",
     "start": "next start",
     "lint": "eslint",

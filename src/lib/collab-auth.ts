@@ -66,12 +66,22 @@ export function buildCollabEmail(name: string): string {
 export async function collabSignIn(name: string, pin: string) {
   const supabase = createClient();
   const email = buildCollabEmail(name);
-  const { data, error } = await supabase.auth.signInWithPassword({
-    email,
-    password: pin,
-  });
-  if (error) throw new Error("PIN incorrect");
-  return data;
+  console.log("tentative connexion:", email);
+
+  try {
+    const { data, error } = await supabase.auth.signInWithPassword({
+      email,
+      password: pin,
+    });
+    if (error) {
+      console.error("[collabSignIn] signInWithPassword failed", error);
+      throw error;
+    }
+    return data;
+  } catch (error) {
+    console.error("[collabSignIn] unexpected error", error);
+    throw new Error("PIN incorrect");
+  }
 }
 
 export async function collabSignOut() {

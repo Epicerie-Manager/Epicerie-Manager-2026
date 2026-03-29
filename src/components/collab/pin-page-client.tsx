@@ -40,7 +40,11 @@ export function CollabPinPageClient({ selectedName }: { selectedName: string }) 
         const profile = await getCollabProfile();
         router.replace(profile?.first_login ? "/collab/change-pin" : "/collab/home");
       })
-      .catch(() => {
+      .catch((error) => {
+        console.error("[CollabPinPageClient] login failed", {
+          selectedName,
+          error,
+        });
         setError("PIN incorrect");
         setPin("");
       })
@@ -72,3 +76,4 @@ export function CollabPinPageClient({ selectedName }: { selectedName: string }) 
     </CollabPage>
   );
 }
+

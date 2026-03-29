@@ -21,6 +21,10 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.7 - 2026-03-29
+
+- Collaborateurs / PIN : ajout de logs explicites autour de la tentative `signInWithPassword`, avec affichage de l'email construit et des erreurs de connexion en console pour diagnostiquer plus facilement les échecs de connexion Supabase.
+
 ## v0.6.6 - 2026-03-29
 
 - Collaborateurs : l'écran `/collab/login` affiche maintenant l'instruction `Entrez les premières lettres de votre prénom`, et le champ de recherche est configuré pour rester vide au chargement sans autoremplissage parasite du navigateur.

@@ -17,6 +17,7 @@ import {
   planningEmployees,
   type PlanningOverrides,
 } from "@/lib/planning-store";
+import { defaultPresenceThresholds, getPresenceThresholdLevel, normalizePresenceThresholds } from "@/lib/presence-thresholds";
 
 type TimelineSuiviProps = {
   absences: AbsenceRequest[];
@@ -85,8 +86,12 @@ function pendingPattern(color: string) {
 }
 
 function getPresenceColor(present: number, warningThreshold: number, criticalThreshold: number) {
-  if (present < criticalThreshold) return "#ef4444";
-  if (present < warningThreshold) return "#f59e0b";
+  const level = getPresenceThresholdLevel(
+    present,
+    normalizePresenceThresholds(warningThreshold, criticalThreshold),
+  );
+  if (level === "critical") return "#ef4444";
+  if (level === "warning") return "#f59e0b";
   return "#22c55e";
 }
 
@@ -170,8 +175,8 @@ export function TimelineSuivi({ absences, employees }: TimelineSuiviProps) {
   const [dateFrom, setDateFrom] = useState("2026-06-15");
   const [dateTo, setDateTo] = useState("2026-09-01");
   const [filterStatus, setFilterStatus] = useState<StatusFilter>("ALL");
-  const [warningThresholdInput, setWarningThresholdInput] = useState(12);
-  const [criticalThresholdInput, setCriticalThresholdInput] = useState(10);
+  const [warningThresholdInput, setWarningThresholdInput] = useState(defaultPresenceThresholds.warningThreshold);
+  const [criticalThresholdInput, setCriticalThresholdInput] = useState(defaultPresenceThresholds.criticalThreshold);
 
   const allEmployees = useMemo(
     () =>
@@ -254,12 +259,7 @@ export function TimelineSuivi({ absences, employees }: TimelineSuiviProps) {
   }, [absences]);
 
   const { warningThreshold, criticalThreshold } = useMemo(() => {
-    const warn = Math.max(warningThresholdInput, criticalThresholdInput);
-    const crit = Math.min(warningThresholdInput, criticalThresholdInput);
-    return {
-      warningThreshold: warn,
-      criticalThreshold: crit,
-    };
+    return normalizePresenceThresholds(warningThresholdInput, criticalThresholdInput);
   }, [criticalThresholdInput, warningThresholdInput]);
 
   const monthLabel = `${MONTHS[month]} ${year}`;

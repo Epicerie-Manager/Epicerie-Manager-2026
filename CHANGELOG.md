@@ -21,6 +21,12 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.38 - 2026-03-29
+
+- Dashboard : la carte `Vue mensuelle` affiche maintenant de vrais indicateurs du mois courant (`Jours alerte`, `Jours critiques`, `Jour le plus tendu`) au lieu de reprendre des donnees hebdomadaires.
+- Dashboard : les tuiles `Jours alerte` et `Jours critiques` sont cliquables et ouvrent directement la liste des dates concernees avec les effectifs matin et apres-midi.
+- Absences et Dashboard : la logique des seuils `alerte / critique` est maintenant partagee dans un module commun, base sur les memes valeurs par defaut.
+
 ## v0.5.37 - 2026-03-29
 
 - Dashboard : la tuile `Effectifs par jour` affiche maintenant les effectifs `matin` et `apres-midi` sur chaque jour de la semaine, au lieu d'un seul compteur matin.

@@ -11,6 +11,7 @@ import { moduleThemes } from "@/lib/theme";
 import { loadAbsenceRequests, getAbsencesUpdatedEventName, syncAbsencesFromSupabase } from "@/lib/absences-store";
 import { balisageData, balisageMonths, balisageObjective, type BalisageEmployeeStat } from "@/lib/balisage-data";
 import { attachRhActivityToBalisageStats, getActiveBalisageStats, getInactiveBalisageStats } from "@/lib/balisage-rh";
+import { defaultPresenceThresholds, getPresenceThresholdLevel } from "@/lib/presence-thresholds";
 import { loadBalisageData, getBalisageUpdatedEventName, syncBalisageFromSupabase } from "@/lib/balisage-store";
 import {
   planningEmployees,
@@ -211,6 +212,7 @@ export default function DashboardPage() {
   const [planningTriData, setPlanningTriData] = useState<PlanningTriData>(defaultPlanningTriData);
   const [balisageDataState, setBalisageDataState] = useState<Record<string, BalisageEmployeeStat[]>>(balisageData);
   const [rhEmployees, setRhEmployees] = useState(() => loadRhEmployees());
+  const [monthlyIssuePanel, setMonthlyIssuePanel] = useState<"alerts" | "critical" | null>(null);
 
   useEffect(() => {
     const refreshAll = () => {
@@ -306,11 +308,50 @@ export default function DashboardPage() {
       };
     });
   }, [planningOverrides, today, todayIso]);
-  const avgMorning = weekCards.length
-    ? (weekCards.reduce((sum, day) => sum + day.morningCount, 0) / weekCards.length).toFixed(1)
-    : "0.0";
-  const weekAlertCount = weekCards.filter((day) => day.alert).length;
-  const activeMorningEmployees = planningEmployees.filter((employee) => employee.t === "M" && employee.actif).length;
+
+  const monthlyPlanningDays = useMemo(() => {
+    const year = today.getFullYear();
+    const month = today.getMonth();
+    const totalDays = new Date(year, month + 1, 0).getDate();
+
+    return Array.from({ length: totalDays }, (_, index) => {
+      const date = new Date(year, month, index + 1);
+      const dayIso = formatPlanningDate(date);
+      const isSunday = date.getDay() === 0;
+      const counts = planningEmployees.reduce((acc, employee) => {
+        const status = getPlanningStatus(employee, date, planningOverrides);
+        if (status !== "PRESENT") return acc;
+        const horaire = getDashboardPlanningHoraire(employee, date, planningOverrides);
+        const shifts = getDashboardShiftBuckets(horaire);
+        return {
+          morningCount: acc.morningCount + (shifts.morning ? 1 : 0),
+          afternoonCount: acc.afternoonCount + (shifts.afternoon ? 1 : 0),
+        };
+      }, { morningCount: 0, afternoonCount: 0 });
+      const level = isSunday
+        ? "ok"
+        : getPresenceThresholdLevel(counts.morningCount, defaultPresenceThresholds);
+
+      return {
+        dayIso,
+        date,
+        morningCount: counts.morningCount,
+        afternoonCount: counts.afternoonCount,
+        level,
+      };
+    });
+  }, [planningOverrides, today]);
+
+  const monthlyMonitoredDays = monthlyPlanningDays.filter((day) => day.date.getDay() !== 0);
+  const monthlyAlertDays = monthlyMonitoredDays.filter((day) => day.level !== "ok");
+  const monthlyCriticalDays = monthlyMonitoredDays.filter((day) => day.level === "critical");
+  const mostTenseDay = [...monthlyMonitoredDays].sort((a, b) =>
+    a.morningCount - b.morningCount ||
+    a.afternoonCount - b.afternoonCount ||
+    a.dayIso.localeCompare(b.dayIso),
+  )[0] ?? null;
+  const monthlyIssueDays = monthlyIssuePanel === "critical" ? monthlyCriticalDays : monthlyAlertDays;
+  const dashboardMonthLabel = today.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 
   const monthId = MONTH_TO_BALISAGE[today.getMonth()] ?? "MARS_2026";
   const monthLabel = balisageMonths.find((month) => month.id === monthId)?.label ?? "Mois courant";
@@ -641,12 +682,82 @@ export default function DashboardPage() {
           <Card>
             <Kicker moduleKey="planning" label="Indicateurs" icon={<IconTrend />} />
             <h2 style={{ fontSize: "17px", fontWeight: 700, letterSpacing: "-0.02em", color: "#0f172a" }}>Vue mensuelle</h2>
-            <p style={{ fontSize: "12px", color: "#64748b", marginTop: "3px", marginBottom: "12px" }}>Données en cours</p>
-            <KPIRow style={{ marginBottom: 0 }}>
-              <KPI value={avgMorning} label="Moy. matin/j"  moduleKey="planning"  icon={<IconTrend />} size="md" />
-              <KPI value={weekAlertCount} label="Jours alerte"  moduleKey="plateau"   icon={<IconAlert />} size="md" />
-              <KPI value={activeMorningEmployees} label="Effectif actif" moduleKey="plantg"   icon={<IconUsers />} size="md" />
-            </KPIRow>
+            <p style={{ fontSize: "12px", color: "#64748b", marginTop: "3px", marginBottom: "12px" }}>
+              {dashboardMonthLabel} · seuil alerte &lt; {defaultPresenceThresholds.warningThreshold} · seuil critique &lt; {defaultPresenceThresholds.criticalThreshold}
+            </p>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "8px" }}>
+              {[
+                {
+                  key: "alerts",
+                  value: monthlyAlertDays.length,
+                  label: "Jours alerte",
+                  detail: monthlyCriticalDays.length ? `dont ${monthlyCriticalDays.length} critiques` : "Aucun jour critique",
+                  tone: monthlyAlertDays.length ? "#c2410c" : "#0f766e",
+                  bg: monthlyAlertDays.length ? "linear-gradient(135deg,#fff7ed,#ffedd5)" : "linear-gradient(135deg,#f0fdfa,#ecfeff)",
+                  border: monthlyAlertDays.length ? "#fdba74" : "#99f6e4",
+                  onClick: () => setMonthlyIssuePanel("alerts" as const),
+                  disabled: monthlyAlertDays.length === 0,
+                },
+                {
+                  key: "critical",
+                  value: monthlyCriticalDays.length,
+                  label: "Jours critiques",
+                  detail: monthlyCriticalDays.length ? "Cliquer pour voir les dates" : "Aucune date critique",
+                  tone: monthlyCriticalDays.length ? "#b91c1c" : "#0f766e",
+                  bg: monthlyCriticalDays.length ? "linear-gradient(135deg,#fef2f2,#fee2e2)" : "linear-gradient(135deg,#f0fdfa,#ecfeff)",
+                  border: monthlyCriticalDays.length ? "#fca5a5" : "#99f6e4",
+                  onClick: () => setMonthlyIssuePanel("critical" as const),
+                  disabled: monthlyCriticalDays.length === 0,
+                },
+              ].map((metric) => (
+                <button
+                  key={metric.key}
+                  type="button"
+                  onClick={metric.onClick}
+                  disabled={metric.disabled}
+                  style={{
+                    borderRadius: "14px",
+                    padding: "12px 14px",
+                    textAlign: "left",
+                    background: metric.bg,
+                    border: `1px solid ${metric.border}`,
+                    cursor: metric.disabled ? "default" : "pointer",
+                    opacity: metric.disabled ? 0.78 : 1,
+                  }}
+                >
+                  <div style={{ fontSize: "24px", fontWeight: 700, letterSpacing: "-0.04em", color: metric.tone, lineHeight: 1 }}>
+                    {metric.value}
+                  </div>
+                  <div style={{ fontSize: "11px", fontWeight: 700, color: metric.tone, marginTop: "6px" }}>
+                    {metric.label}
+                  </div>
+                  <div style={{ fontSize: "10px", color: "#64748b", marginTop: "4px", lineHeight: 1.35 }}>
+                    {metric.detail}
+                  </div>
+                </button>
+              ))}
+              <div style={{
+                borderRadius: "14px",
+                padding: "12px 14px",
+                background: "linear-gradient(135deg,#eff6ff,#f8fbff)",
+                border: "1px solid #bfdbfe",
+              }}>
+                <div style={{ fontSize: "24px", fontWeight: 700, letterSpacing: "-0.04em", color: "#1d4ed8", lineHeight: 1 }}>
+                  {mostTenseDay ? mostTenseDay.morningCount : "-"}
+                </div>
+                <div style={{ fontSize: "11px", fontWeight: 700, color: "#1d4ed8", marginTop: "6px" }}>
+                  Jour le plus tendu
+                </div>
+                <div style={{ fontSize: "10px", color: "#64748b", marginTop: "4px", lineHeight: 1.35 }}>
+                  {mostTenseDay
+                    ? `${mostTenseDay.date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} · ${mostTenseDay.afternoonCount} après-midi`
+                    : "Aucune donnée mensuelle"}
+                </div>
+              </div>
+            </div>
+            <div style={{ fontSize: "11px", color: "#64748b", marginTop: "10px" }}>
+              Les dimanches sont exclus du calcul des alertes mensuelles.
+            </div>
           </Card>
 
         </div>
@@ -728,6 +839,125 @@ export default function DashboardPage() {
 
         </div>
       </div>
+
+      {monthlyIssuePanel ? (
+        <div
+          role="presentation"
+          onClick={() => setMonthlyIssuePanel(null)}
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15,23,42,0.35)",
+            backdropFilter: "blur(3px)",
+            display: "grid",
+            placeItems: "center",
+            zIndex: 140,
+            padding: "20px",
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            onClick={(event) => event.stopPropagation()}
+            style={{
+              width: "min(640px, 96vw)",
+              maxHeight: "80vh",
+              overflowY: "auto",
+              background: "#fff",
+              borderRadius: "16px",
+              border: "1px solid #dbe3eb",
+              padding: "16px",
+              boxShadow: "0 20px 60px rgba(15,23,42,0.18)",
+            }}
+          >
+            <Kicker moduleKey="planning" label={monthlyIssuePanel === "critical" ? "Dates critiques" : "Dates en alerte"} icon={<IconAlert />} />
+            <h2 style={{ marginTop: "6px", fontSize: "20px", color: "#0f172a" }}>
+              {monthlyIssuePanel === "critical" ? "Jours critiques du mois" : "Jours sous seuil du mois"}
+            </h2>
+            <p style={{ marginTop: "4px", fontSize: "12px", color: "#64748b", lineHeight: 1.45 }}>
+              {dashboardMonthLabel} · alerte &lt; {defaultPresenceThresholds.warningThreshold} · critique &lt; {defaultPresenceThresholds.criticalThreshold}
+            </p>
+
+            <div style={{ display: "grid", gap: "8px", marginTop: "12px" }}>
+              {monthlyIssueDays.length ? monthlyIssueDays.map((day) => {
+                const isCritical = day.level === "critical";
+                return (
+                  <div
+                    key={day.dayIso}
+                    style={{
+                      borderRadius: "12px",
+                      border: `1px solid ${isCritical ? "#fca5a5" : "#fdba74"}`,
+                      background: isCritical ? "#fef2f2" : "#fff7ed",
+                      padding: "12px 14px",
+                      display: "flex",
+                      justifyContent: "space-between",
+                      gap: "12px",
+                      alignItems: "center",
+                      flexWrap: "wrap",
+                    }}
+                  >
+                    <div>
+                      <div style={{ fontSize: "13px", fontWeight: 700, color: "#0f172a" }}>
+                        {day.date.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" })}
+                      </div>
+                      <div style={{ fontSize: "11px", color: "#64748b", marginTop: "3px" }}>
+                        {day.morningCount} matin · {day.afternoonCount} après-midi
+                      </div>
+                    </div>
+                    <span style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: "6px",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      borderRadius: "999px",
+                      padding: "5px 10px",
+                      background: isCritical ? "#fee2e2" : "#ffedd5",
+                      color: isCritical ? "#b91c1c" : "#c2410c",
+                    }}>
+                      <span style={{
+                        width: "6px",
+                        height: "6px",
+                        borderRadius: "999px",
+                        background: isCritical ? "#dc2626" : "#f59e0b",
+                      }} />
+                      {isCritical ? "Critique" : "Alerte"}
+                    </span>
+                  </div>
+                );
+              }) : (
+                <div style={{
+                  borderRadius: "12px",
+                  border: "1px solid #dbe3eb",
+                  background: "#f8fafc",
+                  padding: "14px",
+                  fontSize: "12px",
+                  color: "#64748b",
+                }}>
+                  Aucune date à signaler pour ce niveau sur le mois courant.
+                </div>
+              )}
+            </div>
+
+            <div style={{ display: "flex", justifyContent: "flex-end", marginTop: "14px" }}>
+              <button
+                type="button"
+                onClick={() => setMonthlyIssuePanel(null)}
+                style={{
+                  border: "1px solid #dbe3eb",
+                  borderRadius: "999px",
+                  background: "#fff",
+                  color: "#1e293b",
+                  fontSize: "12px",
+                  padding: "7px 12px",
+                }}
+              >
+                Fermer
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

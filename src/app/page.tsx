@@ -555,7 +555,7 @@ export default function DashboardPage() {
           {/* Opérations */}
           <Card>
             <Kicker moduleKey="plateau" label="Plateaux" icon={<IconMap />} />
-            <h2 style={{ fontSize: "17px", fontWeight: 700, letterSpacing: "-0.02em", color: "#0f172a" }}>Chantiers terrain</h2>
+            <h2 style={{ fontSize: "17px", fontWeight: 700, letterSpacing: "-0.02em", color: "#0f172a" }}>Plateau</h2>
             <p style={{ fontSize: "12px", color: "#64748b", marginTop: "3px", marginBottom: "10px" }}>{monthLabel}</p>
 
             {operations.map((op) => (

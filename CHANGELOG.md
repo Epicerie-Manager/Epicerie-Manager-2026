@@ -21,6 +21,10 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.55 - 2026-03-29
+
+- Dashboard : la tuile `Plateau` abandonne l'intitulé `Chantiers terrain` pour rester cohérente avec le nom du module.
+
 ## v0.5.54 - 2026-03-29
 
 - Balisage : la vue équipe est désormais limitée aux collaborateurs RH suivis en balisage ; les coordinateurs comme `Abdou` et `Massimo` n'y apparaissent plus, même si la liste est générée depuis la RH.

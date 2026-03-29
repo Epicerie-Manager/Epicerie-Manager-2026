@@ -8,6 +8,7 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { NavCard, NavCardGrid } from "@/components/ui/nav-card";
 import AgendaCard from "@/components/dashboard/agenda-card";
 import { moduleThemes } from "@/lib/theme";
+import { absenceTypes } from "@/lib/absences-data";
 import { loadAbsenceRequests, getAbsencesUpdatedEventName, syncAbsencesFromSupabase } from "@/lib/absences-store";
 import { balisageData, balisageMonths, balisageObjective, type BalisageEmployeeStat } from "@/lib/balisage-data";
 import { attachRhActivityToBalisageStats, getActiveBalisageStats, getInactiveBalisageStats } from "@/lib/balisage-rh";
@@ -212,7 +213,7 @@ export default function DashboardPage() {
   const [planningTriData, setPlanningTriData] = useState<PlanningTriData>(defaultPlanningTriData);
   const [balisageDataState, setBalisageDataState] = useState<Record<string, BalisageEmployeeStat[]>>(balisageData);
   const [rhEmployees, setRhEmployees] = useState(() => loadRhEmployees());
-  const [monthlyIssuePanel, setMonthlyIssuePanel] = useState<"alerts" | "critical" | null>(null);
+  const [monthlyIssuePanel, setMonthlyIssuePanel] = useState<"alerts" | "critical" | "pending" | null>(null);
 
   useEffect(() => {
     const refreshAll = () => {
@@ -350,6 +351,37 @@ export default function DashboardPage() {
     a.afternoonCount - b.afternoonCount ||
     a.dayIso.localeCompare(b.dayIso),
   )[0] ?? null;
+  const monthlyCriticalDaySet = new Set(monthlyCriticalDays.map((day) => day.dayIso));
+  const pendingRiskRequests = absences
+    .filter((request) => request.status === "EN_ATTENTE")
+    .map((request) => {
+      const overlappingRiskDays = monthlyAlertDays.filter((day) =>
+        request.startDate <= day.dayIso && request.endDate >= day.dayIso,
+      );
+      if (!overlappingRiskDays.length) return null;
+      const highestLevel = overlappingRiskDays.some((day) => monthlyCriticalDaySet.has(day.dayIso))
+        ? "critical"
+        : "warning";
+      return {
+        request,
+        overlappingRiskDays,
+        highestLevel,
+      };
+    })
+    .filter((item): item is {
+      request: typeof absences[number];
+      overlappingRiskDays: typeof monthlyAlertDays;
+      highestLevel: "critical" | "warning";
+    } => Boolean(item))
+    .sort((a, b) =>
+      (a.highestLevel === "critical" ? -1 : 1) - (b.highestLevel === "critical" ? -1 : 1) ||
+      b.overlappingRiskDays.length - a.overlappingRiskDays.length ||
+      a.request.startDate.localeCompare(b.request.startDate),
+    );
+  const pendingRiskDayCount = new Set(
+    pendingRiskRequests.flatMap((item) => item.overlappingRiskDays.map((day) => day.dayIso)),
+  ).size;
+  const pendingCriticalRiskCount = pendingRiskRequests.filter((item) => item.highestLevel === "critical").length;
   const monthlyIssueDays = monthlyIssuePanel === "critical" ? monthlyCriticalDays : monthlyAlertDays;
   const dashboardMonthLabel = today.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
 
@@ -685,7 +717,7 @@ export default function DashboardPage() {
             <p style={{ fontSize: "12px", color: "#64748b", marginTop: "3px", marginBottom: "12px" }}>
               {dashboardMonthLabel} · seuil alerte &lt; {defaultPresenceThresholds.warningThreshold} · seuil critique &lt; {defaultPresenceThresholds.criticalThreshold}
             </p>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "8px" }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "8px" }}>
               {[
                 {
                   key: "alerts",
@@ -708,6 +740,31 @@ export default function DashboardPage() {
                   border: monthlyCriticalDays.length ? "#fca5a5" : "#99f6e4",
                   onClick: () => setMonthlyIssuePanel("critical" as const),
                   disabled: monthlyCriticalDays.length === 0,
+                },
+                {
+                  key: "pending-risk",
+                  value: pendingRiskRequests.length,
+                  label: "Demandes à risque",
+                  detail: pendingRiskRequests.length
+                    ? `${pendingRiskDayCount} jour(s) fragile(s) touché(s)${pendingCriticalRiskCount ? ` · ${pendingCriticalRiskCount} critique(s)` : ""}`
+                    : "Aucune demande en attente sur période fragile",
+                  tone: pendingRiskRequests.length
+                    ? pendingCriticalRiskCount
+                      ? "#b91c1c"
+                      : "#c2410c"
+                    : "#0f766e",
+                  bg: pendingRiskRequests.length
+                    ? pendingCriticalRiskCount
+                      ? "linear-gradient(135deg,#fff1f2,#ffe4e6)"
+                      : "linear-gradient(135deg,#fff7ed,#ffedd5)"
+                    : "linear-gradient(135deg,#f0fdfa,#ecfeff)",
+                  border: pendingRiskRequests.length
+                    ? pendingCriticalRiskCount
+                      ? "#fda4af"
+                      : "#fdba74"
+                    : "#99f6e4",
+                  onClick: () => setMonthlyIssuePanel("pending" as const),
+                  disabled: pendingRiskRequests.length === 0,
                 },
               ].map((metric) => (
                 <button
@@ -870,16 +927,98 @@ export default function DashboardPage() {
               boxShadow: "0 20px 60px rgba(15,23,42,0.18)",
             }}
           >
-            <Kicker moduleKey="planning" label={monthlyIssuePanel === "critical" ? "Dates critiques" : "Dates en alerte"} icon={<IconAlert />} />
+            <Kicker
+              moduleKey="planning"
+              label={
+                monthlyIssuePanel === "critical"
+                  ? "Dates critiques"
+                  : monthlyIssuePanel === "pending"
+                    ? "Demandes à risque"
+                    : "Dates en alerte"
+              }
+              icon={<IconAlert />}
+            />
             <h2 style={{ marginTop: "6px", fontSize: "20px", color: "#0f172a" }}>
-              {monthlyIssuePanel === "critical" ? "Jours critiques du mois" : "Jours sous seuil du mois"}
+              {monthlyIssuePanel === "critical"
+                ? "Jours critiques du mois"
+                : monthlyIssuePanel === "pending"
+                  ? "Demandes en attente sur périodes fragiles"
+                  : "Jours sous seuil du mois"}
             </h2>
             <p style={{ marginTop: "4px", fontSize: "12px", color: "#64748b", lineHeight: 1.45 }}>
               {dashboardMonthLabel} · alerte &lt; {defaultPresenceThresholds.warningThreshold} · critique &lt; {defaultPresenceThresholds.criticalThreshold}
             </p>
 
             <div style={{ display: "grid", gap: "8px", marginTop: "12px" }}>
-              {monthlyIssueDays.length ? monthlyIssueDays.map((day) => {
+              {monthlyIssuePanel === "pending"
+                ? pendingRiskRequests.length ? pendingRiskRequests.map((item) => {
+                  const typeLabel = absenceTypes.find((type) => type.id === item.request.type)?.label ?? item.request.type;
+                  const isCritical = item.highestLevel === "critical";
+                  return (
+                    <div
+                      key={`${item.request.id}-${item.request.employee}-${item.request.startDate}`}
+                      style={{
+                        borderRadius: "12px",
+                        border: `1px solid ${isCritical ? "#fca5a5" : "#fdba74"}`,
+                        background: isCritical ? "#fef2f2" : "#fff7ed",
+                        padding: "12px 14px",
+                        display: "grid",
+                        gap: "8px",
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
+                        <div>
+                          <div style={{ fontSize: "13px", fontWeight: 700, color: "#0f172a" }}>
+                            {item.request.employee} · {typeLabel}
+                          </div>
+                          <div style={{ fontSize: "11px", color: "#64748b", marginTop: "3px" }}>
+                            {new Date(`${item.request.startDate}T00:00:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+                            {" "}au{" "}
+                            {new Date(`${item.request.endDate}T00:00:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}
+                          </div>
+                        </div>
+                        <span style={{
+                          display: "inline-flex",
+                          alignItems: "center",
+                          gap: "6px",
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          borderRadius: "999px",
+                          padding: "5px 10px",
+                          background: isCritical ? "#fee2e2" : "#ffedd5",
+                          color: isCritical ? "#b91c1c" : "#c2410c",
+                        }}>
+                          <span style={{
+                            width: "6px",
+                            height: "6px",
+                            borderRadius: "999px",
+                            background: isCritical ? "#dc2626" : "#f59e0b",
+                          }} />
+                          {isCritical ? "Risque critique" : "Risque alerte"}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: "11px", color: "#475569", lineHeight: 1.45 }}>
+                        {item.overlappingRiskDays.length} jour(s) fragile(s) touché(s) :
+                        {" "}
+                        {item.overlappingRiskDays
+                          .map((day) => `${day.date.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })} (${day.morningCount} matin / ${day.afternoonCount} après-midi)`)
+                          .join(", ")}
+                      </div>
+                    </div>
+                  );
+                }) : (
+                  <div style={{
+                    borderRadius: "12px",
+                    border: "1px solid #dbe3eb",
+                    background: "#f8fafc",
+                    padding: "14px",
+                    fontSize: "12px",
+                    color: "#64748b",
+                  }}>
+                    Aucune demande en attente ne tombe sur une période fragile ce mois-ci.
+                  </div>
+                )
+                : monthlyIssueDays.length ? monthlyIssueDays.map((day) => {
                 const isCritical = day.level === "critical";
                 return (
                   <div

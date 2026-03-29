@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.39 - 2026-03-29
+
+- Dashboard : la vue mensuelle ajoute maintenant un indicateur `Demandes a risque` pour reperer les demandes d'absence `En attente` qui tombent sur des jours deja fragiles du mois.
+- Dashboard : cette tuile est cliquable et affiche la liste detaillee des demandes concernees avec les dates a risque touchees et les effectifs matin / apres-midi de ces jours.
+
 ## v0.5.38 - 2026-03-29
 
 - Dashboard : la carte `Vue mensuelle` affiche maintenant de vrais indicateurs du mois courant (`Jours alerte`, `Jours critiques`, `Jour le plus tendu`) au lieu de reprendre des donnees hebdomadaires.

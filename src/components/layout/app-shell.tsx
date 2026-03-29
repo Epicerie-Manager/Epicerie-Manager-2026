@@ -132,6 +132,7 @@ function getTimeLabel() {
 export function AppShell({ version, children }: AppShellProps) {
   const pathname  = usePathname();
   const router = useRouter();
+  const isCollabRoute = pathname.startsWith("/collab");
   const activeId  = getThemeByPathname(pathname) as ModuleNavItem["id"];
   const activeModule = moduleItems.find((m) => m.id === activeId) ?? moduleItems[0];
   const [todayLabel, setTodayLabel] = useState("");
@@ -152,7 +153,7 @@ export function AppShell({ version, children }: AppShellProps) {
   }, []);
 
   useEffect(() => {
-    if (pathname === "/login") return;
+    if (pathname === "/login" || isCollabRoute) return;
     const guardPasswordFlow = async () => {
       const supabase = createClient();
       const {
@@ -191,10 +192,10 @@ export function AppShell({ version, children }: AppShellProps) {
       }
     };
     void guardPasswordFlow();
-  }, [pathname, router]);
+  }, [isCollabRoute, pathname, router]);
 
   useEffect(() => {
-    if (pathname === "/login" || pathname === "/change-password") return;
+    if (pathname === "/login" || pathname === "/change-password" || isCollabRoute) return;
 
     const supabase = createClient();
     const channel = createBrowserSessionChannel();
@@ -258,7 +259,7 @@ export function AppShell({ version, children }: AppShellProps) {
       detachResponder?.();
       channel?.close();
     };
-  }, [pathname, router]);
+  }, [isCollabRoute, pathname, router]);
 
   const handleSignOut = async () => {
     if (isSigningOut || signingOutRef.current) return;
@@ -276,7 +277,7 @@ export function AppShell({ version, children }: AppShellProps) {
     }
   };
 
-  if (pathname === "/login" || pathname === "/change-password") {
+  if (pathname === "/login" || pathname === "/change-password" || isCollabRoute) {
     return <>{children}</>;
   }
 

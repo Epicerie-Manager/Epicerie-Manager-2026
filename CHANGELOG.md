@@ -21,6 +21,10 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.3 - 2026-03-29
+
+- Collaborateurs : le shell manager ne s'applique plus aux routes `/collab/*`, ce qui évite la redirection parasite vers `/login` quand on ouvre `/collab/login` ou les autres écrans collaborateurs.
+
 ## v0.6.2 - 2026-03-29
 
 - Build / Vercel : la page /collab/pin passe en wrapper serveur + composant client pour éviter l'erreur de prerender App Router liée aux paramètres de recherche au build.

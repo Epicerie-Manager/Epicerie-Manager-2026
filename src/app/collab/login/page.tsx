@@ -52,7 +52,7 @@ export default function CollabLoginPage() {
       <CollabHeader title="Bonjour." subtitle="Retrouvez votre planning, vos absences et vos informations utiles depuis votre espace collaborateur." />
       <SectionCard style={{ padding: "22px 18px" }}>
         <label htmlFor="collab-name" style={{ display: "block", fontSize: 13, color: collabTheme.muted, marginBottom: 8 }}>
-          Entrez les premières lettres de votre prénom ou nom
+          Entrez les premières lettres de votre prénom
         </label>
         <input
           id="collab-name"
@@ -67,7 +67,12 @@ export default function CollabLoginPage() {
             }
           }}
           autoFocus
-          placeholder="ABDOU"
+          autoComplete="off"
+          autoCorrect="off"
+          autoCapitalize="characters"
+          spellCheck={false}
+          placeholder=""
+          name="collab-search"
           style={{
             width: "100%",
             border: "none",

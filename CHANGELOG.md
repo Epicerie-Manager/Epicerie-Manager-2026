@@ -21,6 +21,10 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.6 - 2026-03-29
+
+- Collaborateurs : l'écran `/collab/login` affiche maintenant l'instruction `Entrez les premières lettres de votre prénom`, et le champ de recherche est configuré pour rester vide au chargement sans autoremplissage parasite du navigateur.
+
 ## v0.6.5 - 2026-03-29
 
 - Documentation : enrichissement de `RETOUR_CODEX.md` avec un compte-rendu complet pour Claude AI sur le socle collaborateur, les correctifs deja livres et le point de blocage probable cote Supabase Auth / profils.

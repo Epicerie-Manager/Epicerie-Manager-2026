@@ -21,6 +21,14 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.10 - 2026-03-29
+
+- Collaborateurs / Auth : correction du script `reset-collab-passwords.ts` pour l'execution ESM avec `@next/env`, afin de pouvoir lancer le reset admin des mots de passe collaborateurs directement depuis le depot.
+
+## v0.6.9 - 2026-03-29
+
+- Collaborateurs / Auth : ajout du script d'administration `scripts/reset-collab-passwords.ts` pour réinitialiser en masse les mots de passe des comptes `@ep.fr` via l'API Admin Supabase, en chargeant automatiquement `.env.local`.
+
 ## v0.6.8 - 2026-03-29
 
 - Collaborateurs : ajout d'un badge de version visible dans l'espace `/collab`, pour repérer rapidement la version en cours de la PWA collaborateur pendant les tests et recettes.

@@ -21,12 +21,15 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.1 - 2026-03-29
+
+- Build / Vercel : le script de production passe en `next build --webpack` pour rester compatible avec `next-pwa`, et éviter l'échec du build Next.js 16 en Turbopack avec une configuration webpack.
+
 ## v0.6.0 - 2026-03-29
 
-- Collaborateurs : création du socle PWA /collab avec les écrans login, pin, change-pin, home, planning, bsences, bsences/new et more, sans modifier les modules manager existants.
-- Authentification : ajout des helpers dédiés collaborateurs, du contrôle middleware par rôle et du flux irst_login distinct du flux manager.
-- PWA : ajout du manifest, des icônes, de 
-ext-pwa et de la configuration Next nécessaire pour rendre l'espace collaborateur installable sur mobile.
+- Collaborateurs : création du socle PWA `/collab` avec les écrans `login`, `pin`, `change-pin`, `home`, `planning`, `absences`, `absences/new` et `more`, sans modifier les modules manager existants.
+- Authentification : ajout des helpers dédiés collaborateurs, du contrôle middleware par rôle et du flux `first_login` distinct du flux manager.
+- PWA : ajout du `manifest`, des icônes, de `next-pwa` et de la configuration Next nécessaire pour rendre l'espace collaborateur installable sur mobile.
 
 ## v0.5.61 - 2026-03-29
 

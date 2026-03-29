@@ -53,7 +53,8 @@ const V = {
   green:"#16a34a",amber:"#d97706",red:"#dc2626",purple:"#5635b8",orange:"#ea580c",pink:"#db2777",cyan:"#0891b2",
 };
 
-const MORNING_REFERENCE_NAMES=new Set(["ABDOU","CECILE"]);
+const MORNING_COORDINATOR_NAMES=new Set(["ABDOU"]);
+const MORNING_HIGHLIGHT_NAMES=new Set(["ABDOU","CECILE"]);
 
 const MONTH_SECTION_META = {
   morningCoordinators:{
@@ -226,7 +227,7 @@ function matchesPlanningFilter(emp,filter){
 function getPlanningMonthSectionId(emp){
   const name=normalizePlanningEmployeeName(emp?.n);
   if(emp?.t==="M"){
-    return MORNING_REFERENCE_NAMES.has(name)||isCoordinatorEmployee(emp) ? "morningCoordinators" : "morningCollaborators";
+    return MORNING_COORDINATOR_NAMES.has(name)||isCoordinatorEmployee(emp) ? "morningCoordinators" : "morningCollaborators";
   }
   if(emp?.t==="S"){
     return isCoordinatorEmployee(emp) ? "afternoonCoordinators" : "afternoonCollaborators";
@@ -713,10 +714,12 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenc
                 let presCount=0;
                 const isCoordinator=isCoordinatorEmployee(emp);
                 const isCoordinatorSection=section.id==="morningCoordinators"||section.id==="afternoonCoordinators";
+                const isMorningHighlight=MORNING_HIGHLIGHT_NAMES.has(normalizePlanningEmployeeName(emp.n));
                 const rowBackground=section.row;
                 const stickyBackground=section.sticky;
                 const rowBorder=section.border;
                 const roleMeta=getPlanningEmployeeRoleMeta(emp);
+                const highlightedNameMeta=isMorningHighlight?MONTH_SECTION_META.morningCoordinators:section;
                 return(
                   <tr key={emp.n} style={{opacity:emp.actif?1:0.5,background:rowBackground}}>
                     <td style={{padding:"6px 8px",fontSize:11,fontWeight:700,borderBottom:`1px solid ${rowBorder}`,position:"sticky",left:0,background:stickyBackground,zIndex:2,whiteSpace:"nowrap"}}>
@@ -726,9 +729,9 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenc
                         gap:7,
                         padding:isCoordinatorSection||isCoordinator?"4px 8px":"3px 6px",
                         borderRadius:8,
-                        background:section.nameBg,
-                        color:section.nameText,
-                        border:`1px solid ${rowBorder}`,
+                        background:highlightedNameMeta.nameBg,
+                        color:highlightedNameMeta.nameText,
+                        border:`1px solid ${isMorningHighlight?highlightedNameMeta.border:rowBorder}`,
                       }} title={`Statut RH : ${roleMeta.label}`}>
                         <RoleDot emp={emp} size={7} ringColor={rowBackground}/>
                         {emp.n}

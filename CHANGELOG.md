@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.48 - 2026-03-29
+
+- Planning vue `Mois` : Cécile repasse dans la section `Collaborateurs matin`, tout en conservant sa surbrillance verte de repère visuel comme Abdou.
+- Planning vue `Mois` : la répartition reste confirmée avec `Abdou` en `Coordinateurs matin`, `Massimo` en `Coordinateurs après-midi`, `Dilaxshan` en `Collaborateurs après-midi` et les étudiants inchangés.
+
 ## v0.5.47 - 2026-03-29
 
 - Planning vue `Mois` : la ligne `Effectif matin / après-midi` remonte en haut du tableau, juste sous les en-têtes de jours, pour être visible avant les groupes d'employés.

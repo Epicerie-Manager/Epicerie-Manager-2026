@@ -32,7 +32,7 @@ import {
   type PlanningOverrides,
   type PlanningTriData,
 } from "@/lib/planning-store";
-import { getPlanningPresenceCountsForDate } from "@/lib/planning-presence";
+import { getPlanningPresenceCountsForDate, isPlanningEmployeeCountedForPresence } from "@/lib/planning-presence";
 import { getRhUpdatedEventName, loadRhEmployees, syncRhFromSupabase } from "@/lib/rh-store";
 import { getPlateauWeekFocusData } from "@/lib/plateau-data";
 
@@ -235,6 +235,8 @@ export default function DashboardPage() {
   const presenceByType = useMemo(() => {
     return planningEmployees.reduce(
       (acc, employee) => {
+        if (!isPlanningEmployeeCountedForPresence(employee)) return acc;
+
         const status = getPlanningStatus(employee, today, planningOverrides);
         if (status === "PRESENT") {
           if (employee.t === "M") acc.morning += 1;

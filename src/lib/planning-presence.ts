@@ -14,6 +14,15 @@ export type PlanningPresenceCounts = {
   scheduledCount: number;
 };
 
+const NON_COUNTED_PRESENCE_EMPLOYEE_NAMES = new Set(["ABDOU"]);
+
+export function isPlanningEmployeeCountedForPresence(
+  employee: Pick<PlanningEmployee, "n">,
+) {
+  const normalizedName = String(employee.n ?? "").trim().toUpperCase();
+  return !NON_COUNTED_PRESENCE_EMPLOYEE_NAMES.has(normalizedName);
+}
+
 export function getPlanningHoraireForDate(
   employee: Pick<PlanningEmployee, "n" | "t" | "hs" | "hm">,
   date: Date,
@@ -69,6 +78,8 @@ export function getPlanningPresenceCountsForDate(
 
   return employees.reduce<PlanningPresenceCounts>(
     (counts, employee) => {
+      if (!isPlanningEmployeeCountedForPresence(employee)) return counts;
+
       const status = getPlanningStatus(employee, date, overrides);
       if (status !== "PRESENT") return counts;
 

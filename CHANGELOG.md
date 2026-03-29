@@ -21,6 +21,10 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.21 - 2026-03-30
+
+- Planning / Dashboard : `ABDOU` reste visible dans le planning, mais n'est plus comptabilise dans les effectifs et compteurs de presence matin / apres-midi, ni dans les indicateurs derives utilisant le calcul partage de presence.
+
 ## v0.6.16 - 2026-03-29
 
 - Collaborateurs / Auth : ajout du script `scripts/create-collabs.mjs` pour recreer proprement les comptes collaborateurs `@ep.fr` via l'API Admin Supabase avec la cle legacy locale.

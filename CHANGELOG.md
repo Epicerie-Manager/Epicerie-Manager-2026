@@ -21,6 +21,12 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.43 - 2026-03-29
+
+- Nettoyage technique des stores `RH`, `Plan TG`, `Planning`, `Balisage` et `Infos` : les données de travail ne passent plus par un cache navigateur de session masqué, mais par des snapshots mémoire de module.
+- Les anciennes clés `localStorage` legacy continuent d'être purgées au chargement, ce qui termine le chantier de retrait des anciens caches navigateur comme source de vérité métier.
+- Le helper `browser-cache` ne sert plus qu'au ménage des anciennes clés legacy, afin d'éviter qu'un état stale survive entre modules ou réapparaisse après navigation.
+
 ## v0.5.42 - 2026-03-29
 
 - Planning semaine : la section `Présents` distingue maintenant clairement `Matin` et `Après-midi` sur chaque carte jour, au lieu d'afficher une seule liste.

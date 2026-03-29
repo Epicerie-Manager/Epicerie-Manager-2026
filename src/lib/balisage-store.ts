@@ -3,7 +3,7 @@ import {
   balisageMonths,
   type BalisageEmployeeStat,
 } from "@/lib/balisage-data";
-import { hasBrowserWindow, purgeLegacyCacheKeys, readSessionCache, writeSessionCache } from "@/lib/browser-cache";
+import { hasBrowserWindow, purgeLegacyCacheKeys } from "@/lib/browser-cache";
 import { createClient } from "@/lib/supabase";
 
 const BALISAGE_STORAGE_KEY = "epicerie-manager-balisage-data-v1";
@@ -13,6 +13,9 @@ const BALISAGE_UPDATED_EVENT = "epicerie-manager:balisage-updated";
 let employeeIdByName = new Map<string, string>();
 
 type BalisageDataset = Record<string, BalisageEmployeeStat[]>;
+
+let balisageSnapshot = cloneDefaultData();
+let balisageSerialized = JSON.stringify(balisageSnapshot);
 
 function emitBalisageUpdated() {
   if (typeof window === "undefined") return;
@@ -28,14 +31,22 @@ function cloneDefaultData(): BalisageDataset {
   );
 }
 
-function isStatRow(value: unknown): value is BalisageEmployeeStat {
-  if (!value || typeof value !== "object") return false;
-  const row = value as Record<string, unknown>;
-  return (
-    typeof row.name === "string" &&
-    typeof row.total === "number" &&
-    (typeof row.errorRate === "number" || row.errorRate === null)
+function cloneBalisageData(data: BalisageDataset): BalisageDataset {
+  return Object.fromEntries(
+    Object.entries(data).map(([monthId, stats]) => [
+      monthId,
+      stats.map((item) => ({ ...item })),
+    ]),
   );
+}
+
+function replaceBalisageSnapshot(data: BalisageDataset) {
+  const nextData = cloneBalisageData(data);
+  const serialized = JSON.stringify(nextData);
+  if (serialized === balisageSerialized) return false;
+  balisageSnapshot = nextData;
+  balisageSerialized = serialized;
+  return true;
 }
 
 export function loadBalisageData(): BalisageDataset {
@@ -44,24 +55,8 @@ export function loadBalisageData(): BalisageDataset {
   }
 
   purgeLegacyCacheKeys([BALISAGE_STORAGE_KEY]);
-  const parsed = readSessionCache<Record<string, unknown>>(BALISAGE_STORAGE_KEY);
-  if (!parsed) {
-    return cloneDefaultData();
-  }
-
   try {
-    const sanitized = cloneDefaultData();
-
-    balisageMonths.forEach((month) => {
-      const monthRows = parsed?.[month.id];
-      if (!Array.isArray(monthRows)) return;
-      const rows = monthRows.filter(isStatRow);
-      if (rows.length > 0) {
-        sanitized[month.id] = rows;
-      }
-    });
-
-    return sanitized;
+    return cloneBalisageData(balisageSnapshot);
   } catch {
     return cloneDefaultData();
   }
@@ -69,7 +64,7 @@ export function loadBalisageData(): BalisageDataset {
 
 export function saveBalisageData(data: BalisageDataset) {
   if (!hasBrowserWindow()) return;
-  const changed = writeSessionCache(BALISAGE_STORAGE_KEY, data);
+  const changed = replaceBalisageSnapshot(data);
   if (changed) emitBalisageUpdated();
 }
 
@@ -165,7 +160,7 @@ export async function syncBalisageFromSupabase() {
       else next[monthId].push(mapped);
     });
 
-    const changed = writeSessionCache(BALISAGE_STORAGE_KEY, next);
+    const changed = replaceBalisageSnapshot(next);
     if (changed) emitBalisageUpdated();
     return changed;
   } catch {

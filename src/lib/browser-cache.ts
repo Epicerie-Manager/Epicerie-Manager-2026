@@ -1,4 +1,3 @@
-const sessionCache = new Map<string, string>();
 const purgedKeys = new Set<string>();
 const purgedPrefixes = new Set<string>();
 
@@ -36,35 +35,4 @@ export function purgeLegacyCacheByPrefixes(prefixes: string[]) {
   });
 
   pendingPrefixes.forEach((prefix) => purgedPrefixes.add(prefix));
-}
-
-export function readSessionCache<T>(key: string): T | null {
-  purgeLegacyCacheKeys([key]);
-
-  const raw = sessionCache.get(key);
-  if (!raw) return null;
-
-  try {
-    return JSON.parse(raw) as T;
-  } catch {
-    sessionCache.delete(key);
-    return null;
-  }
-}
-
-export function writeSessionCache(key: string, value: unknown) {
-  const serialized = JSON.stringify(value);
-  if (sessionCache.get(key) === serialized) {
-    purgeLegacyCacheKeys([key]);
-    return false;
-  }
-
-  sessionCache.set(key, serialized);
-  purgeLegacyCacheKeys([key]);
-  return true;
-}
-
-export function clearSessionCache(key: string) {
-  sessionCache.delete(key);
-  purgeLegacyCacheKeys([key]);
 }

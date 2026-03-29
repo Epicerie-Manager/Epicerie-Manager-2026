@@ -8,8 +8,6 @@ import {
   hasBrowserWindow,
   purgeLegacyCacheByPrefixes,
   purgeLegacyCacheKeys,
-  readSessionCache,
-  writeSessionCache,
 } from "@/lib/browser-cache";
 import { createClient } from "@/lib/supabase";
 
@@ -132,20 +130,20 @@ function cloneBinomes(binomes: PlanningBinomes): PlanningBinomes {
   return binomes.map((pair) => [pair[0], pair[1]]) as PlanningBinomes;
 }
 
+const defaultPlanningOverridesSnapshot = cloneOverrides(defaultPlanningOverrides);
+let planningOverridesSnapshot = cloneOverrides(defaultPlanningOverrides);
+let planningOverridesSerialized = JSON.stringify(planningOverridesSnapshot);
+let planningTriSnapshotByMonth: Record<string, PlanningTriData> = {};
+let planningTriSerializedByMonth: Record<string, string> = {};
+let planningBinomesSnapshotByMonth: Record<string, PlanningBinomes> = {};
+let planningBinomesSerializedByMonth: Record<string, string> = {};
+
 function canUseStorage() {
   return hasBrowserWindow();
 }
 
 export function getPlanningMonthKey(date: Date) {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
-}
-
-function getPlanningTriStorageKey(monthKey: string) {
-  return `${PLANNING_TRI_KEY_PREFIX}:${monthKey}`;
-}
-
-function getPlanningBinomesStorageKey(monthKey: string) {
-  return `${PLANNING_BINOMES_KEY_PREFIX}:${monthKey}`;
 }
 
 function cloneOverrides(overrides: PlanningOverrides) {
@@ -155,7 +153,58 @@ function cloneOverrides(overrides: PlanningOverrides) {
 }
 
 function cloneDefaultPlanningOverrides() {
-  return cloneOverrides(defaultPlanningOverrides);
+  return cloneOverrides(defaultPlanningOverridesSnapshot);
+}
+
+function replacePlanningOverridesSnapshot(overrides: PlanningOverrides) {
+  const nextOverrides = cloneOverrides(overrides);
+  const serialized = JSON.stringify(nextOverrides);
+  if (serialized === planningOverridesSerialized) return false;
+  planningOverridesSnapshot = nextOverrides;
+  planningOverridesSerialized = serialized;
+  return true;
+}
+
+function getPlanningTriSnapshot(monthKey: string) {
+  return planningTriSnapshotByMonth[monthKey]
+    ? cloneTriData(planningTriSnapshotByMonth[monthKey])
+    : cloneTriData(defaultPlanningTriData);
+}
+
+function replacePlanningTriSnapshot(monthKey: string, data: PlanningTriData) {
+  const nextTriData = cloneTriData(data);
+  const serialized = JSON.stringify(nextTriData);
+  if (planningTriSerializedByMonth[monthKey] === serialized) return false;
+  planningTriSnapshotByMonth = {
+    ...planningTriSnapshotByMonth,
+    [monthKey]: nextTriData,
+  };
+  planningTriSerializedByMonth = {
+    ...planningTriSerializedByMonth,
+    [monthKey]: serialized,
+  };
+  return true;
+}
+
+function getPlanningBinomesSnapshot(monthKey: string) {
+  return planningBinomesSnapshotByMonth[monthKey]
+    ? cloneBinomes(planningBinomesSnapshotByMonth[monthKey])
+    : cloneBinomes(defaultPlanningBinomes);
+}
+
+function replacePlanningBinomesSnapshot(monthKey: string, binomes: PlanningBinomes) {
+  const nextBinomes = cloneBinomes(binomes);
+  const serialized = JSON.stringify(nextBinomes);
+  if (planningBinomesSerializedByMonth[monthKey] === serialized) return false;
+  planningBinomesSnapshotByMonth = {
+    ...planningBinomesSnapshotByMonth,
+    [monthKey]: nextBinomes,
+  };
+  planningBinomesSerializedByMonth = {
+    ...planningBinomesSerializedByMonth,
+    [monthKey]: serialized,
+  };
+  return true;
 }
 
 export function getPlanningUpdatedEventName() {
@@ -274,6 +323,7 @@ export async function syncPlanningFromSupabase(monthKey = getPlanningMonthKey(ne
 
   try {
     const supabase = createClient();
+    let didChange = false;
 
     const { data: employeeRows, error: employeeError } = await supabase
       .from("employees")
@@ -290,7 +340,13 @@ export async function syncPlanningFromSupabase(monthKey = getPlanningMonthKey(ne
       hm: employee.horaire_mardi ?? null,
       actif: Boolean(employee.actif),
     }));
-    planningEmployees = mappedEmployees;
+    const employeesSerialized = JSON.stringify(mappedEmployees);
+    if (employeesSerialized !== JSON.stringify(planningEmployees)) {
+      planningEmployees = mappedEmployees;
+      didChange = true;
+    } else {
+      planningEmployees = mappedEmployees;
+    }
     const employeeNameById = new Map(
       employeeRows.map((employee) => [String(employee.id), String(employee.name ?? "").trim().toUpperCase()]),
     );
@@ -311,7 +367,13 @@ export async function syncPlanningFromSupabase(monthKey = getPlanningMonthKey(ne
         }
       });
       if (Object.keys(nextCycle).length > 0) {
-        cycle = { ...cycle, ...nextCycle };
+        const mergedCycle = { ...cycle, ...nextCycle };
+        if (JSON.stringify(mergedCycle) !== JSON.stringify(cycle)) {
+          cycle = mergedCycle;
+          didChange = true;
+        } else {
+          cycle = mergedCycle;
+        }
       }
     }
 
@@ -331,7 +393,7 @@ export async function syncPlanningFromSupabase(monthKey = getPlanningMonthKey(ne
         nextTriData[index] = [name1, name2];
       });
     }
-    writeSessionCache(getPlanningTriStorageKey(monthKey), nextTriData);
+    didChange = replacePlanningTriSnapshot(monthKey, nextTriData) || didChange;
 
     let nextBinomes = cloneBinomes(defaultPlanningBinomes);
     const { data: binomeRows } = await supabase
@@ -353,7 +415,7 @@ export async function syncPlanningFromSupabase(monthKey = getPlanningMonthKey(ne
         nextBinomes = cloneBinomes(binomes);
       }
     }
-    writeSessionCache(getPlanningBinomesStorageKey(monthKey), nextBinomes);
+    didChange = replacePlanningBinomesSnapshot(monthKey, nextBinomes) || didChange;
 
     const overrides: PlanningOverrides = cloneDefaultPlanningOverrides();
     const planningRows = await fetchAllRows<{
@@ -423,10 +485,10 @@ export async function syncPlanningFromSupabase(monthKey = getPlanningMonthKey(ne
       });
     }
 
-    writeSessionCache(PLANNING_OVERRIDES_KEY, overrides);
+    didChange = replacePlanningOverridesSnapshot(overrides) || didChange;
 
-    emitPlanningUpdated();
-    return true;
+    if (didChange) emitPlanningUpdated();
+    return didChange;
   } catch {
     return false;
   }
@@ -436,10 +498,7 @@ export function loadPlanningOverrides(): PlanningOverrides {
   if (!canUseStorage()) return cloneDefaultPlanningOverrides();
   try {
     purgePlanningLegacyCache();
-    const parsed = readSessionCache<PlanningOverrides>(PLANNING_OVERRIDES_KEY);
-    if (!parsed) return cloneDefaultPlanningOverrides();
-    if (!parsed || typeof parsed !== "object") return cloneDefaultPlanningOverrides();
-    return { ...cloneDefaultPlanningOverrides(), ...(parsed as PlanningOverrides) };
+    return cloneOverrides(planningOverridesSnapshot);
   } catch {
     return cloneDefaultPlanningOverrides();
   }
@@ -447,23 +506,14 @@ export function loadPlanningOverrides(): PlanningOverrides {
 
 export function savePlanningOverrides(overrides: PlanningOverrides) {
   if (!canUseStorage()) return;
-  writeSessionCache(PLANNING_OVERRIDES_KEY, overrides);
-  emitPlanningUpdated();
+  if (replacePlanningOverridesSnapshot(overrides)) emitPlanningUpdated();
 }
 
 export function loadPlanningTriData(monthKey = getPlanningMonthKey(new Date())): PlanningTriData {
   if (!canUseStorage()) return cloneTriData(defaultPlanningTriData);
   try {
     purgePlanningLegacyCache();
-    const parsed = readSessionCache<Record<string, unknown>>(getPlanningTriStorageKey(monthKey));
-    if (!parsed) return cloneTriData(defaultPlanningTriData);
-    if (!parsed || typeof parsed !== "object") return cloneTriData(defaultPlanningTriData);
-    const merged = cloneTriData(defaultPlanningTriData);
-    Object.entries(parsed as Record<string, unknown>).forEach(([key, value]) => {
-      if (!Array.isArray(value) || value.length < 2) return;
-      merged[Number(key)] = [String(value[0] ?? ""), String(value[1] ?? "")];
-    });
-    return merged;
+    return getPlanningTriSnapshot(monthKey);
   } catch {
     return cloneTriData(defaultPlanningTriData);
   }
@@ -471,21 +521,15 @@ export function loadPlanningTriData(monthKey = getPlanningMonthKey(new Date())):
 
 export function savePlanningTriData(data: PlanningTriData) {
   if (!canUseStorage()) return;
-  writeSessionCache(getPlanningTriStorageKey(getPlanningMonthKey(new Date())), data);
-  emitPlanningUpdated();
+  const monthKey = getPlanningMonthKey(new Date());
+  if (replacePlanningTriSnapshot(monthKey, data)) emitPlanningUpdated();
 }
 
 export function loadPlanningBinomes(monthKey = getPlanningMonthKey(new Date())): PlanningBinomes {
   if (!canUseStorage()) return cloneBinomes(defaultPlanningBinomes);
   try {
     purgePlanningLegacyCache();
-    const parsed = readSessionCache<unknown[]>(getPlanningBinomesStorageKey(monthKey));
-    if (!parsed) return cloneBinomes(defaultPlanningBinomes);
-    if (!Array.isArray(parsed)) return cloneBinomes(defaultPlanningBinomes);
-    const rows = parsed
-      .filter((row: unknown) => Array.isArray(row) && row.length >= 2)
-      .map((row: unknown) => [String((row as unknown[])[0] ?? ""), String((row as unknown[])[1] ?? "")] as [string, string]);
-    return rows.length ? (rows as PlanningBinomes) : cloneBinomes(defaultPlanningBinomes);
+    return getPlanningBinomesSnapshot(monthKey);
   } catch {
     return cloneBinomes(defaultPlanningBinomes);
   }
@@ -493,8 +537,8 @@ export function loadPlanningBinomes(monthKey = getPlanningMonthKey(new Date())):
 
 export function savePlanningBinomes(binomes: PlanningBinomes) {
   if (!canUseStorage()) return;
-  writeSessionCache(getPlanningBinomesStorageKey(getPlanningMonthKey(new Date())), binomes);
-  emitPlanningUpdated();
+  const monthKey = getPlanningMonthKey(new Date());
+  if (replacePlanningBinomesSnapshot(monthKey, binomes)) emitPlanningUpdated();
 }
 
 function normalizeActionError(error: unknown) {
@@ -606,7 +650,7 @@ export async function savePlanningOverridesToSupabase(
       }
     }
 
-    writeSessionCache(PLANNING_OVERRIDES_KEY, nextOverrides);
+    replacePlanningOverridesSnapshot(nextOverrides);
     emitPlanningUpdated();
     return cloneOverrides(nextOverrides);
   } catch (error) {
@@ -649,7 +693,7 @@ export async function savePlanningTriPairToSupabase(
       if (insertError) throw insertError;
     }
 
-    writeSessionCache(getPlanningTriStorageKey(monthKey), nextTriData);
+    replacePlanningTriSnapshot(monthKey, nextTriData);
     emitPlanningUpdated();
     return cloneTriData(nextTriData);
   } catch (error) {
@@ -693,7 +737,7 @@ export async function savePlanningBinomeToSupabase(
       if (insertError) throw insertError;
     }
 
-    writeSessionCache(getPlanningBinomesStorageKey(monthKey), nextBinomes);
+    replacePlanningBinomesSnapshot(monthKey, nextBinomes);
     emitPlanningUpdated();
     return cloneBinomes(nextBinomes);
   } catch (error) {

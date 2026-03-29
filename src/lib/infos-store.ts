@@ -5,10 +5,9 @@ import {
   type InfoAnnouncementPriority,
   type InfoCategory,
   type InfoCategoryId,
-  type InfoDocumentAttachment,
   type InfoItem,
 } from "@/lib/infos-data";
-import { hasBrowserWindow, purgeLegacyCacheKeys, readSessionCache, writeSessionCache } from "@/lib/browser-cache";
+import { hasBrowserWindow, purgeLegacyCacheKeys } from "@/lib/browser-cache";
 import { createClient } from "@/lib/supabase";
 
 const INFO_CATEGORIES_STORAGE_KEY = "epicerie-manager-info-categories-v1";
@@ -35,6 +34,11 @@ const INFO_CATEGORY_FROM_DB: Record<string, InfoCategoryId> = {
 
 type DbRow = Record<string, unknown>;
 
+let infoCategoriesSnapshot = cloneCategories(infoCategories);
+let infoCategoriesSerialized = JSON.stringify(infoCategoriesSnapshot);
+let infoAnnouncementsSnapshot = cloneAnnouncements(infoAnnouncements);
+let infoAnnouncementsSerialized = JSON.stringify(infoAnnouncementsSnapshot);
+
 function canUseStorage() {
   return hasBrowserWindow();
 }
@@ -44,70 +48,43 @@ function emitUpdated() {
   window.dispatchEvent(new Event(INFO_UPDATED_EVENT));
 }
 
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === "object" && value !== null;
+function cloneCategories(categories: InfoCategory[]) {
+  return categories.map((category) => ({
+    ...category,
+    items: category.items.map((item) => ({
+      ...item,
+      attachment: item.attachment ? { ...item.attachment } : undefined,
+    })),
+  }));
 }
 
-function isAnnouncementPriority(value: unknown): value is InfoAnnouncementPriority {
-  return value === "urgent" || value === "important" || value === "normal";
+function cloneAnnouncements(announcements: InfoAnnouncement[]) {
+  return announcements.map((announcement) => ({ ...announcement }));
 }
 
-function isAttachment(value: unknown): value is InfoDocumentAttachment {
-  if (!isObject(value)) return false;
-  return (
-    typeof value.name === "string" &&
-    typeof value.mimeType === "string" &&
-    typeof value.size === "number" &&
-    typeof value.dataUrl === "string" &&
-    typeof value.uploadedAt === "string"
-  );
+function replaceInfoCategoriesSnapshot(categories: InfoCategory[]) {
+  const nextCategories = cloneCategories(categories);
+  const serialized = JSON.stringify(nextCategories);
+  if (serialized === infoCategoriesSerialized) return false;
+  infoCategoriesSnapshot = nextCategories;
+  infoCategoriesSerialized = serialized;
+  return true;
 }
 
-function isItem(value: unknown): value is InfoItem {
-  if (!isObject(value)) return false;
-  if (
-    typeof value.id !== "string" ||
-    typeof value.title !== "string" ||
-    typeof value.description !== "string" ||
-    typeof value.createdAt !== "string" ||
-    typeof value.updatedAt !== "string"
-  ) {
-    return false;
-  }
-  if (value.attachment === undefined) return true;
-  return isAttachment(value.attachment);
-}
-
-function isCategoryId(value: unknown): value is InfoCategoryId {
-  return value === "proc" || value === "secu" || value === "rh" || value === "outils" || value === "contacts";
-}
-
-function isCategory(value: unknown): value is InfoCategory {
-  if (!isObject(value)) return false;
-  if (!isCategoryId(value.id) || typeof value.label !== "string" || !Array.isArray(value.items)) return false;
-  return value.items.every(isItem);
-}
-
-function isAnnouncement(value: unknown): value is InfoAnnouncement {
-  if (!isObject(value)) return false;
-  return (
-    typeof value.id === "string" &&
-    typeof value.date === "string" &&
-    typeof value.title === "string" &&
-    typeof value.content === "string" &&
-    isAnnouncementPriority(value.priority)
-  );
+function replaceInfoAnnouncementsSnapshot(announcements: InfoAnnouncement[]) {
+  const nextAnnouncements = cloneAnnouncements(announcements);
+  const serialized = JSON.stringify(nextAnnouncements);
+  if (serialized === infoAnnouncementsSerialized) return false;
+  infoAnnouncementsSnapshot = nextAnnouncements;
+  infoAnnouncementsSerialized = serialized;
+  return true;
 }
 
 export function loadInfoCategories(): InfoCategory[] {
   if (!canUseStorage()) return infoCategories;
   purgeLegacyCacheKeys([INFO_CATEGORIES_STORAGE_KEY]);
-  const parsed = readSessionCache<unknown[]>(INFO_CATEGORIES_STORAGE_KEY);
-  if (!parsed) return infoCategories;
   try {
-    if (!Array.isArray(parsed)) return infoCategories;
-    const valid = parsed.filter(isCategory);
-    return valid.length ? valid : infoCategories;
+    return cloneCategories(infoCategoriesSnapshot);
   } catch {
     return infoCategories;
   }
@@ -115,19 +92,14 @@ export function loadInfoCategories(): InfoCategory[] {
 
 export function saveInfoCategories(categories: InfoCategory[]) {
   if (!canUseStorage()) return;
-  writeSessionCache(INFO_CATEGORIES_STORAGE_KEY, categories);
-  emitUpdated();
+  if (replaceInfoCategoriesSnapshot(categories)) emitUpdated();
 }
 
 export function loadInfoAnnouncements(): InfoAnnouncement[] {
   if (!canUseStorage()) return infoAnnouncements;
   purgeLegacyCacheKeys([INFO_ANNOUNCEMENTS_STORAGE_KEY]);
-  const parsed = readSessionCache<unknown[]>(INFO_ANNOUNCEMENTS_STORAGE_KEY);
-  if (!parsed) return infoAnnouncements;
   try {
-    if (!Array.isArray(parsed)) return infoAnnouncements;
-    const valid = parsed.filter(isAnnouncement);
-    return valid;
+    return cloneAnnouncements(infoAnnouncementsSnapshot);
   } catch {
     return infoAnnouncements;
   }
@@ -135,8 +107,7 @@ export function loadInfoAnnouncements(): InfoAnnouncement[] {
 
 export function saveInfoAnnouncements(announcements: InfoAnnouncement[]) {
   if (!canUseStorage()) return;
-  writeSessionCache(INFO_ANNOUNCEMENTS_STORAGE_KEY, announcements);
-  emitUpdated();
+  if (replaceInfoAnnouncementsSnapshot(announcements)) emitUpdated();
 }
 
 export function getInfosUpdatedEventName() {
@@ -398,16 +369,14 @@ export async function syncInfosFromSupabase() {
         if (category) category.items.push(item);
       });
 
-      writeSessionCache(INFO_CATEGORIES_STORAGE_KEY, nextCategories);
-      hasData = true;
+      hasData = replaceInfoCategoriesSnapshot(nextCategories) || hasData;
     }
 
     if (Array.isArray(annoncesRows)) {
       const nextAnnouncements: InfoAnnouncement[] = annoncesRows.map((row: Record<string, unknown>) => (
         mapAnnouncementRowToItem(row)
       ));
-      writeSessionCache(INFO_ANNOUNCEMENTS_STORAGE_KEY, nextAnnouncements);
-      hasData = true;
+      hasData = replaceInfoAnnouncementsSnapshot(nextAnnouncements) || hasData;
     }
 
     if (hasData) emitUpdated();

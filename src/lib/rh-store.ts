@@ -1,4 +1,4 @@
-import { hasBrowserWindow, purgeLegacyCacheKeys, readSessionCache, writeSessionCache } from "@/lib/browser-cache";
+import { hasBrowserWindow, purgeLegacyCacheKeys } from "@/lib/browser-cache";
 import { getRhEmployeeRoleLabel } from "@/lib/rh-status";
 import { createClient } from "@/lib/supabase";
 
@@ -67,6 +67,11 @@ export const defaultRhCycles: RhCycles = {
   "EL HASSANE": ["VEN", "SAM", "VEN", "VEN", "VEN"],
 };
 
+let rhEmployeesSnapshot = cloneEmployees(defaultRhEmployees);
+let rhEmployeesSerialized = JSON.stringify(rhEmployeesSnapshot);
+let rhCyclesSnapshot = cloneCycles(defaultRhCycles);
+let rhCyclesSerialized = JSON.stringify(rhCyclesSnapshot);
+
 function canUseStorage() {
   return hasBrowserWindow();
 }
@@ -83,20 +88,22 @@ function cloneCycles(cycles: RhCycles) {
   return Object.fromEntries(Object.entries(cycles).map(([name, cycle]) => [name, [...cycle]]));
 }
 
-function isRhEmployee(value: unknown): value is RhEmployee {
-  if (!value || typeof value !== "object") return false;
-  const employee = value as Record<string, unknown>;
-  return (
-    typeof employee.id === "number" &&
-    typeof employee.n === "string" &&
-    (employee.t === "M" || employee.t === "S" || employee.t === "E") &&
-    (typeof employee.hs === "string" || employee.hs === null) &&
-    (typeof employee.hm === "string" || employee.hm === null) &&
-    (typeof employee.hsa === "string" || employee.hsa === null) &&
-    typeof employee.obs === "string" &&
-    typeof employee.actif === "boolean" &&
-    (typeof employee.photo === "string" || employee.photo === null || typeof employee.photo === "undefined")
-  );
+function replaceRhEmployeesSnapshot(employees: RhEmployee[]) {
+  const nextEmployees = cloneEmployees(employees);
+  const serialized = JSON.stringify(nextEmployees);
+  if (serialized === rhEmployeesSerialized) return false;
+  rhEmployeesSnapshot = nextEmployees;
+  rhEmployeesSerialized = serialized;
+  return true;
+}
+
+function replaceRhCyclesSnapshot(cycles: RhCycles) {
+  const nextCycles = cloneCycles(cycles);
+  const serialized = JSON.stringify(nextCycles);
+  if (serialized === rhCyclesSerialized) return false;
+  rhCyclesSnapshot = nextCycles;
+  rhCyclesSerialized = serialized;
+  return true;
 }
 
 function normalizeRhTypeToDb(value: RhEmployeeType) {
@@ -178,9 +185,9 @@ function mapEmployeeRowToRhEmployee(
 
 function writeRhCache(employees: RhEmployee[], cycles: RhCycles) {
   if (!canUseStorage()) return;
-  writeSessionCache(EMPLOYEES_KEY, employees);
-  writeSessionCache(CYCLES_KEY, cycles);
-  emitRhUpdated();
+  const employeesChanged = replaceRhEmployeesSnapshot(employees);
+  const cyclesChanged = replaceRhCyclesSnapshot(cycles);
+  if (employeesChanged || cyclesChanged) emitRhUpdated();
 }
 
 export function getRhUpdatedEventName() {
@@ -196,11 +203,7 @@ export function loadRhEmployees(): RhEmployee[] {
   if (!canUseStorage()) return cloneEmployees(defaultRhEmployees);
   try {
     purgeLegacyCacheKeys([EMPLOYEES_KEY]);
-    const parsed = readSessionCache<unknown[]>(EMPLOYEES_KEY);
-    if (!parsed) return cloneEmployees(defaultRhEmployees);
-    if (!Array.isArray(parsed)) return cloneEmployees(defaultRhEmployees);
-    const sanitized = parsed.filter(isRhEmployee);
-    return sanitized.length || parsed.length === 0 ? cloneEmployees(sanitized) : cloneEmployees(defaultRhEmployees);
+    return cloneEmployees(rhEmployeesSnapshot);
   } catch {
     return cloneEmployees(defaultRhEmployees);
   }
@@ -208,18 +211,14 @@ export function loadRhEmployees(): RhEmployee[] {
 
 export function saveRhEmployees(employees: RhEmployee[]) {
   if (!canUseStorage()) return;
-  writeSessionCache(EMPLOYEES_KEY, employees);
-  emitRhUpdated();
+  if (replaceRhEmployeesSnapshot(employees)) emitRhUpdated();
 }
 
 export function loadRhCycles(): RhCycles {
   if (!canUseStorage()) return cloneCycles(defaultRhCycles);
   try {
     purgeLegacyCacheKeys([CYCLES_KEY]);
-    const parsed = readSessionCache<Record<string, string[]>>(CYCLES_KEY);
-    if (!parsed) return cloneCycles(defaultRhCycles);
-    if (!parsed || typeof parsed !== "object") return cloneCycles(defaultRhCycles);
-    return cloneCycles(parsed as RhCycles);
+    return cloneCycles(rhCyclesSnapshot);
   } catch {
     return cloneCycles(defaultRhCycles);
   }
@@ -227,8 +226,7 @@ export function loadRhCycles(): RhCycles {
 
 export function saveRhCycles(cycles: RhCycles) {
   if (!canUseStorage()) return;
-  writeSessionCache(CYCLES_KEY, cycles);
-  emitRhUpdated();
+  if (replaceRhCyclesSnapshot(cycles)) emitRhUpdated();
 }
 
 export function getRhEmployeeNames(options?: { activeOnly?: boolean }) {
@@ -326,8 +324,7 @@ export function renameRhCycleCache(previousName: string, nextName: string) {
   const nextCycles = { ...cycles };
   delete nextCycles[previousName];
   nextCycles[nextName] = existing;
-  writeSessionCache(CYCLES_KEY, nextCycles);
-  emitRhUpdated();
+  if (replaceRhCyclesSnapshot(nextCycles)) emitRhUpdated();
 }
 
 export async function createRhEmployeeInSupabase(

@@ -4,6 +4,7 @@ import {
   type BalisageEmployeeStat,
 } from "@/lib/balisage-data";
 import { hasBrowserWindow, purgeLegacyCacheKeys } from "@/lib/browser-cache";
+import { isRhEmployeeCoordinatorRole } from "@/lib/rh-status";
 import { createClient } from "@/lib/supabase";
 
 const BALISAGE_STORAGE_KEY = "epicerie-manager-balisage-data-v1";
@@ -47,6 +48,29 @@ function replaceBalisageSnapshot(data: BalisageDataset) {
   balisageSnapshot = nextData;
   balisageSerialized = serialized;
   return true;
+}
+
+function normalizeEmployeeName(value: unknown) {
+  return String(value ?? "").trim().toUpperCase();
+}
+
+function isTrackedBalisageEmployee(employee: { type?: string | null; observation?: string | null }) {
+  const type = normalizeEmployeeName(employee.type);
+  return type !== "ETUDIANT" && !isRhEmployeeCoordinatorRole(employee.observation, type);
+}
+
+function createEmptyBalisageDataset(employeeRows: Array<{ name?: string | null; type?: string | null; observation?: string | null }>) {
+  const trackedNames = employeeRows
+    .filter((employee) => isTrackedBalisageEmployee(employee))
+    .map((employee) => normalizeEmployeeName(employee.name))
+    .filter(Boolean);
+
+  return Object.fromEntries(
+    balisageMonths.map((month) => [
+      month.id,
+      trackedNames.map((name) => ({ name, total: 0, errorRate: null })),
+    ]),
+  ) as BalisageDataset;
 }
 
 export function loadBalisageData(): BalisageDataset {
@@ -116,7 +140,7 @@ export async function syncBalisageFromSupabase() {
     const supabase = createClient();
     const { data: employeeRows, error: employeeError } = await supabase
       .from("employees")
-      .select("id,name")
+      .select("id,name,type,observation")
       .limit(5000);
     if (employeeError) throw employeeError;
     if (!employeeRows || employeeRows.length === 0) return false;
@@ -135,12 +159,11 @@ export async function syncBalisageFromSupabase() {
       .select("mois,employee_id,total_controles,taux_erreur")
       .limit(20000);
     if (balisageError) throw balisageError;
-    if (!balisageRows || balisageRows.length === 0) return false;
 
-    const next = cloneDefaultData();
+    const next = createEmptyBalisageDataset(employeeRows);
     const monthIdSet = new Set(balisageMonths.map((month) => month.id));
 
-    balisageRows.forEach((row) => {
+    (balisageRows ?? []).forEach((row) => {
       const monthId = String(row.mois ?? "");
       if (!monthIdSet.has(monthId)) return;
       const name = employeeNameById.get(String(row.employee_id));
@@ -157,7 +180,6 @@ export async function syncBalisageFromSupabase() {
             : Number(row.taux_erreur),
       };
       if (idx >= 0) next[monthId][idx] = mapped;
-      else next[monthId].push(mapped);
     });
 
     const changed = replaceBalisageSnapshot(next);

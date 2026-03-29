@@ -1,3 +1,6 @@
+import { defaultRhEmployees } from "@/lib/rh-store";
+import { isRhEmployeeCoordinatorRole } from "@/lib/rh-status";
+
 export type BalisageEmployeeStat = {
   name: string;
   total: number;
@@ -21,60 +24,53 @@ export const balisageMonths = [
   { id: "DEC_2026", label: "Decembre" },
 ];
 
-const defaultEmployees: BalisageEmployeeStat[] = [
-  { name: "MOHAMED", total: 0, errorRate: null },
-  { name: "PASCALE", total: 0, errorRate: null },
-  { name: "ROSALIE", total: 0, errorRate: null },
-  { name: "WASIM", total: 0, errorRate: null },
-  { name: "JEREMY", total: 0, errorRate: null },
-  { name: "JAMAA", total: 0, errorRate: null },
-  { name: "KAMEL", total: 0, errorRate: null },
-  { name: "HASSANE", total: 0, errorRate: null },
-  { name: "LIYAKATH", total: 0, errorRate: null },
-  { name: "MOHCINE", total: 0, errorRate: null },
-  { name: "CECILE", total: 0, errorRate: null },
-];
+function getTrackedBalisageEmployeeNames() {
+  return defaultRhEmployees
+    .filter((employee) => employee.t !== "E" && !isRhEmployeeCoordinatorRole(employee.obs, employee.t))
+    .map((employee) => employee.n.trim().toUpperCase());
+}
+
+function buildMonthStats(
+  overrides: Record<string, { total: number; errorRate: number | null }> = {},
+): BalisageEmployeeStat[] {
+  const overrideMap = new Map(
+    Object.entries(overrides).map(([name, value]) => [name.trim().toUpperCase(), value]),
+  );
+
+  return getTrackedBalisageEmployeeNames().map((name) => {
+    const override = overrideMap.get(name);
+    return {
+      name,
+      total: override?.total ?? 0,
+      errorRate: override?.errorRate ?? null,
+    };
+  });
+}
+
+const defaultEmployees = buildMonthStats();
 
 export const balisageData: Record<string, BalisageEmployeeStat[]> = {
-  MARS_2026: [
-    { name: "KAMAR", total: 0, errorRate: null },
-    { name: "PASCALE", total: 0, errorRate: null },
-    { name: "ROSALIE", total: 0, errorRate: null },
-    { name: "WASIM", total: 0, errorRate: null },
-    { name: "JEREMY", total: 0, errorRate: null },
-    { name: "JAMAA", total: 0, errorRate: null },
-    { name: "KAMEL", total: 0, errorRate: null },
-    { name: "HASSANE", total: 0, errorRate: null },
-    { name: "LIYAKATH", total: 0, errorRate: null },
-    { name: "MOHCINE", total: 0, errorRate: null },
-    { name: "CECILE", total: 0, errorRate: null },
-  ],
-  FEVR_2026: [
-    { name: "MOHAMED", total: 0, errorRate: null },
-    { name: "PASCALE", total: 1055, errorRate: null },
-    { name: "ROSALIE", total: 0, errorRate: null },
-    { name: "WASIM", total: 97, errorRate: null },
-    { name: "JEREMY", total: 1033, errorRate: null },
-    { name: "JAMAA", total: 806, errorRate: null },
-    { name: "KAMEL", total: 220, errorRate: null },
-    { name: "HASSANE", total: 805, errorRate: null },
-    { name: "LIYAKATH", total: 0, errorRate: null },
-    { name: "MOHCINE", total: 0, errorRate: null },
-    { name: "CECILE", total: 1327, errorRate: null },
-  ],
-  JANV_2026: [
-    { name: "MOHAMED", total: 0, errorRate: null },
-    { name: "PASCALE", total: 954, errorRate: 0.9 },
-    { name: "ROSALIE", total: 750, errorRate: 0 },
-    { name: "WASIM", total: 210, errorRate: 0 },
-    { name: "JEREMY", total: 1589, errorRate: 0.2 },
-    { name: "JAMAA", total: 939, errorRate: 0 },
-    { name: "KAMEL", total: 822, errorRate: 0 },
-    { name: "HASSANE", total: 972, errorRate: 0 },
-    { name: "LIYAKATH", total: 1251, errorRate: 0.4 },
-    { name: "MOHCINE", total: 0, errorRate: null },
-    { name: "CECILE", total: 1532, errorRate: 0 },
-  ],
+  MARS_2026: buildMonthStats(),
+  FEVR_2026: buildMonthStats({
+    PASCALE: { total: 1055, errorRate: null },
+    WASIM: { total: 97, errorRate: null },
+    JEREMY: { total: 1033, errorRate: null },
+    JAMAA: { total: 806, errorRate: null },
+    KAMEL: { total: 220, errorRate: null },
+    "EL HASSANE": { total: 805, errorRate: null },
+    CECILE: { total: 1327, errorRate: null },
+  }),
+  JANV_2026: buildMonthStats({
+    PASCALE: { total: 954, errorRate: 0.9 },
+    ROSALIE: { total: 750, errorRate: 0 },
+    WASIM: { total: 210, errorRate: 0 },
+    JEREMY: { total: 1589, errorRate: 0.2 },
+    JAMAA: { total: 939, errorRate: 0 },
+    KAMEL: { total: 822, errorRate: 0 },
+    "EL HASSANE": { total: 972, errorRate: 0 },
+    LIYAKATH: { total: 1251, errorRate: 0.4 },
+    CECILE: { total: 1532, errorRate: 0 },
+  }),
   AVRIL_2026: defaultEmployees,
   MAI_2026: defaultEmployees,
   JUIN_2026: defaultEmployees,

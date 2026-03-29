@@ -21,6 +21,16 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.54 - 2026-03-29
+
+- Balisage : la vue équipe est désormais limitée aux collaborateurs RH suivis en balisage ; les coordinateurs comme `Abdou` et `Massimo` n'y apparaissent plus, même si la liste est générée depuis la RH.
+
+## v0.5.53 - 2026-03-29
+
+- Balisage : la vue équipe et les données locales de secours se reconstruisent maintenant à partir de la RH, avec tous les collaborateurs non étudiants de la fiche RH, y compris `Florian`, `Khanh` et `Dilaxshan`.
+- Balisage : suppression des anciens écarts de nommage comme `HASSANE`, pour n'afficher que les noms canoniques RH comme `EL HASSANE` et éviter les doublons ou les absents fantômes.
+- Balisage / Supabase : la synchronisation mensuelle initialise désormais chaque mois sur le roster RH courant avant de réinjecter les valeurs enregistrées, ce qui garde la table alignée même quand un collaborateur n'a encore aucun contrôle saisi.
+
 ## v0.5.52 - 2026-03-29
 
 - Planning / build : correction d'un import dans la vue `Mois` pour relire `defaultRhEmployees` et `defaultRhCycles` depuis le store RH réel, ce qui rétablit le build de production Vercel.

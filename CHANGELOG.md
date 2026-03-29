@@ -21,6 +21,14 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.15 - 2026-03-29
+
+- Documentation : mise a jour de `RETOUR_CODEX.md` avec le test complementaire effectue via `SUPABASE_SERVICE_ROLE_KEY_LEGACY`, confirmant que meme la cle legacy ne remonte aucun compte `@ep.fr` via l'API Admin Auth.
+
+## v0.6.14 - 2026-03-29
+
+- Collaborateurs / Auth : le script local `scripts/reset-passwords.mjs` lit maintenant `SUPABASE_SERVICE_ROLE_KEY_LEGACY` pour permettre les resets admin avec la clé legacy Supabase quand la clé `sb_secret_...` ne remonte pas les utilisateurs Auth attendus.
+
 ## v0.6.13 - 2026-03-29
 
 - Documentation : ajout dans `RETOUR_CODEX.md` d'un compte-rendu detaille pour Claude sur le blocage actuel de l'authentification collaborateur, avec les diagnostics deja executes et l'incoherence constatee entre dashboard Supabase et API Admin Auth.

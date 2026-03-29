@@ -160,6 +160,25 @@ Resultats observes :
 - `abdou@ep.fr` est `INTROUVABLE` via l'API Admin
 - le reset admin des mots de passe `@ep.fr` ne trouve donc aucun compte a mettre a jour
 
+### Test complementaire avec cle legacy
+
+Claude a propose d'utiliser la cle legacy `service_role` (format `eyJhb...`) au lieu de la cle `sb_secret_...`.
+
+Action realisee :
+
+- ajout de `SUPABASE_SERVICE_ROLE_KEY_LEGACY` dans `.env.local`
+- adaptation du script local [scripts/reset-passwords.mjs](D:/Epicerie%20Manager%202026/scripts/reset-passwords.mjs) pour lire cette variable
+- reexecution du reset admin avec cette cle legacy
+
+Resultat observe :
+
+- `Utilisateurs @ep.fr trouvés: 0`
+
+Conclusion :
+
+- le comportement est identique avec la cle `sb_secret_...` et avec la cle legacy `eyJhb...`
+- le blocage ne vient donc pas seulement du format de la cle admin utilisee
+
 ### Contradiction constatee
 
 Dans le dashboard / SQL Supabase, des verifications manuelles montrent pourtant :
@@ -187,6 +206,7 @@ Le probleme restant est maintenant un blocage d'alignement ou d'acces cote Supab
 - soit la `service_role` utilisee n'ouvre pas le meme scope que le dashboard observe
 - soit il existe un decalage particulier entre l'interface Auth visible et les retours de l'API Admin
 - soit les comptes visibles ne sont pas exposes comme attendu a `auth.admin.listUsers()` dans ce contexte
+- soit la vue / requete SQL verifiee dans le dashboard ne correspond pas strictement au meme sous-systeme que l'API Admin Auth
 
 ### Prochaine etape recommandee
 

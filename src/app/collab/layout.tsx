@@ -5,6 +5,9 @@ export const metadata: Metadata = {
   title: "Épicerie Villebon 2",
   description: "Espace collaborateur",
   manifest: "/manifest.json",
+  icons: {
+    icon: "/icons/app-icon.svg",
+  },
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

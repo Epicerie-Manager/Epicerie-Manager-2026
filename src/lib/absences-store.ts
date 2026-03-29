@@ -7,6 +7,8 @@ const ABSENCES_UPDATED_EVENT = "epicerie-manager:absences-updated";
 const PLANNING_SOURCE_MARKER = "SOURCE:PLANNING";
 let absenceRequestsSnapshot: AbsenceRequest[] = [];
 let didPurgeLegacyAbsencesStorage = false;
+const ABSENCE_SOURCE_ABSENCES = "absences";
+const ABSENCE_SOURCE_REQUESTS = "absence_requests";
 
 function canUseBrowserWindow() {
   return typeof window !== "undefined";
@@ -166,6 +168,7 @@ function mapRowToAbsenceRequest(
   row: Record<string, unknown>,
   index: number,
   employeeNameById: Map<string, string>,
+  sourceTable: typeof ABSENCE_SOURCE_ABSENCES | typeof ABSENCE_SOURCE_REQUESTS = ABSENCE_SOURCE_ABSENCES,
 ): AbsenceRequest | null {
   const startDate = String(row.date_debut ?? row.start_date ?? row.date_from ?? row.startDate ?? "");
   const endDate = String(row.date_fin ?? row.end_date ?? row.date_to ?? row.endDate ?? startDate);
@@ -178,7 +181,7 @@ function mapRowToAbsenceRequest(
   if (!employee) return null;
   const next: AbsenceRequest = {
     id: index + 1,
-    dbId: row.id ? String(row.id) : undefined,
+    dbId: row.id ? `${sourceTable}:${String(row.id)}` : undefined,
     employee,
     type: String(row.type ?? row.absence_type ?? "AUTRE") as AbsenceRequest["type"],
     startDate,
@@ -187,6 +190,14 @@ function mapRowToAbsenceRequest(
   };
   if (row.note) next.note = String(row.note);
   return next;
+}
+
+function parseAbsenceDbId(dbId: string) {
+  const [table, ...rest] = String(dbId ?? "").split(":");
+  if ((table === ABSENCE_SOURCE_ABSENCES || table === ABSENCE_SOURCE_REQUESTS) && rest.length > 0) {
+    return { table: table as typeof ABSENCE_SOURCE_ABSENCES | typeof ABSENCE_SOURCE_REQUESTS, id: rest.join(":") };
+  }
+  return { table: ABSENCE_SOURCE_ABSENCES as typeof ABSENCE_SOURCE_ABSENCES | typeof ABSENCE_SOURCE_REQUESTS, id: String(dbId ?? "") };
 }
 
 export async function createAbsenceRequestInSupabase(
@@ -219,7 +230,7 @@ export async function createAbsenceRequestInSupabase(
     for (const [name, id] of employeeIdByName.entries()) {
       employeeNameById.set(id, name);
     }
-    const mapped = mapRowToAbsenceRequest(data as Record<string, unknown>, 0, employeeNameById);
+    const mapped = mapRowToAbsenceRequest(data as Record<string, unknown>, 0, employeeNameById, ABSENCE_SOURCE_ABSENCES);
     if (!mapped) throw new Error("Impossible de relire la demande créée.");
     upsertAbsenceRequestSnapshot(mapped);
     emitAbsencesUpdated();
@@ -232,6 +243,7 @@ export async function createAbsenceRequestInSupabase(
 export async function updateAbsenceStatusInSupabase(dbId: string, status: AbsenceRequest["status"]) {
   try {
     const supabase = createClient();
+    const { table, id } = parseAbsenceDbId(dbId);
     const employeeIdByName = await getEmployeeIdByName();
     const employeeNameById = new Map<string, string>();
     for (const [name, id] of employeeIdByName.entries()) {
@@ -239,13 +251,13 @@ export async function updateAbsenceStatusInSupabase(dbId: string, status: Absenc
     }
 
     const { data, error } = await supabase
-      .from("absences")
+      .from(table)
       .update({ statut: status })
-      .eq("id", dbId)
+      .eq("id", id)
       .select("*")
       .single();
     if (error) throw error;
-    const mapped = mapRowToAbsenceRequest(data as Record<string, unknown>, 0, employeeNameById);
+    const mapped = mapRowToAbsenceRequest(data as Record<string, unknown>, 0, employeeNameById, table);
     if (!mapped) throw new Error("Impossible de relire la demande mise à jour.");
     upsertAbsenceRequestSnapshot(mapped);
     emitAbsencesUpdated();
@@ -355,10 +367,11 @@ export async function syncPlanningStatusToAbsenceInSupabase(input: {
 export async function deleteAbsenceRequestInSupabase(dbId: string) {
   try {
     const supabase = createClient();
+    const { table, id } = parseAbsenceDbId(dbId);
     const { error } = await supabase
-      .from("absences")
+      .from(table)
       .delete()
-      .eq("id", dbId);
+      .eq("id", id);
     if (error) throw error;
     removeAbsenceRequestSnapshot(dbId);
     emitAbsencesUpdated();
@@ -385,16 +398,28 @@ export async function syncAbsencesFromSupabase() {
       ]),
     );
 
-    const data = await fetchAllRows<Record<string, unknown>>((from, to) =>
+    const absencesRows = await fetchAllRows<Record<string, unknown>>((from, to) =>
       supabase
         .from("absences")
         .select("*")
         .range(from, to),
     );
-    if (!Array.isArray(data)) return false;
+    const requestRows = await fetchAllRows<Record<string, unknown>>((from, to) =>
+      supabase
+        .from("absence_requests")
+        .select("*")
+        .range(from, to),
+    );
+    if (!Array.isArray(absencesRows) || !Array.isArray(requestRows)) return false;
 
-    const mapped = data
-      .map((row: Record<string, unknown>, index) => mapRowToAbsenceRequest(row, index, employeeNameById))
+    const mapped = [
+      ...absencesRows.map((row: Record<string, unknown>, index) =>
+        mapRowToAbsenceRequest(row, index, employeeNameById, ABSENCE_SOURCE_ABSENCES),
+      ),
+      ...requestRows.map((row: Record<string, unknown>, index) =>
+        mapRowToAbsenceRequest(row, absencesRows.length + index, employeeNameById, ABSENCE_SOURCE_REQUESTS),
+      ),
+    ]
       .filter((row): row is AbsenceRequest => row !== null);
 
     replaceAbsenceRequestsSnapshot(mapped);

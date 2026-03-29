@@ -21,6 +21,15 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.26 - 2026-03-30
+
+- Identite visuelle : remplacement de l'icone d'onglet navigateur par une icone simple blanche sur fond rouge, reliee aux layouts principal et collaborateur.
+
+## v0.6.25 - 2026-03-30
+
+- Absences / Synchronisation : le store manager et le dashboard synchronisent maintenant a la fois `absences` et `absence_requests`, pour faire remonter aussi les demandes creees depuis la PWA collaborateur.
+- Collaborateurs / Absences : l'onglet `En cours` conserve les demandes en attente meme si leur date est passee, et l'onglet `Historique` ne montre plus que les demandes terminees hors attente.
+
 ## v0.6.24 - 2026-03-30
 
 - Absences / Types : `Deplacement RH` utilise maintenant la valeur `DEPLACEMENT_RH` dans la PWA collaborateur et dans la liste partagee des types manager, tout en laissant `RTT` tolere cote types pour compatibilite avec d'eventuelles anciennes donnees.

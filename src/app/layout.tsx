@@ -17,6 +17,9 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Epicerie Manager",
   description: "Application de pilotage pour l'equipe epicerie",
+  icons: {
+    icon: "/icons/app-icon.svg",
+  },
 };
 
 export default function RootLayout({

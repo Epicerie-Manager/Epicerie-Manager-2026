@@ -27,8 +27,18 @@ export default function CollabAbsencesPage() {
 
   const filtered = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
-    if (activeTab === "historique") return rows;
-    return rows.filter((row) => String(row.date_fin ?? row.date_debut ?? "9999-12-31") >= today);
+    if (activeTab === "historique") {
+      return rows.filter((row) => {
+        const status = String(row.statut ?? "").toLowerCase();
+        const endDate = String(row.date_fin ?? row.date_debut ?? "9999-12-31");
+        return !status.includes("attente") && endDate < today;
+      });
+    }
+    return rows.filter((row) => {
+      const status = String(row.statut ?? "").toLowerCase();
+      const endDate = String(row.date_fin ?? row.date_debut ?? "9999-12-31");
+      return status.includes("attente") || endDate >= today;
+    });
   }, [activeTab, rows]);
 
   return (

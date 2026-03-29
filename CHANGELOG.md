@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.57 - 2026-03-29
+
+- Plateau : l'import PDF enregistre désormais les plans extraits dans Supabase (`plateau_assets` + bucket `plateau-plans`) au lieu de les perdre à la fermeture du navigateur.
+- Plateau : les visuels déjà importés sont rechargés automatiquement au retour sur la page, avec remplacement propre des semaines réimportées et possibilité d'ajouter ou supprimer aussi une image unitaire persistée.
+
 ## v0.5.56 - 2026-03-29
 
 - Dashboard / Plateau : la tuile `Plateau` reprend maintenant le `Focus semaine` du module `Plateau`, avec la même semaine courante, les mêmes opérations actives et le même découpage `Plateau A / B / C-D`.

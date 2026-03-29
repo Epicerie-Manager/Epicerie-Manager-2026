@@ -9,6 +9,14 @@ import {
   plateauTimelineOperations as OPS,
   plateauWeekDates as WEEK_DATES,
 } from "@/lib/plateau-data";
+import {
+  getPlateauAssetLookup,
+  getPlateauAssetsUpdatedEventName,
+  loadPlateauAssets,
+  removePlateauAssetFromSupabase,
+  savePlateauAssetsToSupabase,
+  syncPlateauAssetsFromSupabase,
+} from "@/lib/plateau-store";
 
 /* ═══════════════════════════════════════════════════════════
    THEME — Plateaux = Orange
@@ -222,13 +230,12 @@ const TimelineRow=({ops,plKey,selected,onSelect})=>{
 /* ═══════════════════════════════════════════════════════════
    IMAGE VIEWER — upload + zoom
    ═══════════════════════════════════════════════════════════ */
-const ImageViewer=({image,opName,onUpload,onRemove})=>{
+const ImageViewer=({image,opName,onUpload,onRemove,busy})=>{
   const handleFile=(e)=>{
     const file=e.target.files?.[0];
     if(!file)return;
-    const reader=new FileReader();
-    reader.onload=(ev)=>onUpload(ev.target.result);
-    reader.readAsDataURL(file);
+    void onUpload(file);
+    e.target.value = "";
   };
   const [zoomed,setZoomed]=useState(false);
   const [zoomLevel,setZoomLevel]=useState(1.25);
@@ -256,18 +263,18 @@ const ImageViewer=({image,opName,onUpload,onRemove})=>{
             <img src={image} alt={opName} onClick={openZoom} style={{width:"100%",display:"block",cursor:"zoom-in"}}/>
             <div style={{position:"absolute",top:10,right:10,display:"flex",gap:6}}>
               <button onClick={openZoom} style={{width:32,height:32,borderRadius:8,background:"rgba(255,255,255,0.9)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 6px rgba(0,0,0,0.1)"}}>{IC.zoom(V.mc,16)}</button>
-              <label style={{width:32,height:32,borderRadius:8,background:"rgba(255,255,255,0.9)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 6px rgba(0,0,0,0.1)"}}>
+              <label style={{width:32,height:32,borderRadius:8,background:"rgba(255,255,255,0.9)",border:"none",cursor:busy?"wait":"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 6px rgba(0,0,0,0.1)",opacity:busy?0.6:1}}>
                 {IC.upload(V.mc,16)}<input type="file" accept="image/*" onChange={handleFile} style={{display:"none"}}/>
               </label>
-              <button onClick={onRemove} style={{width:32,height:32,borderRadius:8,background:"rgba(255,255,255,0.9)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 6px rgba(0,0,0,0.1)"}}>{IC.x(V.red,16)}</button>
+              <button onClick={()=>void onRemove()} disabled={busy} style={{width:32,height:32,borderRadius:8,background:"rgba(255,255,255,0.9)",border:"none",cursor:busy?"wait":"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 6px rgba(0,0,0,0.1)",opacity:busy?0.6:1}}>{IC.x(V.red,16)}</button>
             </div>
           </>
         ):(
-          <label style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:10,padding:"40px 20px",cursor:"pointer",minHeight:280}}>
+          <label style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",gap:10,padding:"40px 20px",cursor:busy?"wait":"pointer",minHeight:280,opacity:busy?0.6:1}}>
             <div style={{width:56,height:56,borderRadius:16,background:V.mIG,display:"flex",alignItems:"center",justifyContent:"center"}}>{IC.img(V.mc,24)}</div>
             <div style={{fontSize:14,fontWeight:700,color:V.body}}>Plan non disponible</div>
             <div style={{fontSize:12,color:V.muted}}>Importer le PDF pour charger tous les plans automatiquement</div>
-            <div style={{fontSize:11,color:V.light}}>Ou ajouter manuellement une image (JPG, PNG)</div>
+            <div style={{fontSize:11,color:V.light}}>Ou ajouter manuellement une image persistée (JPG, PNG)</div>
             <input type="file" accept="image/*" onChange={handleFile} style={{display:"none"}}/>
           </label>
         )}
@@ -347,8 +354,7 @@ const AnnotationBox=({notes,onChange})=>{
 export default function PlateauApp(){
   const [selectedOp,setSelectedOp]=useState("a3");
   const [focusWeek,setFocusWeek]=useState(12);
-  const [images,setImages]=useState({});
-  const [weekImages,setWeekImages]=useState({});
+  const [plateauAssets,setPlateauAssets]=useState(() => loadPlateauAssets());
   const [notes,setNotes]=useState({
     a3:"Prévoir 2 palettes supplémentaires pour le chocolat. Confirmer avec le fournisseur mardi.",
     a4:"Mise en place mercredi matin. Jeremy + Kamel sur la zone.",
@@ -358,10 +364,31 @@ export default function PlateauApp(){
   const sameWeekOps=op?OPS.filter(o=>o.id!==selectedOp&&o.sFrom<=op.sTo&&o.sTo>=op.sFrom):[];
 
   const [showImport,setShowImport]=useState(false);
-  const [lastImport,setLastImport]=useState("15 mars"); // mock last import date
   const [importProgress,setImportProgress]=useState(null); // null | 0-100
   const [importMessage,setImportMessage]=useState("");
   const [importError,setImportError]=useState("");
+  const [assetActionError,setAssetActionError]=useState("");
+  const [assetActionBusy,setAssetActionBusy]=useState(false);
+
+  const assetLookup = getPlateauAssetLookup(plateauAssets);
+
+  const lastImport = plateauAssets.length > 0
+    ? new Date(
+        plateauAssets.reduce((latest, asset) => (
+          new Date(asset.importedAt) > new Date(latest.importedAt) ? asset : latest
+        ), plateauAssets[0]).importedAt,
+      ).toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"})
+    : "Aucun import";
+
+  useEffect(() => {
+    const refreshAssets = () => setPlateauAssets(loadPlateauAssets());
+    refreshAssets();
+    void syncPlateauAssetsFromSupabase().then(refreshAssets);
+
+    const eventName = getPlateauAssetsUpdatedEventName();
+    window.addEventListener(eventName, refreshAssets);
+    return () => window.removeEventListener(eventName, refreshAssets);
+  }, []);
 
   const handlePdfImport=async(e)=>{
     const input=e.target;
@@ -424,15 +451,19 @@ export default function PlateauApp(){
         canvas.width = Math.floor(viewport.width);
         canvas.height = Math.floor(viewport.height);
         await page.render({ canvasContext: context, viewport }).promise;
-        const image = canvas.toDataURL("image/png");
+        const imageBlob = await new Promise((resolve, reject) => {
+          canvas.toBlob((blob) => {
+            if (blob) resolve(blob);
+            else reject(new Error("Impossible de convertir la page PDF en image."));
+          }, "image/png");
+        });
 
-        pageInfos.push({ pageNumber, image, weeks, plateaux, isEligibleWeeklyPage });
+        pageInfos.push({ pageNumber, imageBlob, weeks, plateaux, isEligibleWeeklyPage });
         setImportProgress(Math.max(4,Math.min(96,Math.round((pageNumber/totalPages)*96))));
       }
 
       const weekFallbackStart = S_MIN;
-      const pageByWeekAndPlateau = new Map();
-      const pageByWeekOnly = new Map();
+      const uploadsByWeekAndPlateau = new Map();
       const weeklyPages = pageInfos.filter((info)=>info.isEligibleWeeklyPage);
       let skippedPagesCount = pageInfos.length - weeklyPages.length;
 
@@ -447,40 +478,50 @@ export default function PlateauApp(){
         }
 
         effectiveWeeks.forEach((week)=>{
-          if(!pageByWeekOnly.has(week)) pageByWeekOnly.set(week, info.image);
           if(info.plateaux.size===0){
-            if(!pageByWeekAndPlateau.has(`${week}:*`)) pageByWeekAndPlateau.set(`${week}:*`, info.image);
+            const weekKey = `${week}:WEEK`;
+            if(!uploadsByWeekAndPlateau.has(weekKey)) {
+              uploadsByWeekAndPlateau.set(weekKey, {
+                weekNumber: week,
+                plateauKey: "WEEK",
+                file: info.imageBlob,
+                contentType: "image/png",
+                pageNumber: info.pageNumber,
+                sourcePdfName: file.name,
+              });
+            }
             return;
           }
           info.plateaux.forEach((pl)=>{
             const key = `${week}:${pl}`;
-            if(!pageByWeekAndPlateau.has(key)) pageByWeekAndPlateau.set(key, info.image);
+            if(!uploadsByWeekAndPlateau.has(key)) {
+              uploadsByWeekAndPlateau.set(key, {
+                weekNumber: week,
+                plateauKey: pl,
+                file: info.imageBlob,
+                contentType: "image/png",
+                pageNumber: info.pageNumber,
+                sourcePdfName: file.name,
+              });
+            }
           });
         });
       });
 
-      const mappedWeekImages = {};
-      for(let week=S_MIN; week<=S_MAX; week+=1){
-        const imageForWeek =
-          pageByWeekOnly.get(week) ||
-          pageByWeekAndPlateau.get(`${week}:A`) ||
-          pageByWeekAndPlateau.get(`${week}:B`) ||
-          pageByWeekAndPlateau.get(`${week}:C`) ||
-          pageByWeekAndPlateau.get(`${week}:*`) ||
-          null;
-        if(imageForWeek){
-          mappedWeekImages[week] = imageForWeek;
-        }
+      const uploads = Array.from(uploadsByWeekAndPlateau.values());
+      if(!uploads.length) {
+        throw new Error("Aucune page exploitable n'a été détectée dans ce PDF.");
       }
 
-      setWeekImages((previous)=>({
-        ...previous,
-        ...mappedWeekImages,
-      }));
+      setImportMessage("Envoi des plans vers Supabase...");
+      await savePlateauAssetsToSupabase(uploads, { replaceTouchedWeeks: true }, (completed, total) => {
+        const uploadProgress = 96 + Math.round((completed / Math.max(total, 1)) * 4);
+        setImportProgress(Math.min(uploadProgress, 100));
+      });
+      await syncPlateauAssetsFromSupabase();
 
       setImportProgress(100);
-      setImportMessage(`${Object.keys(mappedWeekImages).length} semaine(s) mise(s) à jour (${skippedPagesCount} page(s) ignorée(s)).`);
-      setLastImport(new Date().toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"}));
+      setImportMessage(`${uploads.length} plan(s) persistant(s) mis à jour (${skippedPagesCount} page(s) ignorée(s)).`);
 
       setTimeout(()=>{
         setImportProgress(null);
@@ -505,9 +546,50 @@ export default function PlateauApp(){
   const imageWeekForSelectedOp = op
     ? (focusWeek >= op.sFrom && focusWeek <= op.sTo ? focusWeek : op.sFrom)
     : focusWeek;
-  const selectedOpImage = op
-    ? (images[op.id] || weekImages[imageWeekForSelectedOp] || null)
+  const selectedPersistedAsset = op
+    ? (
+      assetLookup.get(`${imageWeekForSelectedOp}:${op.pl}`) ||
+      assetLookup.get(`${imageWeekForSelectedOp}:WEEK`) ||
+      null
+    )
     : null;
+  const selectedOpImage = op
+    ? (selectedPersistedAsset?.publicUrl || null)
+    : null;
+
+  const handleSingleImageUpload = async(file) => {
+    if(!op) return;
+    setAssetActionBusy(true);
+    setAssetActionError("");
+    try{
+      await savePlateauAssetsToSupabase([{
+        weekNumber: imageWeekForSelectedOp,
+        plateauKey: op.pl,
+        file,
+        contentType: file.type || "image/png",
+        sourcePdfName: file.name,
+      }], { replaceTouchedWeeks: false });
+      await syncPlateauAssetsFromSupabase();
+    }catch(error){
+      setAssetActionError(error?.message || "Impossible d'enregistrer ce plan.");
+    }finally{
+      setAssetActionBusy(false);
+    }
+  };
+
+  const handleRemoveImage = async() => {
+    if(!selectedPersistedAsset) return;
+    setAssetActionBusy(true);
+    setAssetActionError("");
+    try{
+      await removePlateauAssetFromSupabase(selectedPersistedAsset.weekNumber, selectedPersistedAsset.plateauKey);
+      await syncPlateauAssetsFromSupabase();
+    }catch(error){
+      setAssetActionError(error?.message || "Impossible de supprimer ce plan.");
+    }finally{
+      setAssetActionBusy(false);
+    }
+  };
 
   const prevW=()=>{if(focusWeek>S_MIN)setFocusWeek(w=>w-1);};
   const nextW=()=>{if(focusWeek<S_MAX)setFocusWeek(w=>w+1);};
@@ -609,8 +691,8 @@ export default function PlateauApp(){
                         {[
                           {n:"1",t:"Extraction des pages",d:"Chaque page du PDF est convertie en image"},
                           {n:"2",t:"Détection des opérations",d:"Les noms, dates et plateaux sont identifiés automatiquement"},
-                          {n:"3",t:"Stockage",d:"Tout est enregistré — plus besoin du PDF ensuite"},
-                          {n:"4",t:"Mise à jour",d:"Les anciennes données sont remplacées, vos notes sont conservées"},
+                          {n:"3",t:"Stockage Supabase",d:"Les plans sont envoyés dans le bucket partagé `plateau-plans`"},
+                          {n:"4",t:"Mise à jour",d:"Les semaines importées sont remplacées proprement et restent disponibles après déconnexion"},
                         ].map(s=>(
                           <div key={s.n} style={{display:"flex",alignItems:"flex-start",gap:10}}>
                             <div style={{width:22,height:22,borderRadius:7,background:V.mIG,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,color:V.mc,flexShrink:0}}>{s.n}</div>
@@ -782,12 +864,19 @@ export default function PlateauApp(){
                 </div>
               </div>
 
+              {assetActionError && (
+                <div style={{marginBottom:12,padding:"10px 12px",borderRadius:10,background:V.redL,border:`1px solid ${V.red}30`,fontSize:12,color:V.red,fontWeight:600}}>
+                  {assetActionError}
+                </div>
+              )}
+
               {/* Plan image */}
               <ImageViewer
                 image={selectedOpImage}
                 opName={op.nom}
-                onUpload={(img)=>setImages(p=>({...p,[op.id]:img}))}
-                onRemove={()=>setImages(p=>{const n={...p};delete n[op.id];return n;})}
+                onUpload={handleSingleImageUpload}
+                onRemove={handleRemoveImage}
+                busy={assetActionBusy}
               />
 
               {/* Annotations */}

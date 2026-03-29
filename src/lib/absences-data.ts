@@ -1,6 +1,7 @@
 export type AbsenceTypeId =
   | "CP"
   | "RTT"
+  | "DEPLACEMENT_RH"
   | "MAL"
   | "CONGE_MAT"
   | "FORM"
@@ -32,7 +33,7 @@ export type AbsenceRequest = {
 
 export const absenceTypes: AbsenceType[] = [
   { id: "CP", label: "Conge paye" },
-  { id: "RTT", label: "Deplacement RH" },
+  { id: "DEPLACEMENT_RH", label: "Deplacement RH" },
   { id: "MAL", label: "Maladie" },
   { id: "CONGE_MAT", label: "Conge maternite" },
   { id: "FORM", label: "Formation" },

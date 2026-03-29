@@ -21,6 +21,10 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.24 - 2026-03-30
+
+- Absences / Types : `Deplacement RH` utilise maintenant la valeur `DEPLACEMENT_RH` dans la PWA collaborateur et dans la liste partagee des types manager, tout en laissant `RTT` tolere cote types pour compatibilite avec d'eventuelles anciennes donnees.
+
 ## v0.6.23 - 2026-03-30
 
 - Collaborateurs / Absences : le formulaire mobile `/collab/absences/new` est recentre sur deux choix (`Conge paye` et `Deplacement RH`), avec un champ conditionnel pour preciser la RH a deplacer et une note autoformatee `Deplacement RH : ...`.

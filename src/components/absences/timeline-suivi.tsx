@@ -360,6 +360,7 @@ export function TimelineSuivi({ absences, employees }: TimelineSuiviProps) {
     const counters: Record<AbsenceTypeId, number> = {
       CP: 0,
       RTT: 0,
+      DEPLACEMENT_RH: 0,
       MAL: 0,
       CONGE_MAT: 0,
       FORM: 0,
@@ -1171,6 +1172,7 @@ function VueResume({
   const byType: Record<AbsenceTypeId, number> = {
     CP: 0,
     RTT: 0,
+    DEPLACEMENT_RH: 0,
     MAL: 0,
     CONGE_MAT: 0,
     FORM: 0,

@@ -9,7 +9,7 @@ import { calcJoursOuvres, calcJoursTotal, createAbsenceRequest } from "@/lib/col
 
 const ABSENCE_TYPES = [
   { label: "Congé payé", sublabel: "CP acquis", value: "CP" },
-  { label: "Déplacement RH", sublabel: "Reporter un repos hebdo", value: "RTT" },
+  { label: "Déplacement RH", sublabel: "Reporter un repos hebdo", value: "DEPLACEMENT_RH" },
 ] as const;
 
 export default function NewCollabAbsencePage() {
@@ -37,7 +37,7 @@ export default function NewCollabAbsencePage() {
 
   const totalDays = useMemo(() => (dateDebut && dateFin ? calcJoursTotal(dateDebut, dateFin) : 0), [dateDebut, dateFin]);
   const openDays = useMemo(() => (dateDebut && dateFin ? calcJoursOuvres(dateDebut, dateFin) : 0), [dateDebut, dateFin]);
-  const isRtt = type === "RTT";
+  const isRtt = type === "DEPLACEMENT_RH";
   const periodLabel = isRtt ? "À quelle date souhaitez-vous la déplacer ?" : "Période";
   const note = isRtt && displacedRh.trim() ? `Déplacement RH : ${displacedRh.trim()}` : undefined;
 

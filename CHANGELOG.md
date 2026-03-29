@@ -21,6 +21,10 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.34 - 2026-03-29
+
+- Dashboard : suppression de la tuile `Consigne / Note du jour`, qui affichait un message statique non relie a une source metier ou a Supabase.
+
 ## v0.5.33 - 2026-03-29
 
 - RH : les fiches employes sont maintenant triees par ordre alphabetique pour rendre la navigation plus naturelle.

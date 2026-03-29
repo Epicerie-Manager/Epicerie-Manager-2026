@@ -127,7 +127,6 @@ const IconCheck      = () => <svg {...svgProps}><path d="M22 11.08V12a10 10 0 11
 const IconFile       = () => <svg {...svgProps}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>;
 const IconInfo       = () => <svg {...svgProps}><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>;
 const IconAlert      = () => <svg {...svgProps}><path d="M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z"/></svg>;
-const IconPen        = () => <svg {...svgProps}><path d="M12 20h9"/><path d="M16.5 3.5a2.121 2.121 0 013 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>;
 const IconTrend      = () => <svg {...svgProps}><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>;
 const IconGrid       = () => <svg {...svgProps}><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg>;
 
@@ -577,25 +576,6 @@ export default function DashboardPage() {
 
         {/* ─── COLONNE DROITE ──────────────────────── */}
         <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
-
-          {/* Note du jour */}
-          <Card>
-            <Kicker moduleKey="dashboard" label="Consigne" icon={<IconPen />} />
-            <h2 style={{ fontSize: "17px", fontWeight: 700, letterSpacing: "-0.02em", color: "#0f172a" }}>Note du jour</h2>
-            <div style={{
-              marginTop: "10px",
-              padding: "12px 14px", borderRadius: "12px",
-              background: dash.light, border: `1px solid ${dash.medium}`,
-              display: "flex", gap: "8px", alignItems: "flex-start",
-            }}>
-              <span style={{ color: dash.color, flexShrink: 0, marginTop: "1px" }}>
-                <IconAlert />
-              </span>
-              <div style={{ fontSize: "13px", color: "#7f1320", fontWeight: 500, lineHeight: 1.5 }}>
-                Implantation chocolat Pâques — à diffuser à l&apos;ouverture à toute l&apos;équipe.
-              </div>
-            </div>
-          </Card>
 
           <AgendaCard calendarUrl="https://calendar.google.com" />
 

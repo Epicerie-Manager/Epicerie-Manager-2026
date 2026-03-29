@@ -200,6 +200,18 @@ function parseAbsenceDbId(dbId: string) {
   return { table: ABSENCE_SOURCE_ABSENCES as typeof ABSENCE_SOURCE_ABSENCES | typeof ABSENCE_SOURCE_REQUESTS, id: String(dbId ?? "") };
 }
 
+function getAbsenceStatusForDb(
+  status: AbsenceRequest["status"],
+  table: typeof ABSENCE_SOURCE_ABSENCES | typeof ABSENCE_SOURCE_REQUESTS,
+) {
+  if (table === ABSENCE_SOURCE_REQUESTS) {
+    if (status === "EN_ATTENTE") return "en_attente";
+    if (status === "REFUSE") return "refuse";
+    return "approuve";
+  }
+  return status;
+}
+
 export async function createAbsenceRequestInSupabase(
   input: Omit<AbsenceRequest, "id" | "dbId" | "status"> & { status?: AbsenceRequest["status"] },
 ) {
@@ -252,7 +264,7 @@ export async function updateAbsenceStatusInSupabase(dbId: string, status: Absenc
 
     const { data, error } = await supabase
       .from(table)
-      .update({ statut: status })
+      .update({ statut: getAbsenceStatusForDb(status, table) })
       .eq("id", id)
       .select("*")
       .single();

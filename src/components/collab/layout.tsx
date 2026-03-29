@@ -1,9 +1,11 @@
 "use client";
 
-import type { CSSProperties, ReactNode } from "react";
+import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { collabCardStyle, collabTheme } from "@/components/collab/theme";
+import { getCollabProfile } from "@/lib/collab-auth";
+import { getMyAbsences } from "@/lib/collab-data";
 
 export function CollabPage({ children }: { children: ReactNode }) {
   return (
@@ -119,8 +121,60 @@ const navItems = [
   { href: "/collab/more", label: "Plus" },
 ];
 
+function getAbsenceResponseSeenKey(profileKey: string) {
+  return `epicerie-collab-absence-response-seen:${profileKey}`;
+}
+
+function getAbsenceResponseTimestamp(row: Record<string, unknown>) {
+  return String(row.updated_at ?? row.created_at ?? row.date_fin ?? "");
+}
+
 export function CollabBottomNav() {
   const pathname = usePathname();
+  const [showAbsenceBadge, setShowAbsenceBadge] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    void getCollabProfile()
+      .then(async (profile) => {
+        if (!profile) return;
+        const profileKey = String(profile.employee_id ?? profile.id ?? profile.employees?.name ?? "collab");
+        const storageKey = getAbsenceResponseSeenKey(profileKey);
+        const rows = (await getMyAbsences()) as Array<Record<string, unknown>>;
+        const respondedRows = rows.filter((row) => {
+          const status = String(row.statut ?? "").toLowerCase();
+          return status.includes("appr") || status.includes("refus") || status.includes("refuse");
+        });
+        const latestResponse = respondedRows
+          .map(getAbsenceResponseTimestamp)
+          .filter(Boolean)
+          .sort()
+          .at(-1);
+
+        if (!latestResponse) {
+          if (!cancelled) setShowAbsenceBadge(false);
+          return;
+        }
+
+        if (pathname === "/collab/absences") {
+          window.localStorage.setItem(storageKey, latestResponse);
+          if (!cancelled) setShowAbsenceBadge(false);
+          return;
+        }
+
+        const seenResponse = window.localStorage.getItem(storageKey) ?? "";
+        if (!cancelled) setShowAbsenceBadge(latestResponse > seenResponse);
+      })
+      .catch(() => {
+        if (!cancelled) setShowAbsenceBadge(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
+
   return (
     <div
       style={{
@@ -152,9 +206,24 @@ export function CollabBottomNav() {
               background: active ? collabTheme.accentSoft : "transparent",
               fontWeight: active ? 700 : 600,
               fontSize: 12,
+              position: "relative",
             }}
           >
             {item.label}
+            {item.href === "/collab/absences" && showAbsenceBadge ? (
+              <span
+                style={{
+                  position: "absolute",
+                  top: 6,
+                  right: 10,
+                  width: 8,
+                  height: 8,
+                  borderRadius: 999,
+                  background: collabTheme.accent,
+                  boxShadow: "0 0 0 2px rgba(255,250,246,0.95)",
+                }}
+              />
+            ) : null}
           </Link>
         );
       })}

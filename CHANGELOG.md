@@ -21,6 +21,14 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.28 - 2026-03-30
+
+- Collaborateurs / Absences : ajout d'une pastille sur le menu `Absences` quand une demande a recu un retour (`approuve` ou `refuse`), avec effacement automatique apres consultation de l'onglet.
+
+## v0.6.27 - 2026-03-30
+
+- Absences / Validation manager : correction du mapping de `statut` lors de la validation des demandes issues de `absence_requests`, avec conversion vers les valeurs attendues par la contrainte SQL (`en_attente`, `approuve`, `refuse`).
+
 ## v0.6.26 - 2026-03-30
 
 - Identite visuelle : remplacement de l'icone d'onglet navigateur par une icone simple blanche sur fond rouge, reliee aux layouts principal et collaborateur.

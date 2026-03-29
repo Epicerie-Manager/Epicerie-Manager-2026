@@ -21,6 +21,18 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.13 - 2026-03-29
+
+- Documentation : ajout dans `RETOUR_CODEX.md` d'un compte-rendu detaille pour Claude sur le blocage actuel de l'authentification collaborateur, avec les diagnostics deja executes et l'incoherence constatee entre dashboard Supabase et API Admin Auth.
+
+## v0.6.12 - 2026-03-29
+
+- Collaborateurs / Auth : ajout du script `scripts/reset-passwords.mjs` en Node.js pour tester un reset des comptes `@ep.fr` via l'API Admin Supabase sans dependre de `ts-node`.
+
+## v0.6.11 - 2026-03-29
+
+- Collaborateurs / Auth : ajout du script `scripts/diag-collab-auth.ts` pour diagnostiquer le projet Supabase réellement ciblé, le contenu de `auth.users` et la présence effective des comptes `@ep.fr` comme `abdou@ep.fr`.
+
 ## v0.6.10 - 2026-03-29
 
 - Collaborateurs / Auth : correction du script `reset-collab-passwords.ts` pour l'execution ESM avec `@next/env`, afin de pouvoir lancer le reset admin des mots de passe collaborateurs directement depuis le depot.

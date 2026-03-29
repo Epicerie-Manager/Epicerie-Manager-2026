@@ -112,3 +112,86 @@ Le socle front et le routage sont en place. Le principal chantier restant pour f
 - `profiles`
 - `auth.users`
 - et la convention d'email utilisee pour les collaborateurs
+
+## Compte-rendu blocage Auth collaborateur
+
+Date : 2026-03-29
+
+### Ce qui fonctionne
+
+- l'espace collaborateur `/collab` est en ligne et accessible
+- l'ecran `/collab/login` reste bien affiche sans rebond vers `/login`
+- l'ecran `/collab/pin` s'affiche correctement
+- la tentative de connexion PIN declenche bien un appel vers Supabase Auth
+- l'email construit pour `ABDOU` est bien `abdou@ep.fr`
+- les erreurs de connexion s'affichent maintenant dans la console navigateur
+
+### Ce qui a ete verifie
+
+- le composant PIN est bien un composant client
+- le client Supabase navigateur vient bien de [src/lib/supabase.ts](D:/Epicerie%20Manager%202026/src/lib/supabase.ts)
+- le front appelle `signInWithPassword` avec l'email attendu
+- le projet Supabase cible de l'application est `rdngzjonahxqcigufmmf.supabase.co`
+- le `Project ID` vu dans les settings Supabase est bien `rdngzjonahxqcigufmmf`
+
+### Logs observes cote navigateur
+
+- log front : `tentative connexion: abdou@ep.fr`
+- retour Supabase Auth : `AuthApiError: Invalid login credentials`
+
+### Scripts de diagnostic / admin ajoutes
+
+- [scripts/reset-collab-passwords.ts](D:/Epicerie%20Manager%202026/scripts/reset-collab-passwords.ts)
+- [scripts/diag-collab-auth.ts](D:/Epicerie%20Manager%202026/scripts/diag-collab-auth.ts)
+- [scripts/reset-passwords.mjs](D:/Epicerie%20Manager%202026/scripts/reset-passwords.mjs)
+
+### Resultats verifies cote script admin
+
+Diagnostic et reset executes contre le projet `rdngzjonahxqcigufmmf.supabase.co` avec `SUPABASE_SERVICE_ROLE_KEY` chargee depuis `.env.local`.
+
+Resultats observes :
+
+- `auth.admin.listUsers()` remonte seulement `3` utilisateurs
+- emails remontes :
+  - `auchan@auchan.fr`
+  - `fboukhrissa@auchan.fr`
+  - `rachid.ben91@gmail.com`
+- aucun compte `@ep.fr` remonte via l'API Admin
+- `abdou@ep.fr` est `INTROUVABLE` via l'API Admin
+- le reset admin des mots de passe `@ep.fr` ne trouve donc aucun compte a mettre a jour
+
+### Contradiction constatee
+
+Dans le dashboard / SQL Supabase, des verifications manuelles montrent pourtant :
+
+- `21` comptes `@ep.fr`
+- presence visible de comptes comme `abdou@ep.fr`, `florian@ep.fr`, `kamel@ep.fr`, `jeremy@ep.fr`, etc.
+
+Donc il existe une incoherence entre :
+
+- ce que le dashboard / SQL laisse voir
+- et ce que l'API Admin Auth renvoie avec la `service_role` utilisee localement
+
+### Conclusion du blocage actuel
+
+Le blocage collaborateur n'est plus dans le front.
+
+Le front :
+
+- construit le bon email
+- appelle bien Supabase
+- recoit bien une erreur Auth explicite
+
+Le probleme restant est maintenant un blocage d'alignement ou d'acces cote Supabase Auth / service role / environnement :
+
+- soit la `service_role` utilisee n'ouvre pas le meme scope que le dashboard observe
+- soit il existe un decalage particulier entre l'interface Auth visible et les retours de l'API Admin
+- soit les comptes visibles ne sont pas exposes comme attendu a `auth.admin.listUsers()` dans ce contexte
+
+### Prochaine etape recommandee
+
+Claude doit maintenant investiguer prioritairement le cote Supabase Auth, pas le front :
+
+- comparer le retour dashboard / SQL / Auth API Admin
+- verifier pourquoi `auth.admin.listUsers()` ne voit pas les `@ep.fr`
+- verifier si une autre cle, un autre contexte ou un autre mecanisme de provisioning est en jeu

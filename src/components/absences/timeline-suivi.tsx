@@ -87,6 +87,18 @@ function overlap(start: string, end: string, rangeStart: string, rangeEnd: strin
   return start <= rangeEnd && end >= rangeStart;
 }
 
+function getCurrentTimelineDefaults() {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth();
+  return {
+    year,
+    month,
+    dateFrom: isoDate(year, month, 1),
+    dateTo: isoDate(year, month, daysInMonth(year, month)),
+  };
+}
+
 function typeColor(type: AbsenceTypeId) {
   if (type === "CP") return "#16a34a";
   if (type === "MAL") return "#dc2626";
@@ -108,6 +120,12 @@ function getPresenceColor(level: PresenceThresholdLevel) {
   if (level === "critical") return "#ef4444";
   if (level === "warning") return "#f59e0b";
   return "#22c55e";
+}
+
+function getStrongestPresenceLevel(levels: PresenceThresholdLevel[]): PresenceThresholdLevel {
+  if (levels.includes("critical")) return "critical";
+  if (levels.includes("warning")) return "warning";
+  return "ok";
 }
 
 function EffectifParJour({
@@ -137,6 +155,7 @@ function EffectifParJour({
       getCount: (day: PresenceDaySummary) => day.afternoonCount,
     },
   ];
+  const labelStep = perDay.length <= 14 ? 1 : perDay.length <= 21 ? 2 : 3;
 
   return (
     <div
@@ -178,6 +197,60 @@ function EffectifParJour({
       </div>
 
       <div style={{ display: "grid", gap: "8px" }}>
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "92px 1fr",
+            gap: "10px",
+            alignItems: "center",
+          }}
+        >
+          <div style={{ display: "grid", gap: "2px" }}>
+            <span style={{ fontSize: "10px", fontWeight: 700, color: "#475569" }}>Jours</span>
+            <span style={{ fontSize: "10px", color: "#94a3b8" }}>Frise seuil</span>
+          </div>
+          <div style={{ display: "flex", gap: "2px", minHeight: "24px", alignItems: "stretch" }}>
+            {perDay.map((day, index) => {
+              const dayDate = toDate(day.dayIso);
+              const morningLevel = getPresenceCountLevel(
+                day.morningCount,
+                thresholds.warningMorning,
+                thresholds.criticalMorning,
+              );
+              const afternoonLevel = getPresenceCountLevel(
+                day.afternoonCount,
+                thresholds.warningAfternoon,
+                thresholds.criticalAfternoon,
+              );
+              const level = getStrongestPresenceLevel([morningLevel, afternoonLevel]);
+              const color = getPresenceColor(level);
+              const showLabel = index % labelStep === 0 || index === perDay.length - 1;
+              return (
+                <div
+                  key={`summary-${day.dayIso}`}
+                  title={`${day.dayIso} · matin ${day.morningCount} · après-midi ${day.afternoonCount}`}
+                  style={{
+                    flex: 1,
+                    minWidth: 0,
+                    borderRadius: "6px",
+                    background: `linear-gradient(180deg, ${color}22, ${color}cc)`,
+                    border: `1px solid ${color}55`,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                    color: "#0f172a",
+                    fontSize: "9px",
+                    fontWeight: 700,
+                    lineHeight: 1,
+                    padding: "2px 0",
+                  }}
+                >
+                  {showLabel ? dayDate.getDate() : ""}
+                </div>
+              );
+            })}
+          </div>
+        </div>
         {rows.map((row) => (
           <div
             key={row.key}
@@ -224,12 +297,13 @@ function EffectifParJour({
 
 export function TimelineSuivi({ absences, employees }: TimelineSuiviProps) {
   const theme = moduleThemes.absences;
+  const timelineDefaults = getCurrentTimelineDefaults();
   const [planningOverrides, setPlanningOverrides] = useState<PlanningOverrides>({});
-  const [view, setView] = useState<ViewMode>("periode");
-  const [year, setYear] = useState(2026);
-  const [month, setMonth] = useState(6);
-  const [dateFrom, setDateFrom] = useState("2026-06-15");
-  const [dateTo, setDateTo] = useState("2026-09-01");
+  const [view, setView] = useState<ViewMode>("mois");
+  const [year, setYear] = useState(timelineDefaults.year);
+  const [month, setMonth] = useState(timelineDefaults.month);
+  const [dateFrom, setDateFrom] = useState(timelineDefaults.dateFrom);
+  const [dateTo, setDateTo] = useState(timelineDefaults.dateTo);
   const [filterStatus, setFilterStatus] = useState<StatusFilter>("ALL");
   const [savedThresholds, setSavedThresholds] = useState<PresenceThresholds>(() => loadPresenceThresholds());
   const [thresholdDraft, setThresholdDraft] = useState<PresenceThresholds>(() => loadPresenceThresholds());
@@ -280,12 +354,7 @@ export function TimelineSuivi({ absences, employees }: TimelineSuiviProps) {
     );
   }, [absences, filterStatus]);
 
-  const todayIso = new Date().toISOString().slice(0, 10);
   const approved = absences.filter((item) => item.status === "APPROUVE");
-  const pending = filteredAbsences.filter((item) => item.status === "EN_ATTENTE");
-  const todayPresence = getPresenceForDay(todayIso, approved);
-  const absentToday = todayPresence.absentCount;
-  const presentToday = Math.max(todayPresence.scheduledCount - todayPresence.absentCount, 0);
 
   const legendTypeCounts = useMemo(() => {
     const counters: Record<AbsenceTypeId, number> = {
@@ -408,20 +477,6 @@ export function TimelineSuivi({ absences, employees }: TimelineSuiviProps) {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: "10px", marginTop: "12px" }}>
-        {[
-          { value: presentToday, label: "Presents aujourd'hui", color: "#16a34a", bg: "#ecfdf5" },
-          { value: absentToday, label: "Absents aujourd'hui", color: "#0b7a92", bg: "#effcfd" },
-          { value: pending.length, label: "En attente validation", color: "#d97706", bg: "#fffbeb" },
-          { value: approved.length, label: "Absences approuvees", color: theme.color, bg: theme.light },
-        ].map((kpi) => (
-          <div key={kpi.label} style={{ borderRadius: "14px", padding: "14px", textAlign: "center", background: kpi.bg }}>
-            <strong style={{ display: "block", fontSize: "40px", lineHeight: 1, color: kpi.color }}>{kpi.value}</strong>
-            <span style={{ fontSize: "12px", color: `${kpi.color}cc`, fontWeight: 600 }}>{kpi.label}</span>
-          </div>
-        ))}
-      </div>
-
       <Card style={{ marginTop: "12px", borderRadius: "16px", padding: "14px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", flexWrap: "wrap", alignItems: "center" }}>
           <div style={{ display: "flex", gap: "6px", background: "#f8fafc", borderRadius: "10px", padding: "4px" }}>
@@ -541,71 +596,81 @@ export function TimelineSuivi({ absences, employees }: TimelineSuiviProps) {
             ) : null}
             {(view === "mois" || view === "periode") ? (
               <>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, auto))", gap: "8px 10px", alignItems: "center" }}>
-                  <span style={{ fontSize: "12px", color: "#64748b" }}>Alerte matin</span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={thresholdInputsMax}
-                    value={thresholdDraft.warningMorning}
-                    onChange={(event) => {
-                      setThresholdDraft((current) => ({
-                        ...current,
-                        warningMorning: Number(event.target.value),
-                      }));
-                      setThresholdMessage("");
-                      setThresholdError("");
-                    }}
-                    style={{ width: "74px", minHeight: "34px", borderRadius: "8px", border: "1px solid #dbe3eb", padding: "0 10px" }}
-                  />
-                  <span style={{ fontSize: "12px", color: "#64748b" }}>Critique matin</span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={thresholdInputsMax}
-                    value={thresholdDraft.criticalMorning}
-                    onChange={(event) => {
-                      setThresholdDraft((current) => ({
-                        ...current,
-                        criticalMorning: Number(event.target.value),
-                      }));
-                      setThresholdMessage("");
-                      setThresholdError("");
-                    }}
-                    style={{ width: "74px", minHeight: "34px", borderRadius: "8px", border: "1px solid #dbe3eb", padding: "0 10px" }}
-                  />
-                  <span style={{ fontSize: "12px", color: "#64748b" }}>Alerte après-midi</span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={thresholdInputsMax}
-                    value={thresholdDraft.warningAfternoon}
-                    onChange={(event) => {
-                      setThresholdDraft((current) => ({
-                        ...current,
-                        warningAfternoon: Number(event.target.value),
-                      }));
-                      setThresholdMessage("");
-                      setThresholdError("");
-                    }}
-                    style={{ width: "74px", minHeight: "34px", borderRadius: "8px", border: "1px solid #dbe3eb", padding: "0 10px" }}
-                  />
-                  <span style={{ fontSize: "12px", color: "#64748b" }}>Critique après-midi</span>
-                  <input
-                    type="number"
-                    min={0}
-                    max={thresholdInputsMax}
-                    value={thresholdDraft.criticalAfternoon}
-                    onChange={(event) => {
-                      setThresholdDraft((current) => ({
-                        ...current,
-                        criticalAfternoon: Number(event.target.value),
-                      }));
-                      setThresholdMessage("");
-                      setThresholdError("");
-                    }}
-                    style={{ width: "74px", minHeight: "34px", borderRadius: "8px", border: "1px solid #dbe3eb", padding: "0 10px" }}
-                  />
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(170px, auto))", gap: "10px" }}>
+                  <div style={{ display: "grid", gap: "8px", padding: "10px 12px", borderRadius: "10px", border: "1px solid #e2e8f0", background: "#f8fafc" }}>
+                    <span style={{ fontSize: "11px", fontWeight: 700, color: "#475569", textTransform: "uppercase" }}>Matin</span>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "8px", alignItems: "center" }}>
+                      <span style={{ fontSize: "12px", color: "#64748b" }}>Alerte</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={thresholdInputsMax}
+                        value={thresholdDraft.warningMorning}
+                        onChange={(event) => {
+                          setThresholdDraft((current) => ({
+                            ...current,
+                            warningMorning: Number(event.target.value),
+                          }));
+                          setThresholdMessage("");
+                          setThresholdError("");
+                        }}
+                        style={{ width: "74px", minHeight: "34px", borderRadius: "8px", border: "1px solid #dbe3eb", padding: "0 10px", textAlign: "center" }}
+                      />
+                      <span style={{ fontSize: "12px", color: "#64748b" }}>Critique</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={thresholdInputsMax}
+                        value={thresholdDraft.criticalMorning}
+                        onChange={(event) => {
+                          setThresholdDraft((current) => ({
+                            ...current,
+                            criticalMorning: Number(event.target.value),
+                          }));
+                          setThresholdMessage("");
+                          setThresholdError("");
+                        }}
+                        style={{ width: "74px", minHeight: "34px", borderRadius: "8px", border: "1px solid #dbe3eb", padding: "0 10px", textAlign: "center" }}
+                      />
+                    </div>
+                  </div>
+                  <div style={{ display: "grid", gap: "8px", padding: "10px 12px", borderRadius: "10px", border: "1px solid #e2e8f0", background: "#f8fafc" }}>
+                    <span style={{ fontSize: "11px", fontWeight: 700, color: "#475569", textTransform: "uppercase" }}>Après-midi</span>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: "8px", alignItems: "center" }}>
+                      <span style={{ fontSize: "12px", color: "#64748b" }}>Alerte</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={thresholdInputsMax}
+                        value={thresholdDraft.warningAfternoon}
+                        onChange={(event) => {
+                          setThresholdDraft((current) => ({
+                            ...current,
+                            warningAfternoon: Number(event.target.value),
+                          }));
+                          setThresholdMessage("");
+                          setThresholdError("");
+                        }}
+                        style={{ width: "74px", minHeight: "34px", borderRadius: "8px", border: "1px solid #dbe3eb", padding: "0 10px", textAlign: "center" }}
+                      />
+                      <span style={{ fontSize: "12px", color: "#64748b" }}>Critique</span>
+                      <input
+                        type="number"
+                        min={0}
+                        max={thresholdInputsMax}
+                        value={thresholdDraft.criticalAfternoon}
+                        onChange={(event) => {
+                          setThresholdDraft((current) => ({
+                            ...current,
+                            criticalAfternoon: Number(event.target.value),
+                          }));
+                          setThresholdMessage("");
+                          setThresholdError("");
+                        }}
+                        style={{ width: "74px", minHeight: "34px", borderRadius: "8px", border: "1px solid #dbe3eb", padding: "0 10px", textAlign: "center" }}
+                      />
+                    </div>
+                  </div>
                 </div>
                 <button
                   type="button"

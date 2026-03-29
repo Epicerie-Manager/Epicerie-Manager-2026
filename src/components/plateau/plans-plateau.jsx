@@ -10,6 +10,7 @@ import {
   plateauWeekDates as WEEK_DATES,
 } from "@/lib/plateau-data";
 import {
+  buildPlateauNoteKey,
   getBestPlateauAssetForWeek,
   getPlateauAssetLookup,
   getPlateauAssetsUpdatedEventName,
@@ -553,6 +554,9 @@ export default function PlateauApp(){
   const imageWeekForSelectedOp = op
     ? (focusWeek >= op.sFrom && focusWeek <= op.sTo ? focusWeek : op.sFrom)
     : focusWeek;
+  const selectedNoteKey = op
+    ? buildPlateauNoteKey(imageWeekForSelectedOp, op.pl, op.id)
+    : null;
   const selectedPersistedAsset = getBestPlateauAssetForWeek(
     assetLookup,
     imageWeekForSelectedOp,
@@ -601,7 +605,7 @@ export default function PlateauApp(){
     setAssetActionBusy(true);
     setAssetActionError("");
     try{
-      await savePlateauNoteToSupabase(op.id, value);
+      await savePlateauNoteToSupabase(imageWeekForSelectedOp, op.pl, op.id, value);
       await syncPlateauNotesFromSupabase();
     }catch(error){
       setAssetActionError(error?.message || "Impossible d'enregistrer cette annotation.");
@@ -900,8 +904,8 @@ export default function PlateauApp(){
 
               {/* Annotations */}
               <AnnotationBox
-                key={`${op.id}:${notes[op.id] || ""}`}
-                notes={notes[op.id]}
+                key={`${selectedNoteKey || op.id}:${selectedNoteKey ? notes[selectedNoteKey] || "" : ""}`}
+                notes={selectedNoteKey ? notes[selectedNoteKey] : ""}
                 onChange={handleSaveNote}
               />
             </Card>
@@ -955,7 +959,7 @@ export default function PlateauApp(){
                   </div>
                   <div style={{padding:"10px 14px",borderRadius:12,background:"rgba(248,250,252,0.6)",border:`1px solid ${V.border}`}}>
                     <div style={{fontSize:11,fontWeight:700,color:V.muted,marginBottom:2}}>Notes</div>
-                    <div style={{fontSize:13,fontWeight:600,color:notes[op.id]?"#16a34a":"#94a3b8"}}>{notes[op.id]?"Oui":"Aucune note"}</div>
+                    <div style={{fontSize:13,fontWeight:600,color:selectedNoteKey && notes[selectedNoteKey]?"#16a34a":"#94a3b8"}}>{selectedNoteKey && notes[selectedNoteKey]?"Oui":"Aucune note"}</div>
                   </div>
                 </div>
               </Card>

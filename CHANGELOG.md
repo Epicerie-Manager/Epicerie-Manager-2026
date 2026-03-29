@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.60 - 2026-03-29
+
+- Plateau : les annotations sont maintenant rattachées au contexte `semaine + plateau + opération`, ce qui évite qu'une note saisie sur une semaine se réaffiche à tort sur une autre période de la même opération.
+- Supabase / Plateau : ajout d'un patch de migration pour faire évoluer la table `plateau_operation_notes` vers cette clé métier plus précise sans recréer la table.
+
 ## v0.5.59 - 2026-03-29
 
 - Plateau : l'affichage du plan prend maintenant le meilleur visuel disponible sur la semaine courante, même si aucun `Plateau A` n'est actif ou si l'image a été rangée sous un autre plateau lors de l'import.

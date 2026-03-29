@@ -1,12 +1,9 @@
 import { hasBrowserWindow } from "@/lib/browser-cache";
 import { createClient } from "@/lib/supabase";
+import { plateauTimelineOperations } from "@/lib/plateau-data";
 
 const PLATEAU_UPDATED_EVENT = "epicerie-manager:plateau-assets-updated";
 const PLATEAU_STORAGE_BUCKET = "plateau-plans";
-const DEFAULT_PLATEAU_NOTES: Record<string, string> = {
-  a3: "Prévoir 2 palettes supplémentaires pour le chocolat. Confirmer avec le fournisseur mardi.",
-  a4: "Mise en place mercredi matin. Jeremy + Kamel sur la zone.",
-};
 
 export type PlateauAssetKey = "A" | "B" | "C" | "WEEK";
 
@@ -36,7 +33,7 @@ type DbRow = Record<string, unknown>;
 
 let plateauAssetsSnapshot: PlateauAsset[] = [];
 let plateauAssetsSerialized = "[]";
-let plateauNotesSnapshot = { ...DEFAULT_PLATEAU_NOTES };
+let plateauNotesSnapshot: Record<string, string> = {};
 let plateauNotesSerialized = JSON.stringify(plateauNotesSnapshot);
 
 function canUseStorage() {
@@ -139,8 +136,12 @@ export function loadPlateauAssets(): PlateauAsset[] {
 }
 
 export function loadPlateauNotes() {
-  if (!canUseStorage()) return clonePlateauNotes(DEFAULT_PLATEAU_NOTES);
+  if (!canUseStorage()) return {};
   return clonePlateauNotes(plateauNotesSnapshot);
+}
+
+export function buildPlateauNoteKey(weekNumber: number, plateauKey: PlateauAssetKey, opId: string) {
+  return `${weekNumber}:${plateauKey}:${opId}`;
 }
 
 export function getPlateauAssetsUpdatedEventName() {
@@ -184,12 +185,15 @@ export async function syncPlateauNotesFromSupabase() {
       .limit(5000);
     if (error) throw error;
 
-    const nextNotes = { ...DEFAULT_PLATEAU_NOTES };
+    const nextNotes: Record<string, string> = {};
     if (Array.isArray(data)) {
       data.forEach((row) => {
         const opId = String((row as DbRow).op_id ?? "").trim();
+        const plateauKey = String((row as DbRow).plateau_key ?? "").trim().toUpperCase() as PlateauAssetKey;
+        const weekNumber = Number((row as DbRow).week_number ?? 0);
         if (!opId) return;
-        nextNotes[opId] = String((row as DbRow).note ?? "");
+        if (!plateauKey || !Number.isFinite(weekNumber) || weekNumber <= 0) return;
+        nextNotes[buildPlateauNoteKey(weekNumber, plateauKey, opId)] = String((row as DbRow).note ?? "");
       });
     }
     const changed = replacePlateauNotesSnapshot(nextNotes);
@@ -331,7 +335,12 @@ export async function removePlateauAssetFromSupabase(weekNumber: number, plateau
   }
 }
 
-export async function savePlateauNoteToSupabase(opId: string, note: string) {
+export async function savePlateauNoteToSupabase(
+  weekNumber: number,
+  plateauKey: PlateauAssetKey,
+  opId: string,
+  note: string,
+) {
   try {
     const supabase = createClient();
     const {
@@ -344,11 +353,13 @@ export async function savePlateauNoteToSupabase(opId: string, note: string) {
       const { error: deleteError } = await supabase
         .from("plateau_operation_notes")
         .delete()
+        .eq("week_number", weekNumber)
+        .eq("plateau_key", plateauKey)
         .eq("op_id", opId);
       if (deleteError) throw deleteError;
 
       const nextNotes = loadPlateauNotes();
-      delete nextNotes[opId];
+      delete nextNotes[buildPlateauNoteKey(weekNumber, plateauKey, opId)];
       replacePlateauNotesSnapshot(nextNotes);
       emitUpdated();
       return loadPlateauNotes();
@@ -358,17 +369,19 @@ export async function savePlateauNoteToSupabase(opId: string, note: string) {
       .from("plateau_operation_notes")
       .upsert(
         {
+          week_number: weekNumber,
+          plateau_key: plateauKey,
           op_id: opId,
           note: normalizedNote,
           updated_by: user?.id ?? null,
           updated_at: new Date().toISOString(),
         },
-        { onConflict: "op_id" },
+        { onConflict: "week_number,plateau_key,op_id" },
       );
     if (error) throw error;
 
     const nextNotes = loadPlateauNotes();
-    nextNotes[opId] = normalizedNote;
+    nextNotes[buildPlateauNoteKey(weekNumber, plateauKey, opId)] = normalizedNote;
     replacePlateauNotesSnapshot(nextNotes);
     emitUpdated();
     return loadPlateauNotes();
@@ -401,4 +414,12 @@ export function getBestPlateauAssetForWeek(
   }
 
   return null;
+}
+
+export function getPlateauOperationStartWeekById() {
+  const byId = new Map<string, number>();
+  plateauTimelineOperations.forEach((operation) => {
+    byId.set(operation.id, operation.sFrom);
+  });
+  return byId;
 }

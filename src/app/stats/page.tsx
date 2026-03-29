@@ -11,7 +11,9 @@ import {
   balisageObjective,
   type BalisageEmployeeStat,
 } from "@/lib/balisage-data";
+import { attachRhActivityToBalisageStats, getActiveBalisageStats } from "@/lib/balisage-rh";
 import { getBalisageUpdatedEventName, loadBalisageData, saveBalisageEntryToSupabase, syncBalisageFromSupabase } from "@/lib/balisage-store";
+import { getRhUpdatedEventName, loadRhEmployees, syncRhFromSupabase } from "@/lib/rh-store";
 import { moduleThemes } from "@/lib/theme";
 
 type SortBy = "name" | "total" | "alert";
@@ -110,29 +112,60 @@ export default function StatsPage() {
   const [saveError, setSaveError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [localData, setLocalData] = useState<Record<string, BalisageEmployeeStat[]>>(() => loadBalisageData());
+  const [rhEmployees, setRhEmployees] = useState(() => loadRhEmployees());
 
   const theme = moduleThemes.balisage;
   const activeMonth = balisageMonths[activeMonthIndex];
-  const activeStats = useMemo(() => localData[activeMonth.id] ?? [], [activeMonth.id, localData]);
+  const monthStats = useMemo(() => localData[activeMonth.id] ?? [], [activeMonth.id, localData]);
+  const statsWithRhState = useMemo(
+    () => attachRhActivityToBalisageStats(monthStats, rhEmployees),
+    [monthStats, rhEmployees],
+  );
+  const activeStats = useMemo(
+    () => getActiveBalisageStats(statsWithRhState),
+    [statsWithRhState],
+  );
 
   const sortedStats = useMemo(() => {
-    const list = [...activeStats];
-    if (sortBy === "total") return list.sort((a, b) => b.total - a.total);
-    if (sortBy === "alert") return list.sort((a, b) => a.total - b.total);
-    return list.sort((a, b) => a.name.localeCompare(b.name));
-  }, [activeStats, sortBy]);
+    const list = [...statsWithRhState];
+    if (sortBy === "total") {
+      return list.sort((a, b) => {
+        if (a.actif !== b.actif) return a.actif ? -1 : 1;
+        return b.total - a.total;
+      });
+    }
+    if (sortBy === "alert") {
+      return list.sort((a, b) => {
+        if (a.actif !== b.actif) return a.actif ? -1 : 1;
+        return a.total - b.total;
+      });
+    }
+    return list.sort((a, b) => {
+      if (a.actif !== b.actif) return a.actif ? -1 : 1;
+      return a.name.localeCompare(b.name);
+    });
+  }, [sortBy, statsWithRhState]);
 
   useEffect(() => {
     const refresh = () => {
       const nextData = loadBalisageData();
       setLocalData((current) => (areBalisageDataEqual(current, nextData) ? current : nextData));
+      setRhEmployees(loadRhEmployees());
     };
-    void syncBalisageFromSupabase().then((synced) => {
-      if (synced) refresh();
+    void Promise.all([
+      syncBalisageFromSupabase(),
+      syncRhFromSupabase(),
+    ]).then(([balisageSynced, rhSynced]) => {
+      if (balisageSynced || rhSynced) refresh();
     });
-    const eventName = getBalisageUpdatedEventName();
-    window.addEventListener(eventName, refresh);
-    return () => window.removeEventListener(eventName, refresh);
+    const balisageEventName = getBalisageUpdatedEventName();
+    const rhEventName = getRhUpdatedEventName();
+    window.addEventListener(balisageEventName, refresh);
+    window.addEventListener(rhEventName, refresh);
+    return () => {
+      window.removeEventListener(balisageEventName, refresh);
+      window.removeEventListener(rhEventName, refresh);
+    };
   }, []);
 
   const totalControls = activeStats.reduce((sum, item) => sum + item.total, 0);
@@ -301,27 +334,44 @@ export default function StatsPage() {
               </tr>
             </thead>
             <tbody>
-              {sortedStats.map((employee) => {
+      {sortedStats.map((employee) => {
                 const progress = getProgress(employee.total);
-                const status = getDynamicStatus(employee.total, activeMonth.id);
+                const status = employee.actif ? getDynamicStatus(employee.total, activeMonth.id) : "Inactif";
                 return (
-                  <tr key={employee.name}>
-                    <td style={{ borderBottom: "1px solid #e2e8f0", padding: "8px 10px", fontSize: "12px", color: "#0f172a", fontWeight: 600 }}>{employee.name}</td>
-                    <td style={{ borderBottom: "1px solid #e2e8f0", padding: "8px 10px", fontSize: "12px", color: "#0f172a" }}>{employee.total}</td>
-                    <td style={{ borderBottom: "1px solid #e2e8f0", padding: "8px 10px" }}>
+                  <tr key={employee.name} style={employee.actif ? undefined : { background: "#f8fafc" }}>
+                    <td style={{ borderBottom: "1px solid #e2e8f0", padding: "8px 10px", fontSize: "12px", color: employee.actif ? "#0f172a" : "#64748b", fontWeight: 600 }}>{employee.name}</td>
+                    <td style={{ borderBottom: "1px solid #e2e8f0", padding: "8px 10px", fontSize: "12px", color: employee.actif ? "#0f172a" : "#64748b" }}>{employee.total}</td>
+                    <td style={{ borderBottom: "1px solid #e2e8f0", padding: "8px 10px", opacity: employee.actif ? 1 : 0.55 }}>
                       <ProgressBar value={progress} moduleKey="balisage" showPercent noShimmer height={8} style={{ marginTop: 0 }} />
                     </td>
-                    <td style={{ borderBottom: "1px solid #e2e8f0", padding: "8px 10px", fontSize: "12px", color: "#0f172a" }}>
+                    <td style={{ borderBottom: "1px solid #e2e8f0", padding: "8px 10px", fontSize: "12px", color: employee.actif ? "#0f172a" : "#64748b" }}>
                       {employee.errorRate === null ? "-" : `${employee.errorRate}%`}
                     </td>
                     <td style={{ borderBottom: "1px solid #e2e8f0", padding: "8px 10px" }}>
-                      <span style={{ ...statusStyle(status), fontSize: "11px", fontWeight: 700, borderRadius: "999px", padding: "4px 8px" }}>{status}</span>
+                      <span style={{
+                        ...(employee.actif ? statusStyle(status) : { background: "#e2e8f0", color: "#475569" }),
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        borderRadius: "999px",
+                        padding: "4px 8px",
+                      }}>
+                        {employee.actif ? status : "Inactif RH"}
+                      </span>
                     </td>
                     <td style={{ borderBottom: "1px solid #e2e8f0", padding: "8px 10px" }}>
                       <button
                         type="button"
-                        style={{ border: "1px solid #dbe3eb", borderRadius: "999px", background: "#fff", color: "#1e293b", fontSize: "12px", padding: "6px 10px" }}
+                        style={{
+                          border: "1px solid #dbe3eb",
+                          borderRadius: "999px",
+                          background: "#fff",
+                          color: employee.actif ? "#1e293b" : "#94a3b8",
+                          fontSize: "12px",
+                          padding: "6px 10px",
+                          cursor: employee.actif ? "pointer" : "not-allowed",
+                        }}
                         onClick={() => openEdit(employee)}
+                        disabled={!employee.actif}
                       >
                         Editer
                       </button>

@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.36 - 2026-03-29
+
+- Balisage : le module se cale maintenant sur le statut `actif / inactif` du RH, pour qu'un collaborateur inactif comme `KAMAR` n'entre plus dans les calculs actifs du suivi.
+- Dashboard et page `Controle balisage` : les objectifs, alertes et classements ne comptent plus les profils RH inactifs, qui apparaissent desormais avec un badge `Inactif RH` et une edition desactivee.
+
 ## v0.5.35 - 2026-03-29
 
 - Dashboard : la tuile `Suivi balisage` affiche maintenant l'objectif equipe complet sur `12 x 800` controles, au lieu d'une moyenne ramenee a `800` par collaborateur.

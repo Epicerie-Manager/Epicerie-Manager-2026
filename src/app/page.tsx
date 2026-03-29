@@ -10,6 +10,7 @@ import AgendaCard from "@/components/dashboard/agenda-card";
 import { moduleThemes } from "@/lib/theme";
 import { loadAbsenceRequests, getAbsencesUpdatedEventName, syncAbsencesFromSupabase } from "@/lib/absences-store";
 import { balisageData, balisageMonths, balisageObjective, type BalisageEmployeeStat } from "@/lib/balisage-data";
+import { attachRhActivityToBalisageStats, getActiveBalisageStats, getInactiveBalisageStats } from "@/lib/balisage-rh";
 import { loadBalisageData, getBalisageUpdatedEventName, syncBalisageFromSupabase } from "@/lib/balisage-store";
 import {
   planningEmployees,
@@ -23,7 +24,7 @@ import {
   type PlanningOverrides,
   type PlanningTriData,
 } from "@/lib/planning-store";
-import { getRhUpdatedEventName, syncRhFromSupabase } from "@/lib/rh-store";
+import { getRhUpdatedEventName, loadRhEmployees, syncRhFromSupabase } from "@/lib/rh-store";
 import { plateauOperationsByMonth } from "@/lib/plateau-data";
 
 type AlertTone = "yellow" | "red" | "blue";
@@ -174,6 +175,7 @@ export default function DashboardPage() {
   const [planningOverrides, setPlanningOverrides] = useState<PlanningOverrides>({});
   const [planningTriData, setPlanningTriData] = useState<PlanningTriData>(defaultPlanningTriData);
   const [balisageDataState, setBalisageDataState] = useState<Record<string, BalisageEmployeeStat[]>>(balisageData);
+  const [rhEmployees, setRhEmployees] = useState(() => loadRhEmployees());
 
   useEffect(() => {
     const refreshAll = () => {
@@ -182,6 +184,7 @@ export default function DashboardPage() {
       setPlanningOverrides(loadPlanningOverrides());
       setPlanningTriData(loadPlanningTriData());
       setBalisageDataState(loadBalisageData());
+      setRhEmployees(loadRhEmployees());
     };
 
     refreshAll();
@@ -270,16 +273,19 @@ export default function DashboardPage() {
   const monthId = MONTH_TO_BALISAGE[today.getMonth()] ?? "MARS_2026";
   const monthLabel = balisageMonths.find((month) => month.id === monthId)?.label ?? "Mois courant";
   const balisageStats = balisageDataState[monthId] ?? [];
-  const balisageTotalControls = balisageStats.reduce((sum, row) => sum + row.total, 0);
-  const balisageDashboardTeamCount = Math.max(balisageStats.length, 12);
+  const balisageStatsWithActivity = attachRhActivityToBalisageStats(balisageStats, rhEmployees);
+  const activeBalisageStats = getActiveBalisageStats(balisageStatsWithActivity);
+  const inactiveBalisageStats = getInactiveBalisageStats(balisageStatsWithActivity);
+  const balisageTotalControls = activeBalisageStats.reduce((sum, row) => sum + row.total, 0);
+  const balisageDashboardTeamCount = Math.max(activeBalisageStats.length, 1);
   const balisageDashboardTarget = balisageDashboardTeamCount * balisageObjective;
   const balisageGlobalPercent = Math.min(
     Math.round((balisageTotalControls / balisageDashboardTarget) * 100),
     100,
   );
-  const balisageAlertsCount = balisageStats.filter((employee) => getBalisageDynamicStatus(employee.total, monthId, today) === "Alerte").length;
+  const balisageAlertsCount = activeBalisageStats.filter((employee) => getBalisageDynamicStatus(employee.total, monthId, today) === "Alerte").length;
 
-  const balisageRank = [...balisageStats]
+  const balisageRank = [...activeBalisageStats]
     .sort((a, b) => b.total - a.total)
     .slice(0, 4)
     .map((employee) => {
@@ -601,7 +607,11 @@ export default function DashboardPage() {
               value={balisageGlobalPercent}
               moduleKey="balisage"
               label="Avancement global"
-              subLeft={`${balisageStats.length} employés suivis`}
+              subLeft={
+                inactiveBalisageStats.length
+                  ? `${activeBalisageStats.length} actifs · ${inactiveBalisageStats.length} inactif(s)`
+                  : `${activeBalisageStats.length} actifs suivis`
+              }
               subRight={`${balisageAlertsCount} alertes actives`}
             />
 

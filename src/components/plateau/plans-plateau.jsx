@@ -13,9 +13,12 @@ import {
   getPlateauAssetLookup,
   getPlateauAssetsUpdatedEventName,
   loadPlateauAssets,
+  loadPlateauNotes,
   removePlateauAssetFromSupabase,
   savePlateauAssetsToSupabase,
+  savePlateauNoteToSupabase,
   syncPlateauAssetsFromSupabase,
+  syncPlateauNotesFromSupabase,
 } from "@/lib/plateau-store";
 
 /* ═══════════════════════════════════════════════════════════
@@ -332,7 +335,7 @@ const AnnotationBox=({notes,onChange})=>{
           {IC.note(V.muted,14)}
           <span style={{fontSize:11,fontWeight:700,color:V.light,letterSpacing:"0.04em"}}>NOTES & ANNOTATIONS</span>
         </div>
-        <button onClick={()=>{if(editing){onChange(val);}setEditing(!editing);}} style={{fontSize:11,fontWeight:700,color:V.mc,background:V.mL,border:`1px solid ${V.mc}15`,borderRadius:6,padding:"3px 10px",cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>
+        <button onClick={async()=>{if(editing){await onChange(val);}setEditing(!editing);}} style={{fontSize:11,fontWeight:700,color:V.mc,background:V.mL,border:`1px solid ${V.mc}15`,borderRadius:6,padding:"3px 10px",cursor:"pointer",display:"flex",alignItems:"center",gap:4}}>
           {editing?<>{IC.edit(V.mc,10)} Enregistrer</>:<>{IC.edit(V.mc,10)} Modifier</>}
         </button>
       </div>
@@ -355,10 +358,7 @@ export default function PlateauApp(){
   const [selectedOp,setSelectedOp]=useState("a3");
   const [focusWeek,setFocusWeek]=useState(12);
   const [plateauAssets,setPlateauAssets]=useState(() => loadPlateauAssets());
-  const [notes,setNotes]=useState({
-    a3:"Prévoir 2 palettes supplémentaires pour le chocolat. Confirmer avec le fournisseur mardi.",
-    a4:"Mise en place mercredi matin. Jeremy + Kamel sur la zone.",
-  });
+  const [notes,setNotes]=useState(() => loadPlateauNotes());
 
   const op=OPS.find(o=>o.id===selectedOp);
   const sameWeekOps=op?OPS.filter(o=>o.id!==selectedOp&&o.sFrom<=op.sTo&&o.sTo>=op.sFrom):[];
@@ -381,9 +381,15 @@ export default function PlateauApp(){
     : "Aucun import";
 
   useEffect(() => {
-    const refreshAssets = () => setPlateauAssets(loadPlateauAssets());
+    const refreshAssets = () => {
+      setPlateauAssets(loadPlateauAssets());
+      setNotes(loadPlateauNotes());
+    };
     refreshAssets();
-    void syncPlateauAssetsFromSupabase().then(refreshAssets);
+    void Promise.all([
+      syncPlateauAssetsFromSupabase(),
+      syncPlateauNotesFromSupabase(),
+    ]).then(refreshAssets);
 
     const eventName = getPlateauAssetsUpdatedEventName();
     window.addEventListener(eventName, refreshAssets);
@@ -586,6 +592,20 @@ export default function PlateauApp(){
       await syncPlateauAssetsFromSupabase();
     }catch(error){
       setAssetActionError(error?.message || "Impossible de supprimer ce plan.");
+    }finally{
+      setAssetActionBusy(false);
+    }
+  };
+
+  const handleSaveNote = async(value) => {
+    if(!op) return;
+    setAssetActionBusy(true);
+    setAssetActionError("");
+    try{
+      await savePlateauNoteToSupabase(op.id, value);
+      await syncPlateauNotesFromSupabase();
+    }catch(error){
+      setAssetActionError(error?.message || "Impossible d'enregistrer cette annotation.");
     }finally{
       setAssetActionBusy(false);
     }
@@ -881,8 +901,9 @@ export default function PlateauApp(){
 
               {/* Annotations */}
               <AnnotationBox
+                key={`${op.id}:${notes[op.id] || ""}`}
                 notes={notes[op.id]}
-                onChange={(val)=>setNotes(p=>({...p,[op.id]:val}))}
+                onChange={handleSaveNote}
               />
             </Card>
 

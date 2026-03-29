@@ -235,10 +235,7 @@ export default function InfosPage() {
     setDocBusy(true);
     try {
       const nextItem = await addDocumentToSupabase(activeCategory.id, title, description, docFile ?? undefined);
-      const nextCategories = categories.map((category) =>
-        category.id === activeCategory.id ? { ...category, items: [nextItem, ...category.items] } : category,
-      );
-      setCategories(nextCategories);
+      setCategories(loadInfoCategories());
 
       setDocTitle("");
       setDocDescription("");
@@ -257,12 +254,7 @@ export default function InfosPage() {
     setDocBusy(true);
     try {
       await removeDocumentFromSupabase(itemId);
-      const nextCategories = categories.map((category) =>
-        category.id === activeCategory.id
-          ? { ...category, items: category.items.filter((item) => item.id !== itemId) }
-          : category,
-      );
-      setCategories(nextCategories);
+      setCategories(loadInfoCategories());
       if (selectedItemId === itemId) setSelectedItemId(null);
     } catch (error) {
       setDocError(error instanceof Error ? error.message : "Impossible de supprimer le document.");
@@ -282,9 +274,8 @@ export default function InfosPage() {
 
     setAnnouncementBusy(true);
     try {
-      const next = await addAnnouncementToSupabase(title, content, announcementPriority);
-      const nextAnnouncements = [next, ...announcements];
-      setAnnouncements(nextAnnouncements);
+      await addAnnouncementToSupabase(title, content, announcementPriority);
+      setAnnouncements(loadInfoAnnouncements());
       setAnnouncementTitle("");
       setAnnouncementContent("");
       setAnnouncementPriority("normal");
@@ -300,8 +291,7 @@ export default function InfosPage() {
     setAnnouncementBusy(true);
     try {
       await removeAnnouncementFromSupabase(id);
-      const nextAnnouncements = announcements.filter((announcement) => announcement.id !== id);
-      setAnnouncements(nextAnnouncements);
+      setAnnouncements(loadInfoAnnouncements());
     } catch (error) {
       setAnnouncementError(error instanceof Error ? error.message : "Impossible de supprimer l'annonce.");
     } finally {

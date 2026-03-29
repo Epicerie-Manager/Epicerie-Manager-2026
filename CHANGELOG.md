@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.58 - 2026-03-29
+
+- Infos : la page se recale maintenant sur le store partagé après chaque ajout ou suppression, ce qui supprime les écarts entre l'état local de l'écran et le snapshot mémoire synchronisé avec Supabase.
+- Plateau : les annotations sortent du composant en dur et passent par un store dédié prêt pour Supabase, avec un patch SQL ajouté pour rendre ces notes persistantes entre sessions.
+
 ## v0.5.57 - 2026-03-29
 
 - Plateau : l'import PDF enregistre désormais les plans extraits dans Supabase (`plateau_assets` + bucket `plateau-plans`) au lieu de les perdre à la fermeture du navigateur.

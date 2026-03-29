@@ -259,6 +259,12 @@ export async function addDocumentToSupabase(
       .single();
     if (error) throw error;
 
+    const nextCategories = loadInfoCategories().map((category) =>
+      category.id === categoryId
+        ? { ...category, items: [mapDocumentRowToItem(data as DbRow), ...category.items] }
+        : category,
+    );
+    replaceInfoCategoriesSnapshot(nextCategories);
     emitUpdated();
     return mapDocumentRowToItem(data as DbRow);
   } catch (error) {
@@ -291,6 +297,11 @@ export async function removeDocumentFromSupabase(itemId: string): Promise<void> 
       .eq("id", itemId);
     if (deleteError) throw deleteError;
 
+    const nextCategories = loadInfoCategories().map((category) => ({
+      ...category,
+      items: category.items.filter((item) => item.id !== itemId),
+    }));
+    replaceInfoCategoriesSnapshot(nextCategories);
     emitUpdated();
   } catch (error) {
     throw normalizeActionError(error);
@@ -316,6 +327,7 @@ export async function addAnnouncementToSupabase(
       .single();
     if (error) throw error;
 
+    replaceInfoAnnouncementsSnapshot([mapAnnouncementRowToItem(data as DbRow), ...loadInfoAnnouncements()]);
     emitUpdated();
     return mapAnnouncementRowToItem(data as DbRow);
   } catch (error) {
@@ -332,6 +344,7 @@ export async function removeAnnouncementFromSupabase(id: string): Promise<void> 
       .eq("id", id);
     if (error) throw error;
 
+    replaceInfoAnnouncementsSnapshot(loadInfoAnnouncements().filter((announcement) => announcement.id !== id));
     emitUpdated();
   } catch (error) {
     throw normalizeActionError(error);

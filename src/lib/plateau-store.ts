@@ -3,6 +3,10 @@ import { createClient } from "@/lib/supabase";
 
 const PLATEAU_UPDATED_EVENT = "epicerie-manager:plateau-assets-updated";
 const PLATEAU_STORAGE_BUCKET = "plateau-plans";
+const DEFAULT_PLATEAU_NOTES: Record<string, string> = {
+  a3: "Prévoir 2 palettes supplémentaires pour le chocolat. Confirmer avec le fournisseur mardi.",
+  a4: "Mise en place mercredi matin. Jeremy + Kamel sur la zone.",
+};
 
 export type PlateauAssetKey = "A" | "B" | "C" | "WEEK";
 
@@ -32,6 +36,8 @@ type DbRow = Record<string, unknown>;
 
 let plateauAssetsSnapshot: PlateauAsset[] = [];
 let plateauAssetsSerialized = "[]";
+let plateauNotesSnapshot = { ...DEFAULT_PLATEAU_NOTES };
+let plateauNotesSerialized = JSON.stringify(plateauNotesSnapshot);
 
 function canUseStorage() {
   return hasBrowserWindow();
@@ -52,6 +58,19 @@ function replacePlateauAssetsSnapshot(assets: PlateauAsset[]) {
   if (serialized === plateauAssetsSerialized) return false;
   plateauAssetsSnapshot = nextAssets;
   plateauAssetsSerialized = serialized;
+  return true;
+}
+
+function clonePlateauNotes(notes: Record<string, string>) {
+  return { ...notes };
+}
+
+function replacePlateauNotesSnapshot(notes: Record<string, string>) {
+  const nextNotes = clonePlateauNotes(notes);
+  const serialized = JSON.stringify(nextNotes);
+  if (serialized === plateauNotesSerialized) return false;
+  plateauNotesSnapshot = nextNotes;
+  plateauNotesSerialized = serialized;
   return true;
 }
 
@@ -86,6 +105,9 @@ function normalizeActionError(error: unknown) {
   if (message.includes("plateau_assets")) {
     return new Error("La table Supabase des plans plateau est absente ou inaccessible.");
   }
+  if (message.includes("plateau_operation_notes")) {
+    return new Error("La table Supabase des annotations plateau est absente. Appliquez `supabase/patch_plateau_operation_notes.sql`.");
+  }
   if (rawMessage.trim()) {
     return new Error(rawMessage);
   }
@@ -116,6 +138,11 @@ export function loadPlateauAssets(): PlateauAsset[] {
   return cloneAssets(plateauAssetsSnapshot);
 }
 
+export function loadPlateauNotes() {
+  if (!canUseStorage()) return clonePlateauNotes(DEFAULT_PLATEAU_NOTES);
+  return clonePlateauNotes(plateauNotesSnapshot);
+}
+
 export function getPlateauAssetsUpdatedEventName() {
   return PLATEAU_UPDATED_EVENT;
 }
@@ -139,6 +166,33 @@ export async function syncPlateauAssetsFromSupabase() {
 
     const nextAssets = Array.isArray(data) ? data.map((row) => mapPlateauAssetRow(row as DbRow)) : [];
     const changed = replacePlateauAssetsSnapshot(nextAssets);
+    if (changed) emitUpdated();
+    return changed;
+  } catch {
+    return false;
+  }
+}
+
+export async function syncPlateauNotesFromSupabase() {
+  if (!canUseStorage()) return false;
+
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("plateau_operation_notes")
+      .select("*")
+      .limit(5000);
+    if (error) throw error;
+
+    const nextNotes = { ...DEFAULT_PLATEAU_NOTES };
+    if (Array.isArray(data)) {
+      data.forEach((row) => {
+        const opId = String((row as DbRow).op_id ?? "").trim();
+        if (!opId) return;
+        nextNotes[opId] = String((row as DbRow).note ?? "");
+      });
+    }
+    const changed = replacePlateauNotesSnapshot(nextNotes);
     if (changed) emitUpdated();
     return changed;
   } catch {
@@ -272,6 +326,52 @@ export async function removePlateauAssetFromSupabase(weekNumber: number, plateau
 
     await syncPlateauAssetsFromSupabase();
     emitUpdated();
+  } catch (error) {
+    throw normalizeActionError(error);
+  }
+}
+
+export async function savePlateauNoteToSupabase(opId: string, note: string) {
+  try {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const normalizedNote = note.trim();
+
+    if (!normalizedNote) {
+      const { error: deleteError } = await supabase
+        .from("plateau_operation_notes")
+        .delete()
+        .eq("op_id", opId);
+      if (deleteError) throw deleteError;
+
+      const nextNotes = loadPlateauNotes();
+      delete nextNotes[opId];
+      replacePlateauNotesSnapshot(nextNotes);
+      emitUpdated();
+      return loadPlateauNotes();
+    }
+
+    const { error } = await supabase
+      .from("plateau_operation_notes")
+      .upsert(
+        {
+          op_id: opId,
+          note: normalizedNote,
+          updated_by: user?.id ?? null,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "op_id" },
+      );
+    if (error) throw error;
+
+    const nextNotes = loadPlateauNotes();
+    nextNotes[opId] = normalizedNote;
+    replacePlateauNotesSnapshot(nextNotes);
+    emitUpdated();
+    return loadPlateauNotes();
   } catch (error) {
     throw normalizeActionError(error);
   }

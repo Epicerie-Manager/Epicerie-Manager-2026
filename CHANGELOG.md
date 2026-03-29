@@ -21,6 +21,10 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.52 - 2026-03-29
+
+- Planning / build : correction d'un import dans la vue `Mois` pour relire `defaultRhEmployees` et `defaultRhCycles` depuis le store RH réel, ce qui rétablit le build de production Vercel.
+
 ## v0.5.51 - 2026-03-29
 
 - RH / Planning / Absences : les jeux de données locaux de secours sont réalignés sur le roster actif Supabase, avec `Florian` à la place de l'ancien `Yassine` et les mêmes rôles, horaires et statuts RH que sur le site.

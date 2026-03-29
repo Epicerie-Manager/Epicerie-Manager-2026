@@ -9,12 +9,11 @@ import {
   syncPlanningStatusToAbsenceInSupabase,
 } from "@/lib/absences-store";
 import {
-  defaultRhCycles,
-  defaultRhEmployees,
   getRhEmployeeRoleLabel,
   getRhEmployeeRoleMeta,
   isRhEmployeeCoordinatorRole,
 } from "@/lib/rh-status";
+import { defaultRhCycles, defaultRhEmployees } from "@/lib/rh-store";
 import {
   defaultPlanningOverrides,
   defaultPlanningBinomes,

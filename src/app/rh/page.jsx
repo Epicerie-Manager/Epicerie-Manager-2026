@@ -15,6 +15,11 @@ import {
   updateRhEmployeeInSupabase,
 } from "@/lib/rh-store";
 import {
+  RH_ROLE_OPTIONS,
+  getRhEmployeeRoleLabel,
+  getRhEmployeeRoleMeta,
+} from "@/lib/rh-status";
+import {
   loadTgDefaultAssignments,
   loadTgRayons,
   saveTgDefaultAssignments,
@@ -56,6 +61,20 @@ const Card=({children,style})=>(<div style={{background:V.card,backdropFilter:"b
 const Kicker=({icon,label})=>(<div style={{display:"inline-flex",alignItems:"center",gap:7,padding:"5px 14px",borderRadius:10,background:V.mM,color:V.mD,fontSize:11,fontWeight:700,letterSpacing:"0.04em"}}>{icon(V.mc,14)}<span>{label}</span></div>);
 const H2=({children})=>(<h2 style={{margin:"10px 0 6px",fontSize:20,fontWeight:700,letterSpacing:"-0.02em",color:V.text}}>{children}</h2>);
 const KPI=({value,label,color,gradient,sub})=>(<div style={{borderRadius:16,padding:"16px 12px",textAlign:"center",background:gradient}}><strong style={{display:"block",fontSize:28,lineHeight:1,marginBottom:4,fontWeight:800,color}}>{value}</strong><span style={{fontSize:11,fontWeight:600,color:color+"99"}}>{label}</span>{sub&&<div style={{fontSize:10,color:V.light,marginTop:2}}>{sub}</div>}</div>);
+const RoleBadge=({value,type,size="md"})=>{
+  const meta=getRhEmployeeRoleMeta(value,type);
+  return(
+    <span style={{
+      display:"inline-flex",alignItems:"center",gap:6,
+      fontSize:size==="sm"?9:10,fontWeight:700,color:meta.color,
+      background:meta.bg,padding:size==="sm"?"2px 8px":"3px 10px",borderRadius:999,
+      border:`1px solid ${meta.border}`,
+    }}>
+      <span style={{width:size==="sm"?7:8,height:size==="sm"?7:8,borderRadius:999,background:meta.color,flexShrink:0}}/>
+      {meta.label}
+    </span>
+  );
+};
 
 /* ═══════════════════════════════════════════════════════════
    EDIT EMPLOYEE MODAL
@@ -63,6 +82,7 @@ const KPI=({value,label,color,gradient,sub})=>(<div style={{borderRadius:16,padd
 const EditEmpModal=({emp,availableRayons,onSave,onClose})=>{
   const [d,setD]=useState({...emp});
   const upd=(k,v)=>setD(p=>({...p,[k]:v}));
+  const roleMeta=getRhEmployeeRoleMeta(d.obs,d.t);
   const toggleRayon=(rayon)=>{
     const current = Array.isArray(d.rayons) ? d.rayons : [];
     if(current.includes(rayon)){
@@ -78,6 +98,26 @@ const EditEmpModal=({emp,availableRayons,onSave,onClose})=>{
     const reader=new FileReader();
     reader.onload=(ev)=>upd("photo",ev.target.result);
     reader.readAsDataURL(file);
+  };
+
+  const handleTypeChange=(value)=>{
+    setD((current)=>{
+      const currentRole=getRhEmployeeRoleMeta(current.obs,current.t).id;
+      const nextRole=
+        value==="E"&&currentRole==="COLLABORATEUR"
+          ? getRhEmployeeRoleLabel("ETUDIANT",value)
+          : value!=="E"&&currentRole==="ETUDIANT"
+            ? getRhEmployeeRoleLabel("COLLABORATEUR",value)
+            : getRhEmployeeRoleLabel(current.obs,value);
+      return {
+        ...current,
+        t:value,
+        hs:value==="E"?null:(current.hs||"3h50-11h20"),
+        hm:value==="E"?null:(current.hm||"3h00-10h30"),
+        hsa:value==="E"?(current.hsa||"14h-21h30"):current.hsa,
+        obs:nextRole,
+      };
+    });
   };
 
   return(
@@ -121,15 +161,22 @@ const EditEmpModal=({emp,availableRayons,onSave,onClose})=>{
             </div>
             <div>
               <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Type</label>
-              <select value={d.t} onChange={e=>upd("t",e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.line}`,fontSize:14,fontWeight:700,outline:"none",color:TYPE_LABELS[d.t]?.c||V.body}}>
+              <select value={d.t} onChange={e=>handleTypeChange(e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.line}`,fontSize:14,fontWeight:700,outline:"none",color:TYPE_LABELS[d.t]?.c||V.body}}>
                 <option value="M">Matin</option>
                 <option value="S">Après-midi</option>
                 <option value="E">Étudiant</option>
               </select>
             </div>
             <div>
-              <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Observation</label>
-              <input value={d.obs} onChange={e=>upd("obs",e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.line}`,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+              <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Observation / statut RH</label>
+              <select value={getRhEmployeeRoleLabel(d.obs,d.t)} onChange={e=>upd("obs",e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${roleMeta.border}`,fontSize:13,fontWeight:700,outline:"none",boxSizing:"border-box",color:roleMeta.color}}>
+                {RH_ROLE_OPTIONS.map((role)=>(
+                  <option key={role.id} value={role.label}>{role.label}</option>
+                ))}
+              </select>
+              <div style={{marginTop:6}}>
+                <RoleBadge value={d.obs} type={d.t}/>
+              </div>
             </div>
             <div>
               <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Statut</label>
@@ -254,13 +301,14 @@ const NewEmpModal=({availableRayons,onSave,onClose})=>{
     hs:"3h50-11h20",
     hm:"3h00-10h30",
     hsa:null,
-    obs:"Employe",
+    obs:"Collaborateur",
     actif:true,
     photo:null,
     rayons:[],
   });
   const [cycle,setCycle]=useState(["LUN","LUN","LUN","LUN","LUN"]);
   const upd=(k,v)=>setD(p=>({...p,[k]:v}));
+  const roleMeta=getRhEmployeeRoleMeta(d.obs,d.t);
   const toggleRayon=(rayon)=>{
     const current = Array.isArray(d.rayons) ? d.rayons : [];
     if(current.includes(rayon)){
@@ -271,11 +319,23 @@ const NewEmpModal=({availableRayons,onSave,onClose})=>{
   };
 
   const handleTypeChange=(value)=>{
-    if(value==="E"){
-      setD((p)=>({...p,t:value,hs:null,hm:null,hsa:p.hsa||"14h-21h30",obs:p.obs||"Etudiant"}));
-      return;
-    }
-    setD((p)=>({...p,t:value,hs:p.hs||"3h50-11h20",hm:p.hm||"3h00-10h30"}));
+    setD((current)=>{
+      const currentRole=getRhEmployeeRoleMeta(current.obs,current.t).id;
+      const nextRole=
+        value==="E"&&currentRole==="COLLABORATEUR"
+          ? getRhEmployeeRoleLabel("ETUDIANT",value)
+          : value!=="E"&&currentRole==="ETUDIANT"
+            ? getRhEmployeeRoleLabel("COLLABORATEUR",value)
+            : getRhEmployeeRoleLabel(current.obs,value);
+      return {
+        ...current,
+        t:value,
+        hs:value==="E"?null:(current.hs||"3h50-11h20"),
+        hm:value==="E"?null:(current.hm||"3h00-10h30"),
+        hsa:value==="E"?(current.hsa||"14h-21h30"):current.hsa,
+        obs:nextRole,
+      };
+    });
   };
 
   const handlePhoto=(e)=>{
@@ -320,8 +380,15 @@ const NewEmpModal=({availableRayons,onSave,onClose})=>{
               </select>
             </div>
             <div>
-              <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Observation</label>
-              <input value={d.obs} onChange={e=>upd("obs",e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.line}`,fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+              <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Observation / statut RH</label>
+              <select value={getRhEmployeeRoleLabel(d.obs,d.t)} onChange={e=>upd("obs",e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${roleMeta.border}`,fontSize:13,fontWeight:700,outline:"none",boxSizing:"border-box",color:roleMeta.color}}>
+                {RH_ROLE_OPTIONS.map((role)=>(
+                  <option key={role.id} value={role.label}>{role.label}</option>
+                ))}
+              </select>
+              <div style={{marginTop:6}}>
+                <RoleBadge value={d.obs} type={d.t}/>
+              </div>
             </div>
             <div>
               <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Statut</label>
@@ -395,6 +462,7 @@ const NewEmpModal=({availableRayons,onSave,onClose})=>{
    ═══════════════════════════════════════════════════════════ */
 const EmpCard=({emp,cycle,onEditEmp,onEditCycle})=>{
   const tl=TYPE_LABELS[emp.t];
+  const roleMeta=getRhEmployeeRoleMeta(emp.obs,emp.t);
   return(
     <Card style={{padding:0,overflow:"hidden",opacity:emp.actif?1:0.55}}>
       {/* Header */}
@@ -404,9 +472,10 @@ const EmpCard=({emp,cycle,onEditEmp,onEditCycle})=>{
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             <span style={{fontSize:16,fontWeight:700,color:V.text}}>{emp.n}</span>
             <span style={{fontSize:10,fontWeight:700,color:tl.c,background:tl.bg,padding:"2px 10px",borderRadius:8,border:`1px solid ${tl.c}15`}}>{tl.l}</span>
+            <RoleBadge value={emp.obs} type={emp.t}/>
             {!emp.actif&&<span style={{fontSize:10,fontWeight:700,color:V.red,background:"#fef2f2",padding:"2px 10px",borderRadius:8}}>Inactif</span>}
           </div>
-          <div style={{fontSize:12,color:V.muted,marginTop:1}}>{emp.obs}</div>
+          <div style={{fontSize:12,color:V.muted,marginTop:1}}>Statut RH : <span style={{fontWeight:700,color:roleMeta.color}}>{roleMeta.label}</span></div>
         </div>
         <button onClick={onEditEmp} style={{width:34,height:34,borderRadius:10,border:`1px solid ${V.line}`,background:"#fafafa",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center"}}>{IC.edit(V.muted,15)}</button>
       </div>
@@ -480,7 +549,7 @@ const CycleOverview=({emps,cycles,onEditCycle})=>{
                 <tr key={emp.n} style={{background:"#fff"}} onMouseEnter={e=>e.currentTarget.style.background="#fafbfc"} onMouseLeave={e=>e.currentTarget.style.background="#fff"}>
                   <td style={{padding:"10px 14px",fontSize:13,fontWeight:700,borderBottom:`1px solid ${V.line}`,position:"sticky",left:0,background:"inherit",zIndex:2}}>
                     <div style={{display:"flex",alignItems:"center",gap:6}}>
-                      <span style={{width:6,height:6,borderRadius:3,background:emp.t==="M"?V.blue:V.purple}}/>{emp.n}
+                      <span style={{width:8,height:8,borderRadius:99,background:getRhEmployeeRoleMeta(emp.obs,emp.t).color}}/>{emp.n}
                     </div>
                   </td>
                   {cy.map((jour,i)=>{
@@ -561,7 +630,13 @@ export default function RHModule(){
   const filtered=useMemo(()=>{
     let list=[...emps];
     if(filterType!=="ALL") list=list.filter(e=>e.t===filterType);
-    if(search) list=list.filter(e=>e.n.toLowerCase().includes(search.toLowerCase())||e.obs.toLowerCase().includes(search.toLowerCase()));
+    if(search) {
+      const normalizedSearch=search.toLowerCase();
+      list=list.filter((e)=>
+        e.n.toLowerCase().includes(normalizedSearch)||
+        getRhEmployeeRoleLabel(e.obs,e.t).toLowerCase().includes(normalizedSearch),
+      );
+    }
     return list;
   },[emps,filterType,search]);
 

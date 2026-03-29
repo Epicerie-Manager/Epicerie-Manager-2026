@@ -1,4 +1,5 @@
 import { hasBrowserWindow, purgeLegacyCacheKeys, readSessionCache, writeSessionCache } from "@/lib/browser-cache";
+import { getRhEmployeeRoleLabel } from "@/lib/rh-status";
 import { createClient } from "@/lib/supabase";
 
 export type RhEmployeeType = "M" | "S" | "E";
@@ -71,7 +72,11 @@ function canUseStorage() {
 }
 
 function cloneEmployees(employees: RhEmployee[]) {
-  return employees.map((employee) => ({ ...employee, rayons: employee.rayons ? [...employee.rayons] : undefined }));
+  return employees.map((employee) => ({
+    ...employee,
+    obs: getRhEmployeeRoleLabel(employee.obs, employee.t),
+    rayons: employee.rayons ? [...employee.rayons] : undefined,
+  }));
 }
 
 function cloneCycles(cycles: RhCycles) {
@@ -155,16 +160,17 @@ function mapEmployeeRowToRhEmployee(
     photos?.byDbId.get(String(employee.id)) ??
     photos?.byName.get(normalizedName) ??
     null;
+  const normalizedType = normalizeRhType(String(employee.type ?? ""));
 
   return {
     id: index + 1,
     dbId: String(employee.id),
     n: normalizedName,
-    t: normalizeRhType(String(employee.type ?? "")),
+    t: normalizedType,
     hs: employee.horaire_standard ?? null,
     hm: employee.horaire_mardi ?? null,
     hsa: employee.horaire_samedi ?? null,
-    obs: String(employee.observation ?? ""),
+    obs: getRhEmployeeRoleLabel(String(employee.observation ?? ""), normalizedType),
     actif: Boolean(employee.actif),
     photo,
   };
@@ -334,7 +340,7 @@ export async function createRhEmployeeInSupabase(
     horaire_standard: employee.hs,
     horaire_mardi: employee.hm,
     horaire_samedi: employee.hsa,
-    observation: employee.obs,
+    observation: getRhEmployeeRoleLabel(employee.obs, employee.t),
     actif: employee.actif,
   };
 
@@ -380,7 +386,7 @@ export async function updateRhEmployeeInSupabase(employee: RhEmployee): Promise<
     horaire_standard: employee.hs,
     horaire_mardi: employee.hm,
     horaire_samedi: employee.hsa,
-    observation: employee.obs,
+    observation: getRhEmployeeRoleLabel(employee.obs, employee.t),
     actif: employee.actif,
   };
 

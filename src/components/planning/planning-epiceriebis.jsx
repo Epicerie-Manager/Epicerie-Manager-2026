@@ -9,6 +9,11 @@ import {
   syncPlanningStatusToAbsenceInSupabase,
 } from "@/lib/absences-store";
 import {
+  getRhEmployeeRoleLabel,
+  getRhEmployeeRoleMeta,
+  isRhEmployeeCoordinatorRole,
+} from "@/lib/rh-status";
+import {
   defaultPlanningOverrides,
   defaultPlanningBinomes,
   defaultPlanningTriData,
@@ -145,13 +150,20 @@ let EMPS=[
   {n:"ACHRAF",t:"E",hs:null,hm:null,obs:"Étudiant",actif:true},
 ];
 
-function isCoordinatorEmployee(name){
-  const normalizedName=String(name||"").trim().toUpperCase();
-  return normalizedName==="ABDOU"||normalizedName==="MASSIMO";
-}
-
 function normalizePlanningEmployeeName(name){
   return String(name||"").trim().toUpperCase();
+}
+
+function getPlanningEmployeeRoleMeta(emp){
+  return getRhEmployeeRoleMeta(emp?.obs,emp?.t);
+}
+
+function getPlanningEmployeeRoleLabel(emp){
+  return getRhEmployeeRoleLabel(emp?.obs,emp?.t);
+}
+
+function isCoordinatorEmployee(emp){
+  return isRhEmployeeCoordinatorRole(emp?.obs,emp?.t);
 }
 
 function isAbsenceStatus(status){
@@ -396,6 +408,10 @@ const CalIcon=<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke
 const CartIcon=<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={V.mc} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>;
 const LinkIcon=<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={V.mc} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>;
 const EditIcon=<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
+const RoleDot=({emp,size=8,ringColor})=>{
+  const roleMeta=getPlanningEmployeeRoleMeta(emp);
+  return <span title={`Statut RH : ${roleMeta.label}`} style={{width:size,height:size,borderRadius:99,background:roleMeta.color,boxShadow:ringColor?`0 0 0 2px ${ringColor}`:"none",flexShrink:0}}/>;
+};
 
 const Legend=()=>(<div style={{display:"flex",gap:12,flexWrap:"wrap",padding:"8px 0"}}>{Object.entries(ST).filter(([k])=>k!=="X").map(([k,v])=>(<div key={k} style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:V.muted}}><div style={{width:10,height:10,borderRadius:3,background:v.c,opacity:0.8}}/>{v.l}</div>))}<div style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:V.muted}}><div style={{width:14,height:12,borderRadius:4,...getPendingCellStyles({c:"#475569",bg:"#f8fafc"})}}/>Demande en attente</div><div style={{display:"flex",alignItems:"center",gap:5,fontSize:11,color:V.muted}}><span style={{display:"inline-flex",alignItems:"center",justifyContent:"center",width:14,height:12,borderRadius:4,background:`${V.amber}12`,border:`1px solid ${V.amber}30`}}><svg width="9" height="9" viewBox="0 0 24 24" fill="none" stroke={V.amber} strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg></span>Tri caddie</div></div>);
 
@@ -604,11 +620,12 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,onEdit}
               </tr>
               {section.employees.map((emp)=>{
                 let presCount=0;
-                const isCoordinator=isCoordinatorEmployee(emp.n);
+                const isCoordinator=isCoordinatorEmployee(emp);
                 const isLeaderRow=section.id==="leaders";
                 const rowBackground=section.row;
                 const stickyBackground=section.sticky;
                 const rowBorder=section.border;
+                const roleMeta=getPlanningEmployeeRoleMeta(emp);
                 return(
                   <tr key={emp.n} style={{opacity:emp.actif?1:0.5,background:rowBackground}}>
                     <td style={{padding:"6px 8px",fontSize:11,fontWeight:700,borderBottom:`1px solid ${rowBorder}`,position:"sticky",left:0,background:stickyBackground,zIndex:2,whiteSpace:"nowrap"}}>
@@ -621,8 +638,8 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,onEdit}
                         background:isLeaderRow||section.id==="morning"?section.nameBg:isCoordinator?"rgba(255,255,255,0.45)":"transparent",
                         color:isLeaderRow||section.id==="morning"?section.nameText:isCoordinator?section.accent:V.body,
                         border:isLeaderRow||section.id==="morning"?`1px solid ${rowBorder}`:"1px solid transparent",
-                      }}>
-                        <span style={{width:7,height:7,borderRadius:99,background:section.accent,boxShadow:`0 0 0 2px ${rowBackground}`,flexShrink:0}}/>
+                      }} title={`Statut RH : ${roleMeta.label}`}>
+                        <RoleDot emp={emp} size={7} ringColor={rowBackground}/>
                         {emp.n}
                       </div>
                     </td>
@@ -775,19 +792,22 @@ const VueSemaine=({weekStart,overrides,triData,onEdit})=>{
             {/* Présents */}
             <div style={{fontSize:9,fontWeight:700,color:V.light,marginBottom:3}}>PRÉSENTS</div>
             <div style={{display:"flex",flexWrap:"wrap",gap:2,marginBottom:6}}>
-              {matP.map(e=>(
+              {matP.map(e=>{
+                const roleMeta=getPlanningEmployeeRoleMeta(e);
+                return(
                 <span key={e.n} onClick={()=>onEdit(e,date)} style={{
-                  fontSize:8,fontWeight:600,color:isCoordinatorEmployee(e.n)?V.mc:V.body,background:isCoordinatorEmployee(e.n)?"#e7f0fb":"#f0f4f8",padding:"2px 5px",borderRadius:4,cursor:"pointer",
+                  display:"inline-flex",alignItems:"center",gap:4,
+                  fontSize:8,fontWeight:600,color:isCoordinatorEmployee(e)?V.mc:V.body,background:isCoordinatorEmployee(e)?"#e7f0fb":"#f0f4f8",padding:"2px 5px",borderRadius:4,cursor:"pointer",
                   border:isTriCaddie(e.n,dow,triData)?`1px solid ${V.amber}`:"1px solid transparent",
-                }}>{e.n}</span>
-              ))}
+                }} title={`Statut RH : ${roleMeta.label}`}><RoleDot emp={e} size={6}/>{e.n}</span>
+              );})}
             </div>
             {absents.length>0&&(<>
               <div style={{fontSize:9,fontWeight:700,color:V.red,marginBottom:3}}>ABSENTS</div>
               <div style={{display:"flex",flexDirection:"column",gap:1,marginBottom:6}}>
-                {absents.slice(0,4).map(e=>{const s=getStatus(e,date,overrides);const sc=ST[s];return(
+                {absents.slice(0,4).map(e=>{const s=getStatus(e,date,overrides);const sc=ST[s];const roleMeta=getPlanningEmployeeRoleMeta(e);return(
                   <div key={e.n} style={{fontSize:8,padding:"2px 5px",borderRadius:4,background:sc.bg,color:sc.c,fontWeight:700,display:"flex",justifyContent:"space-between"}}>
-                    <span>{e.n}</span><span>{sc.short}</span>
+                    <span style={{display:"inline-flex",alignItems:"center",gap:4}} title={`Statut RH : ${roleMeta.label}`}><RoleDot emp={e} size={6}/>{e.n}</span><span>{sc.short}</span>
                   </div>
                 );})}
                 {absents.length>4&&<div style={{fontSize:8,color:V.light}}>+{absents.length-4} autres</div>}
@@ -812,17 +832,22 @@ const VueJour=({date,overrides,triData,binomes,onEdit})=>{
   const grouped=getDayGroups(date,overrides);
   const triPair=triData[dow];const alert=isPlanningAlertDay(date,grouped.matin.length);
 
-  const EmpCard=({e,horaire,tri})=>(
-    <div onClick={()=>onEdit(e,date)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:14,background:isCoordinatorEmployee(e.n)?"#f3f8ff":"rgba(248,250,252,0.6)",border:`1px solid ${isCoordinatorEmployee(e.n)?`${V.mc}25`:V.border}`,cursor:"pointer",borderLeft:tri?`3px solid ${V.amber}`:isCoordinatorEmployee(e.n)?`3px solid ${V.mc}`:"3px solid transparent"}}
-      onMouseEnter={ev=>ev.currentTarget.style.background=isCoordinatorEmployee(e.n)?"#eaf3fe":V.mL} onMouseLeave={ev=>ev.currentTarget.style.background=isCoordinatorEmployee(e.n)?"#f3f8ff":"rgba(248,250,252,0.6)"}>
-      <div style={{width:32,height:32,borderRadius:10,background:isCoordinatorEmployee(e.n)?"#dbeafe":V.mIG,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,color:V.mc}}>{e.n.substring(0,2)}</div>
+  const EmpCard=({e,horaire,tri})=>{
+    const isCoordinator=isCoordinatorEmployee(e);
+    return(
+    <div onClick={()=>onEdit(e,date)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:14,background:isCoordinator?"#f3f8ff":"rgba(248,250,252,0.6)",border:`1px solid ${isCoordinator?`${V.mc}25`:V.border}`,cursor:"pointer",borderLeft:tri?`3px solid ${V.amber}`:isCoordinator?`3px solid ${V.mc}`:"3px solid transparent"}}
+      onMouseEnter={ev=>ev.currentTarget.style.background=isCoordinator?"#eaf3fe":V.mL} onMouseLeave={ev=>ev.currentTarget.style.background=isCoordinator?"#f3f8ff":"rgba(248,250,252,0.6)"}>
+      <div style={{width:32,height:32,borderRadius:10,background:isCoordinator?"#dbeafe":V.mIG,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,color:V.mc}}>{e.n.substring(0,2)}</div>
       <div style={{flex:1}}>
-        <div style={{fontSize:13,fontWeight:700,color:isCoordinatorEmployee(e.n)?V.mc:V.body}}>{e.n}</div>
-        <div style={{fontSize:11,color:V.muted}}>{e.obs}{tri?" — Tri caddie":""}</div>
+        <div style={{display:"flex",alignItems:"center",gap:6,fontSize:13,fontWeight:700,color:isCoordinator?V.mc:V.body}}>
+          <RoleDot emp={e} size={8}/>
+          <span>{e.n}</span>
+        </div>
+        <div style={{fontSize:11,color:V.muted}}>{getPlanningEmployeeRoleLabel(e)}{tri?" — Tri caddie":""}</div>
       </div>
       {horaire&&<span style={{fontSize:12,fontWeight:700,color:V.mc,background:V.mL,padding:"4px 10px",borderRadius:8}}>{horaire}</span>}
     </div>
-  );
+  );};
 
   return(
     <div>
@@ -848,7 +873,7 @@ const VueJour=({date,overrides,triData,binomes,onEdit})=>{
               {[{l:"Repos hebdo",list:grouped.absRH,sc:ST.RH},{l:"Congés",list:grouped.absCP,sc:ST.CP},{l:"Maladie",list:grouped.absMAL,sc:ST.MAL},{l:"Autres",list:grouped.absOther,sc:ST.ABS}].filter(g=>g.list.length>0).map(g=>(
                 <div key={g.l}>
                   <div style={{fontSize:10,fontWeight:700,color:g.sc.c,marginBottom:3}}>{g.l.toUpperCase()}</div>
-                  {g.list.map(e=>(<div key={e.n} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 12px",borderRadius:10,background:g.sc.bg,marginBottom:2,border:`1px solid ${g.sc.c}15`}}><span style={{fontSize:12,fontWeight:700,color:V.body}}>{e.n}</span><span style={{marginLeft:"auto",fontSize:10,fontWeight:700,color:g.sc.c}}>{g.sc.l}</span></div>))}
+                  {g.list.map(e=>(<div key={e.n} style={{display:"flex",alignItems:"center",gap:8,padding:"7px 12px",borderRadius:10,background:g.sc.bg,marginBottom:2,border:`1px solid ${g.sc.c}15`}}><span style={{display:"inline-flex",alignItems:"center",gap:6,fontSize:12,fontWeight:700,color:V.body}}><RoleDot emp={e} size={7}/>{e.n}</span><span style={{marginLeft:"auto",fontSize:10,fontWeight:700,color:g.sc.c}}>{g.sc.l}</span></div>))}
                 </div>
               ))}
               {grouped.absRH.length===0&&grouped.absCP.length===0&&grouped.absMAL.length===0&&grouped.absOther.length===0&&<div style={{padding:16,textAlign:"center",color:V.light}}>Personne absent</div>}

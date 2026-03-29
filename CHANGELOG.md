@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.32 - 2026-03-29
+
+- RH : le champ `Observation` devient un select de statut RH (`Coordinateur`, `Collaborateur`, `Etudiant`, `Stagiaire`, `Autre`) avec une pastille couleur visible directement sur les fiches employes.
+- Planning : les noms affichent maintenant cette meme pastille de statut dans les vues mois, semaine et jour, pour reperer le role de chaque collaborateur sans changer la structure du planning.
+
 ## v0.5.31 - 2026-03-29
 
 - Module `Absences` : retrait du cache navigateur pour les demandes d'absence, qui ne sont plus relues ni reecrites dans un stockage local de session.

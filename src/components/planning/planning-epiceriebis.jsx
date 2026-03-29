@@ -28,6 +28,16 @@ import {
   savePlanningTriPairToSupabase,
   syncPlanningFromSupabase,
 } from "@/lib/planning-store";
+import { getPlanningPresenceCountsForDate } from "@/lib/planning-presence";
+import {
+  getPresenceCountLevel,
+  getPresenceThresholdLevel,
+} from "@/lib/presence-thresholds";
+import {
+  getPresenceThresholdsUpdatedEventName,
+  loadPresenceThresholds,
+  syncPresenceThresholdsFromSupabase,
+} from "@/lib/presence-thresholds-store";
 import { getRhUpdatedEventName, loadRhCycles, loadRhEmployees } from "@/lib/rh-store";
 
 /* ═══════════════════════════════════════════════════════════
@@ -294,8 +304,26 @@ function isHoraireOverride(emp,date,overrides){
 
 function isTriCaddie(name,dow,triData){const p=triData[dow];return p&&p.includes(name);}
 
-function isPlanningAlertDay(date,morningCount){
-  return date.getDay()!==0&&morningCount<8;
+function getPlanningDayPresence(date,overrides){
+  return getPlanningPresenceCountsForDate(date,overrides,[],EMPS);
+}
+
+function getPlanningDayLevel(date,counts,thresholds){
+  if(date.getDay()===0) return "ok";
+  return getPresenceThresholdLevel({morning:counts.morningCount,afternoon:counts.afternoonCount},thresholds);
+}
+
+function getPlanningLevelColor(level){
+  if(level==="critical") return V.red;
+  if(level==="warning") return V.amber;
+  return V.mc;
+}
+
+function getPlanningCountLevel(count,shift,thresholds){
+  if(shift==="afternoon"){
+    return getPresenceCountLevel(count,thresholds.warningAfternoon,thresholds.criticalAfternoon);
+  }
+  return getPresenceCountLevel(count,thresholds.warningMorning,thresholds.criticalMorning);
 }
 
 function getPendingPlanningStatus(absenceType){
@@ -563,7 +591,7 @@ const EditBinomeModal=({index,pair,allNames,onSave,onClose})=>{
 /* ═══════════════════════════════════════════════════════════
    VUE MOIS — with hours displayed
    ═══════════════════════════════════════════════════════════ */
-const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,onEdit})=>{
+const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenceThresholds,onEdit})=>{
   const days=daysInMonth(year,month);
   const dates=Array.from({length:days},(_,i)=>new Date(year,month,i+1));
   const sections=getPlanningMonthSections(filter);
@@ -730,9 +758,10 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,onEdit}
             </td>
             {dates.map(date=>{
               const isT=formatPlanningDate(date)===todayS;
-              const m=EMPS.filter(e=>e.t==="M"&&getStatus(e,date,overrides)==="PRESENT").length;
-              const s=EMPS.filter(e=>e.t==="S"&&getStatus(e,date,overrides)==="PRESENT").length;
-              const alert=isPlanningAlertDay(date,m);
+              const counts=getPlanningDayPresence(date,overrides);
+              const dayLevel=getPlanningDayLevel(date,counts,presenceThresholds);
+              const morningLevel=getPlanningCountLevel(counts.morningCount,"morning",presenceThresholds);
+              const afternoonLevel=getPlanningCountLevel(counts.afternoonCount,"afternoon",presenceThresholds);
               return(<td key={date.getDate()} style={{
                 textAlign:"center",
                 padding:"4px 0",
@@ -740,10 +769,10 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,onEdit}
                 borderBottom:isT?"2px solid #16a34a":"none",
                 borderLeft:isT?"2px solid #16a34a":"none",
                 borderRight:isT?"2px solid #16a34a":"none",
-                background:alert?"#fef2f2":"#f8fafc"
+                background:dayLevel==="critical"?"#fef2f2":dayLevel==="warning"?"#fff7ed":"#f8fafc"
               }}>
-                <div style={{fontSize:11,fontWeight:800,color:alert?V.red:V.mc,lineHeight:1.05}}>{m}</div>
-                <div style={{fontSize:10,fontWeight:800,color:V.purple,lineHeight:1.05,marginTop:4}}>{s}</div>
+                <div style={{fontSize:11,fontWeight:800,color:getPlanningLevelColor(morningLevel),lineHeight:1.05}}>{counts.morningCount}</div>
+                <div style={{fontSize:10,fontWeight:800,color:getPlanningLevelColor(afternoonLevel),lineHeight:1.05,marginTop:4}}>{counts.afternoonCount}</div>
               </td>);
             })}
             <td style={{borderTop:`2px solid ${V.line}`,position:"sticky",right:0,background:"#f8fafc"}}/>
@@ -757,7 +786,7 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,onEdit}
 /* ═══════════════════════════════════════════════════════════
    VUE SEMAINE
    ═══════════════════════════════════════════════════════════ */
-const VueSemaine=({weekStart,overrides,triData,onEdit})=>{
+const VueSemaine=({weekStart,overrides,triData,presenceThresholds,onEdit})=>{
   const days=Array.from({length:7},(_,i)=>{const d=new Date(weekStart);d.setDate(d.getDate()+i);return d;});
   const todayS=formatPlanningDate(new Date());
 
@@ -766,12 +795,16 @@ const VueSemaine=({weekStart,overrides,triData,onEdit})=>{
       {days.map(date=>{
         const dow=date.getDay();const isT=formatPlanningDate(date)===todayS;
         const matP=sortPlanningEmployees(EMPS.filter(e=>e.t==="M"&&getStatus(e,date,overrides)==="PRESENT"));
-        const soirP=sortPlanningEmployees(EMPS.filter(e=>e.t==="S"&&getStatus(e,date,overrides)==="PRESENT"));
         const absents=sortPlanningEmployees(EMPS.filter(e=>e.actif&&!["PRESENT","X"].includes(getStatus(e,date,overrides))));
-        const triPair=triData[dow];const alert=isPlanningAlertDay(date,matP.length);
+        const triPair=triData[dow];
+        const counts=getPlanningDayPresence(date,overrides);
+        const dayLevel=getPlanningDayLevel(date,counts,presenceThresholds);
+        const alert=dayLevel!=="ok";
+        const morningLevel=getPlanningCountLevel(counts.morningCount,"morning",presenceThresholds);
+        const afternoonLevel=getPlanningCountLevel(counts.afternoonCount,"afternoon",presenceThresholds);
 
         return(
-          <Card key={date.getDate()} style={{padding:12,borderTop:isT?`3px solid ${V.mc}`:alert?`3px solid ${V.red}`:`3px solid transparent`}}>
+          <Card key={date.getDate()} style={{padding:12,borderTop:isT?`3px solid ${V.mc}`:alert?`3px solid ${getPlanningLevelColor(dayLevel)}`:`3px solid transparent`}}>
             <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:8}}>
               <div>
                 <div style={{fontSize:12,fontWeight:700,color:isT?V.mc:V.body}}>{JL_FULL[dow]}</div>
@@ -781,11 +814,11 @@ const VueSemaine=({weekStart,overrides,triData,onEdit})=>{
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:3,marginBottom:8}}>
               <div style={{borderRadius:6,padding:"5px",background:V.mG,textAlign:"center"}}>
-                <div style={{fontSize:18,fontWeight:800,color:alert?V.red:V.mc}}>{matP.length}</div>
+                <div style={{fontSize:18,fontWeight:800,color:getPlanningLevelColor(morningLevel)}}>{counts.morningCount}</div>
                 <div style={{fontSize:8,fontWeight:700,color:V.light}}>MATIN</div>
               </div>
               <div style={{borderRadius:6,padding:"5px",background:"linear-gradient(135deg,#f5f2fe,#faf8ff)",textAlign:"center"}}>
-                <div style={{fontSize:18,fontWeight:800,color:V.purple}}>{soirP.length}</div>
+                <div style={{fontSize:18,fontWeight:800,color:getPlanningLevelColor(afternoonLevel)}}>{counts.afternoonCount}</div>
                 <div style={{fontSize:8,fontWeight:700,color:V.light}}>SOIR</div>
               </div>
             </div>
@@ -826,11 +859,16 @@ const VueSemaine=({weekStart,overrides,triData,onEdit})=>{
 /* ═══════════════════════════════════════════════════════════
    VUE JOUR
    ═══════════════════════════════════════════════════════════ */
-const VueJour=({date,overrides,triData,binomes,onEdit})=>{
+const VueJour=({date,overrides,triData,binomes,presenceThresholds,onEdit})=>{
   const dow=date.getDay();const dayLabel=date.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
   const todayS=formatPlanningDate(new Date());const isT=formatPlanningDate(date)===todayS;
   const grouped=getDayGroups(date,overrides);
-  const triPair=triData[dow];const alert=isPlanningAlertDay(date,grouped.matin.length);
+  const triPair=triData[dow];
+  const counts=getPlanningDayPresence(date,overrides);
+  const dayLevel=getPlanningDayLevel(date,counts,presenceThresholds);
+  const alert=dayLevel!=="ok";
+  const morningLevel=getPlanningCountLevel(counts.morningCount,"morning",presenceThresholds);
+  const afternoonLevel=getPlanningCountLevel(counts.afternoonCount,"afternoon",presenceThresholds);
 
   const EmpCard=({e,horaire,tri})=>{
     const isCoordinator=isCoordinatorEmployee(e);
@@ -854,11 +892,11 @@ const VueJour=({date,overrides,triData,binomes,onEdit})=>{
       <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:16}}>
         <div style={{fontSize:22,fontWeight:800,color:isT?V.mc:V.body}}>{dayLabel}</div>
         {isT&&<span style={{fontSize:11,fontWeight:700,color:"#fff",background:V.mc,padding:"4px 12px",borderRadius:8}}>Aujourd&apos;hui</span>}
-        {alert&&<span style={{fontSize:11,fontWeight:700,color:V.red,background:"#fef2f2",padding:"4px 12px",borderRadius:8}}>Sous-effectif</span>}
+        {alert&&<span style={{fontSize:11,fontWeight:700,color:getPlanningLevelColor(dayLevel),background:dayLevel==="critical"?"#fef2f2":"#fff7ed",padding:"4px 12px",borderRadius:8}}>{dayLevel==="critical"?"Seuil critique":"Sous-effectif"}</span>}
       </div>
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:16}}>
-        <KPI value={grouped.matin.length} label="Matin" color={alert?V.red:V.mc} gradient={alert?"linear-gradient(135deg,#fef1f2,#fff8f8)":V.mG}/>
-        <KPI value={grouped.soir.length} label="Après-midi" color={V.purple} gradient="linear-gradient(135deg,#f5f2fe,#faf8ff)"/>
+        <KPI value={counts.morningCount} label="Matin" color={getPlanningLevelColor(morningLevel)} gradient={morningLevel==="ok"?V.mG:"linear-gradient(135deg,#fef1f2,#fff8f8)"}/>
+        <KPI value={counts.afternoonCount} label="Après-midi" color={getPlanningLevelColor(afternoonLevel)} gradient={afternoonLevel==="ok"?"linear-gradient(135deg,#f5f2fe,#faf8ff)":"linear-gradient(135deg,#fff7ed,#fffaf5)"}/>
         <KPI value={grouped.etu.length} label="Étudiants" color={grouped.etu.length>0?V.cyan:"#9ca3af"} gradient={grouped.etu.length>0?"linear-gradient(135deg,#effcfd,#f7feff)":"linear-gradient(135deg,#f5f7fa,#fafbfc)"}/>
         <KPI value={grouped.absRH.length+grouped.absCP.length+grouped.absMAL.length+grouped.absOther.length} label="Absents" color={V.red} gradient="linear-gradient(135deg,#fef1f2,#fff8f8)"/>
       </div>
@@ -906,6 +944,7 @@ export default function PlanningApp(){
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState("");
   const [pendingRequests,setPendingRequests]=useState(()=>loadPendingAbsenceRequests());
+  const [presenceThresholds,setPresenceThresholds]=useState(()=>loadPresenceThresholds());
   const activeMonthKey=useMemo(()=>{
     if(year===null || month===null) return getPlanningMonthKey(new Date());
     return getPlanningMonthKey(new Date(year,month,1));
@@ -967,6 +1006,17 @@ export default function PlanningApp(){
     const eventName=getAbsencesUpdatedEventName();
     window.addEventListener(eventName,refreshPendingAbsences);
     return ()=>window.removeEventListener(eventName,refreshPendingAbsences);
+  },[]);
+
+  useEffect(()=>{
+    const refreshPresenceThresholds=()=>{
+      setPresenceThresholds(loadPresenceThresholds());
+    };
+    refreshPresenceThresholds();
+    void syncPresenceThresholdsFromSupabase();
+    const eventName=getPresenceThresholdsUpdatedEventName();
+    window.addEventListener(eventName,refreshPresenceThresholds);
+    return ()=>window.removeEventListener(eventName,refreshPresenceThresholds);
   },[]);
 
   const weekStart=useMemo(()=>{
@@ -1060,11 +1110,13 @@ export default function PlanningApp(){
     const kpiDate=view==="jour"?selectedDate:new Date();
     return getDayGroups(kpiDate,overrides);
   },[selectedDate,view,overrides]);
-  const mCount=kpiGroups.matin.length;
-  const sCount=kpiGroups.soir.length;
   const eCount=kpiGroups.etu.length;
   const absCount=kpiGroups.absRH.length+kpiGroups.absCP.length+kpiGroups.absMAL.length+kpiGroups.absOther.length;
   const pendingAbsenceLookup=buildPendingAbsenceLookup(pendingRequests);
+  const currentPresenceCounts=useMemo(()=>{
+    const targetDate=selectedDate&&view==="jour"?selectedDate:new Date();
+    return getPlanningDayPresence(targetDate,overrides);
+  },[overrides,selectedDate,view]);
   const triColumns=splitPlanningItemsInColumns(
     Object.entries(triData).sort(([a],[b])=>Number(a)-Number(b)),
     2,
@@ -1123,8 +1175,8 @@ export default function PlanningApp(){
         {/* KPIs */}
         {view!=="jour"&&(
           <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}}>
-            <KPI value={mCount} label="Matin aujourd'hui" color={mCount<8?V.red:V.mc} gradient={mCount<8?"linear-gradient(135deg,#fef1f2,#fff8f8)":V.mG}/>
-            <KPI value={sCount} label="Après-midi" color={V.purple} gradient="linear-gradient(135deg,#f5f2fe,#faf8ff)"/>
+            <KPI value={currentPresenceCounts.morningCount} label="Matin aujourd'hui" color={getPlanningLevelColor(getPlanningCountLevel(currentPresenceCounts.morningCount,"morning",presenceThresholds))} gradient={getPlanningCountLevel(currentPresenceCounts.morningCount,"morning",presenceThresholds)==="ok"?V.mG:"linear-gradient(135deg,#fef1f2,#fff8f8)"}/>
+            <KPI value={currentPresenceCounts.afternoonCount} label="Après-midi" color={getPlanningLevelColor(getPlanningCountLevel(currentPresenceCounts.afternoonCount,"afternoon",presenceThresholds))} gradient={getPlanningCountLevel(currentPresenceCounts.afternoonCount,"afternoon",presenceThresholds)==="ok"?"linear-gradient(135deg,#f5f2fe,#faf8ff)":"linear-gradient(135deg,#fff7ed,#fffaf5)"}/>
             <KPI value={eCount} label="Étudiants" color={eCount>0?V.cyan:"#9ca3af"} gradient={eCount>0?"linear-gradient(135deg,#effcfd,#f7feff)":"linear-gradient(135deg,#f5f7fa,#fafbfc)"}/>
             <KPI value={absCount} label="Absents" color={absCount>3?V.red:V.amber} gradient={absCount>3?"linear-gradient(135deg,#fef1f2,#fff8f8)":"linear-gradient(135deg,#fffbeb,#fffef5)"}/>
           </div>
@@ -1134,9 +1186,9 @@ export default function PlanningApp(){
         <Card style={view==="semaine"?{padding:14}:{}}>
           {view!=="semaine"&&<Legend/>}
           {view!=="semaine"&&<div style={{height:1,background:`linear-gradient(90deg,transparent,${V.line},transparent)`,margin:"8px 0 12px"}}/>}
-          {view==="mois"&&<VueMois year={year} month={month} filter={filter} overrides={overrides} triData={triData} pendingAbsenceLookup={pendingAbsenceLookup} onEdit={handleEdit}/>}
-          {view==="semaine"&&<VueSemaine weekStart={weekStart} overrides={overrides} triData={triData} onEdit={handleEdit}/>}
-          {view==="jour"&&<VueJour date={selectedDate} overrides={overrides} triData={triData} binomes={binomes} onEdit={handleEdit}/>}
+          {view==="mois"&&<VueMois year={year} month={month} filter={filter} overrides={overrides} triData={triData} pendingAbsenceLookup={pendingAbsenceLookup} presenceThresholds={presenceThresholds} onEdit={handleEdit}/>}
+          {view==="semaine"&&<VueSemaine weekStart={weekStart} overrides={overrides} triData={triData} presenceThresholds={presenceThresholds} onEdit={handleEdit}/>}
+          {view==="jour"&&<VueJour date={selectedDate} overrides={overrides} triData={triData} binomes={binomes} presenceThresholds={presenceThresholds} onEdit={handleEdit}/>}
         </Card>
 
         {/* TRI CADDIE + BINÔMES (month view) */}

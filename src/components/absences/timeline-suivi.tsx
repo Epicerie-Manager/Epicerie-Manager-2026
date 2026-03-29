@@ -11,13 +11,25 @@ import {
   type AbsenceTypeId,
 } from "@/lib/absences-data";
 import {
-  getPlanningStatus,
   getPlanningUpdatedEventName,
   loadPlanningOverrides,
   planningEmployees,
   type PlanningOverrides,
 } from "@/lib/planning-store";
-import { defaultPresenceThresholds, getPresenceThresholdLevel, normalizePresenceThresholds } from "@/lib/presence-thresholds";
+import { getPlanningPresenceCountsForDate } from "@/lib/planning-presence";
+import {
+  formatPresenceThresholdSummary,
+  getPresenceCountLevel,
+  normalizePresenceThresholds,
+  type PresenceThresholdLevel,
+  type PresenceThresholds,
+} from "@/lib/presence-thresholds";
+import {
+  getPresenceThresholdsUpdatedEventName,
+  loadPresenceThresholds,
+  savePresenceThresholdsToSupabase,
+  syncPresenceThresholdsFromSupabase,
+} from "@/lib/presence-thresholds-store";
 
 type TimelineSuiviProps = {
   absences: AbsenceRequest[];
@@ -26,6 +38,13 @@ type TimelineSuiviProps = {
 
 type ViewMode = "mois" | "periode" | "resume";
 type StatusFilter = "ALL" | AbsenceStatusId;
+type PresenceDaySummary = {
+  dayIso: string;
+  morningCount: number;
+  afternoonCount: number;
+  absentCount: number;
+  scheduledCount: number;
+};
 
 const MONTHS = [
   "Janvier",
@@ -85,11 +104,7 @@ function pendingPattern(color: string) {
   return `repeating-linear-gradient(45deg, ${color}cc, ${color}cc 4px, ${color}66 4px, ${color}66 8px)`;
 }
 
-function getPresenceColor(present: number, warningThreshold: number, criticalThreshold: number) {
-  const level = getPresenceThresholdLevel(
-    present,
-    normalizePresenceThresholds(warningThreshold, criticalThreshold),
-  );
+function getPresenceColor(level: PresenceThresholdLevel) {
   if (level === "critical") return "#ef4444";
   if (level === "warning") return "#f59e0b";
   return "#22c55e";
@@ -97,14 +112,32 @@ function getPresenceColor(present: number, warningThreshold: number, criticalThr
 
 function EffectifParJour({
   perDay,
-  warningThreshold,
-  criticalThreshold,
+  thresholds,
 }: {
-  perDay: Array<{ dayIso: string; present: number; absent: number }>;
-  warningThreshold: number;
-  criticalThreshold: number;
+  perDay: PresenceDaySummary[];
+  thresholds: PresenceThresholds;
 }) {
-  const peakScheduled = Math.max(...perDay.map((day) => day.present + day.absent), 1);
+  const peakCount = Math.max(
+    ...perDay.flatMap((day) => [day.morningCount, day.afternoonCount]),
+    1,
+  );
+  const rows = [
+    {
+      key: "morning",
+      label: "Matin",
+      warning: thresholds.warningMorning,
+      critical: thresholds.criticalMorning,
+      getCount: (day: PresenceDaySummary) => day.morningCount,
+    },
+    {
+      key: "afternoon",
+      label: "Après-midi",
+      warning: thresholds.warningAfternoon,
+      critical: thresholds.criticalAfternoon,
+      getCount: (day: PresenceDaySummary) => day.afternoonCount,
+    },
+  ];
+
   return (
     <div
       style={{
@@ -126,41 +159,64 @@ function EffectifParJour({
         }}
       >
         <div style={{ fontSize: "11px", fontWeight: 700, color: "#94a3b8" }}>
-          EFFECTIF PRESENT PAR JOUR
+          EFFECTIF PRESENT PAR HORAIRES
         </div>
         <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
           <span style={{ fontSize: "10px", color: "#64748b", display: "inline-flex", alignItems: "center", gap: "4px" }}>
             <span style={{ width: "8px", height: "8px", borderRadius: "999px", background: "#22c55e" }} />
-            Vert {`>= ${warningThreshold}`}
+            OK
           </span>
           <span style={{ fontSize: "10px", color: "#64748b", display: "inline-flex", alignItems: "center", gap: "4px" }}>
             <span style={{ width: "8px", height: "8px", borderRadius: "999px", background: "#f59e0b" }} />
-            Orange {`< ${warningThreshold}`}
+            Alerte
           </span>
           <span style={{ fontSize: "10px", color: "#64748b", display: "inline-flex", alignItems: "center", gap: "4px" }}>
             <span style={{ width: "8px", height: "8px", borderRadius: "999px", background: "#ef4444" }} />
-            Rouge {`< ${criticalThreshold}`}
+            Critique
           </span>
         </div>
       </div>
 
-      <div style={{ display: "flex", alignItems: "flex-end", height: "38px" }}>
-        {perDay.map((day) => {
-          const height = (day.present / peakScheduled) * 100;
-          const color = getPresenceColor(day.present, warningThreshold, criticalThreshold);
-          return (
-            <div
-              key={day.dayIso}
-              title={`${day.dayIso}: ${day.present} presents, ${day.absent} absents`}
-              style={{
-                flex: 1,
-                minWidth: 0,
-                height: `${height}%`,
-                background: `linear-gradient(180deg, ${color}66, ${color})`,
-              }}
-            />
-          );
-        })}
+      <div style={{ display: "grid", gap: "8px" }}>
+        {rows.map((row) => (
+          <div
+            key={row.key}
+            style={{
+              display: "grid",
+              gridTemplateColumns: "92px 1fr",
+              gap: "10px",
+              alignItems: "end",
+            }}
+          >
+            <div style={{ display: "grid", gap: "2px" }}>
+              <span style={{ fontSize: "10px", fontWeight: 700, color: "#475569" }}>{row.label}</span>
+              <span style={{ fontSize: "10px", color: "#94a3b8" }}>
+                {`alerte < ${row.warning} · critique < ${row.critical}`}
+              </span>
+            </div>
+            <div style={{ display: "flex", alignItems: "flex-end", gap: "2px", minHeight: "34px" }}>
+              {perDay.map((day) => {
+                const count = row.getCount(day);
+                const level = getPresenceCountLevel(count, row.warning, row.critical);
+                const color = getPresenceColor(level);
+                const height = count === 0 ? 6 : Math.max((count / peakCount) * 100, 14);
+                return (
+                  <div
+                    key={`${row.key}-${day.dayIso}`}
+                    title={`${day.dayIso} · ${row.label}: ${count} · matin ${day.morningCount} · après-midi ${day.afternoonCount} · absents ${day.absentCount}`}
+                    style={{
+                      flex: 1,
+                      minWidth: 0,
+                      height: `${height}%`,
+                      borderRadius: "5px 5px 0 0",
+                      background: `linear-gradient(180deg, ${color}66, ${color})`,
+                    }}
+                  />
+                );
+              })}
+            </div>
+          </div>
+        ))}
       </div>
     </div>
   );
@@ -175,8 +231,11 @@ export function TimelineSuivi({ absences, employees }: TimelineSuiviProps) {
   const [dateFrom, setDateFrom] = useState("2026-06-15");
   const [dateTo, setDateTo] = useState("2026-09-01");
   const [filterStatus, setFilterStatus] = useState<StatusFilter>("ALL");
-  const [warningThresholdInput, setWarningThresholdInput] = useState(defaultPresenceThresholds.warningThreshold);
-  const [criticalThresholdInput, setCriticalThresholdInput] = useState(defaultPresenceThresholds.criticalThreshold);
+  const [savedThresholds, setSavedThresholds] = useState<PresenceThresholds>(() => loadPresenceThresholds());
+  const [thresholdDraft, setThresholdDraft] = useState<PresenceThresholds>(() => loadPresenceThresholds());
+  const [thresholdSavePending, setThresholdSavePending] = useState(false);
+  const [thresholdMessage, setThresholdMessage] = useState("");
+  const [thresholdError, setThresholdError] = useState("");
 
   const allEmployees = useMemo(
     () =>
@@ -196,32 +255,23 @@ export function TimelineSuivi({ absences, employees }: TimelineSuiviProps) {
     return () => window.removeEventListener(eventName, refreshPlanning);
   }, []);
 
-  const getPresenceForDay = useMemo(() => {
-    return (dayIso: string, sourceAbsences: AbsenceRequest[]) => {
-      const date = toDate(dayIso);
-      const scheduledEmployees = planningEmployees.filter(
-        (employee) => getPlanningStatus(employee, date, planningOverrides) === "PRESENT",
-      );
-      const scheduledNames = new Set(scheduledEmployees.map((employee) => employee.n));
-      const absentNames = new Set<string>();
-
-      sourceAbsences.forEach((absence) => {
-        if (absence.status !== "APPROUVE") return;
-        if (absence.startDate > dayIso || absence.endDate < dayIso) return;
-
-        if (absence.employee === "TOUS") {
-          scheduledNames.forEach((name) => absentNames.add(name));
-          return;
-        }
-        if (scheduledNames.has(absence.employee)) {
-          absentNames.add(absence.employee);
-        }
-      });
-
-      const absent = absentNames.size;
-      const present = Math.max(scheduledEmployees.length - absent, 0);
-      return { present, absent };
+  useEffect(() => {
+    const refreshThresholds = () => {
+      const nextThresholds = loadPresenceThresholds();
+      setSavedThresholds(nextThresholds);
+      setThresholdDraft(nextThresholds);
     };
+
+    refreshThresholds();
+    void syncPresenceThresholdsFromSupabase();
+    const eventName = getPresenceThresholdsUpdatedEventName();
+    window.addEventListener(eventName, refreshThresholds);
+    return () => window.removeEventListener(eventName, refreshThresholds);
+  }, []);
+
+  const getPresenceForDay = useMemo(() => {
+    return (dayIso: string, sourceAbsences: AbsenceRequest[]) =>
+      getPlanningPresenceCountsForDate(toDate(dayIso), planningOverrides, sourceAbsences);
   }, [planningOverrides]);
 
   const filteredAbsences = useMemo(() => {
@@ -231,9 +281,11 @@ export function TimelineSuivi({ absences, employees }: TimelineSuiviProps) {
   }, [absences, filterStatus]);
 
   const todayIso = new Date().toISOString().slice(0, 10);
-  const approved = filteredAbsences.filter((item) => item.status === "APPROUVE");
+  const approved = absences.filter((item) => item.status === "APPROUVE");
   const pending = filteredAbsences.filter((item) => item.status === "EN_ATTENTE");
-  const { absent: absentToday, present: presentToday } = getPresenceForDay(todayIso, approved);
+  const todayPresence = getPresenceForDay(todayIso, approved);
+  const absentToday = todayPresence.absentCount;
+  const presentToday = Math.max(todayPresence.scheduledCount - todayPresence.absentCount, 0);
 
   const legendTypeCounts = useMemo(() => {
     const counters: Record<AbsenceTypeId, number> = {
@@ -258,9 +310,37 @@ export function TimelineSuivi({ absences, employees }: TimelineSuiviProps) {
     return Array.from(new Set([2026, ...list])).sort((a, b) => a - b);
   }, [absences]);
 
-  const { warningThreshold, criticalThreshold } = useMemo(() => {
-    return normalizePresenceThresholds(warningThresholdInput, criticalThresholdInput);
-  }, [criticalThresholdInput, warningThresholdInput]);
+  const normalizedSavedThresholds = useMemo(() => {
+    return normalizePresenceThresholds(savedThresholds);
+  }, [savedThresholds]);
+
+  const thresholds = useMemo(() => {
+    return normalizePresenceThresholds(thresholdDraft);
+  }, [thresholdDraft]);
+
+  const thresholdInputsMax = Math.max(allEmployees.length, planningEmployees.length, 20);
+  const hasThresholdChanges =
+    thresholds.warningMorning !== normalizedSavedThresholds.warningMorning ||
+    thresholds.criticalMorning !== normalizedSavedThresholds.criticalMorning ||
+    thresholds.warningAfternoon !== normalizedSavedThresholds.warningAfternoon ||
+    thresholds.criticalAfternoon !== normalizedSavedThresholds.criticalAfternoon;
+
+  const saveThresholds = async () => {
+    setThresholdSavePending(true);
+    setThresholdError("");
+    setThresholdMessage("");
+
+    try {
+      const nextThresholds = await savePresenceThresholdsToSupabase(thresholds);
+      setSavedThresholds(nextThresholds);
+      setThresholdDraft(nextThresholds);
+      setThresholdMessage("Seuils enregistrés sur Supabase.");
+    } catch (error) {
+      setThresholdError(error instanceof Error ? error.message : "Impossible d'enregistrer les seuils.");
+    } finally {
+      setThresholdSavePending(false);
+    }
+  };
 
   const monthLabel = `${MONTHS[month]} ${year}`;
   const monthValue = `${year}-${String(month + 1).padStart(2, "0")}`;
@@ -461,28 +541,107 @@ export function TimelineSuivi({ absences, employees }: TimelineSuiviProps) {
             ) : null}
             {(view === "mois" || view === "periode") ? (
               <>
-                <span style={{ fontSize: "12px", color: "#64748b" }}>Seuil alerte</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={allEmployees.length}
-                  value={warningThresholdInput}
-                  onChange={(event) => setWarningThresholdInput(Number(event.target.value))}
-                  style={{ width: "74px", minHeight: "34px", borderRadius: "8px", border: "1px solid #dbe3eb", padding: "0 10px" }}
-                />
-                <span style={{ fontSize: "12px", color: "#64748b" }}>Seuil critique</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={allEmployees.length}
-                  value={criticalThresholdInput}
-                  onChange={(event) => setCriticalThresholdInput(Number(event.target.value))}
-                  style={{ width: "74px", minHeight: "34px", borderRadius: "8px", border: "1px solid #dbe3eb", padding: "0 10px" }}
-                />
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, auto))", gap: "8px 10px", alignItems: "center" }}>
+                  <span style={{ fontSize: "12px", color: "#64748b" }}>Alerte matin</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={thresholdInputsMax}
+                    value={thresholdDraft.warningMorning}
+                    onChange={(event) => {
+                      setThresholdDraft((current) => ({
+                        ...current,
+                        warningMorning: Number(event.target.value),
+                      }));
+                      setThresholdMessage("");
+                      setThresholdError("");
+                    }}
+                    style={{ width: "74px", minHeight: "34px", borderRadius: "8px", border: "1px solid #dbe3eb", padding: "0 10px" }}
+                  />
+                  <span style={{ fontSize: "12px", color: "#64748b" }}>Critique matin</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={thresholdInputsMax}
+                    value={thresholdDraft.criticalMorning}
+                    onChange={(event) => {
+                      setThresholdDraft((current) => ({
+                        ...current,
+                        criticalMorning: Number(event.target.value),
+                      }));
+                      setThresholdMessage("");
+                      setThresholdError("");
+                    }}
+                    style={{ width: "74px", minHeight: "34px", borderRadius: "8px", border: "1px solid #dbe3eb", padding: "0 10px" }}
+                  />
+                  <span style={{ fontSize: "12px", color: "#64748b" }}>Alerte après-midi</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={thresholdInputsMax}
+                    value={thresholdDraft.warningAfternoon}
+                    onChange={(event) => {
+                      setThresholdDraft((current) => ({
+                        ...current,
+                        warningAfternoon: Number(event.target.value),
+                      }));
+                      setThresholdMessage("");
+                      setThresholdError("");
+                    }}
+                    style={{ width: "74px", minHeight: "34px", borderRadius: "8px", border: "1px solid #dbe3eb", padding: "0 10px" }}
+                  />
+                  <span style={{ fontSize: "12px", color: "#64748b" }}>Critique après-midi</span>
+                  <input
+                    type="number"
+                    min={0}
+                    max={thresholdInputsMax}
+                    value={thresholdDraft.criticalAfternoon}
+                    onChange={(event) => {
+                      setThresholdDraft((current) => ({
+                        ...current,
+                        criticalAfternoon: Number(event.target.value),
+                      }));
+                      setThresholdMessage("");
+                      setThresholdError("");
+                    }}
+                    style={{ width: "74px", minHeight: "34px", borderRadius: "8px", border: "1px solid #dbe3eb", padding: "0 10px" }}
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={saveThresholds}
+                  disabled={thresholdSavePending || !hasThresholdChanges}
+                  style={{
+                    minHeight: "34px",
+                    borderRadius: "8px",
+                    border: "1px solid #dbe3eb",
+                    padding: "0 12px",
+                    background: thresholdSavePending || !hasThresholdChanges ? "#f8fafc" : "#fff",
+                    color: thresholdSavePending || !hasThresholdChanges ? "#94a3b8" : theme.color,
+                    fontWeight: 700,
+                    cursor: thresholdSavePending || !hasThresholdChanges ? "default" : "pointer",
+                  }}
+                >
+                  {thresholdSavePending ? "Enregistrement..." : "Enregistrer les seuils"}
+                </button>
               </>
             ) : null}
           </div>
         </div>
+
+        {(view === "mois" || view === "periode") ? (
+          <div style={{ marginTop: "10px", display: "grid", gap: "4px" }}>
+            <div style={{ fontSize: "11px", color: "#64748b" }}>
+              Seuils partagés Dashboard / Planning · {formatPresenceThresholdSummary(thresholds)}
+            </div>
+            {thresholdMessage ? (
+              <div style={{ fontSize: "11px", fontWeight: 700, color: "#0f766e" }}>{thresholdMessage}</div>
+            ) : null}
+            {thresholdError ? (
+              <div style={{ fontSize: "11px", fontWeight: 700, color: "#b91c1c" }}>{thresholdError}</div>
+            ) : null}
+          </div>
+        ) : null}
 
         <div style={{ display: "flex", gap: "14px", flexWrap: "wrap", marginTop: "10px" }}>
           {absenceTypes.map((type) => (
@@ -500,10 +659,10 @@ export function TimelineSuivi({ absences, employees }: TimelineSuiviProps) {
             year={year}
             month={month}
             absences={filteredAbsences}
+            approvedAbsences={approved}
             employees={allEmployees}
             getPresenceForDay={getPresenceForDay}
-            warningThreshold={warningThreshold}
-            criticalThreshold={criticalThreshold}
+            thresholds={thresholds}
           />
         ) : null}
         {view === "periode" ? (
@@ -511,10 +670,10 @@ export function TimelineSuivi({ absences, employees }: TimelineSuiviProps) {
             dateFrom={dateFrom}
             dateTo={dateTo}
             absences={filteredAbsences}
+            approvedAbsences={approved}
             employees={allEmployees}
             getPresenceForDay={getPresenceForDay}
-            warningThreshold={warningThreshold}
-            criticalThreshold={criticalThreshold}
+            thresholds={thresholds}
           />
         ) : null}
         {view === "resume" ? (
@@ -529,18 +688,18 @@ function VueMois({
   year,
   month,
   absences,
+  approvedAbsences,
   employees,
   getPresenceForDay,
-  warningThreshold,
-  criticalThreshold,
+  thresholds,
 }: {
   year: number;
   month: number;
   absences: AbsenceRequest[];
+  approvedAbsences: AbsenceRequest[];
   employees: string[];
-  getPresenceForDay: (dayIso: string, sourceAbsences: AbsenceRequest[]) => { present: number; absent: number };
-  warningThreshold: number;
-  criticalThreshold: number;
+  getPresenceForDay: (dayIso: string, sourceAbsences: AbsenceRequest[]) => ReturnType<typeof getPlanningPresenceCountsForDate>;
+  thresholds: PresenceThresholds;
 }) {
   const days = daysInMonth(year, month);
   const dayList = Array.from({ length: days }, (_, index) => index + 1);
@@ -550,16 +709,20 @@ function VueMois({
   const todayIso = isoDate(today.getFullYear(), today.getMonth(), today.getDate());
 
   const relevant = absences.filter((absence) => overlap(absence.startDate, absence.endDate, monthStart, monthEnd));
-  const relevantApproved = relevant.filter((absence) => absence.status === "APPROUVE");
+  const relevantApproved = approvedAbsences.filter((absence) =>
+    overlap(absence.startDate, absence.endDate, monthStart, monthEnd),
+  );
 
   const perDay = Array.from({ length: days }, (_, index) => {
     const currentDay = index + 1;
     const currentIso = isoDate(year, month, currentDay);
-    const { present, absent } = getPresenceForDay(currentIso, relevantApproved);
+    const { morningCount, afternoonCount, absentCount, scheduledCount } = getPresenceForDay(currentIso, relevantApproved);
     return {
       dayIso: currentIso,
-      present,
-      absent,
+      morningCount,
+      afternoonCount,
+      absentCount,
+      scheduledCount,
     };
   });
 
@@ -567,7 +730,7 @@ function VueMois({
     const currentIso = isoDate(year, month, day);
     return relevant.filter(
       (absence) =>
-        absence.employee === employee &&
+        (absence.employee === employee || absence.employee === "TOUS") &&
         absence.startDate <= currentIso &&
         absence.endDate >= currentIso,
     );
@@ -577,8 +740,7 @@ function VueMois({
     <div>
       <EffectifParJour
         perDay={perDay}
-        warningThreshold={warningThreshold}
-        criticalThreshold={criticalThreshold}
+        thresholds={thresholds}
       />
       <div style={{ overflowX: "auto", maxHeight: "440px", overflowY: "auto" }}>
       <table style={{ borderCollapse: "collapse", width: "100%", minWidth: "980px" }}>
@@ -657,18 +819,18 @@ function VuePeriode({
   dateFrom,
   dateTo,
   absences,
+  approvedAbsences,
   employees,
   getPresenceForDay,
-  warningThreshold,
-  criticalThreshold,
+  thresholds,
 }: {
   dateFrom: string;
   dateTo: string;
   absences: AbsenceRequest[];
+  approvedAbsences: AbsenceRequest[];
   employees: string[];
-  getPresenceForDay: (dayIso: string, sourceAbsences: AbsenceRequest[]) => { present: number; absent: number };
-  warningThreshold: number;
-  criticalThreshold: number;
+  getPresenceForDay: (dayIso: string, sourceAbsences: AbsenceRequest[]) => ReturnType<typeof getPlanningPresenceCountsForDate>;
+  thresholds: PresenceThresholds;
 }) {
   const from = toDate(dateFrom);
   const to = toDate(dateTo);
@@ -676,6 +838,9 @@ function VuePeriode({
   if (totalDays <= 0) return <p style={{ padding: "14px", color: "#94a3b8" }}>Periode invalide.</p>;
 
   const filtered = absences.filter((absence) => overlap(absence.startDate, absence.endDate, dateFrom, dateTo));
+  const filteredApproved = approvedAbsences.filter((absence) =>
+    overlap(absence.startDate, absence.endDate, dateFrom, dateTo),
+  );
 
   const shortRange = totalDays <= 21;
   const mediumRange = totalDays > 21 && totalDays <= 62;
@@ -723,16 +888,15 @@ function VuePeriode({
   const perDay = Array.from({ length: totalDays }, (_, index) => {
     const day = new Date(from.getTime() + index * 86400000);
     const dayIso = isoDate(day.getFullYear(), day.getMonth(), day.getDate());
-    const { present, absent } = getPresenceForDay(dayIso, filtered);
-    return { dayIso, present, absent };
+    const { morningCount, afternoonCount, absentCount, scheduledCount } = getPresenceForDay(dayIso, filteredApproved);
+    return { dayIso, morningCount, afternoonCount, absentCount, scheduledCount };
   });
 
   return (
     <div>
       <EffectifParJour
         perDay={perDay}
-        warningThreshold={warningThreshold}
-        criticalThreshold={criticalThreshold}
+        thresholds={thresholds}
       />
 
       <div style={{ position: "relative" }}>

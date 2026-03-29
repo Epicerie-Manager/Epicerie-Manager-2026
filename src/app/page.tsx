@@ -12,7 +12,12 @@ import { absenceTypes } from "@/lib/absences-data";
 import { loadAbsenceRequests, getAbsencesUpdatedEventName, syncAbsencesFromSupabase } from "@/lib/absences-store";
 import { balisageData, balisageMonths, balisageObjective, type BalisageEmployeeStat } from "@/lib/balisage-data";
 import { attachRhActivityToBalisageStats, getActiveBalisageStats, getInactiveBalisageStats } from "@/lib/balisage-rh";
-import { defaultPresenceThresholds, getPresenceThresholdLevel } from "@/lib/presence-thresholds";
+import { formatPresenceThresholdSummary, getPresenceThresholdLevel } from "@/lib/presence-thresholds";
+import {
+  getPresenceThresholdsUpdatedEventName,
+  loadPresenceThresholds,
+  syncPresenceThresholdsFromSupabase,
+} from "@/lib/presence-thresholds-store";
 import { loadBalisageData, getBalisageUpdatedEventName, syncBalisageFromSupabase } from "@/lib/balisage-store";
 import {
   planningEmployees,
@@ -27,6 +32,7 @@ import {
   type PlanningOverrides,
   type PlanningTriData,
 } from "@/lib/planning-store";
+import { getPlanningPresenceCountsForDate } from "@/lib/planning-presence";
 import { getRhUpdatedEventName, loadRhEmployees, syncRhFromSupabase } from "@/lib/rh-store";
 import { plateauOperationsByMonth } from "@/lib/plateau-data";
 
@@ -113,40 +119,6 @@ function getBalisageDynamicStatus(total: number, monthId: string, today = new Da
   return "Alerte";
 }
 
-function getDashboardPlanningHoraire(
-  employee: { n: string; t: "M" | "S" | "E"; hs: string | null; hm: string | null },
-  date: Date,
-  overrides: PlanningOverrides,
-) {
-  const key = `${employee.n}_${formatPlanningDate(date)}`;
-  const override = overrides[key];
-  if (override?.h) return override.h;
-  const dow = date.getDay();
-  if (dow === 2) return employee.hm;
-  if (dow === 6 && employee.t === "E") return "14h-21h30";
-  return employee.hs;
-}
-
-function getDashboardShiftBuckets(horaire: string | null) {
-  let morning = false;
-  let afternoon = false;
-
-  String(horaire ?? "")
-    .split("/")
-    .map((slot) => slot.trim())
-    .filter(Boolean)
-    .forEach((slot) => {
-      const match = slot.match(/(\d{1,2})\s*h/i);
-      if (!match) return;
-      const startHour = Number(match[1]);
-      if (Number.isNaN(startHour)) return;
-      if (startHour < 12) morning = true;
-      else afternoon = true;
-    });
-
-  return { morning, afternoon };
-}
-
 // ── Icônes SVG inline (strokeWidth 1.8) ──────────
 const svgProps = {
   viewBox: "0 0 24 24",
@@ -213,6 +185,11 @@ export default function DashboardPage() {
   const [planningTriData, setPlanningTriData] = useState<PlanningTriData>(defaultPlanningTriData);
   const [balisageDataState, setBalisageDataState] = useState<Record<string, BalisageEmployeeStat[]>>(balisageData);
   const [rhEmployees, setRhEmployees] = useState(() => loadRhEmployees());
+  const [presenceThresholds, setPresenceThresholds] = useState(() => loadPresenceThresholds());
+  const [dashboardMonthCursor, setDashboardMonthCursor] = useState(() => {
+    const current = new Date();
+    return new Date(current.getFullYear(), current.getMonth(), 1);
+  });
   const [monthlyIssuePanel, setMonthlyIssuePanel] = useState<"alerts" | "critical" | "pending" | null>(null);
 
   useEffect(() => {
@@ -223,6 +200,7 @@ export default function DashboardPage() {
       setPlanningTriData(loadPlanningTriData());
       setBalisageDataState(loadBalisageData());
       setRhEmployees(loadRhEmployees());
+      setPresenceThresholds(loadPresenceThresholds());
     };
 
     refreshAll();
@@ -231,6 +209,7 @@ export default function DashboardPage() {
       syncBalisageFromSupabase(),
       syncAbsencesFromSupabase(),
       syncRhFromSupabase(),
+      syncPresenceThresholdsFromSupabase(),
     ]).then(() => {
       refreshAll();
     });
@@ -240,6 +219,7 @@ export default function DashboardPage() {
       getPlanningUpdatedEventName(),
       getBalisageUpdatedEventName(),
       getRhUpdatedEventName(),
+      getPresenceThresholdsUpdatedEventName(),
     ];
     listeners.forEach((eventName) => window.addEventListener(eventName, refreshAll));
 
@@ -286,52 +266,57 @@ export default function DashboardPage() {
         day: "2-digit",
         month: "2-digit",
       });
-      const dayCounts = planningEmployees.reduce((counts, employee) => {
-        const status = getPlanningStatus(employee, date, planningOverrides);
-        if (status !== "PRESENT") return counts;
-        const horaire = getDashboardPlanningHoraire(employee, date, planningOverrides);
-        const shifts = getDashboardShiftBuckets(horaire);
-        return {
-          morningCount: counts.morningCount + (shifts.morning ? 1 : 0),
-          afternoonCount: counts.afternoonCount + (shifts.afternoon ? 1 : 0),
-        };
-      }, { morningCount: 0, afternoonCount: 0 });
-      const alert = !isFuture && dayCounts.morningCount < 9;
+      const dayCounts = getPlanningPresenceCountsForDate(date, planningOverrides);
+      const level = isFuture
+        ? "ok"
+        : getPresenceThresholdLevel(
+            {
+              morning: dayCounts.morningCount,
+              afternoon: dayCounts.afternoonCount,
+            },
+            presenceThresholds,
+          );
+      const alert = !isFuture && level !== "ok";
       return {
         dayIso,
         label,
         dateLabel,
         morningCount: dayCounts.morningCount,
         afternoonCount: dayCounts.afternoonCount,
-        sub: date.toDateString() === today.toDateString() ? "Aujourd'hui" : alert ? "⚠ matin bas" : "OK",
+        sub:
+          date.toDateString() === today.toDateString()
+            ? "Aujourd'hui"
+            : level === "critical"
+              ? "Critique"
+              : level === "warning"
+                ? "Alerte"
+                : "OK",
         alert,
+        level,
         active: dayIso === todayIso,
       };
     });
-  }, [planningOverrides, today, todayIso]);
+  }, [planningOverrides, presenceThresholds, today, todayIso]);
 
   const monthlyPlanningDays = useMemo(() => {
-    const year = today.getFullYear();
-    const month = today.getMonth();
+    const year = dashboardMonthCursor.getFullYear();
+    const month = dashboardMonthCursor.getMonth();
     const totalDays = new Date(year, month + 1, 0).getDate();
 
     return Array.from({ length: totalDays }, (_, index) => {
       const date = new Date(year, month, index + 1);
       const dayIso = formatPlanningDate(date);
       const isSunday = date.getDay() === 0;
-      const counts = planningEmployees.reduce((acc, employee) => {
-        const status = getPlanningStatus(employee, date, planningOverrides);
-        if (status !== "PRESENT") return acc;
-        const horaire = getDashboardPlanningHoraire(employee, date, planningOverrides);
-        const shifts = getDashboardShiftBuckets(horaire);
-        return {
-          morningCount: acc.morningCount + (shifts.morning ? 1 : 0),
-          afternoonCount: acc.afternoonCount + (shifts.afternoon ? 1 : 0),
-        };
-      }, { morningCount: 0, afternoonCount: 0 });
+      const counts = getPlanningPresenceCountsForDate(date, planningOverrides);
       const level = isSunday
         ? "ok"
-        : getPresenceThresholdLevel(counts.morningCount, defaultPresenceThresholds);
+        : getPresenceThresholdLevel(
+            {
+              morning: counts.morningCount,
+              afternoon: counts.afternoonCount,
+            },
+            presenceThresholds,
+          );
 
       return {
         dayIso,
@@ -341,7 +326,7 @@ export default function DashboardPage() {
         level,
       };
     });
-  }, [planningOverrides, today]);
+  }, [dashboardMonthCursor, planningOverrides, presenceThresholds]);
 
   const monthlyMonitoredDays = monthlyPlanningDays.filter((day) => day.date.getDay() !== 0);
   const monthlyRiskDays = monthlyMonitoredDays.filter((day) => day.level !== "ok");
@@ -384,7 +369,16 @@ export default function DashboardPage() {
   ).size;
   const pendingCriticalRiskCount = pendingRiskRequests.filter((item) => item.highestLevel === "critical").length;
   const monthlyIssueDays = monthlyIssuePanel === "critical" ? monthlyCriticalDays : monthlyAlertDays;
-  const dashboardMonthLabel = today.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+  const dashboardMonthLabel = dashboardMonthCursor.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
+  const isCurrentDashboardMonth =
+    dashboardMonthCursor.getFullYear() === today.getFullYear() &&
+    dashboardMonthCursor.getMonth() === today.getMonth();
+  const shiftDashboardMonth = (offset: number) => {
+    setDashboardMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
+  };
+  const resetDashboardMonth = () => {
+    setDashboardMonthCursor(new Date(today.getFullYear(), today.getMonth(), 1));
+  };
 
   const monthId = MONTH_TO_BALISAGE[today.getMonth()] ?? "MARS_2026";
   const monthLabel = balisageMonths.find((month) => month.id === monthId)?.label ?? "Mois courant";
@@ -439,7 +433,7 @@ export default function DashboardPage() {
 
   const alerts = [
     ...(weekCards.some((item) => item.alert)
-      ? [{ id: "plan-low", text: "Effectif matin bas sur la semaine en cours", module: "Planning", tone: "yellow" as AlertTone }]
+      ? [{ id: "plan-low", text: "Présence sous seuil sur la semaine en cours", module: "Planning", tone: "yellow" as AlertTone }]
       : []),
     ...(pendingAbsences > 0
       ? [{ id: "abs-pending", text: `${pendingAbsences} demande(s) d'absence en attente`, module: "Absences", tone: "yellow" as AlertTone }]
@@ -713,10 +707,73 @@ export default function DashboardPage() {
 
           {/* KPI mensuel */}
           <Card>
-            <Kicker moduleKey="planning" label="Indicateurs" icon={<IconTrend />} />
-            <h2 style={{ fontSize: "17px", fontWeight: 700, letterSpacing: "-0.02em", color: "#0f172a" }}>Vue mensuelle</h2>
+            <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", flexWrap: "wrap", alignItems: "flex-start" }}>
+              <div>
+                <Kicker moduleKey="planning" label="Indicateurs" icon={<IconTrend />} />
+                <h2 style={{ fontSize: "17px", fontWeight: 700, letterSpacing: "-0.02em", color: "#0f172a" }}>Vue mensuelle</h2>
+              </div>
+              <div style={{ display: "flex", alignItems: "center", gap: "6px", flexWrap: "wrap" }}>
+                <div style={{ display: "inline-flex", alignItems: "center", gap: "6px", border: "1px solid #dbe3eb", borderRadius: "10px", padding: "4px", background: "#fff" }}>
+                  <button
+                    type="button"
+                    onClick={() => shiftDashboardMonth(-1)}
+                    aria-label="Mois précédent"
+                    style={{
+                      minWidth: "30px",
+                      height: "30px",
+                      borderRadius: "8px",
+                      border: "1px solid #e2e8f0",
+                      background: "#f8fafc",
+                      color: "#475569",
+                      fontWeight: 800,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {"<"}
+                  </button>
+                  <div style={{ minWidth: "138px", textAlign: "center", fontSize: "13px", fontWeight: 700, color: "#334155", padding: "0 2px" }}>
+                    {dashboardMonthLabel}
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => shiftDashboardMonth(1)}
+                    aria-label="Mois suivant"
+                    style={{
+                      minWidth: "30px",
+                      height: "30px",
+                      borderRadius: "8px",
+                      border: "1px solid #e2e8f0",
+                      background: "#f8fafc",
+                      color: "#475569",
+                      fontWeight: 800,
+                      cursor: "pointer",
+                    }}
+                  >
+                    {">"}
+                  </button>
+                </div>
+                {!isCurrentDashboardMonth ? (
+                  <button
+                    type="button"
+                    onClick={resetDashboardMonth}
+                    style={{
+                      minHeight: "30px",
+                      borderRadius: "999px",
+                      border: "1px solid #dbe3eb",
+                      background: "#fff",
+                      color: "#475569",
+                      fontSize: "11px",
+                      fontWeight: 700,
+                      padding: "0 10px",
+                    }}
+                  >
+                    Mois courant
+                  </button>
+                ) : null}
+              </div>
+            </div>
             <p style={{ fontSize: "12px", color: "#64748b", marginTop: "3px", marginBottom: "12px" }}>
-              {dashboardMonthLabel} · seuil alerte &lt; {defaultPresenceThresholds.warningThreshold} · seuil critique &lt; {defaultPresenceThresholds.criticalThreshold}
+              {dashboardMonthLabel} · {formatPresenceThresholdSummary(presenceThresholds)}
             </p>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "8px" }}>
               {[
@@ -947,7 +1004,7 @@ export default function DashboardPage() {
                   : "Jours alerte du mois"}
             </h2>
             <p style={{ marginTop: "4px", fontSize: "12px", color: "#64748b", lineHeight: 1.45 }}>
-              {dashboardMonthLabel} · alerte &lt; {defaultPresenceThresholds.warningThreshold} · critique &lt; {defaultPresenceThresholds.criticalThreshold}
+              {dashboardMonthLabel} · {formatPresenceThresholdSummary(presenceThresholds)}
             </p>
 
             <div style={{ display: "grid", gap: "8px", marginTop: "12px" }}>

@@ -21,6 +21,13 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.41 - 2026-03-29
+
+- Seuils de présence : ajout d'une configuration partagée `matin / après-midi` avec persistance prévue via `Supabase`, un store frontend commun et un patch SQL dédié `supabase/patch_presence_thresholds.sql`.
+- Absences : `Timeline & Suivi` calcule désormais les effectifs à partir des horaires réels, propose 4 seuils (`alerte / critique` matin et après-midi) et permet de les enregistrer pour les partager avec le dashboard et le planning.
+- Dashboard : la carte `Vue mensuelle` devient navigable mois par mois, utilise les seuils partagés et recalcule `jours alerte`, `jours critiques`, `demandes à risque` et `plus faible matin` sur le mois sélectionné.
+- Planning : les alertes et les effectifs du mois, de la semaine et du jour utilisent maintenant la même logique de seuils et les comptes par horaires réels, y compris pour l'après-midi et les étudiants quand leur créneau le prévoit.
+
 ## v0.5.40 - 2026-03-29
 
 - Dashboard : le panneau `Jours alerte` n'affiche plus les jours critiques, qui restent uniquement visibles dans la tuile et le panneau `Jours critiques`.

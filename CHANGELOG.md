@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.5.47 - 2026-03-29
+
+- Planning vue `Mois` : la ligne `Effectif matin / après-midi` remonte en haut du tableau, juste sous les en-têtes de jours, pour être visible avant les groupes d'employés.
+- Planning vue `Mois` : les sections sont renommées et clarifiées en `Coordinateurs matin`, `Collaborateurs matin`, `Coordinateurs après-midi` et `Collaborateurs après-midi`, avec le même principe de lecture pour les deux équipes.
+
 ## v0.5.46 - 2026-03-29
 
 - Planning vue `Mois` : les KPI bases sur la journee actuelle sont retires au profit d'indicateurs mensuels plus utiles (`jours critiques`, `jours en alerte`, `demandes en attente`, `demandes a risque`).

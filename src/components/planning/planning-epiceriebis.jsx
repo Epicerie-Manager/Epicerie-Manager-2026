@@ -53,10 +53,12 @@ const V = {
   green:"#16a34a",amber:"#d97706",red:"#dc2626",purple:"#5635b8",orange:"#ea580c",pink:"#db2777",cyan:"#0891b2",
 };
 
+const MORNING_REFERENCE_NAMES=new Set(["ABDOU","CECILE"]);
+
 const MONTH_SECTION_META = {
-  leaders:{
-    label:"Repères matin",
-    desc:"Abdou et Cécile",
+  morningCoordinators:{
+    label:"Coordinateurs matin",
+    desc:"Repères et responsables du matin",
     row:"#e8f7ec",
     sticky:"#d9f0df",
     border:"#b7dfc0",
@@ -70,9 +72,9 @@ const MONTH_SECTION_META = {
     presentBorder:"#73b98c",
     count:"#2b7a49",
   },
-  morning:{
-    label:"Équipe matin",
-    desc:"Collaborateurs du matin",
+  morningCollaborators:{
+    label:"Collaborateurs matin",
+    desc:"Équipe opérationnelle du matin",
     row:"#f4f9ff",
     sticky:"#edf6ff",
     border:"#d7e6f6",
@@ -86,9 +88,25 @@ const MONTH_SECTION_META = {
     presentBorder:"#89b5e3",
     count:V.mc,
   },
-  afternoon:{
-    label:"Équipe après-midi",
-    desc:"Collaborateurs de l'après-midi",
+  afternoonCoordinators:{
+    label:"Coordinateurs après-midi",
+    desc:"Repères et responsables de l'après-midi",
+    row:"#fff1e8",
+    sticky:"#ffe8d7",
+    border:"#f7cfae",
+    accent:"#c2410c",
+    text:"#9a3412",
+    nameBg:"rgba(255,255,255,0.62)",
+    nameText:"#9a3412",
+    presentBg:"#ffedd5",
+    presentBgStrong:"#fed7aa",
+    presentText:"#9a3412",
+    presentBorder:"#f59e0b",
+    count:"#c2410c",
+  },
+  afternoonCollaborators:{
+    label:"Collaborateurs après-midi",
+    desc:"Équipe opérationnelle de l'après-midi",
     row:"#fff8f2",
     sticky:"#fff1e6",
     border:"#f5dec2",
@@ -119,7 +137,7 @@ const MONTH_SECTION_META = {
     count:"#475569",
   },
 };
-const MONTH_SECTION_ORDER=["leaders","morning","afternoon","students"];
+const MONTH_SECTION_ORDER=["morningCoordinators","morningCollaborators","afternoonCoordinators","afternoonCollaborators","students"];
 
 const ST = {
   PRESENT:{c:"#166534",bg:"#dcfce7",l:"Présent",short:"P"},
@@ -207,14 +225,23 @@ function matchesPlanningFilter(emp,filter){
 
 function getPlanningMonthSectionId(emp){
   const name=normalizePlanningEmployeeName(emp?.n);
-  if(name==="ABDOU"||name==="CECILE") return "leaders";
-  if(emp?.t==="M") return "morning";
-  if(emp?.t==="S") return "afternoon";
+  if(emp?.t==="M"){
+    return MORNING_REFERENCE_NAMES.has(name)||isCoordinatorEmployee(emp) ? "morningCoordinators" : "morningCollaborators";
+  }
+  if(emp?.t==="S"){
+    return isCoordinatorEmployee(emp) ? "afternoonCoordinators" : "afternoonCollaborators";
+  }
   return "students";
 }
 
 function getPlanningMonthSections(filter){
-  const grouped={leaders:[],morning:[],afternoon:[],students:[]};
+  const grouped={
+    morningCoordinators:[],
+    morningCollaborators:[],
+    afternoonCoordinators:[],
+    afternoonCollaborators:[],
+    students:[],
+  };
   sortPlanningEmployees(EMPS.filter((emp)=>matchesPlanningFilter(emp,filter))).forEach((emp)=>{
     grouped[getPlanningMonthSectionId(emp)].push(emp);
   });
@@ -633,6 +660,35 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenc
           </tr>
         </thead>
         <tbody>
+          <tr style={{background:"#f8fafc"}}>
+            <td style={{padding:"6px 8px",fontSize:10,fontWeight:800,borderTop:`2px solid ${V.line}`,borderBottom:`1px solid ${V.line}`,position:"sticky",left:0,background:"#f8fafc",zIndex:2,color:V.mc,minWidth:128}}>
+              <div style={{display:"grid",gridTemplateColumns:"auto auto",columnGap:8,rowGap:3,alignItems:"center",lineHeight:1}}>
+                <span style={{gridRow:"1 / span 2",fontSize:10,fontWeight:800,color:V.mc}}>EFFECTIF</span>
+                <span style={{fontSize:9,fontWeight:800,color:V.mc}}>matin</span>
+                <span style={{fontSize:9,fontWeight:800,color:V.purple}}>après-midi</span>
+              </div>
+            </td>
+            {dates.map(date=>{
+              const isT=formatPlanningDate(date)===todayS;
+              const counts=getPlanningDayPresence(date,overrides);
+              const dayLevel=getPlanningDayLevel(date,counts,presenceThresholds);
+              const morningLevel=getPlanningCountLevel(counts.morningCount,"morning",presenceThresholds);
+              const afternoonLevel=getPlanningCountLevel(counts.afternoonCount,"afternoon",presenceThresholds);
+              return(<td key={date.getDate()} style={{
+                textAlign:"center",
+                padding:"4px 0",
+                borderTop:isT?"2px solid #16a34a":`2px solid ${V.line}`,
+                borderBottom:isT?"2px solid #16a34a":`1px solid ${V.line}`,
+                borderLeft:isT?"2px solid #16a34a":"none",
+                borderRight:isT?"2px solid #16a34a":"none",
+                background:dayLevel==="critical"?"#fef2f2":dayLevel==="warning"?"#fff7ed":"#f8fafc"
+              }}>
+                <div style={{fontSize:11,fontWeight:800,color:getPlanningLevelColor(morningLevel),lineHeight:1.05}}>{counts.morningCount}</div>
+                <div style={{fontSize:10,fontWeight:800,color:getPlanningLevelColor(afternoonLevel),lineHeight:1.05,marginTop:4}}>{counts.afternoonCount}</div>
+              </td>);
+            })}
+            <td style={{borderTop:`2px solid ${V.line}`,borderBottom:`1px solid ${V.line}`,position:"sticky",right:0,background:"#f8fafc"}}/>
+          </tr>
           {sections.map((section)=>(
             <Fragment key={section.id}>
               <tr>
@@ -656,7 +712,7 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenc
               {section.employees.map((emp)=>{
                 let presCount=0;
                 const isCoordinator=isCoordinatorEmployee(emp);
-                const isLeaderRow=section.id==="leaders";
+                const isCoordinatorSection=section.id==="morningCoordinators"||section.id==="afternoonCoordinators";
                 const rowBackground=section.row;
                 const stickyBackground=section.sticky;
                 const rowBorder=section.border;
@@ -668,11 +724,11 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenc
                         display:"flex",
                         alignItems:"center",
                         gap:7,
-                        padding:isLeaderRow||isCoordinator?"4px 8px":"3px 6px",
+                        padding:isCoordinatorSection||isCoordinator?"4px 8px":"3px 6px",
                         borderRadius:8,
-                        background:isLeaderRow||section.id==="morning"?section.nameBg:isCoordinator?"rgba(255,255,255,0.45)":"transparent",
-                        color:isLeaderRow||section.id==="morning"?section.nameText:isCoordinator?section.accent:V.body,
-                        border:isLeaderRow||section.id==="morning"?`1px solid ${rowBorder}`:"1px solid transparent",
+                        background:section.nameBg,
+                        color:section.nameText,
+                        border:`1px solid ${rowBorder}`,
                       }} title={`Statut RH : ${roleMeta.label}`}>
                         <RoleDot emp={emp} size={7} ringColor={rowBackground}/>
                         {emp.n}
@@ -754,36 +810,6 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenc
               })}
             </Fragment>
           ))}
-          {/* Effectif row */}
-          <tr style={{background:"#f8fafc"}}>
-            <td style={{padding:"6px 8px",fontSize:10,fontWeight:800,borderTop:`2px solid ${V.line}`,position:"sticky",left:0,background:"#f8fafc",zIndex:2,color:V.mc,minWidth:128}}>
-              <div style={{display:"grid",gridTemplateColumns:"auto auto",columnGap:8,rowGap:3,alignItems:"center",lineHeight:1}}>
-                <span style={{gridRow:"1 / span 2",fontSize:10,fontWeight:800,color:V.mc}}>EFFECTIF</span>
-                <span style={{fontSize:9,fontWeight:800,color:V.mc}}>matin</span>
-                <span style={{fontSize:9,fontWeight:800,color:V.purple}}>après-midi</span>
-              </div>
-            </td>
-            {dates.map(date=>{
-              const isT=formatPlanningDate(date)===todayS;
-              const counts=getPlanningDayPresence(date,overrides);
-              const dayLevel=getPlanningDayLevel(date,counts,presenceThresholds);
-              const morningLevel=getPlanningCountLevel(counts.morningCount,"morning",presenceThresholds);
-              const afternoonLevel=getPlanningCountLevel(counts.afternoonCount,"afternoon",presenceThresholds);
-              return(<td key={date.getDate()} style={{
-                textAlign:"center",
-                padding:"4px 0",
-                borderTop:isT?"2px solid #16a34a":`2px solid ${V.line}`,
-                borderBottom:isT?"2px solid #16a34a":"none",
-                borderLeft:isT?"2px solid #16a34a":"none",
-                borderRight:isT?"2px solid #16a34a":"none",
-                background:dayLevel==="critical"?"#fef2f2":dayLevel==="warning"?"#fff7ed":"#f8fafc"
-              }}>
-                <div style={{fontSize:11,fontWeight:800,color:getPlanningLevelColor(morningLevel),lineHeight:1.05}}>{counts.morningCount}</div>
-                <div style={{fontSize:10,fontWeight:800,color:getPlanningLevelColor(afternoonLevel),lineHeight:1.05,marginTop:4}}>{counts.afternoonCount}</div>
-              </td>);
-            })}
-            <td style={{borderTop:`2px solid ${V.line}`,position:"sticky",right:0,background:"#f8fafc"}}/>
-          </tr>
         </tbody>
       </table>
     </div>

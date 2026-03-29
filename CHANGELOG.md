@@ -21,6 +21,17 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.0 - 2026-03-29
+
+- Collaborateurs : création du socle PWA /collab avec les écrans login, pin, change-pin, home, planning, bsences, bsences/new et more, sans modifier les modules manager existants.
+- Authentification : ajout des helpers dédiés collaborateurs, du contrôle middleware par rôle et du flux irst_login distinct du flux manager.
+- PWA : ajout du manifest, des icônes, de 
+ext-pwa et de la configuration Next nécessaire pour rendre l'espace collaborateur installable sur mobile.
+
+## v0.5.61 - 2026-03-29
+
+- Documentation : ajout de `RETOUR_CODEX.md` a la racine pour consigner les ecarts identifies entre le brief collaborateur Claude AI et l'etat reel du projet avant implementation.
+
 ## v0.5.60 - 2026-03-29
 
 - Plateau : les annotations sont maintenant rattachées au contexte `semaine + plateau + opération`, ce qui évite qu'une note saisie sur une semaine se réaffiche à tort sur une autre période de la même opération.
@@ -398,3 +409,4 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 - Etat de depart constate au debut de cette phase de travail.
 - Version visible dans l'interface avant les ajustements effectues pendant cette session.
 - Historique detaille anterieur a confirmer avec les anciennes conversations ou les commits git.
+

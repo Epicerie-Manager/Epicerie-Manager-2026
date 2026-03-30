@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.44 - 2026-03-30
+
+- Collaborateurs / Planning : les dimanches non travailles ne remontent plus comme `Abs` ; ils s'affichent maintenant comme jours off grises avec une croix, et la vue equipe affiche desormais les 7 jours complets de la semaine.
+- Collaborateurs / Absences : le formulaire `Nouvelle demande` propose maintenant aussi une zone commentaire pour les conges payes, en plus du cas `Deplacement RH`.
+
 ## v0.6.43 - 2026-03-30
 
 - Collaborateurs / Planning : les repos hebdomadaires s'affichent maintenant clairement en `RH` avec une tonalite grisee coherente, et les jours non travailles apparaissent en gris discret avec une croix plutot qu'en absence confuse.

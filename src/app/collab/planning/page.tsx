@@ -126,7 +126,7 @@ export default function CollabPlanningPage() {
   }, [monthCursor, profile]);
 
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, index) => addDays(startOfWeek(weekCursor), index)), [weekCursor]);
-  const weekdays = weekDays.slice(0, 5);
+  const displayDays = weekDays;
 
   const monthDays = useMemo(() => {
     const year = monthCursor.getFullYear();
@@ -315,6 +315,7 @@ export default function CollabPlanningPage() {
             <span><span style={{ color: "#d97706" }}>■</span> Après-midi</span>
             <span><span style={{ color: "#16a34a" }}>■</span> Congé</span>
             <span><span style={{ color: "#c7b9a3" }}>■</span> RH</span>
+            <span><span style={{ color: "#d6cdc1" }}>■</span> Non travaillé</span>
             <span><span style={{ color: "#1a1410" }}>■</span> aujourd’hui</span>
           </div>
         </SectionCard>
@@ -341,9 +342,9 @@ export default function CollabPlanningPage() {
             <div style={{ marginTop: 2, fontSize: 12, color: collabTheme.muted }}>{weekTitle}</div>
           </div>
           <div style={{ overflowX: "auto" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "104px repeat(5, 58px)", gap: 6, minWidth: 408 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "104px repeat(7, 58px)", gap: 6, minWidth: 540 }}>
               <div style={{ fontSize: 10, color: collabTheme.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>Nom</div>
-              {weekdays.map((day) => (
+              {displayDays.map((day) => (
                 <div key={day.toISOString()} style={{ fontSize: 10, color: collabTheme.muted, textAlign: "center", textTransform: "uppercase", letterSpacing: "0.08em" }}>
                   {day.toLocaleDateString("fr-FR", { weekday: "short" }).slice(0, 3)}
                 </div>
@@ -368,7 +369,7 @@ export default function CollabPlanningPage() {
                   >
                     {person.name}
                   </div>,
-                  ...weekdays.map((day) => {
+                  ...displayDays.map((day) => {
                     const iso = formatIsoDate(day);
                     const row = person.entries.get(iso) as CollabPlanningEntry | undefined;
                     const label = row ? getMonthShortLabel(row, profile) : "—";

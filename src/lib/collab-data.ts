@@ -435,12 +435,21 @@ export function getEntryCustomHours(entry: CollabPlanningEntry) {
   return String(entry.horaire_custom ?? entry.horaires ?? "").trim();
 }
 
+function isSundayOffEntry(entry: CollabPlanningEntry) {
+  const status = getEntryStatus(entry);
+  if (!status.includes("ABS")) return false;
+  const iso = getEntryDate(entry);
+  if (!iso) return false;
+  return new Date(`${iso}T12:00:00`).getDay() === 0;
+}
+
 export function getShiftCategory(entry: CollabPlanningEntry, profile?: CollabProfile | null) {
   const status = getEntryStatus(entry);
   const customHours = getEntryCustomHours(entry);
   if (status.includes("CP") || status.includes("CONGE")) return "conge";
   if (status === "RH" || status.includes("REPOS")) return "repos";
   if (status === "X") return "off";
+  if (isSundayOffEntry(entry)) return "off";
   if (status && !["PRESENT", "P", ""].includes(status)) return "absence";
 
   const employeeType = profile?.employees?.type ?? null;
@@ -486,6 +495,7 @@ export function getShiftDisplayText(entry: CollabPlanningEntry, profile?: Collab
   if (status.includes("CP") || status.includes("CONGE")) return "Congé";
   if (status === "RH" || status.includes("REPOS")) return "RH";
   if (status === "X") return "×";
+  if (isSundayOffEntry(entry)) return "×";
   if (status && !["PRESENT", "P", ""].includes(status)) return status;
   const hours = getEntryCustomHours(entry) || profile?.employees?.horaire_standard || "";
   return hours || getShiftBadgeLabel(entry, profile);

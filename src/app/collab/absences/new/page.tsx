@@ -19,6 +19,7 @@ export default function NewCollabAbsencePage() {
   const [dateDebut, setDateDebut] = useState("");
   const [dateFin, setDateFin] = useState("");
   const [displacedRh, setDisplacedRh] = useState("");
+  const [comment, setComment] = useState("");
   const [step, setStep] = useState<"edit" | "confirm">("edit");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
@@ -39,7 +40,9 @@ export default function NewCollabAbsencePage() {
   const openDays = useMemo(() => (dateDebut && dateFin ? calcJoursOuvres(dateDebut, dateFin) : 0), [dateDebut, dateFin]);
   const isRhShift = type === "DEPLACEMENT_RH";
   const periodLabel = isRhShift ? "À quelle date souhaitez-vous la déplacer ?" : "Période";
-  const note = isRhShift && displacedRh.trim() ? `Déplacement RH : ${displacedRh.trim()}` : undefined;
+  const note = isRhShift
+    ? [displacedRh.trim() ? `Déplacement RH : ${displacedRh.trim()}` : "", comment.trim()].filter(Boolean).join(" — ") || undefined
+    : comment.trim() || undefined;
   const canContinue = Boolean(dateDebut && dateFin && dateFin >= dateDebut);
 
   const handleSubmit = async () => {
@@ -140,6 +143,25 @@ export default function NewCollabAbsencePage() {
               </SectionCard>
             ) : null}
 
+            <SectionCard>
+              <div style={{ fontSize: 11, letterSpacing: "0.12em", color: collabTheme.muted, textTransform: "uppercase", marginBottom: 10 }}>Commentaire</div>
+              <textarea
+                value={comment}
+                onChange={(event) => setComment(event.target.value)}
+                placeholder="Ex : vacances en famille..."
+                rows={4}
+                style={{
+                  width: "100%",
+                  borderRadius: 14,
+                  border: `1px solid ${collabTheme.line}`,
+                  padding: "12px",
+                  fontFamily: "inherit",
+                  background: "#fbf8f3",
+                  resize: "vertical",
+                }}
+              />
+            </SectionCard>
+
             {error ? <div style={{ color: collabTheme.accent, fontSize: 13 }}>{error}</div> : null}
 
             <button type="button" onClick={() => setStep("confirm")} disabled={!canContinue} style={{ minHeight: 52, borderRadius: 16, border: "none", background: collabTheme.accent, color: "#fff", fontWeight: 700, cursor: canContinue ? "pointer" : "not-allowed", opacity: canContinue ? 1 : 0.45 }}>
@@ -155,6 +177,7 @@ export default function NewCollabAbsencePage() {
                 <div><strong>Durée totale :</strong> {totalDays} jour(s)</div>
                 <div><strong>Jours ouvrés :</strong> {openDays}</div>
                 {isRhShift && displacedRh.trim() ? <div><strong>RH déplacée :</strong> {displacedRh}</div> : null}
+                {comment.trim() ? <div><strong>Commentaire :</strong> {comment.trim()}</div> : null}
               </div>
             </SectionCard>
             {error ? <div style={{ color: collabTheme.accent, fontSize: 13 }}>{error}</div> : null}

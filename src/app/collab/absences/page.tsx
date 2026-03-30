@@ -12,6 +12,7 @@ export default function CollabAbsencesPage() {
   const router = useRouter();
   const [activeTab, setActiveTab] = useState<"encours" | "historique">("encours");
   const [rows, setRows] = useState<Array<Record<string, unknown>>>([]);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     void getCollabProfile()
@@ -20,7 +21,15 @@ export default function CollabAbsencesPage() {
           router.replace("/collab/login");
           return;
         }
-        return getMyAbsences().then((data) => setRows(data as Array<Record<string, unknown>>));
+        return getMyAbsences()
+          .then((data) => {
+            setRows(data as Array<Record<string, unknown>>);
+            setLoadError("");
+          })
+          .catch(() => {
+            setRows([]);
+            setLoadError("Impossible de charger vos absences pour le moment.");
+          });
       })
       .catch(() => router.replace("/collab/login"));
   }, [router]);
@@ -51,6 +60,7 @@ export default function CollabAbsencesPage() {
       <div style={{ display: "grid", gap: 16 }}>
         <SectionCard>
           <SectionTitle right={<Link href="/collab/absences/new" style={{ color: collabTheme.accent, textDecoration: "none", fontWeight: 700 }}>+ Nouvelle</Link>}>Mes demandes</SectionTitle>
+          {loadError ? <div style={{ marginBottom: 12, fontSize: 13, color: "#991b1b" }}>{loadError}</div> : null}
           <div style={{ display: "grid", gap: 12 }}>
             {filtered.length ? filtered.map((row, index) => {
               const tone = getAbsenceStatusTone(row.statut);

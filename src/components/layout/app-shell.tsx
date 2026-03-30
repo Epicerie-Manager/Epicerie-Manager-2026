@@ -142,6 +142,7 @@ export function AppShell({ version, children }: AppShellProps) {
   const signingOutRef = useRef(false);
 
   useEffect(() => {
+    if (isCollabRoute) return;
     const refreshClock = () => {
       setTodayLabel(getTodayLabel());
       setTimeLabel(getTimeLabel());
@@ -150,7 +151,7 @@ export function AppShell({ version, children }: AppShellProps) {
     refreshClock();
     const timer = window.setInterval(refreshClock, 1000);
     return () => window.clearInterval(timer);
-  }, []);
+  }, [isCollabRoute]);
 
   useEffect(() => {
     if (pathname === "/login" || isCollabRoute) return;

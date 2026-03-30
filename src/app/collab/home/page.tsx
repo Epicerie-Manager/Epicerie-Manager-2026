@@ -24,6 +24,7 @@ export default function CollabHomePage() {
   const [tomorrowEntry, setTomorrowEntry] = useState<CollabPlanningEntry | null>(null);
   const [tgPlan, setTgPlan] = useState<Record<string, unknown> | null>(null);
   const [annonces, setAnnonces] = useState<Array<Record<string, unknown>>>([]);
+  const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
     const load = async () => {
@@ -39,12 +40,21 @@ export default function CollabHomePage() {
       setProfile(collabProfile);
 
       const { today, tomorrow } = getTodayAndTomorrowIso();
-      const planningRows = await getMyWeekPlanning(today, tomorrow);
-      setTodayEntry((planningRows.find((entry) => getEntryDate(entry) === today) as CollabPlanningEntry | undefined) ?? null);
-      setTomorrowEntry((planningRows.find((entry) => getEntryDate(entry) === tomorrow) as CollabPlanningEntry | undefined) ?? null);
-      const [currentTgPlan, recentAnnonces] = await Promise.all([getCurrentTGPlan(), getRecentAnnonces(3)]);
-      setTgPlan((currentTgPlan as Record<string, unknown> | null) ?? null);
-      setAnnonces(recentAnnonces as Array<Record<string, unknown>>);
+      try {
+        const planningRows = await getMyWeekPlanning(today, tomorrow);
+        setTodayEntry((planningRows.find((entry) => getEntryDate(entry) === today) as CollabPlanningEntry | undefined) ?? null);
+        setTomorrowEntry((planningRows.find((entry) => getEntryDate(entry) === tomorrow) as CollabPlanningEntry | undefined) ?? null);
+        const [currentTgPlan, recentAnnonces] = await Promise.all([getCurrentTGPlan(), getRecentAnnonces(3)]);
+        setTgPlan((currentTgPlan as Record<string, unknown> | null) ?? null);
+        setAnnonces(recentAnnonces as Array<Record<string, unknown>>);
+        setLoadError("");
+      } catch {
+        setTodayEntry(null);
+        setTomorrowEntry(null);
+        setTgPlan(null);
+        setAnnonces([]);
+        setLoadError("Certaines informations collaborateur n'ont pas pu être chargées.");
+      }
     };
 
     void load().catch(() => router.replace("/collab/login"));
@@ -89,6 +99,11 @@ export default function CollabHomePage() {
             )) : <div style={{ fontSize: 13, color: collabTheme.muted }}>Aucune annonce récente.</div>}
           </div>
         </SectionCard>
+        {loadError ? (
+          <SectionCard style={{ background: "#fff8ec" }}>
+            <div style={{ fontSize: 13, color: collabTheme.amber }}>{loadError}</div>
+          </SectionCard>
+        ) : null}
         <SectionCard>
           <SectionTitle>Accès rapide</SectionTitle>
           <Link href="/collab/more" style={{ color: collabTheme.accent, textDecoration: "none", fontWeight: 700 }}>Voir les liens complémentaires</Link>

@@ -61,12 +61,17 @@ export default function CollabPlanningPage() {
     ]).then(([myWeek, teamWeek]) => {
       setWeekRows(myWeek as CollabPlanningEntry[]);
       setTeamRows(teamWeek as Array<Record<string, unknown>>);
+    }).catch(() => {
+      setWeekRows([]);
+      setTeamRows([]);
     });
   }, [profile, weekCursor]);
 
   useEffect(() => {
     if (!profile) return;
-    void getMyMonthPlanning(monthCursor.getFullYear(), monthCursor.getMonth() + 1).then((rows) => setMonthRows(rows as CollabPlanningEntry[]));
+    void getMyMonthPlanning(monthCursor.getFullYear(), monthCursor.getMonth() + 1)
+      .then((rows) => setMonthRows(rows as CollabPlanningEntry[]))
+      .catch(() => setMonthRows([]));
   }, [monthCursor, profile]);
 
   const weekDays = useMemo(() => Array.from({ length: 7 }, (_, index) => addDays(startOfWeek(weekCursor), index)), [weekCursor]);

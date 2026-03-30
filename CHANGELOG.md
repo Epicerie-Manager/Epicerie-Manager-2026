@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.32 - 2026-03-30
+
+- Collaborateurs / Stabilite : correction d'une boucle silencieuse sur la PWA collaborateur en evitant les redirections vers `/collab/login` lors d'un simple echec de chargement de donnees (`planning`, `absences`, `annonces`, `plan TG`).
+- Collaborateurs / Shell : le shell manager ne relance plus son horloge interne derriere les routes `/collab/*`, ce qui evite des rerenders inutiles pendant l'utilisation de l'espace collaborateur.
+
 ## v0.6.31 - 2026-03-30
 
 - Collaborateurs / Stabilite : suppression des logs de debug residuels sur le profil collaborateur, la connexion PIN et la creation de demande d'absence, afin d'eviter la pollution console et l'impression de boucle sur la PWA collaborateur.

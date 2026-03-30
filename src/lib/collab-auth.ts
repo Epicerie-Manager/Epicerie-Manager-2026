@@ -20,6 +20,15 @@ export type CollabProfile = {
   employees: CollabEmployee | null;
 };
 
+const COLLAB_PROFILE_CACHE_TTL_MS = 5000;
+let collabProfileCache:
+  | {
+      expiresAt: number;
+      value: CollabProfile | null;
+    }
+  | null = null;
+let collabProfilePromise: Promise<CollabProfile | null> | null = null;
+
 const COLLAB_PROFILE_MAPPING = [
   { email: "abdou@ep.fr", auth_id: "a1cbec69-17e8-49af-8724-daa88ade5f55", employee_id: "bf2b450e-2838-47a2-81ab-6fbe7ff8e671" },
   { email: "achraf@ep.fr", auth_id: "7fc9cae8-55a8-4ad6-be19-982d092eed8c", employee_id: "c8bc3554-4afd-498b-be0d-c0b4a93e1c93" },
@@ -103,7 +112,6 @@ export function buildCollabEmail(name: string): string {
 export async function collabSignIn(name: string, pin: string) {
   const supabase = createClient();
   const email = buildCollabEmail(name);
-  console.log("tentative connexion:", email);
 
   try {
     const { data, error } = await supabase.auth.signInWithPassword({
@@ -111,114 +119,135 @@ export async function collabSignIn(name: string, pin: string) {
       password: pin,
     });
     if (error) {
-      console.error("[collabSignIn] signInWithPassword failed", error);
       throw error;
     }
+    collabProfileCache = null;
+    collabProfilePromise = null;
     return data;
-  } catch (error) {
-    console.error("[collabSignIn] unexpected error", error);
+  } catch {
     throw new Error("PIN incorrect");
   }
 }
 
 export async function collabSignOut() {
   const supabase = createClient();
+  collabProfileCache = null;
+  collabProfilePromise = null;
   await supabase.auth.signOut();
 }
 
 export async function getCollabProfile() {
-  const supabase = createClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  console.log("[getCollabProfile] auth user", {
-    id: user.id,
-    email: user.email,
-  });
-
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("id, role, employee_id, first_login, solde_cp, employees(id, name, type, observation, horaire_standard, horaire_mardi, horaire_samedi, actif)")
-    .eq("id", user.id)
-    .maybeSingle();
-
-  if (error) throw error;
-  console.log("[getCollabProfile] profile query result", data);
-  const profile = mapProfileRow(data as Record<string, unknown> | null);
-
-  if (profile?.employee_id) {
-    return profile;
+  if (collabProfileCache && collabProfileCache.expiresAt > Date.now()) {
+    return collabProfileCache.value;
+  }
+  if (collabProfilePromise) {
+    return collabProfilePromise;
   }
 
-  const mappedByAuth = COLLAB_PROFILE_MAPPING.find((item) => item.auth_id === user.id || item.email === user.email?.toLowerCase());
-  if (mappedByAuth) {
-    const { data: mappedEmployee, error: mappedEmployeeError } = await supabase
-      .from("employees")
-      .select("id, name, type, observation, horaire_standard, horaire_mardi, horaire_samedi, actif")
-      .eq("id", mappedByAuth.employee_id)
+  const supabase = createClient();
+  collabProfilePromise = (async () => {
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) {
+      collabProfileCache = { value: null, expiresAt: Date.now() + COLLAB_PROFILE_CACHE_TTL_MS };
+      return null;
+    }
+
+    const { data, error } = await supabase
+      .from("profiles")
+      .select("id, role, employee_id, first_login, solde_cp, employees(id, name, type, observation, horaire_standard, horaire_mardi, horaire_samedi, actif)")
+      .eq("id", user.id)
       .maybeSingle();
 
-    if (mappedEmployeeError) throw mappedEmployeeError;
+    if (error) throw error;
+    const profile = mapProfileRow(data as Record<string, unknown> | null);
 
-    return {
+    if (profile?.employee_id) {
+      collabProfileCache = { value: profile, expiresAt: Date.now() + COLLAB_PROFILE_CACHE_TTL_MS };
+      return profile;
+    }
+
+    const mappedByAuth = COLLAB_PROFILE_MAPPING.find((item) => item.auth_id === user.id || item.email === user.email?.toLowerCase());
+    if (mappedByAuth) {
+      const { data: mappedEmployee, error: mappedEmployeeError } = await supabase
+        .from("employees")
+        .select("id, name, type, observation, horaire_standard, horaire_mardi, horaire_samedi, actif")
+        .eq("id", mappedByAuth.employee_id)
+        .maybeSingle();
+
+      if (mappedEmployeeError) throw mappedEmployeeError;
+
+      const resolvedProfile = {
+        id: profile?.id ?? user.id,
+        role: profile?.role ?? "collaborateur",
+        employee_id: mappedByAuth.employee_id,
+        first_login: profile?.first_login ?? false,
+        solde_cp: profile?.solde_cp ?? null,
+        employees: mappedEmployee
+          ? {
+              id: String(mappedEmployee.id ?? ""),
+              name: String(mappedEmployee.name ?? ""),
+              type: mappedEmployee.type == null ? null : String(mappedEmployee.type),
+              observation: mappedEmployee.observation == null ? null : String(mappedEmployee.observation),
+              horaire_standard: mappedEmployee.horaire_standard == null ? null : String(mappedEmployee.horaire_standard),
+              horaire_mardi: mappedEmployee.horaire_mardi == null ? null : String(mappedEmployee.horaire_mardi),
+              horaire_samedi: mappedEmployee.horaire_samedi == null ? null : String(mappedEmployee.horaire_samedi),
+              actif: mappedEmployee.actif == null ? null : Boolean(mappedEmployee.actif),
+            }
+          : null,
+      };
+      collabProfileCache = { value: resolvedProfile, expiresAt: Date.now() + COLLAB_PROFILE_CACHE_TTL_MS };
+      return resolvedProfile;
+    }
+
+    const emailLocalPart = String(user.email ?? "").split("@")[0]?.trim();
+    if (!emailLocalPart) {
+      collabProfileCache = { value: profile, expiresAt: Date.now() + COLLAB_PROFILE_CACHE_TTL_MS };
+      return profile;
+    }
+
+    const normalizedEmailKey = normalizeEmployeeKey(emailLocalPart);
+    const { data: employees, error: employeeError } = await supabase
+      .from("employees")
+      .select("id, name, type, observation, horaire_standard, horaire_mardi, horaire_samedi, actif")
+      .eq("actif", true)
+      .limit(200);
+
+    if (employeeError) throw employeeError;
+
+    const matchedEmployee = (employees ?? []).find((employee) => normalizeEmployeeKey(String(employee.name ?? "")) === normalizedEmailKey);
+    if (!matchedEmployee) {
+      collabProfileCache = { value: profile, expiresAt: Date.now() + COLLAB_PROFILE_CACHE_TTL_MS };
+      return profile;
+    }
+
+    const resolvedProfile = {
       id: profile?.id ?? user.id,
       role: profile?.role ?? "collaborateur",
-      employee_id: mappedByAuth.employee_id,
+      employee_id: String(matchedEmployee.id ?? ""),
       first_login: profile?.first_login ?? false,
       solde_cp: profile?.solde_cp ?? null,
-      employees: mappedEmployee
-        ? {
-            id: String(mappedEmployee.id ?? ""),
-            name: String(mappedEmployee.name ?? ""),
-            type: mappedEmployee.type == null ? null : String(mappedEmployee.type),
-            observation: mappedEmployee.observation == null ? null : String(mappedEmployee.observation),
-            horaire_standard: mappedEmployee.horaire_standard == null ? null : String(mappedEmployee.horaire_standard),
-            horaire_mardi: mappedEmployee.horaire_mardi == null ? null : String(mappedEmployee.horaire_mardi),
-            horaire_samedi: mappedEmployee.horaire_samedi == null ? null : String(mappedEmployee.horaire_samedi),
-            actif: mappedEmployee.actif == null ? null : Boolean(mappedEmployee.actif),
-          }
-        : null,
+      employees: {
+        id: String(matchedEmployee.id ?? ""),
+        name: String(matchedEmployee.name ?? ""),
+        type: matchedEmployee.type == null ? null : String(matchedEmployee.type),
+        observation: matchedEmployee.observation == null ? null : String(matchedEmployee.observation),
+        horaire_standard: matchedEmployee.horaire_standard == null ? null : String(matchedEmployee.horaire_standard),
+        horaire_mardi: matchedEmployee.horaire_mardi == null ? null : String(matchedEmployee.horaire_mardi),
+        horaire_samedi: matchedEmployee.horaire_samedi == null ? null : String(matchedEmployee.horaire_samedi),
+        actif: matchedEmployee.actif == null ? null : Boolean(matchedEmployee.actif),
+      },
     };
+    collabProfileCache = { value: resolvedProfile, expiresAt: Date.now() + COLLAB_PROFILE_CACHE_TTL_MS };
+    return resolvedProfile;
+  })();
+
+  try {
+    return await collabProfilePromise;
+  } finally {
+    collabProfilePromise = null;
   }
-
-  const emailLocalPart = String(user.email ?? "").split("@")[0]?.trim();
-  if (!emailLocalPart) {
-    return profile;
-  }
-
-  const normalizedEmailKey = normalizeEmployeeKey(emailLocalPart);
-  const { data: employees, error: employeeError } = await supabase
-    .from("employees")
-    .select("id, name, type, observation, horaire_standard, horaire_mardi, horaire_samedi, actif")
-    .eq("actif", true)
-    .limit(200);
-
-  if (employeeError) throw employeeError;
-
-  const matchedEmployee = (employees ?? []).find((employee) => normalizeEmployeeKey(String(employee.name ?? "")) === normalizedEmailKey);
-  if (!matchedEmployee) {
-    return profile;
-  }
-
-  return {
-    id: profile?.id ?? user.id,
-    role: profile?.role ?? "collaborateur",
-    employee_id: String(matchedEmployee.id ?? ""),
-    first_login: profile?.first_login ?? false,
-    solde_cp: profile?.solde_cp ?? null,
-    employees: {
-      id: String(matchedEmployee.id ?? ""),
-      name: String(matchedEmployee.name ?? ""),
-      type: matchedEmployee.type == null ? null : String(matchedEmployee.type),
-      observation: matchedEmployee.observation == null ? null : String(matchedEmployee.observation),
-      horaire_standard: matchedEmployee.horaire_standard == null ? null : String(matchedEmployee.horaire_standard),
-      horaire_mardi: matchedEmployee.horaire_mardi == null ? null : String(matchedEmployee.horaire_mardi),
-      horaire_samedi: matchedEmployee.horaire_samedi == null ? null : String(matchedEmployee.horaire_samedi),
-      actif: matchedEmployee.actif == null ? null : Boolean(matchedEmployee.actif),
-    },
-  };
 }
 
 export async function changeCollabPin(newPin: string) {
@@ -229,6 +258,8 @@ export async function changeCollabPin(newPin: string) {
 
   const { error } = await supabase.auth.updateUser({ password: newPin });
   if (error) throw error;
+  collabProfileCache = null;
+  collabProfilePromise = null;
 
   const {
     data: { user },

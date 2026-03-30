@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.31 - 2026-03-30
+
+- Collaborateurs / Stabilite : suppression des logs de debug residuels sur le profil collaborateur, la connexion PIN et la creation de demande d'absence, afin d'eviter la pollution console et l'impression de boucle sur la PWA collaborateur.
+- Collaborateurs / Performances : le chargement du profil collaborateur conserve un cache memoire court partage entre ecrans, ce qui limite les appels redondants quand plusieurs vues montent en meme temps.
+
 ## v0.6.30 - 2026-03-30
 
 - Collaborateurs / Planning & Absences : la PWA collaborateur fusionne maintenant les absences saisies par le manager (`absences`) et les demandes collaborateur (`absence_requests`), ce qui permet de voir aussi les absences manager dans l'onglet `Absences` et de les superposer correctement au planning personnel.

@@ -439,7 +439,8 @@ export function getShiftCategory(entry: CollabPlanningEntry, profile?: CollabPro
   const status = getEntryStatus(entry);
   const customHours = getEntryCustomHours(entry);
   if (status.includes("CP") || status.includes("CONGE")) return "conge";
-  if (status.includes("REPOS") || status === "X") return "repos";
+  if (status === "RH" || status.includes("REPOS")) return "repos";
+  if (status === "X") return "off";
   if (status && !["PRESENT", "P", ""].includes(status)) return "absence";
 
   const employeeType = profile?.employees?.type ?? null;
@@ -464,7 +465,8 @@ export function getShiftBadgeLabel(entry: CollabPlanningEntry, profile?: CollabP
   if (category === "apresmidi") return "AM";
   if (category === "journee") return "J";
   if (category === "conge") return "CP";
-  if (category === "repos") return "Repos";
+  if (category === "repos") return "RH";
+  if (category === "off") return "×";
   return "Abs";
 }
 
@@ -474,14 +476,16 @@ export function getShiftTone(entry: CollabPlanningEntry, profile?: CollabProfile
   if (category === "apresmidi") return "#d97706";
   if (category === "journee") return "#64748b";
   if (category === "conge") return "#16a34a";
-  if (category === "repos") return "#c7b9a3";
+  if (category === "repos") return "#9f9485";
+  if (category === "off") return "#d6cdc1";
   return "#991b1b";
 }
 
 export function getShiftDisplayText(entry: CollabPlanningEntry, profile?: CollabProfile | null) {
   const status = getEntryStatus(entry);
   if (status.includes("CP") || status.includes("CONGE")) return "Congé";
-  if (status.includes("REPOS") || status === "X") return "Repos";
+  if (status === "RH" || status.includes("REPOS")) return "RH";
+  if (status === "X") return "×";
   if (status && !["PRESENT", "P", ""].includes(status)) return status;
   const hours = getEntryCustomHours(entry) || profile?.employees?.horaire_standard || "";
   return hours || getShiftBadgeLabel(entry, profile);

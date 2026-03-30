@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.43 - 2026-03-30
+
+- Collaborateurs / Planning : les repos hebdomadaires s'affichent maintenant clairement en `RH` avec une tonalite grisee coherente, et les jours non travailles apparaissent en gris discret avec une croix plutot qu'en absence confuse.
+- Collaborateurs / Mobile : le zoom est de nouveau autorise dans l'espace collaborateur, notamment pour rendre la vue equipe lisible en mode paysage.
+
 ## v0.6.41 - 2026-03-30
 
 - Collaborateurs / Planning : la vue semaine affiche maintenant une navigation directement au niveau de la carte planning, avec un libelle plus clair du type `Semaine X · du ... au ...`.

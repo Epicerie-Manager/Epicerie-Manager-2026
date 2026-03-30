@@ -79,6 +79,7 @@ function getTeamCellBackground(label: string) {
   if (label === "AM") return "#fff1df";
   if (label === "CP") return "#ebfbf1";
   if (label === "RH") return "#f4eee6";
+  if (label === "×") return "#f1ece5";
   if (label === "Abs") return "#fff0f1";
   return "#fbf8f3";
 }

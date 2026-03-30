@@ -4,13 +4,46 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CollabBottomNav, CollabHeader, CollabPage, SectionCard, SectionTitle } from "@/components/collab/layout";
-import { collabTheme } from "@/components/collab/theme";
+import { collabSerifTitleStyle, collabTheme } from "@/components/collab/theme";
 import { getCollabProfile } from "@/lib/collab-auth";
 import { getAbsenceStatusLabel, getAbsenceStatusTone, getMyAbsences } from "@/lib/collab-data";
 
+function formatShortDateRange(start: unknown, end: unknown) {
+  const left = new Date(`${String(start ?? "")}T12:00:00`);
+  const right = new Date(`${String(end ?? start ?? "")}T12:00:00`);
+  const leftLabel = left.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+  const rightLabel = right.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+  return `${leftLabel} → ${rightLabel}`;
+}
+
+function getTypeIcon(type: string) {
+  const upper = type.toUpperCase();
+  if (upper === "CP") return { glyph: "◷", color: collabTheme.gold, bg: "#fff6e8" };
+  if (upper.includes("DEPLACEMENT")) return { glyph: "○", color: "#9c7d50", bg: "#faf5ed" };
+  if (upper === "MAL") return { glyph: "+", color: collabTheme.accent, bg: collabTheme.redBg };
+  return { glyph: "□", color: collabTheme.blue, bg: "#eef4ff" };
+}
+
+function AbsenceRow({ row }: { row: Record<string, unknown> }) {
+  const statusTone = getAbsenceStatusTone(row.statut);
+  const icon = getTypeIcon(String(row.type ?? ""));
+  return (
+    <div style={{ padding: "14px 14px", borderRadius: 16, background: "#fffdfb", border: `1px solid ${collabTheme.line}`, display: "grid", gridTemplateColumns: "34px 1fr auto", gap: 12, alignItems: "start" }}>
+      <div style={{ width: 34, height: 34, borderRadius: 12, background: icon.bg, color: icon.color, display: "grid", placeItems: "center", fontSize: 17, fontWeight: 700 }}>
+        {icon.glyph}
+      </div>
+      <div>
+        <div style={{ ...collabSerifTitleStyle({ fontSize: 21 }) }}>{String(row.type ?? "Absence").replaceAll("_", " ")}</div>
+        <div style={{ marginTop: 4, fontSize: 13, color: collabTheme.muted }}>{formatShortDateRange(row.date_debut, row.date_fin)}</div>
+        {String(row.motif_refus ?? row.reason ?? "") ? <div style={{ marginTop: 8, fontSize: 12, color: collabTheme.accent }}>Motif : {String(row.motif_refus ?? row.reason ?? "")}</div> : null}
+      </div>
+      <span style={{ borderRadius: 999, padding: "6px 10px", background: statusTone.bg, color: statusTone.color, fontSize: 11, fontWeight: 700, whiteSpace: "nowrap" }}>{getAbsenceStatusLabel(row.statut)}</span>
+    </div>
+  );
+}
+
 export default function CollabAbsencesPage() {
   const router = useRouter();
-  const [activeTab, setActiveTab] = useState<"encours" | "historique">("encours");
   const [rows, setRows] = useState<Array<Record<string, unknown>>>([]);
   const [loadError, setLoadError] = useState("");
 
@@ -34,50 +67,52 @@ export default function CollabAbsencesPage() {
       .catch(() => router.replace("/collab/login"));
   }, [router]);
 
-  const filtered = useMemo(() => {
+  const sections = useMemo(() => {
     const today = new Date().toISOString().slice(0, 10);
-    if (activeTab === "historique") {
-      return rows.filter((row) => {
+    return {
+      pending: rows.filter((row) => String(row.statut ?? "").toLowerCase().includes("attente")),
+      treated: rows.filter((row) => {
         const status = String(row.statut ?? "").toLowerCase();
         const endDate = String(row.date_fin ?? row.date_debut ?? "9999-12-31");
-        return !status.includes("attente") && endDate < today;
-      });
-    }
-    return rows.filter((row) => {
-      const status = String(row.statut ?? "").toLowerCase();
-      const endDate = String(row.date_fin ?? row.date_debut ?? "9999-12-31");
-      return status.includes("attente") || endDate >= today;
-    });
-  }, [activeTab, rows]);
+        return !status.includes("attente") || endDate < today;
+      }),
+    };
+  }, [rows]);
 
   return (
     <CollabPage>
-      <CollabHeader title="Absences" subtitle="Suivez vos demandes et envoyez-en une nouvelle en quelques étapes." accent={false} />
-      <div style={{ display: "flex", gap: 8, marginBottom: 16 }}>
-        <button type="button" onClick={() => setActiveTab("encours")} style={{ flex: 1, minHeight: 40, borderRadius: 14, border: `1px solid ${activeTab === "encours" ? collabTheme.accent : collabTheme.line}`, background: activeTab === "encours" ? collabTheme.accentSoft : "#fffaf6", color: activeTab === "encours" ? collabTheme.accent : collabTheme.muted, fontWeight: 700, cursor: "pointer" }}>En cours</button>
-        <button type="button" onClick={() => setActiveTab("historique")} style={{ flex: 1, minHeight: 40, borderRadius: 14, border: `1px solid ${activeTab === "historique" ? collabTheme.accent : collabTheme.line}`, background: activeTab === "historique" ? collabTheme.accentSoft : "#fffaf6", color: activeTab === "historique" ? collabTheme.accent : collabTheme.muted, fontWeight: 700, cursor: "pointer" }}>Historique</button>
-      </div>
+      <CollabHeader
+        title="Absences"
+        subtitle="Suivez vos demandes et les retours manager."
+        right={
+          <Link href="/collab/absences/new" style={{ textDecoration: "none", borderRadius: 999, background: collabTheme.black, color: "#fff", padding: "7px 12px", fontSize: 12, fontWeight: 700 }}>
+            + Nouvelle
+          </Link>
+        }
+      />
+
       <div style={{ display: "grid", gap: 16 }}>
+        {loadError ? (
+          <SectionCard style={{ background: "#fff7eb" }}>
+            <div style={{ color: collabTheme.gold, fontSize: 13 }}>{loadError}</div>
+          </SectionCard>
+        ) : null}
+
         <SectionCard>
-          <SectionTitle right={<Link href="/collab/absences/new" style={{ color: collabTheme.accent, textDecoration: "none", fontWeight: 700 }}>+ Nouvelle</Link>}>Mes demandes</SectionTitle>
-          {loadError ? <div style={{ marginBottom: 12, fontSize: 13, color: "#991b1b" }}>{loadError}</div> : null}
+          <SectionTitle>En attente</SectionTitle>
           <div style={{ display: "grid", gap: 12 }}>
-            {filtered.length ? filtered.map((row, index) => {
-              const tone = getAbsenceStatusTone(row.statut);
-              return (
-                <div key={index} style={{ padding: "14px 0", borderTop: index ? `1px solid ${collabTheme.line}` : "none" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-                    <div style={{ fontSize: 15, fontWeight: 700 }}>{String(row.type ?? "Absence")}</div>
-                    <span style={{ borderRadius: 999, padding: "6px 10px", background: tone.bg, color: tone.color, fontSize: 12, fontWeight: 700 }}>{getAbsenceStatusLabel(row.statut)}</span>
-                  </div>
-                  <div style={{ marginTop: 8, fontSize: 13, color: collabTheme.muted }}>{String(row.date_debut ?? "")} → {String(row.date_fin ?? "")}</div>
-                  {String(row.motif_refus ?? row.reason ?? "") ? <div style={{ marginTop: 8, fontSize: 13, color: "#991b1b" }}>Motif : {String(row.motif_refus ?? row.reason ?? "")}</div> : null}
-                </div>
-              );
-            }) : <div style={{ fontSize: 13, color: collabTheme.muted }}>Aucune demande à afficher.</div>}
+            {sections.pending.length ? sections.pending.map((row, index) => <AbsenceRow key={`pending-${index}`} row={row} />) : <div style={{ fontSize: 13, color: collabTheme.muted }}>Aucune demande en attente.</div>}
+          </div>
+        </SectionCard>
+
+        <SectionCard>
+          <SectionTitle>Traitées</SectionTitle>
+          <div style={{ display: "grid", gap: 12 }}>
+            {sections.treated.length ? sections.treated.map((row, index) => <AbsenceRow key={`treated-${index}`} row={row} />) : <div style={{ fontSize: 13, color: collabTheme.muted }}>Aucune demande traitée.</div>}
           </div>
         </SectionCard>
       </div>
+
       <CollabBottomNav />
     </CollabPage>
   );

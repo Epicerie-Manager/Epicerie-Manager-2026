@@ -78,7 +78,7 @@ export default function CollabChangePinPage() {
 
   return (
     <CollabPage>
-      <CollabHeader title="Votre nouveau code" subtitle="Première connexion : choisissez un code personnel à 6 chiffres." accent={false} />
+      <CollabHeader title="Votre nouveau code" subtitle="Première connexion : choisissez un code personnel à 6 chiffres." />
       <SectionCard style={{ padding: "18px 16px", marginBottom: 16, background: "#fff8ec" }}>
         <div style={{ fontSize: 13, color: collabTheme.amber }}>Première connexion — choisissez un code personnel.</div>
       </SectionCard>
@@ -114,4 +114,5 @@ export default function CollabChangePinPage() {
     </CollabPage>
   );
 }
+
 

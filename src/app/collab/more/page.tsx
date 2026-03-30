@@ -3,12 +3,12 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CollabBottomNav, CollabHeader, CollabPage, SectionCard, SectionTitle } from "@/components/collab/layout";
-import { collabTheme } from "@/components/collab/theme";
+import { collabSerifTitleStyle, collabTheme } from "@/components/collab/theme";
 import { collabSignOut, getCollabProfile } from "@/lib/collab-auth";
 
 const links = [
-  { href: "/collab/more", title: "Plan TG", subtitle: "Consulter les têtes de gondole en cours." },
-  { href: "/collab/more", title: "Infos", subtitle: "Voir les annonces et documents utiles." },
+  { title: "Plan TG", subtitle: "Consulter les têtes de gondole en cours.", tone: collabTheme.green },
+  { title: "Infos & annonces", subtitle: "Voir les annonces et documents utiles.", tone: collabTheme.gold },
 ];
 
 export default function CollabMorePage() {
@@ -31,14 +31,17 @@ export default function CollabMorePage() {
 
   return (
     <CollabPage>
-      <CollabHeader title="Plus" subtitle="Accès complémentaires pour la suite de la PWA collaborateur." accent={false} />
+      <CollabHeader title="Plus" subtitle="Liens et accès complémentaires." />
       <div style={{ display: "grid", gap: 16 }}>
         <SectionCard>
           <SectionTitle>Liens</SectionTitle>
           <div style={{ display: "grid", gap: 12 }}>
             {links.map((link) => (
-              <div key={link.title} style={{ padding: "14px 0", borderTop: `1px solid ${collabTheme.line}` }}>
-                <div style={{ fontSize: 15, fontWeight: 700 }}>{link.title}</div>
+              <div key={link.title} style={{ padding: "14px 14px", borderRadius: 16, background: "#fffdfb", border: `1px solid ${collabTheme.line}` }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 10, height: 10, borderRadius: 999, background: link.tone }} />
+                  <div style={{ ...collabSerifTitleStyle({ fontSize: 20 }) }}>{link.title}</div>
+                </div>
                 <div style={{ marginTop: 6, fontSize: 13, color: collabTheme.muted }}>{link.subtitle}</div>
               </div>
             ))}
@@ -49,16 +52,7 @@ export default function CollabMorePage() {
           <button
             type="button"
             onClick={() => void collabSignOut().then(() => router.replace("/collab/login"))}
-            style={{
-              width: "100%",
-              minHeight: 48,
-              borderRadius: 18,
-              border: "none",
-              background: "#111111",
-              color: "#fff",
-              fontWeight: 700,
-              cursor: "pointer",
-            }}
+            style={{ width: "100%", minHeight: 52, borderRadius: 16, border: "none", background: collabTheme.black, color: "#fff", fontWeight: 700, cursor: "pointer" }}
           >
             Se déconnecter
           </button>

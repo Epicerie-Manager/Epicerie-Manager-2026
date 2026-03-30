@@ -1,29 +1,44 @@
 import type { CSSProperties } from "react";
 
 export const collabTheme = {
-  bg: "#faf8f5",
-  card: "#fffdf9",
-  line: "#e9dccd",
-  text: "#2b2118",
-  muted: "#8a7866",
+  bg: "#f0ece6",
+  bgAlt: "#ebe4db",
+  card: "#ffffff",
+  line: "#e1d6ca",
+  text: "#1a1410",
+  muted: "#8f7d6c",
   accent: "#D40511",
-  accentDark: "#9f0f18",
+  accentDark: "#9e0812",
   accentSoft: "#fff0f1",
-  green: "#166534",
-  greenBg: "#ecfdf5",
-  amber: "#92400e",
-  amberBg: "#fffbeb",
-  blue: "#1d4ed8",
-  blueBg: "#eff6ff",
-  shadow: "0 8px 24px rgba(77, 48, 27, 0.08)",
+  black: "#1a1410",
+  blackSoft: "#2a221c",
+  blue: "#1d5fa0",
+  violet: "#5635b8",
+  green: "#167a48",
+  gold: "#a47208",
+  greenBg: "#ebfbf1",
+  amber: "#b57408",
+  amberBg: "#fff5df",
+  redBg: "#fff0f1",
+  shadow: "0 2px 8px rgba(80,50,30,0.10)",
+  titleFont: "Georgia, serif",
 };
 
 export function collabCardStyle(extra?: CSSProperties): CSSProperties {
   return {
     background: collabTheme.card,
     border: `1px solid ${collabTheme.line}`,
-    borderRadius: 24,
+    borderRadius: 16,
     boxShadow: collabTheme.shadow,
+    ...extra,
+  };
+}
+
+export function collabSerifTitleStyle(extra?: CSSProperties): CSSProperties {
+  return {
+    fontFamily: collabTheme.titleFont,
+    color: collabTheme.text,
+    letterSpacing: "-0.02em",
     ...extra,
   };
 }

@@ -28,7 +28,7 @@ export default function CollabLayout({ children }: { children: React.ReactNode }
     <div
       style={{
         minHeight: "100vh",
-        background: "#faf8f5",
+        background: "#f0ece6",
         fontFamily: "Georgia, serif",
         maxWidth: "430px",
         margin: "0 auto",
@@ -43,14 +43,14 @@ export default function CollabLayout({ children }: { children: React.ReactNode }
           bottom: 12,
           padding: "6px 10px",
           borderRadius: 999,
-          background: "rgba(255, 250, 246, 0.92)",
-          border: "1px solid rgba(226, 209, 182, 0.9)",
+          background: "rgba(255,255,255,0.92)",
+          border: "1px solid rgba(210,196,182,0.9)",
           color: "#8a6b42",
           fontSize: 11,
           fontWeight: 700,
           letterSpacing: "0.04em",
           zIndex: 40,
-          boxShadow: "0 10px 30px rgba(138, 107, 66, 0.12)",
+          boxShadow: "0 2px 8px rgba(80,50,30,0.10)",
         }}
       >
         v{packageJson.version}

@@ -55,7 +55,7 @@ export function CollabPinPageClient({ selectedName }: { selectedName: string }) 
         ← Retour
       </Link>
       <div style={{ height: 10 }} />
-      <CollabHeader title="Votre code" subtitle="Entrez votre code personnel à 6 chiffres." accent={false} />
+      <CollabHeader title="Votre code" subtitle="Entrez votre code personnel à 6 chiffres." />
       <SectionCard style={{ padding: "22px 18px" }}>
         <div style={{ display: "grid", justifyItems: "center" }}>
           <div style={{ width: 78, height: 78, borderRadius: 26, display: "grid", placeItems: "center", background: collabTheme.accentSoft, color: collabTheme.accent, fontSize: 28, fontWeight: 700 }}>
@@ -72,5 +72,6 @@ export function CollabPinPageClient({ selectedName }: { selectedName: string }) 
     </CollabPage>
   );
 }
+
 
 

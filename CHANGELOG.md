@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.45 - 2026-03-30
+
+- Collaborateurs / Plan TG-GB : ajout d'un nouvel ecran `Plan TG/GB` en lecture seule, avec deux vues `Mes rayons` et `Vue d'ensemble`, branche sur la source TG existante pour afficher les rayons, responsables, contenus `TG` et `GB`.
+- Collaborateurs / Navigation : les acces rapides de l'accueil et le menu `Plus` pointent maintenant vers ce nouvel ecran `Plan TG/GB`.
+
 ## v0.6.44 - 2026-03-30
 
 - Collaborateurs / Planning : les dimanches non travailles ne remontent plus comme `Abs` ; ils s'affichent maintenant comme jours off grises avec une croix, et la vue equipe affiche desormais les 7 jours complets de la semaine.

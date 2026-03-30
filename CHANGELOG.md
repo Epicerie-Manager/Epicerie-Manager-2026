@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.35 - 2026-03-30
+
+- Absences / Migration canonique : la suppression de la table `absence_requests` est maintenant effective en base ; `absences` reste l'unique source canonique pour le manager, le planning et la PWA collaborateur.
+- Absences / Nettoyage : verification complete du code applicatif, sans reference restante a `absence_requests` dans les fichiers executables du projet.
+
 ## v0.6.34 - 2026-03-30
 
 - Absences / Migration canonique : le code lit et ecrit maintenant uniquement la table `absences` pour le manager, le planning et la PWA collaborateur ; la logique de fusion avec `absence_requests` a ete retiree.

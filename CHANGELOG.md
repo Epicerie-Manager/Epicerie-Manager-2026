@@ -21,6 +21,10 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.36 - 2026-03-30
+
+- Collaborateurs / Planning : la vue planning ne tombe plus a vide si le chargement des absences superposees ou de la vue equipe echoue ; le planning personnel continue a s'afficher avec un chargement tolerant.
+
 ## v0.6.35 - 2026-03-30
 
 - Absences / Migration canonique : la suppression de la table `absence_requests` est maintenant effective en base ; `absences` reste l'unique source canonique pour le manager, le planning et la PWA collaborateur.

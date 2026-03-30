@@ -118,18 +118,22 @@ async function getApprovedCollabAbsenceRows(
   endDate: string,
 ) {
   const supabase = createClient();
-  const { data, error } = await supabase
-    .from("absences")
-    .select("employee_id,type,date_debut,date_fin,statut,note,created_at,updated_at,source")
-    .or(`employee_id.eq.${employeeId},note.ilike.%EMPLOYEE:TOUS%`)
-    .lte("date_debut", endDate)
-    .gte("date_fin", startDate);
+  try {
+    const { data, error } = await supabase
+      .from("absences")
+      .select("employee_id,type,date_debut,date_fin,statut,note,created_at,updated_at,source")
+      .or(`employee_id.eq.${employeeId},note.ilike.%EMPLOYEE:TOUS%`)
+      .lte("date_debut", endDate)
+      .gte("date_fin", startDate);
 
-  if (error) throw error;
+    if (error) throw error;
 
-  return ((data ?? []) as Array<Record<string, unknown>>).filter(
-    (row) => normalizeCollabAbsenceStatus(row.statut) === "approuve",
-  );
+    return ((data ?? []) as Array<Record<string, unknown>>).filter(
+      (row) => normalizeCollabAbsenceStatus(row.statut) === "approuve",
+    );
+  } catch {
+    return [];
+  }
 }
 
 export async function getMyWeekPlanning(startDate: string, endDate: string) {

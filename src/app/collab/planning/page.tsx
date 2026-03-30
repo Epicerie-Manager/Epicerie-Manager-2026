@@ -55,15 +55,20 @@ export default function CollabPlanningPage() {
     if (!profile) return;
     const weekStart = formatIsoDate(startOfWeek(weekCursor));
     const weekEnd = formatIsoDate(endOfWeek(weekCursor));
-    void Promise.all([
+    void Promise.allSettled([
       getMyWeekPlanning(weekStart, weekEnd),
       getTeamWeekPlanning(weekStart, weekEnd),
-    ]).then(([myWeek, teamWeek]) => {
-      setWeekRows(myWeek as CollabPlanningEntry[]);
-      setTeamRows(teamWeek as Array<Record<string, unknown>>);
-    }).catch(() => {
-      setWeekRows([]);
-      setTeamRows([]);
+    ]).then(([myWeekResult, teamWeekResult]) => {
+      setWeekRows(
+        myWeekResult.status === "fulfilled"
+          ? (myWeekResult.value as CollabPlanningEntry[])
+          : [],
+      );
+      setTeamRows(
+        teamWeekResult.status === "fulfilled"
+          ? (teamWeekResult.value as Array<Record<string, unknown>>)
+          : [],
+      );
     });
   }, [profile, weekCursor]);
 

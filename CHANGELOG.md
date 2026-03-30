@@ -21,6 +21,10 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.37 - 2026-03-30
+
+- Collaborateurs / Absences & Planning : la PWA collaborateur recharge maintenant a la fois les absences issues du collaborateur et celles posees directement par le manager pour le collaborateur, avec une lecture plus robuste des absences approuvees dans le planning.
+
 ## v0.6.36 - 2026-03-30
 
 - Collaborateurs / Planning : la vue planning ne tombe plus a vide si le chargement des absences superposees ou de la vue equipe echoue ; le planning personnel continue a s'afficher avec un chargement tolerant.

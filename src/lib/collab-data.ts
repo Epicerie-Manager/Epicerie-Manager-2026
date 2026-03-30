@@ -112,6 +112,26 @@ function getPlanningStatusFromAbsenceType(type: unknown) {
   return "X";
 }
 
+function buildCollabAbsenceIdentity(row: Record<string, unknown>) {
+  return [
+    String(row.employee_id ?? ""),
+    String(row.type ?? ""),
+    String(row.date_debut ?? ""),
+    String(row.date_fin ?? row.date_debut ?? ""),
+    String(row.statut ?? ""),
+    String(row.note ?? "").replace(/\s+/g, " ").trim().toUpperCase(),
+    String(row.source ?? ""),
+  ].join("|");
+}
+
+function dedupeCollabAbsences(rows: Array<Record<string, unknown>>) {
+  const deduped = new Map<string, Record<string, unknown>>();
+  rows.forEach((row) => {
+    deduped.set(buildCollabAbsenceIdentity(row), row);
+  });
+  return Array.from(deduped.values());
+}
+
 async function getApprovedCollabAbsenceRows(
   employeeId: string,
   startDate: string,
@@ -119,16 +139,34 @@ async function getApprovedCollabAbsenceRows(
 ) {
   const supabase = createClient();
   try {
-    const { data, error } = await supabase
-      .from("absences")
-      .select("employee_id,type,date_debut,date_fin,statut,note,created_at,updated_at,source")
-      .or(`employee_id.eq.${employeeId},note.ilike.%EMPLOYEE:TOUS%`)
-      .lte("date_debut", endDate)
-      .gte("date_fin", startDate);
+    const [ownResult, globalResult] = await Promise.allSettled([
+      supabase
+        .from("absences")
+        .select("employee_id,type,date_debut,date_fin,statut,note,created_at,updated_at,source")
+        .eq("employee_id", employeeId)
+        .eq("statut", "approuve")
+        .lte("date_debut", endDate)
+        .gte("date_fin", startDate),
+      supabase
+        .from("absences")
+        .select("employee_id,type,date_debut,date_fin,statut,note,created_at,updated_at,source")
+        .is("employee_id", null)
+        .ilike("note", "EMPLOYEE:TOUS%")
+        .eq("statut", "approuve")
+        .lte("date_debut", endDate)
+        .gte("date_fin", startDate),
+    ]);
 
-    if (error) throw error;
+    const ownRows =
+      ownResult.status === "fulfilled" && !ownResult.value.error
+        ? ((ownResult.value.data ?? []) as Array<Record<string, unknown>>)
+        : [];
+    const globalRows =
+      globalResult.status === "fulfilled" && !globalResult.value.error
+        ? ((globalResult.value.data ?? []) as Array<Record<string, unknown>>)
+        : [];
 
-    return ((data ?? []) as Array<Record<string, unknown>>).filter(
+    return dedupeCollabAbsences([...ownRows, ...globalRows]).filter(
       (row) => normalizeCollabAbsenceStatus(row.statut) === "approuve",
     );
   } catch {
@@ -223,15 +261,42 @@ export async function getMyAbsences() {
   const supabase = createClient();
   const profile = await getCollabProfile();
   if (!profile?.employee_id) return [];
-  const { data, error } = await supabase
-    .from("absences")
-    .select("*")
-    .eq("source", "collaborateur")
-    .eq("employee_id", profile.employee_id)
-    .order("created_at", { ascending: false });
-  if (error) throw error;
+  const [collabResult, managerOwnResult, managerGlobalResult] = await Promise.allSettled([
+    supabase
+      .from("absences")
+      .select("*")
+      .eq("source", "collaborateur")
+      .eq("employee_id", profile.employee_id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("absences")
+      .select("*")
+      .eq("source", "manager")
+      .eq("employee_id", profile.employee_id)
+      .order("created_at", { ascending: false }),
+    supabase
+      .from("absences")
+      .select("*")
+      .eq("source", "manager")
+      .is("employee_id", null)
+      .ilike("note", "EMPLOYEE:TOUS%")
+      .order("created_at", { ascending: false }),
+  ]);
 
-  return ((data ?? []) as Array<Record<string, unknown>>).sort((a, b) => {
+  const collabRows =
+    collabResult.status === "fulfilled" && !collabResult.value.error
+      ? ((collabResult.value.data ?? []) as Array<Record<string, unknown>>)
+      : [];
+  const managerOwnRows =
+    managerOwnResult.status === "fulfilled" && !managerOwnResult.value.error
+      ? ((managerOwnResult.value.data ?? []) as Array<Record<string, unknown>>)
+      : [];
+  const managerGlobalRows =
+    managerGlobalResult.status === "fulfilled" && !managerGlobalResult.value.error
+      ? ((managerGlobalResult.value.data ?? []) as Array<Record<string, unknown>>)
+      : [];
+
+  return dedupeCollabAbsences([...collabRows, ...managerOwnRows, ...managerGlobalRows]).sort((a, b) => {
     const left = b as Record<string, unknown>;
     const right = a as Record<string, unknown>;
     return String(left.created_at ?? left.updated_at ?? "").localeCompare(

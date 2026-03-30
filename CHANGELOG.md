@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.41 - 2026-03-30
+
+- Collaborateurs / Planning : la vue semaine affiche maintenant une navigation directement au niveau de la carte planning, avec un libelle plus clair du type `Semaine X · du ... au ...`.
+- Collaborateurs / Planning : la vue equipe a ete resserree et simplifiee visuellement pour se rapprocher d'un tableau mobile plus compact, avec meilleure mise en avant de la ligne du collaborateur connecte.
+
 ## v0.6.39 - 2026-03-30
 
 - Collaborateurs / Planning : correction de la requete de superposition des absences approuvees dans le planning personnel, qui ne demande plus une colonne `updated_at` absente de la table `absences` ; les conges approuves doivent de nouveau remplacer les horaires sur les jours concernes.

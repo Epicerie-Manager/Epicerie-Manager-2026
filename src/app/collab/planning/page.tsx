@@ -29,6 +29,31 @@ function addDays(date: Date, days: number) {
   return next;
 }
 
+function getWeekNumber(date: Date) {
+  const target = new Date(date);
+  target.setHours(0, 0, 0, 0);
+  target.setDate(target.getDate() + 3 - ((target.getDay() + 6) % 7));
+  const week1 = new Date(target.getFullYear(), 0, 4);
+  return (
+    1 +
+    Math.round(
+      ((target.getTime() - week1.getTime()) / 86400000 - 3 + ((week1.getDay() + 6) % 7)) / 7,
+    )
+  );
+}
+
+function formatWeekRange(start: Date, end: Date) {
+  const startLabel = start.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+  const endLabel = end.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+  return `Semaine ${getWeekNumber(start)} · du ${startLabel} au ${endLabel}`;
+}
+
+function getWeekTitle(start: Date, end: Date) {
+  const startLabel = start.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+  const endLabel = end.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+  return `Du ${startLabel} au ${endLabel}`;
+}
+
 function getStatusBadge(date: Date) {
   const today = new Date();
   const compare = new Date(date);
@@ -47,6 +72,15 @@ function getMonthShortLabel(entry: CollabPlanningEntry | undefined, profile: Col
   if (category === "conge") return "CP";
   if (category === "repos") return "RH";
   return getShiftBadgeLabel(entry, profile);
+}
+
+function getTeamCellBackground(label: string) {
+  if (label === "M") return "#eef4ff";
+  if (label === "AM") return "#fff1df";
+  if (label === "CP") return "#ebfbf1";
+  if (label === "RH") return "#f4eee6";
+  if (label === "Abs") return "#fff0f1";
+  return "#fbf8f3";
 }
 
 export default function CollabPlanningPage() {
@@ -132,22 +166,37 @@ export default function CollabPlanningPage() {
     };
   }, [profile, weekRows]);
 
+  const weekRangeLabel = useMemo(
+    () => formatWeekRange(weekDays[0], weekDays[6]),
+    [weekDays],
+  );
+  const weekTitle = useMemo(
+    () => getWeekTitle(weekDays[0], weekDays[6]),
+    [weekDays],
+  );
+
   if (!profile) return null;
 
   return (
     <CollabPage>
       <CollabHeader
         title="Planning"
-        subtitle={activeTab === "Mois" ? monthCursor.toLocaleDateString("fr-FR", { month: "long", year: "numeric" }) : `Sem. ${weekDays[0].toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}`}
+        subtitle={
+          activeTab === "Mois"
+            ? monthCursor.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })
+            : weekRangeLabel
+        }
         right={
-          <div style={{ display: "flex", gap: 8 }}>
-            <button type="button" onClick={() => (activeTab === "Mois" ? setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1)) : setWeekCursor((current) => addDays(current, -7)))} style={{ width: 28, height: 28, borderRadius: 999, border: "1px solid rgba(255,255,255,0.38)", background: "rgba(255,255,255,0.14)", color: "#fff", cursor: "pointer" }}>
-              ‹
-            </button>
-            <button type="button" onClick={() => (activeTab === "Mois" ? setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1)) : setWeekCursor((current) => addDays(current, 7)))} style={{ width: 28, height: 28, borderRadius: 999, border: "1px solid rgba(255,255,255,0.38)", background: "rgba(255,255,255,0.14)", color: "#fff", cursor: "pointer" }}>
-              ›
-            </button>
-          </div>
+          activeTab === "Mois" ? (
+            <div style={{ display: "flex", gap: 8 }}>
+              <button type="button" onClick={() => setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))} style={{ width: 28, height: 28, borderRadius: 999, border: "1px solid rgba(255,255,255,0.38)", background: "rgba(255,255,255,0.14)", color: "#fff", cursor: "pointer" }}>
+                ‹
+              </button>
+              <button type="button" onClick={() => setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))} style={{ width: 28, height: 28, borderRadius: 999, border: "1px solid rgba(255,255,255,0.38)", background: "rgba(255,255,255,0.14)", color: "#fff", cursor: "pointer" }}>
+                ›
+              </button>
+            </div>
+          ) : null
         }
       />
 
@@ -181,9 +230,19 @@ export default function CollabPlanningPage() {
       {activeTab === "Semaine" ? (
         <div style={{ display: "grid", gap: 16 }}>
           <SectionCard style={{ padding: 0, overflow: "hidden" }}>
-            <div style={{ padding: "14px 16px", borderBottom: `1px solid ${collabTheme.line}`, display: "grid", gridTemplateColumns: "1fr auto", gap: 12 }}>
-              <div style={{ ...collabSerifTitleStyle({ fontSize: 16 }) }}>Mon planning</div>
-              <div style={{ fontSize: 12, color: collabTheme.muted }}>Sem. {weekDays[0].toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}</div>
+            <div style={{ padding: "14px 16px", borderBottom: `1px solid ${collabTheme.line}`, display: "grid", gridTemplateColumns: "1fr auto", gap: 12, alignItems: "center" }}>
+              <div>
+                <div style={{ ...collabSerifTitleStyle({ fontSize: 16 }) }}>Mon planning</div>
+                <div style={{ marginTop: 3, fontSize: 12, color: collabTheme.muted }}>{weekRangeLabel}</div>
+              </div>
+              <div style={{ display: "flex", gap: 8 }}>
+                <button type="button" onClick={() => setWeekCursor((current) => addDays(current, -7))} style={{ width: 30, height: 30, borderRadius: 999, border: `1px solid ${collabTheme.line}`, background: "#fffaf6", color: collabTheme.text, cursor: "pointer" }}>
+                  ‹
+                </button>
+                <button type="button" onClick={() => setWeekCursor((current) => addDays(current, 7))} style={{ width: 30, height: 30, borderRadius: 999, border: `1px solid ${collabTheme.line}`, background: "#fffaf6", color: collabTheme.text, cursor: "pointer" }}>
+                  ›
+                </button>
+              </div>
             </div>
             <div style={{ padding: "0 14px 6px" }}>
               {weekRows.length ? weekRows.map((entry, index) => {
@@ -195,7 +254,7 @@ export default function CollabPlanningPage() {
                     <div>
                       <div style={{ fontSize: 11, letterSpacing: "0.08em", color: collabTheme.muted, textTransform: "uppercase" }}>
                         {date.toLocaleDateString("fr-FR", { weekday: "short" })} {date.getDate()}
-                        {badge.label === "En cours" ? " — aujourd&apos;hui" : ""}
+                        {badge.label === "En cours" ? " — aujourd’hui" : ""}
                       </div>
                       <div style={{ ...collabSerifTitleStyle({ fontSize: 24, marginTop: 3 }) }}>{getShiftDisplayText(entry, profile)}</div>
                     </div>
@@ -255,34 +314,90 @@ export default function CollabPlanningPage() {
             <span><span style={{ color: "#d97706" }}>■</span> Après-midi</span>
             <span><span style={{ color: "#16a34a" }}>■</span> Congé</span>
             <span><span style={{ color: "#c7b9a3" }}>■</span> RH</span>
-            <span><span style={{ color: "#1a1410" }}>■</span> aujourd&apos;hui</span>
+            <span><span style={{ color: "#1a1410" }}>■</span> aujourd’hui</span>
           </div>
         </SectionCard>
       ) : null}
 
       {activeTab === "Équipe" ? (
         <SectionCard>
-          <SectionTitle>Équipe</SectionTitle>
+          <SectionTitle
+            right={
+              <div style={{ display: "flex", gap: 8 }}>
+                <button type="button" onClick={() => setWeekCursor((current) => addDays(current, -7))} style={{ width: 30, height: 30, borderRadius: 999, border: `1px solid ${collabTheme.line}`, background: "#fffaf6", color: collabTheme.text, cursor: "pointer" }}>
+                  ‹
+                </button>
+                <button type="button" onClick={() => setWeekCursor((current) => addDays(current, 7))} style={{ width: 30, height: 30, borderRadius: 999, border: `1px solid ${collabTheme.line}`, background: "#fffaf6", color: collabTheme.text, cursor: "pointer" }}>
+                  ›
+                </button>
+              </div>
+            }
+          >
+            Vue équipe
+          </SectionTitle>
+          <div style={{ marginTop: -4, marginBottom: 14 }}>
+            <div style={{ ...collabSerifTitleStyle({ fontSize: 18 }) }}>Semaine {getWeekNumber(weekDays[0])}</div>
+            <div style={{ marginTop: 2, fontSize: 12, color: collabTheme.muted }}>{weekTitle}</div>
+          </div>
           <div style={{ overflowX: "auto" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "120px repeat(5, 56px)", gap: 6, minWidth: 420 }}>
-              <div style={{ fontSize: 11, color: collabTheme.muted, textTransform: "uppercase" }}>Nom</div>
+            <div style={{ display: "grid", gridTemplateColumns: "104px repeat(5, 58px)", gap: 6, minWidth: 408 }}>
+              <div style={{ fontSize: 10, color: collabTheme.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>Nom</div>
               {weekdays.map((day) => (
-                <div key={day.toISOString()} style={{ fontSize: 11, color: collabTheme.muted, textAlign: "center", textTransform: "uppercase" }}>
-                  {day.toLocaleDateString("fr-FR", { weekday: "short" })}
+                <div key={day.toISOString()} style={{ fontSize: 10, color: collabTheme.muted, textAlign: "center", textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                  {day.toLocaleDateString("fr-FR", { weekday: "short" }).slice(0, 3)}
                 </div>
               ))}
               {teamNames.map((person) => {
                 const isMe = person.name === profile.employees?.name;
                 return [
-                  <div key={`${person.name}-label`} style={{ padding: "10px 8px", borderRadius: 12, background: isMe ? collabTheme.accent : "#fbf8f3", color: isMe ? "#ffffff" : collabTheme.text, fontWeight: 700, fontSize: 13 }}>
+                  <div
+                    key={`${person.name}-label`}
+                    style={{
+                      padding: "10px 8px",
+                      borderRadius: 12,
+                      background: "#fbf8f3",
+                      color: isMe ? collabTheme.accent : collabTheme.text,
+                      border: `1px solid ${isMe ? collabTheme.accent : collabTheme.line}`,
+                      fontWeight: 700,
+                      fontSize: 12,
+                      whiteSpace: "nowrap",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                    }}
+                  >
                     {person.name}
                   </div>,
                   ...weekdays.map((day) => {
                     const iso = formatIsoDate(day);
                     const row = person.entries.get(iso) as CollabPlanningEntry | undefined;
+                    const label = row ? getMonthShortLabel(row, profile) : "—";
+                    const detail =
+                      row && (label === "M" || label === "AM")
+                        ? getShiftDisplayText(row, profile)
+                        : "";
                     return (
-                      <div key={`${person.name}-${iso}`} style={{ ...collabCardStyle({ minHeight: 44, boxShadow: "none", background: "#fbf8f3", display: "grid", placeItems: "center", padding: 0 }) }}>
-                        <span style={{ color: row ? getShiftTone(row) : collabTheme.muted, fontWeight: 800, fontSize: 12 }}>{row ? getMonthShortLabel(row, profile) : "—"}</span>
+                      <div
+                        key={`${person.name}-${iso}`}
+                        style={{
+                          ...collabCardStyle({
+                            minHeight: 48,
+                            boxShadow: "none",
+                            background: getTeamCellBackground(label),
+                            display: "grid",
+                            placeItems: "center",
+                            padding: "4px 2px",
+                            borderRadius: 12,
+                          }),
+                        }}
+                      >
+                        <span style={{ color: row ? getShiftTone(row, profile) : collabTheme.muted, fontWeight: 800, fontSize: 11, lineHeight: 1 }}>
+                          {label}
+                        </span>
+                        {detail ? (
+                          <span style={{ marginTop: 3, color: collabTheme.muted, fontSize: 8, lineHeight: 1.1, textAlign: "center" }}>
+                            {detail.replace("h20", "h").replace("h30", "h30")}
+                          </span>
+                        ) : null}
                       </div>
                     );
                   }),

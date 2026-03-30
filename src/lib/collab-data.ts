@@ -18,10 +18,87 @@ function listIsoDates(dateDebut: string, dateFin: string) {
   const current = new Date(`${dateDebut}T00:00:00`);
   const end = new Date(`${dateFin}T00:00:00`);
   while (current <= end) {
-    dates.push(current.toISOString().slice(0, 10));
+    dates.push(formatLocalIsoDate(current));
     current.setDate(current.getDate() + 1);
   }
   return dates;
+}
+
+function formatLocalIsoDate(date: Date) {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, "0");
+  const day = String(date.getDate()).padStart(2, "0");
+  return `${year}-${month}-${day}`;
+}
+
+function normalizeCollabEmployeeType(value: unknown) {
+  const upper = String(value ?? "").toUpperCase();
+  if (upper.includes("APRES")) return "S";
+  if (upper.includes("ETUD")) return "E";
+  return "M";
+}
+
+function getIsoWeek(input: Date) {
+  const date = new Date(input);
+  date.setHours(0, 0, 0, 0);
+  date.setDate(date.getDate() + 3 - ((date.getDay() + 6) % 7));
+  const weekOne = new Date(date.getFullYear(), 0, 4);
+  return (
+    1 +
+    Math.round(
+      ((date.getTime() - weekOne.getTime()) / 86400000 - 3 + ((weekOne.getDay() + 6) % 7)) / 7,
+    )
+  );
+}
+
+function getDayCode(day: number) {
+  return ["DIM", "LUN", "MAR", "MER", "JEU", "VEN", "SAM"][day];
+}
+
+function getDefaultStatusForDate(profile: CollabProfile, date: Date, cycleDays: string[]) {
+  const employee = profile.employees;
+  const dayOfWeek = date.getDay();
+  const employeeType = normalizeCollabEmployeeType(employee?.type);
+
+  if (dayOfWeek === 0) return "X";
+  if (employeeType === "E") return dayOfWeek === 6 ? "PRESENT" : "X";
+  if (employee?.actif === false) return "CONGE_MAT";
+
+  if (cycleDays.length) {
+    const cycleWeek = (getIsoWeek(date) - 1) % 5;
+    if (cycleDays[cycleWeek] === getDayCode(dayOfWeek)) return "RH";
+  }
+
+  return "PRESENT";
+}
+
+function getDefaultHoursForDate(profile: CollabProfile, date: Date) {
+  const employee = profile.employees;
+  const employeeType = normalizeCollabEmployeeType(employee?.type);
+  const dayOfWeek = date.getDay();
+
+  if (dayOfWeek === 2) return employee?.horaire_mardi ?? employee?.horaire_standard ?? null;
+  if (dayOfWeek === 6 && employeeType === "E") return employee?.horaire_samedi ?? "14h-21h30";
+  return employee?.horaire_standard ?? null;
+}
+
+function buildBasePlanningEntries(profile: CollabProfile, startDate: string, endDate: string, cycleDays: string[]) {
+  const rows: Array<Record<string, unknown>> = [];
+  const current = new Date(`${startDate}T00:00:00`);
+  const end = new Date(`${endDate}T00:00:00`);
+
+  while (current <= end) {
+    const date = formatLocalIsoDate(current);
+    rows.push({
+      date,
+      employee_id: profile.employee_id,
+      statut: getDefaultStatusForDate(profile, current, cycleDays),
+      horaire_custom: getDefaultHoursForDate(profile, current),
+    });
+    current.setDate(current.getDate() + 1);
+  }
+
+  return rows;
 }
 
 function getPlanningStatusFromAbsenceType(type: unknown) {
@@ -37,6 +114,33 @@ function getPlanningStatusFromAbsenceType(type: unknown) {
 
 function matchesGlobalAbsence(note: unknown) {
   return String(note ?? "").toUpperCase().includes("EMPLOYEE:TOUS");
+}
+
+function buildCollabAbsenceIdentity(row: Record<string, unknown>) {
+  return [
+    String(row.employee_id ?? ""),
+    String(row.type ?? ""),
+    String(row.date_debut ?? ""),
+    String(row.date_fin ?? row.date_debut ?? ""),
+    String(row.statut ?? ""),
+    String(row.note ?? "").replace(/\s+/g, " ").trim().toUpperCase(),
+  ].join("|");
+}
+
+function dedupeCollabAbsences(rows: Array<Record<string, unknown>>) {
+  const deduped = new Map<string, Record<string, unknown>>();
+
+  rows.forEach((row) => {
+    const key = buildCollabAbsenceIdentity(row);
+    const existing = deduped.get(key);
+    const source = String(row.source_table ?? "");
+    const existingSource = String(existing?.source_table ?? "");
+    if (!existing || (existingSource === "absences" && source === "absence_requests")) {
+      deduped.set(key, row);
+    }
+  });
+
+  return Array.from(deduped.values());
 }
 
 async function getApprovedCollabAbsenceRows(
@@ -78,18 +182,45 @@ async function getApprovedCollabAbsenceRows(
 export async function getMyWeekPlanning(startDate: string, endDate: string) {
   const supabase = createClient();
   const profile = await getCollabProfile();
-  if (!profile?.employee_id) return [];
-  const { data, error } = await supabase
-    .from("planning_entries")
-    .select("*")
-    .eq("employee_id", profile.employee_id)
-    .gte("date", startDate)
-    .lte("date", endDate)
-    .order("date");
-  if (error) throw error;
+  if (!profile?.employee_id || !profile.employees) return [];
+  const [planningResult, cycleResult] = await Promise.allSettled([
+    supabase
+      .from("planning_entries")
+      .select("*")
+      .eq("employee_id", profile.employee_id)
+      .gte("date", startDate)
+      .lte("date", endDate)
+      .order("date"),
+    supabase
+      .from("cycle_repos")
+      .select("semaine_cycle,jour_repos")
+      .eq("employee_id", profile.employee_id),
+  ]);
+  if (planningResult.status === "rejected") throw planningResult.reason;
+  if (planningResult.value.error) throw planningResult.value.error;
 
-  const rows = [...(data ?? [])] as Array<Record<string, unknown>>;
-  const byDate = new Map(rows.map((row) => [String(row.date ?? ""), { ...row }]));
+  const cycleDays = Array.from({ length: 5 }, () => "LUN");
+  const cycleRows =
+    cycleResult.status === "fulfilled" && !cycleResult.value.error
+      ? cycleResult.value.data ?? []
+      : [];
+
+  cycleRows.forEach((row) => {
+    const index = Number(row.semaine_cycle ?? 0) - 1;
+    if (index >= 0 && index < 5) {
+      cycleDays[index] = String(row.jour_repos ?? "LUN").toUpperCase();
+    }
+  });
+
+  const byDate = new Map(
+    buildBasePlanningEntries(profile, startDate, endDate, cycleDays).map((row) => [String(row.date ?? ""), row]),
+  );
+  (planningResult.value.data ?? []).forEach((row) => {
+    const date = String(row.date ?? "");
+    if (!date) return;
+    const existing = byDate.get(date) ?? { date, employee_id: profile.employee_id };
+    byDate.set(date, { ...existing, ...row });
+  });
   const approvedAbsences = await getApprovedCollabAbsenceRows(profile.employee_id, startDate, endDate);
 
   approvedAbsences.forEach((row) => {
@@ -164,7 +295,7 @@ export async function getMyAbsences() {
       source_table: "absences",
     }));
 
-  return [...requests, ...managerAbsences].sort((a, b) => {
+  return dedupeCollabAbsences([...requests, ...managerAbsences]).sort((a, b) => {
     const left = b as Record<string, unknown>;
     const right = a as Record<string, unknown>;
     return String(left.created_at ?? left.updated_at ?? "").localeCompare(
@@ -267,7 +398,7 @@ export function endOfWeek(input = new Date()) {
 }
 
 export function formatIsoDate(date: Date) {
-  return date.toISOString().slice(0, 10);
+  return formatLocalIsoDate(date);
 }
 
 export function formatFrenchLongDate(date: Date) {

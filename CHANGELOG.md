@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.33 - 2026-03-30
+
+- Collaborateurs / Planning : le planning personnel ne tombe plus en erreur si la lecture de `cycle_repos` n'est pas disponible ; la reconstruction continue a partir des donnees RH, des horaires et des absences approuvees.
+- Absences / Synchronisation : apres suppression ou changement de statut, l'etat complet est recharge depuis Supabase pour eviter les demandes fantomes ou les retours incoherents entre `absences` et `absence_requests`.
+
 ## v0.6.32 - 2026-03-30
 
 - Collaborateurs / Stabilite : correction d'une boucle silencieuse sur la PWA collaborateur en evitant les redirections vers `/collab/login` lors d'un simple echec de chargement de donnees (`planning`, `absences`, `annonces`, `plan TG`).

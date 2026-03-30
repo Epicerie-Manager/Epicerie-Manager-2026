@@ -45,10 +45,42 @@ function upsertAbsenceRequestSnapshot(request: AbsenceRequest) {
   replaceAbsenceRequestsSnapshot(nextRequests);
 }
 
-function removeAbsenceRequestSnapshot(dbId: string) {
-  replaceAbsenceRequestsSnapshot(
-    absenceRequestsSnapshot.filter((request) => String(request.dbId ?? "") !== dbId),
-  );
+function normalizeAbsenceNote(note: unknown) {
+  return String(note ?? "")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase();
+}
+
+function buildAbsenceRequestIdentity(request: AbsenceRequest) {
+  return [
+    request.employee.trim().toUpperCase(),
+    request.type,
+    request.startDate,
+    request.endDate,
+    request.status,
+    normalizeAbsenceNote(request.note),
+  ].join("|");
+}
+
+function dedupeAbsenceRequests(requests: AbsenceRequest[]) {
+  const deduped = new Map<string, AbsenceRequest>();
+
+  requests.forEach((request) => {
+    const key = buildAbsenceRequestIdentity(request);
+    const existing = deduped.get(key);
+    const requestSource = parseAbsenceDbId(String(request.dbId ?? "")).table;
+    const existingSource = existing ? parseAbsenceDbId(String(existing.dbId ?? "")).table : null;
+    if (!existing) {
+      deduped.set(key, request);
+      return;
+    }
+    if (existingSource === ABSENCE_SOURCE_ABSENCES && requestSource === ABSENCE_SOURCE_REQUESTS) {
+      deduped.set(key, request);
+    }
+  });
+
+  return Array.from(deduped.values());
 }
 
 export function loadAbsenceRequests(): AbsenceRequest[] {
@@ -212,6 +244,71 @@ function getAbsenceStatusForDb(
   return status;
 }
 
+type SyncedAbsenceRow = {
+  employee_id: string | null;
+  type: string | null;
+  date_debut: string | null;
+  date_fin: string | null;
+  note: string | null;
+};
+
+function buildTwinAbsenceQuery(
+  supabase: ReturnType<typeof createClient>,
+  table: typeof ABSENCE_SOURCE_ABSENCES | typeof ABSENCE_SOURCE_REQUESTS,
+  row: SyncedAbsenceRow,
+) {
+  let query = supabase
+    .from(table)
+    .select("id")
+    .eq("type", String(row.type ?? ""))
+    .eq("date_debut", String(row.date_debut ?? ""))
+    .eq("date_fin", String(row.date_fin ?? row.date_debut ?? ""));
+
+  if (row.employee_id) {
+    query = query.eq("employee_id", row.employee_id);
+  } else {
+    const employee = employeeFromNote(row.note);
+    if (employee) {
+      query = query.is("employee_id", null).ilike("note", `EMPLOYEE:${employee}%`);
+    }
+  }
+
+  return query;
+}
+
+async function syncTwinAbsenceRows(params: {
+  sourceTable: typeof ABSENCE_SOURCE_ABSENCES | typeof ABSENCE_SOURCE_REQUESTS;
+  row: SyncedAbsenceRow;
+  status?: AbsenceRequest["status"];
+  remove?: boolean;
+}) {
+  const { sourceTable, row, status, remove } = params;
+  const twinTable =
+    sourceTable === ABSENCE_SOURCE_REQUESTS ? ABSENCE_SOURCE_ABSENCES : ABSENCE_SOURCE_REQUESTS;
+  const supabase = createClient();
+  const { data: twinRows, error: twinError } = await buildTwinAbsenceQuery(supabase, twinTable, row);
+  if (twinError) throw twinError;
+
+  const twinIds = (twinRows ?? [])
+    .map((item) => String((item as { id?: unknown }).id ?? ""))
+    .filter(Boolean);
+
+  if (!twinIds.length) return;
+
+  if (remove) {
+    const { error: deleteError } = await supabase.from(twinTable).delete().in("id", twinIds);
+    if (deleteError) throw deleteError;
+    return;
+  }
+
+  if (!status) return;
+  const { error: updateError } = await supabase
+    .from(twinTable)
+    .update({ statut: getAbsenceStatusForDb(status, twinTable) })
+    .in("id", twinIds);
+  if (updateError) throw updateError;
+}
+
 export async function createAbsenceRequestInSupabase(
   input: Omit<AbsenceRequest, "id" | "dbId" | "status"> & { status?: AbsenceRequest["status"] },
 ) {
@@ -269,10 +366,12 @@ export async function updateAbsenceStatusInSupabase(dbId: string, status: Absenc
       .select("*")
       .single();
     if (error) throw error;
-    const mapped = mapRowToAbsenceRequest(data as Record<string, unknown>, 0, employeeNameById, table);
-    if (!mapped) throw new Error("Impossible de relire la demande mise à jour.");
-    upsertAbsenceRequestSnapshot(mapped);
-    emitAbsencesUpdated();
+    await syncTwinAbsenceRows({
+      sourceTable: table,
+      row: data as SyncedAbsenceRow,
+      status,
+    });
+    await syncAbsencesFromSupabase();
   } catch (error) {
     throw normalizeActionError(error);
   }
@@ -380,13 +479,25 @@ export async function deleteAbsenceRequestInSupabase(dbId: string) {
   try {
     const supabase = createClient();
     const { table, id } = parseAbsenceDbId(dbId);
+    const { data: existingRow, error: existingError } = await supabase
+      .from(table)
+      .select("employee_id,type,date_debut,date_fin,note")
+      .eq("id", id)
+      .maybeSingle();
+    if (existingError) throw existingError;
     const { error } = await supabase
       .from(table)
       .delete()
       .eq("id", id);
     if (error) throw error;
-    removeAbsenceRequestSnapshot(dbId);
-    emitAbsencesUpdated();
+    if (existingRow) {
+      await syncTwinAbsenceRows({
+        sourceTable: table,
+        row: existingRow as SyncedAbsenceRow,
+        remove: true,
+      });
+    }
+    await syncAbsencesFromSupabase();
   } catch (error) {
     throw normalizeActionError(error);
   }
@@ -424,15 +535,14 @@ export async function syncAbsencesFromSupabase() {
     );
     if (!Array.isArray(absencesRows) || !Array.isArray(requestRows)) return false;
 
-    const mapped = [
+    const mapped = dedupeAbsenceRequests([
       ...absencesRows.map((row: Record<string, unknown>, index) =>
         mapRowToAbsenceRequest(row, index, employeeNameById, ABSENCE_SOURCE_ABSENCES),
       ),
       ...requestRows.map((row: Record<string, unknown>, index) =>
         mapRowToAbsenceRequest(row, absencesRows.length + index, employeeNameById, ABSENCE_SOURCE_REQUESTS),
       ),
-    ]
-      .filter((row): row is AbsenceRequest => row !== null);
+    ].filter((row): row is AbsenceRequest => row !== null));
 
     replaceAbsenceRequestsSnapshot(mapped);
     emitAbsencesUpdated();

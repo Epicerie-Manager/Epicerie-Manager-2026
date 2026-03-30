@@ -44,17 +44,20 @@ export default function CollabHomePage() {
         const planningRows = await getMyWeekPlanning(today, tomorrow);
         setTodayEntry((planningRows.find((entry) => getEntryDate(entry) === today) as CollabPlanningEntry | undefined) ?? null);
         setTomorrowEntry((planningRows.find((entry) => getEntryDate(entry) === tomorrow) as CollabPlanningEntry | undefined) ?? null);
-        const [currentTgPlan, recentAnnonces] = await Promise.all([getCurrentTGPlan(), getRecentAnnonces(3)]);
-        setTgPlan((currentTgPlan as Record<string, unknown> | null) ?? null);
-        setAnnonces(recentAnnonces as Array<Record<string, unknown>>);
         setLoadError("");
       } catch {
         setTodayEntry(null);
         setTomorrowEntry(null);
-        setTgPlan(null);
-        setAnnonces([]);
         setLoadError("Certaines informations collaborateur n'ont pas pu être chargées.");
       }
+
+      const [currentTgPlan, recentAnnonces] = await Promise.allSettled([getCurrentTGPlan(), getRecentAnnonces(3)]);
+      setTgPlan(currentTgPlan.status === "fulfilled" ? (currentTgPlan.value as Record<string, unknown> | null) ?? null : null);
+      setAnnonces(
+        recentAnnonces.status === "fulfilled"
+          ? (recentAnnonces.value as Array<Record<string, unknown>>)
+          : [],
+      );
     };
 
     void load().catch(() => router.replace("/collab/login"));

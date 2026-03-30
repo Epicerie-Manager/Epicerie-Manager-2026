@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.39 - 2026-03-30
+
+- Collaborateurs / Planning : correction de la requete de superposition des absences approuvees dans le planning personnel, qui ne demande plus une colonne `updated_at` absente de la table `absences` ; les conges approuves doivent de nouveau remplacer les horaires sur les jours concernes.
+- Collaborateurs / Console : suppression des derniers logs residuels sur la creation de demande d'absence pour retrouver une console plus lisible pendant les tests.
+
 ## v0.6.38 - 2026-03-30
 
 - Collaborateurs / Planning : la superposition des absences approuvees ne depend plus d'un filtre SQL strict sur `statut = approuve`, ce qui permet aussi de faire remonter correctement les absences approuvees dont la casse n'etait pas encore parfaitement normalisee.

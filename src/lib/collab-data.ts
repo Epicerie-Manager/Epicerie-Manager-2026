@@ -142,13 +142,13 @@ async function getApprovedCollabAbsenceRows(
     const [ownResult, globalResult] = await Promise.allSettled([
       supabase
         .from("absences")
-        .select("employee_id,type,date_debut,date_fin,statut,note,created_at,updated_at,source")
+        .select("employee_id,type,date_debut,date_fin,statut,note,created_at,source")
         .eq("employee_id", employeeId)
         .lte("date_debut", endDate)
         .gte("date_fin", startDate),
       supabase
         .from("absences")
-        .select("employee_id,type,date_debut,date_fin,statut,note,created_at,updated_at,source")
+        .select("employee_id,type,date_debut,date_fin,statut,note,created_at,source")
         .is("employee_id", null)
         .ilike("note", "EMPLOYEE:TOUS%")
         .lte("date_debut", endDate)
@@ -314,7 +314,6 @@ export async function createAbsenceRequest(payload: {
   const supabase = createClient();
   const profile = await getCollabProfile();
   if (!profile?.employee_id) throw new Error("Profil non trouvé");
-  console.log("employee_id utilisé:", profile.employee_id);
   const { data, error } = await supabase
     .from("absences")
     .insert({
@@ -327,7 +326,6 @@ export async function createAbsenceRequest(payload: {
     .select()
     .single();
   if (error) {
-    console.log("erreur insert:", error);
     throw error;
   }
   return data;

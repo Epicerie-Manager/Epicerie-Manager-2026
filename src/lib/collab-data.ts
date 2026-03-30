@@ -144,7 +144,6 @@ async function getApprovedCollabAbsenceRows(
         .from("absences")
         .select("employee_id,type,date_debut,date_fin,statut,note,created_at,updated_at,source")
         .eq("employee_id", employeeId)
-        .eq("statut", "approuve")
         .lte("date_debut", endDate)
         .gte("date_fin", startDate),
       supabase
@@ -152,7 +151,6 @@ async function getApprovedCollabAbsenceRows(
         .select("employee_id,type,date_debut,date_fin,statut,note,created_at,updated_at,source")
         .is("employee_id", null)
         .ilike("note", "EMPLOYEE:TOUS%")
-        .eq("statut", "approuve")
         .lte("date_debut", endDate)
         .gte("date_fin", startDate),
     ]);

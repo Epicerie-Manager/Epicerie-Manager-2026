@@ -21,6 +21,10 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.38 - 2026-03-30
+
+- Collaborateurs / Planning : la superposition des absences approuvees ne depend plus d'un filtre SQL strict sur `statut = approuve`, ce qui permet aussi de faire remonter correctement les absences approuvees dont la casse n'etait pas encore parfaitement normalisee.
+
 ## v0.6.37 - 2026-03-30
 
 - Collaborateurs / Absences & Planning : la PWA collaborateur recharge maintenant a la fois les absences issues du collaborateur et celles posees directement par le manager pour le collaborateur, avec une lecture plus robuste des absences approuvees dans le planning.

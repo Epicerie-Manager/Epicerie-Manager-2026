@@ -30,7 +30,7 @@ export default function CollabLayout({ children }: { children: React.ReactNode }
         minHeight: "100vh",
         background: "#f0ece6",
         fontFamily: "Georgia, serif",
-        maxWidth: "430px",
+        width: "min(100%, 760px)",
         margin: "0 auto",
         position: "relative",
       }}
@@ -58,3 +58,4 @@ export default function CollabLayout({ children }: { children: React.ReactNode }
     </div>
   );
 }
+

@@ -54,7 +54,7 @@ export function CollabPage({ children }: { children: ReactNode }) {
         color: collabTheme.text,
       }}
     >
-      <div style={{ padding: "16px 14px 96px" }}>{children}</div>
+      <div style={{ padding: "16px clamp(14px, 3vw, 24px) 96px" }}>{children}</div>
     </div>
   );
 }
@@ -250,7 +250,7 @@ export function CollabBottomNav() {
         left: "50%",
         bottom: 12,
         transform: "translateX(-50%)",
-        width: "min(398px, calc(100vw - 22px))",
+        width: "min(720px, calc(100vw - 22px))",
         ...collabCardStyle({
           padding: "8px 10px 9px",
           display: "grid",
@@ -297,3 +297,4 @@ export function CollabBottomNav() {
     </div>
   );
 }
+

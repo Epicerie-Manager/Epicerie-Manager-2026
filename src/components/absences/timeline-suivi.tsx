@@ -354,7 +354,7 @@ export function TimelineSuivi({ absences, employees }: TimelineSuiviProps) {
     );
   }, [absences, filterStatus]);
 
-  const approved = absences.filter((item) => item.status === "APPROUVE");
+  const approved = absences.filter((item) => item.status === "approuve");
 
   const legendTypeCounts = useMemo(() => {
     const counters: Record<AbsenceTypeId, number> = {
@@ -456,8 +456,8 @@ export function TimelineSuivi({ absences, employees }: TimelineSuiviProps) {
         <div style={{ display: "flex", gap: "6px", background: "#f8fafc", borderRadius: "10px", padding: "4px" }}>
           {([
             { value: "ALL", label: "Toutes" },
-            { value: "APPROUVE", label: "Approuvees" },
-            { value: "EN_ATTENTE", label: "En attente" },
+            { value: "approuve", label: "Approuvees" },
+            { value: "en_attente", label: "En attente" },
           ] as const).map((item) => (
             <button
               key={item.value}
@@ -851,7 +851,7 @@ function VueMois({
                 if (matches.length) {
                   const absence = matches[0];
                   const color = typeColor(absence.type);
-                  const pending = absence.status === "EN_ATTENTE";
+                  const pending = absence.status === "en_attente";
                   return (
                     <td key={day} title={`${employee}: ${typeLabel(absence.type)} ${fmtShort(absence.startDate)} → ${fmtShort(absence.endDate)}`} style={{ padding: 0, borderBottom: "1px solid #e2e8f0", background: pending ? pendingPattern(color) : `${color}22` }}>
                       <div style={{ width: "100%", height: "24px" }} />
@@ -1115,7 +1115,7 @@ function VuePeriode({
                     const left = ((clampedStart - from.getTime()) / (86400000 * totalDays)) * 100;
                     const width = Math.max(((clampedEnd - clampedStart) / (86400000 * totalDays)) * 100 + 100 / totalDays, 0.6);
                     const color = typeColor(absence.type);
-                    const pending = absence.status === "EN_ATTENTE";
+                    const pending = absence.status === "en_attente";
                     return (
                       <div
                         key={absence.id}
@@ -1195,7 +1195,7 @@ function VueResume({
       employee,
       totalDays,
       byType,
-      pending: mine.filter((absence) => absence.status === "EN_ATTENTE").length,
+      pending: mine.filter((absence) => absence.status === "en_attente").length,
     };
   });
 

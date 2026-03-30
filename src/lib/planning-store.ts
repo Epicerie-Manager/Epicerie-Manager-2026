@@ -458,27 +458,10 @@ export async function syncPlanningFromSupabase(monthKey = getPlanningMonthKey(ne
       supabase
         .from("absences")
         .select("employee_id,type,date_debut,date_fin,statut,note")
-        .eq("statut", "APPROUVE")
-        .range(from, to),
-    );
-    const absenceRequestRows = await fetchAllRows<{
-      employee_id: string | null;
-      type: string | null;
-      date_debut: string | null;
-      date_fin: string | null;
-      statut: string | null;
-      note: string | null;
-    }>((from, to) =>
-      supabase
-        .from("absence_requests")
-        .select("employee_id,type,date_debut,date_fin,statut,note")
         .eq("statut", "approuve")
         .range(from, to),
     );
-    const approvedAbsenceRows = [
-      ...(Array.isArray(absencesRows) ? absencesRows : []),
-      ...(Array.isArray(absenceRequestRows) ? absenceRequestRows : []),
-    ];
+    const approvedAbsenceRows = Array.isArray(absencesRows) ? absencesRows : [];
     if (approvedAbsenceRows.length > 0) {
       approvedAbsenceRows.forEach((row) => {
         const baseEmployeeName =

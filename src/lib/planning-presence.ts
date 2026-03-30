@@ -62,7 +62,7 @@ function isApprovedAbsenceForEmployee(
   employeeName: string,
   dayIso: string,
 ) {
-  if (absence.status !== "APPROUVE") return false;
+  if (absence.status !== "approuve") return false;
   if (absence.startDate > dayIso || absence.endDate < dayIso) return false;
   const normalizedEmployee = String(absence.employee ?? "").trim().toUpperCase();
   return normalizedEmployee === "TOUS" || normalizedEmployee === employeeName;

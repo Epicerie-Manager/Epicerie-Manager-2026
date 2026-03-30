@@ -215,3 +215,109 @@ Claude doit maintenant investiguer prioritairement le cote Supabase Auth, pas le
 - comparer le retour dashboard / SQL / Auth API Admin
 - verifier pourquoi `auth.admin.listUsers()` ne voit pas les `@ep.fr`
 - verifier si une autre cle, un autre contexte ou un autre mecanisme de provisioning est en jeu
+
+## Migration absences - Etape 1
+
+Date : 2026-03-30
+
+Objectif :
+- preparer la migration vers `absences` comme table canonique unique
+- executer uniquement les operations SQL Supabase avant toute modification de code
+
+Contrainte de cette session Codex :
+- aucun acces SQL direct a Supabase n'est disponible depuis cette session
+- les 3 requetes ci-dessous n'ont donc pas ete executees ici
+- le statut exact de l'etape 1 est : `a executer dans Supabase puis a valider`
+
+### Requete 1 - ajout des colonnes manquantes a `absences`
+
+Statut :
+- non executee depuis Codex
+
+SQL :
+
+```sql
+ALTER TABLE absences
+  ADD COLUMN IF NOT EXISTS nb_jours INTEGER DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS nb_jours_ouvres INTEGER DEFAULT 1,
+  ADD COLUMN IF NOT EXISTS source TEXT DEFAULT 'manager'
+    CHECK (source IN ('manager', 'collaborateur')),
+  ADD COLUMN IF NOT EXISTS requested_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS motif_refus TEXT;
+```
+
+Resultat :
+- non disponible dans cette session
+
+### Requete 2 - normalisation des statuts dans `absences`
+
+Statut :
+- non executee depuis Codex
+
+SQL :
+
+```sql
+UPDATE absences SET statut = LOWER(statut);
+```
+
+Resultat :
+- non disponible dans cette session
+
+### Requete 3 - migration de `absence_requests` vers `absences`
+
+Statut :
+- non executee depuis Codex
+
+SQL :
+
+```sql
+INSERT INTO absences (employee_id, type, date_debut, date_fin, statut, note, nb_jours, nb_jours_ouvres, source, requested_by, motif_refus, created_at)
+SELECT employee_id, type, date_debut, date_fin, LOWER(statut), note, nb_jours, nb_jours_ouvres, 'collaborateur', requested_by, motif_refus, created_at
+FROM absence_requests
+WHERE NOT EXISTS (
+  SELECT 1 FROM absences a
+  WHERE a.employee_id = absence_requests.employee_id
+  AND a.date_debut = absence_requests.date_debut
+  AND a.date_fin = absence_requests.date_fin
+);
+```
+
+Resultat :
+- non disponible dans cette session
+
+### Etat de l'etape 1
+
+Ce que Codex peut confirmer :
+- le plan SQL est coherent avec l'objectif de migration vers `absences` comme table canonique
+- aucune modification de code n'a ete engagee au titre de cette migration
+- il faut maintenant executer ces 3 requetes directement dans Supabase et consigner leur resultat avant de passer a l'etape 2
+
+Ce que Codex ne peut pas confirmer depuis cette session :
+- le nombre exact de lignes migrees
+- l'absence d'erreur SQL sur les colonnes `requested_by` et `motif_refus`
+- l'etat final des donnees apres insertion
+
+## Migration absences - Etape 2
+
+Date : 2026-03-30
+
+### Fichiers modifies
+
+- [src/lib/absences-store.ts](D:/Epicerie%20Manager%202026/src/lib/absences-store.ts)
+- [src/lib/collab-data.ts](D:/Epicerie%20Manager%202026/src/lib/collab-data.ts)
+- [src/lib/planning-store.ts](D:/Epicerie%20Manager%202026/src/lib/planning-store.ts)
+- [src/lib/planning-presence.ts](D:/Epicerie%20Manager%202026/src/lib/planning-presence.ts)
+- [src/components/absences/timeline-suivi.tsx](D:/Epicerie%20Manager%202026/src/components/absences/timeline-suivi.tsx)
+- [src/lib/absences-data.ts](D:/Epicerie%20Manager%202026/src/lib/absences-data.ts)
+- [src/app/absences/page.tsx](D:/Epicerie%20Manager%202026/src/app/absences/page.tsx)
+- [src/app/page.tsx](D:/Epicerie%20Manager%202026/src/app/page.tsx)
+- [src/components/planning/planning-epiceriebis.jsx](D:/Epicerie%20Manager%202026/src/components/planning/planning-epiceriebis.jsx)
+- [package.json](D:/Epicerie%20Manager%202026/package.json)
+- [CHANGELOG.md](D:/Epicerie%20Manager%202026/CHANGELOG.md)
+
+### Resume
+
+- suppression des lectures de `absence_requests` dans les stores et vues concernees par l'etape 2
+- recentrage du manager, du planning et de la PWA collaborateur sur la table canonique `absences`
+- normalisation des statuts vers `approuve`, `refuse` et `en_attente`
+- conservation de la table `absence_requests` en base, sans la supprimer a ce stade

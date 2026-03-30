@@ -341,7 +341,7 @@ export default function DashboardPage() {
   )[0] ?? null;
   const monthlyCriticalDaySet = new Set(monthlyCriticalDays.map((day) => day.dayIso));
   const pendingRiskRequests = absences
-    .filter((request) => request.status === "EN_ATTENTE")
+    .filter((request) => request.status === "en_attente")
     .map((request) => {
       const overlappingRiskDays = monthlyRiskDays.filter((day) =>
         request.startDate <= day.dayIso && request.endDate >= day.dayIso,
@@ -411,7 +411,7 @@ export default function DashboardPage() {
       };
     });
 
-  const pendingAbsences = absences.filter((request) => request.status === "EN_ATTENTE").length;
+  const pendingAbsences = absences.filter((request) => request.status === "en_attente").length;
   const plateauFocus = getPlateauWeekFocusData();
   const plateauOperations = plateauFocus.operations.map((operation) => {
     const colorMap: Record<string, { color: string; badge: string; bg: string }> = {

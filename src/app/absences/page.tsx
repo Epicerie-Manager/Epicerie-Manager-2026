@@ -71,8 +71,8 @@ export default function AbsencesPage() {
       .filter((request) => (statusFilter === "ALL" ? true : request.status === statusFilter))
       .filter((request) => (employeeFilter === "ALL" ? true : request.employee === employeeFilter))
       .sort((a, b) => {
-        if (a.status === "EN_ATTENTE" && b.status !== "EN_ATTENTE") return -1;
-        if (a.status !== "EN_ATTENTE" && b.status === "EN_ATTENTE") return 1;
+        if (a.status === "en_attente" && b.status !== "en_attente") return -1;
+        if (a.status !== "en_attente" && b.status === "en_attente") return 1;
         return a.startDate.localeCompare(b.startDate);
       });
   }, [employeeFilter, requests, statusFilter]);
@@ -110,13 +110,13 @@ export default function AbsencesPage() {
     return () => window.removeEventListener(eventName, refreshEmployees);
   }, [isInitialized]);
 
-  const pendingCount = requests.filter((request) => request.status === "EN_ATTENTE").length;
-  const approvedCount = requests.filter((request) => request.status === "APPROUVE").length;
-  const refusedCount = requests.filter((request) => request.status === "REFUSE").length;
+  const pendingCount = requests.filter((request) => request.status === "en_attente").length;
+  const approvedCount = requests.filter((request) => request.status === "approuve").length;
+  const refusedCount = requests.filter((request) => request.status === "refuse").length;
   const todayIso = new Date().toISOString().slice(0, 10);
   const absentToday = requests.filter(
     (request) =>
-      request.status === "APPROUVE" && request.startDate <= todayIso && request.endDate >= todayIso,
+      request.status === "approuve" && request.startDate <= todayIso && request.endDate >= todayIso,
   ).length;
 
   const handleCreateRequest = async () => {
@@ -130,7 +130,7 @@ export default function AbsencesPage() {
         startDate: draft.startDate,
         endDate: draft.endDate,
         note: draft.note.trim() || undefined,
-        status: "EN_ATTENTE",
+        status: "en_attente",
       });
       setRequests(loadAbsenceRequests());
       setDraft({ employee: employees[0] ?? "", type: "CP", startDate: "", endDate: "", note: "" });
@@ -150,7 +150,7 @@ export default function AbsencesPage() {
     try {
       await updateAbsenceStatusInSupabase(request.dbId, status);
       setRequests(loadAbsenceRequests());
-      if (request.status === "APPROUVE" || status === "APPROUVE") {
+      if (request.status === "approuve" || status === "approuve") {
         await syncPlanningFromAbsenceRequest(request);
       }
     } catch (nextError) {
@@ -168,7 +168,7 @@ export default function AbsencesPage() {
     try {
       await deleteAbsenceRequestInSupabase(request.dbId);
       setRequests(loadAbsenceRequests());
-      if (request.status === "APPROUVE") {
+      if (request.status === "approuve") {
         await syncPlanningFromAbsenceRequest(request);
       }
     } catch (nextError) {
@@ -236,9 +236,9 @@ export default function AbsencesPage() {
         <h2 style={{ marginTop: "6px", fontSize: "18px", color: "#0f172a" }}>Pilotage des demandes</h2>
         <div style={{ marginTop: "10px", display: "flex", justifyContent: "space-between", gap: "10px", flexWrap: "wrap" }}>
           <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-            {(["ALL", "EN_ATTENTE", "APPROUVE", "REFUSE"] as const).map((status) => (
+            {(["ALL", "en_attente", "approuve", "refuse"] as const).map((status) => (
               <button key={status} type="button" style={chipStyle(statusFilter === status)} onClick={() => setStatusFilter(status)}>
-                {status === "ALL" ? "Toutes" : status === "EN_ATTENTE" ? "En attente" : status === "APPROUVE" ? "Approuvees" : "Refusees"}
+                {status === "ALL" ? "Toutes" : status === "en_attente" ? "En attente" : status === "approuve" ? "Approuvees" : "Refusees"}
               </button>
             ))}
           </div>
@@ -311,7 +311,7 @@ export default function AbsencesPage() {
         <div style={{ display: "grid", gap: "8px", marginTop: "10px", maxHeight: "360px", overflowY: "auto", paddingRight: "2px" }}>
           {filteredRequests.map((request) => {
             const requestType = absenceTypes.find((type) => type.id === request.type)?.label ?? request.type;
-            const isPending = request.status === "EN_ATTENTE";
+            const isPending = request.status === "en_attente";
             return (
               <div
                 key={request.id}
@@ -337,16 +337,16 @@ export default function AbsencesPage() {
 
                 <div style={{ display: "flex", gap: "6px", alignItems: "center", flexWrap: "wrap" }}>
                   <span style={{ fontSize: "10px", fontWeight: 700, padding: "3px 8px", borderRadius: "999px", background: "#e2e8f0", color: "#334155" }}>
-                    {request.status === "EN_ATTENTE" ? "En attente" : request.status === "APPROUVE" ? "Approuve" : "Refuse"}
+                    {request.status === "en_attente" ? "En attente" : request.status === "approuve" ? "Approuve" : "Refuse"}
                   </span>
                   {isPending ? (
                     <>
-                      <button type="button" style={chipStyle(false)} onClick={() => updateStatus(request.id, "APPROUVE")} disabled={busy}>Approuver</button>
-                      <button type="button" style={chipStyle(false)} onClick={() => updateStatus(request.id, "REFUSE")} disabled={busy}>Refuser</button>
+                      <button type="button" style={chipStyle(false)} onClick={() => updateStatus(request.id, "approuve")} disabled={busy}>Approuver</button>
+                      <button type="button" style={chipStyle(false)} onClick={() => updateStatus(request.id, "refuse")} disabled={busy}>Refuser</button>
                     </>
                   ) : null}
-                  {request.status === "REFUSE" ? (
-                    <button type="button" style={chipStyle(false)} onClick={() => updateStatus(request.id, "EN_ATTENTE")} disabled={busy}>
+                  {request.status === "refuse" ? (
+                    <button type="button" style={chipStyle(false)} onClick={() => updateStatus(request.id, "en_attente")} disabled={busy}>
                       Remettre en attente
                     </button>
                   ) : null}

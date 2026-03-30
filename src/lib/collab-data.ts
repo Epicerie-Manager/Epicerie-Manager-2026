@@ -112,71 +112,24 @@ function getPlanningStatusFromAbsenceType(type: unknown) {
   return "X";
 }
 
-function matchesGlobalAbsence(note: unknown) {
-  return String(note ?? "").toUpperCase().includes("EMPLOYEE:TOUS");
-}
-
-function buildCollabAbsenceIdentity(row: Record<string, unknown>) {
-  return [
-    String(row.employee_id ?? ""),
-    String(row.type ?? ""),
-    String(row.date_debut ?? ""),
-    String(row.date_fin ?? row.date_debut ?? ""),
-    String(row.statut ?? ""),
-    String(row.note ?? "").replace(/\s+/g, " ").trim().toUpperCase(),
-  ].join("|");
-}
-
-function dedupeCollabAbsences(rows: Array<Record<string, unknown>>) {
-  const deduped = new Map<string, Record<string, unknown>>();
-
-  rows.forEach((row) => {
-    const key = buildCollabAbsenceIdentity(row);
-    const existing = deduped.get(key);
-    const source = String(row.source_table ?? "");
-    const existingSource = String(existing?.source_table ?? "");
-    if (!existing || (existingSource === "absences" && source === "absence_requests")) {
-      deduped.set(key, row);
-    }
-  });
-
-  return Array.from(deduped.values());
-}
-
 async function getApprovedCollabAbsenceRows(
   employeeId: string,
   startDate: string,
   endDate: string,
 ) {
   const supabase = createClient();
-  const [managerAbsencesResult, collabRequestsResult] = await Promise.all([
-    supabase
-      .from("absences")
-      .select("employee_id,type,date_debut,date_fin,statut,note,created_at,updated_at")
-      .or(`employee_id.eq.${employeeId},note.ilike.%EMPLOYEE:TOUS%`)
-      .lte("date_debut", endDate)
-      .gte("date_fin", startDate),
-    supabase
-      .from("absence_requests")
-      .select("employee_id,type,date_debut,date_fin,statut,note,created_at,updated_at")
-      .eq("employee_id", employeeId)
-      .lte("date_debut", endDate)
-      .gte("date_fin", startDate),
-  ]);
+  const { data, error } = await supabase
+    .from("absences")
+    .select("employee_id,type,date_debut,date_fin,statut,note,created_at,updated_at,source")
+    .or(`employee_id.eq.${employeeId},note.ilike.%EMPLOYEE:TOUS%`)
+    .lte("date_debut", endDate)
+    .gte("date_fin", startDate);
 
-  if (managerAbsencesResult.error) throw managerAbsencesResult.error;
-  if (collabRequestsResult.error) throw collabRequestsResult.error;
+  if (error) throw error;
 
-  const approvedRows = [
-    ...((managerAbsencesResult.data ?? []) as Array<Record<string, unknown>>).filter(
-      (row) => normalizeCollabAbsenceStatus(row.statut) === "approuve",
-    ),
-    ...((collabRequestsResult.data ?? []) as Array<Record<string, unknown>>).filter(
-      (row) => normalizeCollabAbsenceStatus(row.statut) === "approuve",
-    ),
-  ];
-
-  return approvedRows;
+  return ((data ?? []) as Array<Record<string, unknown>>).filter(
+    (row) => normalizeCollabAbsenceStatus(row.statut) === "approuve",
+  );
 }
 
 export async function getMyWeekPlanning(startDate: string, endDate: string) {
@@ -266,36 +219,15 @@ export async function getMyAbsences() {
   const supabase = createClient();
   const profile = await getCollabProfile();
   if (!profile?.employee_id) return [];
-  const [requestsResult, managerAbsencesResult] = await Promise.all([
-    supabase
-      .from("absence_requests")
-      .select("*")
-      .eq("employee_id", profile.employee_id)
-      .order("created_at", { ascending: false }),
-    supabase
-      .from("absences")
-      .select("*")
-      .or(`employee_id.eq.${profile.employee_id},note.ilike.%EMPLOYEE:TOUS%`)
-      .order("created_at", { ascending: false }),
-  ]);
-  if (requestsResult.error) throw requestsResult.error;
-  if (managerAbsencesResult.error) throw managerAbsencesResult.error;
+  const { data, error } = await supabase
+    .from("absences")
+    .select("*")
+    .eq("source", "collaborateur")
+    .eq("employee_id", profile.employee_id)
+    .order("created_at", { ascending: false });
+  if (error) throw error;
 
-  const requests = ((requestsResult.data ?? []) as Array<Record<string, unknown>>).map((row) => ({
-    ...row,
-    source_table: "absence_requests",
-  }));
-  const managerAbsences = ((managerAbsencesResult.data ?? []) as Array<Record<string, unknown>>)
-    .filter((row) => {
-      const employeeId = String(row.employee_id ?? "");
-      return employeeId === profile.employee_id || matchesGlobalAbsence(row.note);
-    })
-    .map((row) => ({
-      ...row,
-      source_table: "absences",
-    }));
-
-  return dedupeCollabAbsences([...requests, ...managerAbsences]).sort((a, b) => {
+  return ((data ?? []) as Array<Record<string, unknown>>).sort((a, b) => {
     const left = b as Record<string, unknown>;
     const right = a as Record<string, unknown>;
     return String(left.created_at ?? left.updated_at ?? "").localeCompare(
@@ -315,16 +247,22 @@ export async function createAbsenceRequest(payload: {
   const supabase = createClient();
   const profile = await getCollabProfile();
   if (!profile?.employee_id) throw new Error("Profil non trouvé");
+  console.log("employee_id utilisé:", profile.employee_id);
   const { data, error } = await supabase
-    .from("absence_requests")
+    .from("absences")
     .insert({
       ...payload,
       employee_id: profile.employee_id,
+      source: "collaborateur",
+      requested_by: profile.id,
       statut: "en_attente",
     })
     .select()
     .single();
-  if (error) throw error;
+  if (error) {
+    console.log("erreur insert:", error);
+    throw error;
+  }
   return data;
 }
 

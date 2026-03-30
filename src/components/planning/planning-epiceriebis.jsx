@@ -377,7 +377,7 @@ function getPendingPlanningEmployees(employeeName){
 function buildPendingAbsenceLookup(requests){
   const lookup=new Map();
   requests.forEach((request)=>{
-    if(request?.status!=="EN_ATTENTE") return;
+    if(request?.status!=="en_attente") return;
     const status=getPendingPlanningStatus(request.type);
     const employees=getPendingPlanningEmployees(request.employee);
     const dates=listPendingPlanningDates(request.startDate,request.endDate);
@@ -411,7 +411,7 @@ function getPendingCellStyles(statusConfig){
 }
 
 function loadPendingAbsenceRequests(){
-  return loadAbsenceRequests().filter((request)=>request.status==="EN_ATTENTE");
+  return loadAbsenceRequests().filter((request)=>request.status==="en_attente");
 }
 
 function doesRequestOverlapPlanningRange(request,startIso,endIso){

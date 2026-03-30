@@ -5,10 +5,9 @@ import { createClient } from "@/lib/supabase";
 const ABSENCES_STORAGE_KEY = "epicerie-manager-absences-requests-v3";
 const ABSENCES_UPDATED_EVENT = "epicerie-manager:absences-updated";
 const PLANNING_SOURCE_MARKER = "SOURCE:PLANNING";
+
 let absenceRequestsSnapshot: AbsenceRequest[] = [];
 let didPurgeLegacyAbsencesStorage = false;
-const ABSENCE_SOURCE_ABSENCES = "absences";
-const ABSENCE_SOURCE_REQUESTS = "absence_requests";
 
 function canUseBrowserWindow() {
   return typeof window !== "undefined";
@@ -32,9 +31,13 @@ function replaceAbsenceRequestsSnapshot(requests: AbsenceRequest[]) {
 
 function upsertAbsenceRequestSnapshot(request: AbsenceRequest) {
   const nextRequests = cloneRequests(absenceRequestsSnapshot);
-  const requestKey = request.dbId ? `db:${request.dbId}` : `local:${request.employee}:${request.startDate}:${request.endDate}:${request.type}`;
+  const requestKey = request.dbId
+    ? `db:${request.dbId}`
+    : `local:${request.employee}:${request.startDate}:${request.endDate}:${request.type}`;
   const index = nextRequests.findIndex((item) => {
-    const itemKey = item.dbId ? `db:${item.dbId}` : `local:${item.employee}:${item.startDate}:${item.endDate}:${item.type}`;
+    const itemKey = item.dbId
+      ? `db:${item.dbId}`
+      : `local:${item.employee}:${item.startDate}:${item.endDate}:${item.type}`;
     return itemKey === requestKey;
   });
   if (index === -1) {
@@ -65,21 +68,9 @@ function buildAbsenceRequestIdentity(request: AbsenceRequest) {
 
 function dedupeAbsenceRequests(requests: AbsenceRequest[]) {
   const deduped = new Map<string, AbsenceRequest>();
-
   requests.forEach((request) => {
-    const key = buildAbsenceRequestIdentity(request);
-    const existing = deduped.get(key);
-    const requestSource = parseAbsenceDbId(String(request.dbId ?? "")).table;
-    const existingSource = existing ? parseAbsenceDbId(String(existing.dbId ?? "")).table : null;
-    if (!existing) {
-      deduped.set(key, request);
-      return;
-    }
-    if (existingSource === ABSENCE_SOURCE_ABSENCES && requestSource === ABSENCE_SOURCE_REQUESTS) {
-      deduped.set(key, request);
-    }
+    deduped.set(buildAbsenceRequestIdentity(request), request);
   });
-
   return Array.from(deduped.values());
 }
 
@@ -98,18 +89,18 @@ function emitAbsencesUpdated() {
 }
 
 function normalizeAbsenceStatus(value: unknown): AbsenceRequest["status"] {
-  const status = String(value ?? "").toUpperCase();
-  if (status.includes("REFUS")) return "REFUSE";
-  if (status.includes("ATTENTE")) return "EN_ATTENTE";
-  return "APPROUVE";
+  const status = String(value ?? "").toLowerCase();
+  if (status.includes("refus")) return "refuse";
+  if (status.includes("attente")) return "en_attente";
+  return "approuve";
 }
 
 function normalizeActionError(error: unknown) {
   const rawMessage = String(
     (error as { message?: string; error_description?: string })?.message ??
-    (error as { error_description?: string })?.error_description ??
-    error ??
-    "",
+      (error as { error_description?: string })?.error_description ??
+      error ??
+      "",
   );
   const message = rawMessage.toLowerCase();
 
@@ -146,6 +137,7 @@ function getAbsenceTypeFromPlanningStatus(status: string): AbsenceRequest["type"
   if (upper === "CONGE_MAT") return "CONGE_MAT";
   if (upper === "FORM") return "FORM";
   if (upper === "FERIE") return "FERIE";
+  if (upper === "RH") return "RTT";
   if (upper === "ABS" || upper === "X") return "AUTRE";
   return null;
 }
@@ -182,10 +174,7 @@ async function fetchAllRows<T>(
 
 async function getEmployeeIdByName() {
   const supabase = createClient();
-  const { data: employees, error } = await supabase
-    .from("employees")
-    .select("id,name")
-    .limit(5000);
+  const { data: employees, error } = await supabase.from("employees").select("id,name").limit(5000);
   if (error) throw error;
 
   return new Map(
@@ -200,7 +189,6 @@ function mapRowToAbsenceRequest(
   row: Record<string, unknown>,
   index: number,
   employeeNameById: Map<string, string>,
-  sourceTable: typeof ABSENCE_SOURCE_ABSENCES | typeof ABSENCE_SOURCE_REQUESTS = ABSENCE_SOURCE_ABSENCES,
 ): AbsenceRequest | null {
   const startDate = String(row.date_debut ?? row.start_date ?? row.date_from ?? row.startDate ?? "");
   const endDate = String(row.date_fin ?? row.end_date ?? row.date_to ?? row.endDate ?? startDate);
@@ -211,9 +199,10 @@ function mapRowToAbsenceRequest(
     employeeNameById.get(employeeId) ??
     String(row.employee_name ?? row.employee ?? row.name ?? fallbackEmployee ?? "").toUpperCase();
   if (!employee) return null;
+
   const next: AbsenceRequest = {
     id: index + 1,
-    dbId: row.id ? `${sourceTable}:${String(row.id)}` : undefined,
+    dbId: row.id ? String(row.id) : undefined,
     employee,
     type: String(row.type ?? row.absence_type ?? "AUTRE") as AbsenceRequest["type"],
     startDate,
@@ -222,91 +211,6 @@ function mapRowToAbsenceRequest(
   };
   if (row.note) next.note = String(row.note);
   return next;
-}
-
-function parseAbsenceDbId(dbId: string) {
-  const [table, ...rest] = String(dbId ?? "").split(":");
-  if ((table === ABSENCE_SOURCE_ABSENCES || table === ABSENCE_SOURCE_REQUESTS) && rest.length > 0) {
-    return { table: table as typeof ABSENCE_SOURCE_ABSENCES | typeof ABSENCE_SOURCE_REQUESTS, id: rest.join(":") };
-  }
-  return { table: ABSENCE_SOURCE_ABSENCES as typeof ABSENCE_SOURCE_ABSENCES | typeof ABSENCE_SOURCE_REQUESTS, id: String(dbId ?? "") };
-}
-
-function getAbsenceStatusForDb(
-  status: AbsenceRequest["status"],
-  table: typeof ABSENCE_SOURCE_ABSENCES | typeof ABSENCE_SOURCE_REQUESTS,
-) {
-  if (table === ABSENCE_SOURCE_REQUESTS) {
-    if (status === "EN_ATTENTE") return "en_attente";
-    if (status === "REFUSE") return "refuse";
-    return "approuve";
-  }
-  return status;
-}
-
-type SyncedAbsenceRow = {
-  employee_id: string | null;
-  type: string | null;
-  date_debut: string | null;
-  date_fin: string | null;
-  note: string | null;
-};
-
-function buildTwinAbsenceQuery(
-  supabase: ReturnType<typeof createClient>,
-  table: typeof ABSENCE_SOURCE_ABSENCES | typeof ABSENCE_SOURCE_REQUESTS,
-  row: SyncedAbsenceRow,
-) {
-  let query = supabase
-    .from(table)
-    .select("id")
-    .eq("type", String(row.type ?? ""))
-    .eq("date_debut", String(row.date_debut ?? ""))
-    .eq("date_fin", String(row.date_fin ?? row.date_debut ?? ""));
-
-  if (row.employee_id) {
-    query = query.eq("employee_id", row.employee_id);
-  } else {
-    const employee = employeeFromNote(row.note);
-    if (employee) {
-      query = query.is("employee_id", null).ilike("note", `EMPLOYEE:${employee}%`);
-    }
-  }
-
-  return query;
-}
-
-async function syncTwinAbsenceRows(params: {
-  sourceTable: typeof ABSENCE_SOURCE_ABSENCES | typeof ABSENCE_SOURCE_REQUESTS;
-  row: SyncedAbsenceRow;
-  status?: AbsenceRequest["status"];
-  remove?: boolean;
-}) {
-  const { sourceTable, row, status, remove } = params;
-  const twinTable =
-    sourceTable === ABSENCE_SOURCE_REQUESTS ? ABSENCE_SOURCE_ABSENCES : ABSENCE_SOURCE_REQUESTS;
-  const supabase = createClient();
-  const { data: twinRows, error: twinError } = await buildTwinAbsenceQuery(supabase, twinTable, row);
-  if (twinError) throw twinError;
-
-  const twinIds = (twinRows ?? [])
-    .map((item) => String((item as { id?: unknown }).id ?? ""))
-    .filter(Boolean);
-
-  if (!twinIds.length) return;
-
-  if (remove) {
-    const { error: deleteError } = await supabase.from(twinTable).delete().in("id", twinIds);
-    if (deleteError) throw deleteError;
-    return;
-  }
-
-  if (!status) return;
-  const { error: updateError } = await supabase
-    .from(twinTable)
-    .update({ statut: getAbsenceStatusForDb(status, twinTable) })
-    .in("id", twinIds);
-  if (updateError) throw updateError;
 }
 
 export async function createAbsenceRequestInSupabase(
@@ -328,8 +232,9 @@ export async function createAbsenceRequestInSupabase(
         type: input.type,
         date_debut: input.startDate,
         date_fin: input.endDate,
-        statut: input.status ?? "EN_ATTENTE",
+        statut: input.status ?? "en_attente",
         note,
+        source: "manager",
       })
       .select("*")
       .single();
@@ -339,7 +244,7 @@ export async function createAbsenceRequestInSupabase(
     for (const [name, id] of employeeIdByName.entries()) {
       employeeNameById.set(id, name);
     }
-    const mapped = mapRowToAbsenceRequest(data as Record<string, unknown>, 0, employeeNameById, ABSENCE_SOURCE_ABSENCES);
+    const mapped = mapRowToAbsenceRequest(data as Record<string, unknown>, 0, employeeNameById);
     if (!mapped) throw new Error("Impossible de relire la demande créée.");
     upsertAbsenceRequestSnapshot(mapped);
     emitAbsencesUpdated();
@@ -352,7 +257,6 @@ export async function createAbsenceRequestInSupabase(
 export async function updateAbsenceStatusInSupabase(dbId: string, status: AbsenceRequest["status"]) {
   try {
     const supabase = createClient();
-    const { table, id } = parseAbsenceDbId(dbId);
     const employeeIdByName = await getEmployeeIdByName();
     const employeeNameById = new Map<string, string>();
     for (const [name, id] of employeeIdByName.entries()) {
@@ -360,17 +264,16 @@ export async function updateAbsenceStatusInSupabase(dbId: string, status: Absenc
     }
 
     const { data, error } = await supabase
-      .from(table)
-      .update({ statut: getAbsenceStatusForDb(status, table) })
-      .eq("id", id)
+      .from("absences")
+      .update({ statut: status })
+      .eq("id", dbId)
       .select("*")
       .single();
     if (error) throw error;
-    await syncTwinAbsenceRows({
-      sourceTable: table,
-      row: data as SyncedAbsenceRow,
-      status,
-    });
+    const mapped = mapRowToAbsenceRequest(data as Record<string, unknown>, 0, employeeNameById);
+    if (mapped) {
+      upsertAbsenceRequestSnapshot(mapped);
+    }
     await syncAbsencesFromSupabase();
   } catch (error) {
     throw normalizeActionError(error);
@@ -403,14 +306,13 @@ export async function syncPlanningStatusToAbsenceInSupabase(input: {
       .select("id,note")
       .eq("date_debut", input.date)
       .eq("date_fin", input.date)
-      .eq("statut", "APPROUVE");
+      .eq("statut", "approuve")
+      .eq("source", "manager");
 
     if (employeeId) {
       existingRowsQuery = existingRowsQuery.eq("employee_id", employeeId);
     } else {
-      existingRowsQuery = existingRowsQuery
-        .is("employee_id", null)
-        .ilike("note", `EMPLOYEE:${normalizedEmployee}%`);
+      existingRowsQuery = existingRowsQuery.is("employee_id", null).ilike("note", `EMPLOYEE:${normalizedEmployee}%`);
     }
 
     const { data: existingRows, error: existingError } = await existingRowsQuery.limit(50);
@@ -424,15 +326,13 @@ export async function syncPlanningStatusToAbsenceInSupabase(input: {
         type: absenceType,
         date_debut: input.date,
         date_fin: input.date,
-        statut: "APPROUVE",
+        statut: "approuve",
         note: getSyncedPlanningNote(normalizedEmployee, primaryRow?.note),
+        source: "manager",
       };
 
       if (primaryRow?.id) {
-        const { error: updateError } = await supabase
-          .from("absences")
-          .update(payload)
-          .eq("id", primaryRow.id);
+        const { error: updateError } = await supabase.from("absences").update(payload).eq("id", primaryRow.id);
         if (updateError) throw updateError;
         didChangeAbsence = true;
 
@@ -441,10 +341,7 @@ export async function syncPlanningStatusToAbsenceInSupabase(input: {
           .map((row) => String((row as { id?: unknown }).id ?? ""))
           .filter(Boolean);
         if (duplicateIds.length) {
-          const { error: deleteDuplicatesError } = await supabase
-            .from("absences")
-            .delete()
-            .in("id", duplicateIds);
+          const { error: deleteDuplicatesError } = await supabase.from("absences").delete().in("id", duplicateIds);
           if (deleteDuplicatesError) throw deleteDuplicatesError;
           didChangeAbsence = true;
         }
@@ -458,10 +355,7 @@ export async function syncPlanningStatusToAbsenceInSupabase(input: {
         .map((row) => String((row as { id?: unknown }).id ?? ""))
         .filter(Boolean);
       if (idsToDelete.length) {
-        const { error: deleteError } = await supabase
-          .from("absences")
-          .delete()
-          .in("id", idsToDelete);
+        const { error: deleteError } = await supabase.from("absences").delete().in("id", idsToDelete);
         if (deleteError) throw deleteError;
         didChangeAbsence = true;
       }
@@ -478,25 +372,8 @@ export async function syncPlanningStatusToAbsenceInSupabase(input: {
 export async function deleteAbsenceRequestInSupabase(dbId: string) {
   try {
     const supabase = createClient();
-    const { table, id } = parseAbsenceDbId(dbId);
-    const { data: existingRow, error: existingError } = await supabase
-      .from(table)
-      .select("employee_id,type,date_debut,date_fin,note")
-      .eq("id", id)
-      .maybeSingle();
-    if (existingError) throw existingError;
-    const { error } = await supabase
-      .from(table)
-      .delete()
-      .eq("id", id);
+    const { error } = await supabase.from("absences").delete().eq("id", dbId);
     if (error) throw error;
-    if (existingRow) {
-      await syncTwinAbsenceRows({
-        sourceTable: table,
-        row: existingRow as SyncedAbsenceRow,
-        remove: true,
-      });
-    }
     await syncAbsencesFromSupabase();
   } catch (error) {
     throw normalizeActionError(error);
@@ -509,10 +386,7 @@ export async function syncAbsencesFromSupabase() {
 
   try {
     const supabase = createClient();
-    const { data: employees, error: employeesError } = await supabase
-      .from("employees")
-      .select("id,name")
-      .limit(5000);
+    const { data: employees, error: employeesError } = await supabase.from("employees").select("id,name").limit(5000);
     if (employeesError) throw employeesError;
     const employeeNameById = new Map(
       (employees ?? []).map((employee) => [
@@ -522,27 +396,15 @@ export async function syncAbsencesFromSupabase() {
     );
 
     const absencesRows = await fetchAllRows<Record<string, unknown>>((from, to) =>
-      supabase
-        .from("absences")
-        .select("*")
-        .range(from, to),
+      supabase.from("absences").select("*").range(from, to),
     );
-    const requestRows = await fetchAllRows<Record<string, unknown>>((from, to) =>
-      supabase
-        .from("absence_requests")
-        .select("*")
-        .range(from, to),
-    );
-    if (!Array.isArray(absencesRows) || !Array.isArray(requestRows)) return false;
+    if (!Array.isArray(absencesRows)) return false;
 
-    const mapped = dedupeAbsenceRequests([
-      ...absencesRows.map((row: Record<string, unknown>, index) =>
-        mapRowToAbsenceRequest(row, index, employeeNameById, ABSENCE_SOURCE_ABSENCES),
-      ),
-      ...requestRows.map((row: Record<string, unknown>, index) =>
-        mapRowToAbsenceRequest(row, absencesRows.length + index, employeeNameById, ABSENCE_SOURCE_REQUESTS),
-      ),
-    ].filter((row): row is AbsenceRequest => row !== null));
+    const mapped = dedupeAbsenceRequests(
+      absencesRows
+        .map((row: Record<string, unknown>, index) => mapRowToAbsenceRequest(row, index, employeeNameById))
+        .filter((row): row is AbsenceRequest => row !== null),
+    );
 
     replaceAbsenceRequestsSnapshot(mapped);
     emitAbsencesUpdated();

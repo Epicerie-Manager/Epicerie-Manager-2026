@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.34 - 2026-03-30
+
+- Absences / Migration canonique : le code lit et ecrit maintenant uniquement la table `absences` pour le manager, le planning et la PWA collaborateur ; la logique de fusion avec `absence_requests` a ete retiree.
+- Absences / Statuts : les comparaisons applicatives ont ete normalisees sur les valeurs minuscules `approuve`, `refuse` et `en_attente` pour s'aligner sur la migration SQL.
+
 ## v0.6.33 - 2026-03-30
 
 - Collaborateurs / Planning : le planning personnel ne tombe plus en erreur si la lecture de `cycle_repos` n'est pas disponible ; la reconstruction continue a partir des donnees RH, des horaires et des absences approuvees.

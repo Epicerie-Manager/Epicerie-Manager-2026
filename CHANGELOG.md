@@ -21,6 +21,12 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.52 - 2026-04-01
+
+- RH / Employes : ajout du support applicatif du champ Supabase `tg_rayons` pour porter directement les rayons responsables sur chaque fiche collaborateur.
+- Plan TG / Collaborateurs : les responsables par defaut des rayons sont maintenant derives depuis `employees.tg_rayons`, avec rafraichissement croise RH / TG plus fiable dans le dashboard et l'application collaborateur.
+- SQL / Supabase : ajout du script [docs/sql/2026-04-01-add-employees-tg-rayons.sql](/D:/Epicerie%20Manager%202026/docs/sql/2026-04-01-add-employees-tg-rayons.sql) pour modifier la table `public.employees`.
+
 ## v0.6.51 - 2026-04-01
 
 - RH / Rayons : correction de la prise en compte des rayons responsables TG/GB depuis la fiche RH, avec rechargement plus fiable entre RH et Plan TG.

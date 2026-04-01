@@ -138,6 +138,15 @@ function normalizeActionError(error: unknown) {
   return message || "Erreur Supabase.";
 }
 
+function normalizeEmployeeRayons(value: unknown) {
+  if (!Array.isArray(value)) return undefined;
+  const rayons = value
+    .map((item) => String(item ?? "").trim().toUpperCase())
+    .filter(Boolean);
+  if (!rayons.length) return [];
+  return Array.from(new Set(rayons)).sort((a, b) => a.localeCompare(b, "fr"));
+}
+
 function getPhotoLookup(employees: RhEmployee[]) {
   const byDbId = new Map<string, string | null>();
   const byName = new Map<string, string | null>();
@@ -158,6 +167,7 @@ function mapEmployeeRowToRhEmployee(
     horaire_samedi: string | null;
     observation: string | null;
     actif: boolean | null;
+    tg_rayons?: string[] | null;
   },
   index: number,
   photos?: { byDbId: Map<string, string | null>; byName: Map<string, string | null> },
@@ -180,6 +190,7 @@ function mapEmployeeRowToRhEmployee(
     obs: getRhEmployeeRoleLabel(String(employee.observation ?? ""), normalizedType),
     actif: Boolean(employee.actif),
     photo,
+    rayons: normalizeEmployeeRayons(employee.tg_rayons),
   };
 }
 
@@ -270,7 +281,7 @@ export async function syncRhFromSupabase() {
     const photos = getPhotoLookup(cachedEmployees);
     const { data: employeeRows, error: employeeError } = await supabase
       .from("employees")
-      .select("id,name,type,horaire_standard,horaire_mardi,horaire_samedi,observation,actif")
+      .select("id,name,type,horaire_standard,horaire_mardi,horaire_samedi,observation,actif,tg_rayons")
       .limit(5000);
     if (employeeError) throw employeeError;
     const mappedEmployees: RhEmployee[] = (employeeRows ?? []).map((employee, index) =>
@@ -339,14 +350,15 @@ export async function createRhEmployeeInSupabase(
     horaire_samedi: employee.hsa,
     observation: getRhEmployeeRoleLabel(employee.obs, employee.t),
     actif: employee.actif,
+    tg_rayons: normalizeEmployeeRayons(employee.rayons) ?? [],
   };
 
   try {
-    const { data: insertedEmployee, error: insertError } = await supabase
-      .from("employees")
-      .insert(payload)
-      .select("id,name,type,horaire_standard,horaire_mardi,horaire_samedi,observation,actif")
-      .single();
+      const { data: insertedEmployee, error: insertError } = await supabase
+        .from("employees")
+        .insert(payload)
+        .select("id,name,type,horaire_standard,horaire_mardi,horaire_samedi,observation,actif,tg_rayons")
+        .single();
     if (insertError) throw insertError;
 
     const cycle = Array.isArray(employee.cycle) ? employee.cycle : [];
@@ -385,15 +397,16 @@ export async function updateRhEmployeeInSupabase(employee: RhEmployee): Promise<
     horaire_samedi: employee.hsa,
     observation: getRhEmployeeRoleLabel(employee.obs, employee.t),
     actif: employee.actif,
+    tg_rayons: normalizeEmployeeRayons(employee.rayons) ?? [],
   };
 
   try {
-    const { data: updatedEmployee, error } = await supabase
-      .from("employees")
-      .update(payload)
-      .eq("id", employee.dbId)
-      .select("id,name,type,horaire_standard,horaire_mardi,horaire_samedi,observation,actif")
-      .single();
+      const { data: updatedEmployee, error } = await supabase
+        .from("employees")
+        .update(payload)
+        .eq("id", employee.dbId)
+        .select("id,name,type,horaire_standard,horaire_mardi,horaire_samedi,observation,actif,tg_rayons")
+        .single();
     if (error) throw error;
 
     const cachedEmployees = loadRhEmployees();

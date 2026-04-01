@@ -5,6 +5,7 @@ import { Card } from "@/components/ui/card";
 import { Kicker } from "@/components/ui/kicker";
 import { KPI, KPIRow } from "@/components/ui/kpi";
 import { ModuleHeader } from "@/components/layout/module-header";
+import { getRhUpdatedEventName, syncRhFromSupabase } from "@/lib/rh-store";
 import {
   tgEmployees,
   tgWeeks,
@@ -233,12 +234,18 @@ export default function PlanTgPage(){
       setPlans((current)=>arePlansEqual(current,nextPlans)?current:nextPlans);
       setCustomMechanics((current)=>areStringListsEqual(current,nextMechanics)?current:nextMechanics);
     };
-    void syncTgFromSupabase().then((synced)=>{
+    void Promise.all([syncTgFromSupabase(), syncRhFromSupabase()]).then(([tgSynced, rhSynced])=>{
+      const synced = Boolean(tgSynced || rhSynced);
       if(synced) refresh();
     });
-    const eventName = getTgUpdatedEventName();
-    window.addEventListener(eventName, refresh);
-    return ()=>window.removeEventListener(eventName, refresh);
+    const tgEventName = getTgUpdatedEventName();
+    const rhEventName = getRhUpdatedEventName();
+    window.addEventListener(tgEventName, refresh);
+    window.addEventListener(rhEventName, refresh);
+    return ()=>{
+      window.removeEventListener(tgEventName, refresh);
+      window.removeEventListener(rhEventName, refresh);
+    };
   },[]);
 
   const updateSelectedRow=(patch:Partial<TgWeekPlanRow>)=>{

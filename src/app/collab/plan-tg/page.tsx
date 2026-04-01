@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { CollabBottomNav, CollabHeader, CollabPage, SectionCard } from "@/components/collab/layout";
 import { collabCardStyle, collabSerifTitleStyle, collabTheme } from "@/components/collab/theme";
 import { getCollabProfile, type CollabProfile } from "@/lib/collab-auth";
+import { getRhUpdatedEventName, syncRhFromSupabase } from "@/lib/rh-store";
 import { loadTgDefaultAssignments, loadTgRayons, loadTgWeekPlans, syncTgFromSupabase } from "@/lib/tg-store";
 import type { TgDefaultAssignment, TgRayon, TgWeekPlanRow } from "@/lib/tg-data";
 
@@ -197,6 +198,12 @@ export default function CollabPlanTgPage() {
   useEffect(() => {
     let cancelled = false;
 
+    const refreshRows = () => {
+      if (cancelled) return;
+      const nextRows = buildRows(loadTgWeekPlans(), loadTgRayons(), loadTgDefaultAssignments());
+      setRows(nextRows);
+    };
+
     const load = async () => {
       const nextProfile = await getCollabProfile();
       if (!nextProfile || nextProfile.role !== "collaborateur") {
@@ -206,16 +213,18 @@ export default function CollabPlanTgPage() {
       if (cancelled) return;
       setProfile(nextProfile);
 
-      await syncTgFromSupabase();
+      await Promise.all([syncTgFromSupabase(), syncRhFromSupabase()]);
       if (cancelled) return;
 
-      const nextRows = buildRows(loadTgWeekPlans(), loadTgRayons(), loadTgDefaultAssignments());
-      setRows(nextRows);
+      refreshRows();
     };
 
     void load().catch(() => router.replace("/collab/login"));
+    const rhEventName = getRhUpdatedEventName();
+    window.addEventListener(rhEventName, refreshRows);
     return () => {
       cancelled = true;
+      window.removeEventListener(rhEventName, refreshRows);
     };
   }, [router]);
 

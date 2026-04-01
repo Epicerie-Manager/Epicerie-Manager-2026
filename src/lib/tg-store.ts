@@ -9,6 +9,7 @@ import {
   type TgWeekPlanRow,
 } from "@/lib/tg-data";
 import { hasBrowserWindow, purgeLegacyCacheKeys } from "@/lib/browser-cache";
+import { loadRhEmployees, type RhEmployee } from "@/lib/rh-store";
 import { createClient } from "@/lib/supabase";
 
 const TG_WEEK_PLANS_KEY = "epicerie-manager-tg-week-plans-v1";
@@ -42,32 +43,30 @@ function cloneAssignments(assignments: TgDefaultAssignment[]): TgDefaultAssignme
   return assignments.map((row) => ({ ...row }));
 }
 
-function mergeAssignmentsWithSupabase(assignmentsFromDb: Map<string, string>) {
-  const currentAssignments = cloneAssignments(tgAssignmentsSnapshot);
-  const defaultAssignmentsByRayon = new Map(
-    tgDefaultAssignments.map((assignment) => [assignment.rayon, assignment.employee]),
+function buildAssignmentsFromRhEmployees(employees: RhEmployee[]) {
+  const flattened = employees.flatMap((employee) =>
+    (employee.rayons ?? []).map((rayon) => ({
+      employee: employee.n,
+      rayon,
+    })),
   );
-  const currentRayons = new Set(currentAssignments.map((assignment) => assignment.rayon));
-
-  const nextAssignments = currentAssignments.map((assignment) => {
-    const dbEmployee = assignmentsFromDb.get(assignment.rayon);
-    const defaultEmployee = defaultAssignmentsByRayon.get(assignment.rayon) ?? "";
-    const shouldHydrateFromDb =
-      Boolean(dbEmployee) &&
-      (!assignment.employee || assignment.employee === defaultEmployee);
-
-    return {
-      ...assignment,
-      employee: shouldHydrateFromDb ? String(dbEmployee) : assignment.employee,
-    };
+  const byRayon = new Map<string, string>();
+  flattened.forEach((assignment) => {
+    if (!assignment.rayon || byRayon.has(assignment.rayon)) return;
+    byRayon.set(assignment.rayon, assignment.employee);
   });
+  return Array.from(byRayon.entries()).map(([rayon, employee]) => ({ rayon, employee }));
+}
 
-  assignmentsFromDb.forEach((employee, rayon) => {
-    if (currentRayons.has(rayon)) return;
-    nextAssignments.push({ rayon, employee });
-  });
+function loadCanonicalTgDefaultAssignments() {
+  const rhAssignments = buildAssignmentsFromRhEmployees(loadRhEmployees());
+  if (!rhAssignments.length) return cloneAssignments(tgAssignmentsSnapshot);
 
-  return nextAssignments;
+  const rhRayons = new Set(rhAssignments.map((assignment) => assignment.rayon));
+  const fallbackAssignments = cloneAssignments(tgAssignmentsSnapshot).filter(
+    (assignment) => !rhRayons.has(assignment.rayon),
+  );
+  return [...rhAssignments, ...fallbackAssignments];
 }
 
 function replaceTgRayonsSnapshot(rayons: TgRayon[]) {
@@ -135,7 +134,7 @@ export function loadTgDefaultAssignments(): TgDefaultAssignment[] {
   if (!canUseStorage()) return cloneAssignments(tgDefaultAssignments);
   try {
     purgeLegacyCacheKeys([TG_DEFAULT_ASSIGNMENTS_KEY]);
-    return cloneAssignments(tgAssignmentsSnapshot);
+    return cloneAssignments(loadCanonicalTgDefaultAssignments());
   } catch {
     return cloneAssignments(tgDefaultAssignments);
   }
@@ -246,7 +245,8 @@ export async function syncTgFromSupabase() {
     const base = clonePlans(tgWeekPlans);
     const byKey = new Map(base.map((row) => [`${row.weekId}__${row.rayon}`, row]));
 
-    const assignmentMap = new Map<string, string>();
+    const canonicalAssignments = loadCanonicalTgDefaultAssignments();
+    const assignmentMap = new Map(canonicalAssignments.map((assignment) => [assignment.rayon, assignment.employee]));
 
     entriesRows.forEach((row) => {
       const meta = planMeta.get(String(row.plan_id));
@@ -261,7 +261,7 @@ export async function syncTgFromSupabase() {
         weekId: meta.weekId,
         rayon,
         family,
-        defaultResponsible: tgResponsible,
+        defaultResponsible: assignmentMap.get(rayon) ?? "",
         gbProduct: String(row.gb_produits ?? "").trim(),
         tgResponsible,
         tgProduct: String(row.tg_produit ?? "").trim(),
@@ -270,15 +270,11 @@ export async function syncTgFromSupabase() {
         hasOperation: Boolean(row.gb_produits || row.tg_produit || row.tg_quantite || row.tg_mecanique),
       };
 
-      if (tgResponsible && !assignmentMap.has(rayon)) {
-        assignmentMap.set(rayon, tgResponsible);
-      }
-
       byKey.set(key, mapped);
     });
 
     const nextPlans = Array.from(byKey.values());
-    const nextAssignments = mergeAssignmentsWithSupabase(assignmentMap);
+    const nextAssignments = canonicalAssignments;
 
     const plansChanged = replaceTgWeekPlansSnapshot(nextPlans);
     const assignmentsChanged = replaceTgAssignmentsSnapshot(nextAssignments);

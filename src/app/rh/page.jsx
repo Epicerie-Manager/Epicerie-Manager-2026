@@ -23,7 +23,6 @@ import {
   getTgUpdatedEventName,
   loadTgDefaultAssignments,
   loadTgRayons,
-  saveTgDefaultAssignments,
   syncTgFromSupabase,
 } from "@/lib/tg-store";
 
@@ -599,18 +598,6 @@ function attachTgRayonsToEmployees(employees, assignments){
   }));
 }
 
-function replaceEmployeeAssignments(assignments, employeeName, rayons, nextEmployeeName = employeeName){
-  const normalizedRayons = Array.isArray(rayons) ? [...new Set(rayons)] : [];
-  const next = assignments.filter((item)=>
-    item.employee!==employeeName &&
-    !normalizedRayons.includes(item.rayon),
-  );
-  normalizedRayons.forEach((rayon)=>{
-    next.push({ employee: nextEmployeeName, rayon });
-  });
-  return next;
-}
-
 /* ═══════════════════════════════════════════════════════════
    MAIN APP
    ═══════════════════════════════════════════════════════════ */
@@ -712,15 +699,7 @@ export default function RHModule(){
         renameRhCycleCache(previousName, synced.n);
       }
 
-      if (Array.isArray(updated.rayons)) {
-        setTgAssignments((currentAssignments)=>{
-          const next = replaceEmployeeAssignments(currentAssignments, previousName, updated.rayons, synced.n);
-          saveTgDefaultAssignments(next);
-          setEmps((currentEmployees)=>attachTgRayonsToEmployees(currentEmployees, next));
-          return next;
-        });
-      }
-
+      refreshFromStores();
       setEditEmp(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur Supabase.");
@@ -765,14 +744,7 @@ export default function RHModule(){
           : [...current,{...nextEmp,rayons:payload.rayons}]
       ));
       setCycles((current)=>({ ...current, [name]: payload.cycle }));
-      if (Array.isArray(payload.rayons) && payload.rayons.length) {
-        setTgAssignments((current)=>{
-          const next = replaceEmployeeAssignments(current, "", payload.rayons, name);
-          saveTgDefaultAssignments(next);
-          setEmps((currentEmployees)=>attachTgRayonsToEmployees(currentEmployees, next));
-          return next;
-        });
-      }
+      refreshFromStores();
       setNewEmpOpen(false);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur Supabase.");

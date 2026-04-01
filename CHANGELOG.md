@@ -21,6 +21,10 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.47 - 2026-04-01
+
+- Absences / Timeline & Suivi : le graphe `Effectif present par horaires` est maintenant aligne sur la meme trame de jours que le planning mensuel, avec des colonnes plus fines et une lecture plus utile des creux et pics du mois.
+
 ## v0.6.46 - 2026-04-01
 
 - Absences / Timeline & Suivi : refonte du bloc `Effectif present par horaires` avec une frise jours plus lisible et des barres `M / AM` plus visuelles pour mieux repérer les creux et variations du mois.

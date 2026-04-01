@@ -139,7 +139,9 @@ function EffectifParJour({
     ...perDay.flatMap((day) => [day.morningCount, day.afternoonCount]),
     1,
   );
-  const dayColumns = `repeat(${Math.max(perDay.length, 1)}, minmax(0, 1fr))`;
+  const leftColumnWidth = 96;
+  const dayColumnWidth = 28;
+  const chartWidth = Math.max(perDay.length, 1) * dayColumnWidth;
   const rows = [
     {
       key: "morning",
@@ -158,7 +160,6 @@ function EffectifParJour({
       getCount: (day: PresenceDaySummary) => day.afternoonCount,
     },
   ];
-  const labelStep = perDay.length <= 14 ? 1 : perDay.length <= 21 ? 2 : 3;
 
   return (
     <div
@@ -199,22 +200,40 @@ function EffectifParJour({
         </div>
       </div>
 
-      <div style={{ display: "grid", gap: "10px" }}>
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "44px 1fr",
-            gap: "10px",
-            alignItems: "center",
-          }}
-        >
-          <div style={{ display: "grid", gap: "2px", alignSelf: "stretch", justifyItems: "center" }}>
-            <span style={{ fontSize: "10px", fontWeight: 700, color: "#475569" }}>J</span>
-            <span style={{ fontSize: "10px", color: "#94a3b8" }}>Mois</span>
-          </div>
-          <div style={{ display: "grid", gridTemplateColumns: dayColumns, gap: "3px", minHeight: "28px", alignItems: "stretch" }}>
-            {perDay.map((day, index) => {
+      <div style={{ overflowX: "auto" }}>
+        <div style={{ minWidth: `${leftColumnWidth + chartWidth}px` }}>
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: `${leftColumnWidth}px ${chartWidth}px`,
+              gap: "0",
+              alignItems: "stretch",
+            }}
+          >
+            <div
+              style={{
+                display: "grid",
+                placeItems: "center start",
+                padding: "8px 10px 4px",
+                fontSize: "11px",
+                fontWeight: 700,
+                color: "#94a3b8",
+                borderBottom: "2px solid #dbe3eb",
+              }}
+            >
+              Employe
+            </div>
+            <div
+              style={{
+                display: "grid",
+                gridTemplateColumns: `repeat(${Math.max(perDay.length, 1)}, ${dayColumnWidth}px)`,
+                borderBottom: "2px solid #dbe3eb",
+              }}
+            >
+              {perDay.map((day) => {
               const dayDate = toDate(day.dayIso);
+              const dow = dayDate.getDay();
+              const isWeekend = dow === 0 || dow === 6;
               const morningLevel = getPresenceCountLevel(
                 day.morningCount,
                 thresholds.warningMorning,
@@ -226,114 +245,109 @@ function EffectifParJour({
                 thresholds.criticalAfternoon,
               );
               const level = getStrongestPresenceLevel([morningLevel, afternoonLevel]);
-              const color = getPresenceColor(level);
-              const showLabel = index % labelStep === 0 || index === perDay.length - 1;
+              const levelColor = getPresenceColor(level);
               return (
                 <div
-                  key={`summary-${day.dayIso}`}
+                  key={`head-${day.dayIso}`}
                   title={`${day.dayIso} · matin ${day.morningCount} · après-midi ${day.afternoonCount}`}
                   style={{
-                    minWidth: 0,
-                    borderRadius: "8px",
-                    background: `linear-gradient(180deg, ${color}18, ${color}cc)`,
-                    border: `1px solid ${color}55`,
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "center",
-                    color: "#0f172a",
+                    minWidth: `${dayColumnWidth}px`,
+                    textAlign: "center",
+                    color: level === "ok" ? (isWeekend ? "#8b5cf6" : "#16a34a") : levelColor,
+                    background: "transparent",
                     fontSize: "10px",
-                    fontWeight: 700,
-                    lineHeight: 1,
-                    padding: "6px 0",
-                    boxShadow: `inset 0 1px 0 ${color}22`,
+                    padding: "4px 0",
                   }}
                 >
-                  {showLabel ? dayDate.getDate() : ""}
+                  <div style={{ fontSize: "8px", color: isWeekend ? "#8b5cf6" : "#94a3b8" }}>{DAYS_SHORT[dow]}</div>
+                  <div style={{ fontWeight: 700 }}>{dayDate.getDate()}</div>
                 </div>
               );
             })}
-          </div>
-        </div>
-        {rows.map((row) => (
-          <div
-            key={row.key}
-            style={{
-              display: "grid",
-              gridTemplateColumns: "44px 1fr",
-              gap: "10px",
-              alignItems: "stretch",
-            }}
-          >
-            <div
-              title={row.title}
-              style={{
-                display: "grid",
-                placeItems: "center",
-                borderRadius: "10px",
-                background: "#ffffff",
-                border: "1px solid #e2e8f0",
-                color: "#475569",
-                fontSize: "10px",
-                fontWeight: 800,
-                letterSpacing: "0.04em",
-              }}
-            >
-              {row.label}
             </div>
-            <div
-              style={{
-                position: "relative",
-                minHeight: "72px",
-                borderRadius: "12px",
-                border: "1px solid #e2e8f0",
-                background: "linear-gradient(180deg,#ffffff 0%,#f8fafc 100%)",
-                padding: "8px 8px 6px",
-                overflow: "hidden",
-              }}
-            >
+          </div>
+
+          <div style={{ display: "grid", gap: "10px", paddingTop: "10px" }}>
+            {rows.map((row) => (
               <div
-                aria-hidden
+                key={row.key}
                 style={{
-                  position: "absolute",
-                  inset: "8px 8px 6px",
-                  backgroundImage: "linear-gradient(180deg, rgba(148,163,184,0.16) 1px, transparent 1px)",
-                  backgroundSize: "100% 25%",
-                  pointerEvents: "none",
-                }}
-              />
-              <div
-                style={{
-                  position: "relative",
                   display: "grid",
-                  gridTemplateColumns: dayColumns,
-                  gap: "3px",
-                  alignItems: "end",
-                  minHeight: "56px",
+                  gridTemplateColumns: `${leftColumnWidth}px ${chartWidth}px`,
+                  gap: "0",
+                  alignItems: "stretch",
                 }}
               >
-              {perDay.map((day) => {
-                const count = row.getCount(day);
-                const level = getPresenceCountLevel(count, row.warning, row.critical);
-                const color = getPresenceColor(level);
-                const height = count === 0 ? 8 : Math.max((count / peakCount) * 100, 16);
-                return (
+                <div
+                  title={row.title}
+                  style={{
+                    display: "grid",
+                    placeItems: "center start",
+                    padding: "0 10px",
+                    color: "#475569",
+                    fontSize: "11px",
+                    fontWeight: 800,
+                    letterSpacing: "0.04em",
+                  }}
+                >
+                  {row.label}
+                </div>
+                <div
+                  style={{
+                    position: "relative",
+                    minHeight: "76px",
+                    borderRadius: "12px",
+                    border: "1px solid #e2e8f0",
+                    background: "linear-gradient(180deg,#ffffff 0%,#f8fafc 100%)",
+                    padding: "8px 0 6px",
+                    overflow: "hidden",
+                  }}
+                >
                   <div
-                    key={`${row.key}-${day.dayIso}`}
-                    title={`${day.dayIso} · ${row.label}: ${count} · matin ${day.morningCount} · après-midi ${day.afternoonCount} · absents ${day.absentCount}`}
+                    aria-hidden
                     style={{
-                      minWidth: 0,
-                      height: `${height}%`,
-                      borderRadius: "7px 7px 3px 3px",
-                      background: `linear-gradient(180deg, ${color}55, ${color} 65%)`,
-                      boxShadow: `inset 0 1px 0 rgba(255,255,255,0.35), 0 1px 2px ${color}22`,
+                      position: "absolute",
+                      inset: "8px 0 6px",
+                      backgroundImage: "linear-gradient(180deg, rgba(148,163,184,0.14) 1px, transparent 1px)",
+                      backgroundSize: "100% 25%",
+                      pointerEvents: "none",
                     }}
                   />
-                );
-              })}
+                  <div
+                    style={{
+                      position: "relative",
+                      display: "grid",
+                      gridTemplateColumns: `repeat(${Math.max(perDay.length, 1)}, ${dayColumnWidth}px)`,
+                      alignItems: "end",
+                      minHeight: "60px",
+                    }}
+                  >
+                    {perDay.map((day) => {
+                      const count = row.getCount(day);
+                      const level = getPresenceCountLevel(count, row.warning, row.critical);
+                      const color = getPresenceColor(level);
+                      const height = count === 0 ? 8 : Math.max((count / peakCount) * 100, 16);
+                      return (
+                        <div
+                          key={`${row.key}-${day.dayIso}`}
+                          title={`${day.dayIso} · ${row.title}: ${count} · matin ${day.morningCount} · après-midi ${day.afternoonCount} · absents ${day.absentCount}`}
+                          style={{
+                            width: "22px",
+                            justifySelf: "center",
+                            height: `${height}%`,
+                            borderRadius: "7px 7px 3px 3px",
+                            background: `linear-gradient(180deg, ${color}55, ${color} 65%)`,
+                            boxShadow: `inset 0 1px 0 rgba(255,255,255,0.35), 0 1px 2px ${color}22`,
+                          }}
+                        />
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
-            </div>
+            ))}
           </div>
-        ))}
+        </div>
       </div>
     </div>
   );

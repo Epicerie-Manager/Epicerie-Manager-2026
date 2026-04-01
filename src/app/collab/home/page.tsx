@@ -143,6 +143,7 @@ export default function CollabHomePage() {
         title={`Bonjour, ${displayName}.`}
         subtitle={displayDate}
         right={<StatusPill label="Connecté" color="#0c7a45" background="#eefbf4" />}
+        showRefresh
       />
 
       <SectionCard style={{ padding: 0, overflow: "hidden" }}>

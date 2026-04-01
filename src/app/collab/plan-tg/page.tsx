@@ -383,7 +383,7 @@ export default function CollabPlanTgPage() {
 
   return (
     <CollabPage>
-      <CollabHeader title="Plan TG/GB" subtitle={selectedWeekLabel} />
+      <CollabHeader title="Plan TG/GB" subtitle={selectedWeekLabel} showRefresh />
 
       <SectionCard style={{ marginBottom: 16 }}>
         <div style={{ display: "grid", gap: 10 }}>

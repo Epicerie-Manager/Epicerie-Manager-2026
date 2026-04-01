@@ -89,6 +89,7 @@ export default function CollabAbsencesPage() {
             + Nouvelle
           </Link>
         }
+        showRefresh
       />
 
       <div style={{ display: "grid", gap: 16 }}>

@@ -46,6 +46,20 @@ function CollabGlyph({ kind, color = "currentColor", size = 18 }: { kind: "plann
   );
 }
 
+function RefreshGlyph({ color = "currentColor" }: { color?: string }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M20 11A8 8 0 1 0 17.7 17M20 11V5M20 11H14"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 export function CollabPage({ children }: { children: ReactNode }) {
   return (
     <div
@@ -67,8 +81,53 @@ export function CollabHeader(props: {
   accent?: boolean;
   bottomRight?: ReactNode;
   version?: string;
+  showRefresh?: boolean;
+  onRefresh?: (() => void | Promise<void>) | undefined;
+  refreshing?: boolean;
 }) {
-  const { title, subtitle, right, bottomRight, version = appPackage.version } = props;
+  const {
+    title,
+    subtitle,
+    right,
+    bottomRight,
+    version = appPackage.version,
+    showRefresh = false,
+    onRefresh,
+    refreshing = false,
+  } = props;
+
+  const refreshButton = showRefresh ? (
+    <button
+      type="button"
+      onClick={() => {
+        if (refreshing) return;
+        if (onRefresh) {
+          void onRefresh();
+          return;
+        }
+        if (typeof window !== "undefined") window.location.reload();
+      }}
+      aria-label="Actualiser la page"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        border: "1px solid rgba(255,255,255,0.28)",
+        borderRadius: 999,
+        background: "rgba(255,255,255,0.12)",
+        color: "#fff8f1",
+        minHeight: 34,
+        padding: "0 12px",
+        fontSize: 12,
+        fontWeight: 700,
+        cursor: refreshing ? "wait" : "pointer",
+        backdropFilter: "blur(8px)",
+      }}
+    >
+      <RefreshGlyph color="#fff8f1" />
+      {refreshing ? "Mise a jour..." : "Actualiser"}
+    </button>
+  ) : null;
 
   return (
     <div
@@ -107,7 +166,12 @@ export function CollabHeader(props: {
                 </div>
               ) : null}
             </div>
-            {bottomRight ? <div style={{ marginLeft: "auto", flexShrink: 0 }}>{bottomRight}</div> : null}
+            {bottomRight || refreshButton ? (
+              <div style={{ marginLeft: "auto", flexShrink: 0, display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                {bottomRight}
+                {refreshButton}
+              </div>
+            ) : null}
           </div>
         ) : null}
       </div>

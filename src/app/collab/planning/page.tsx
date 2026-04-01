@@ -249,6 +249,7 @@ export default function CollabPlanningPage() {
             </div>
           ) : null
         }
+        showRefresh
       />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 16 }}>

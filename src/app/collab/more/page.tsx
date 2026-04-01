@@ -32,7 +32,7 @@ export default function CollabMorePage() {
 
   return (
     <CollabPage>
-      <CollabHeader title="Plus" subtitle="Liens et accès complémentaires." />
+      <CollabHeader title="Plus" subtitle="Liens et accès complémentaires." showRefresh />
       <div style={{ display: "grid", gap: 16 }}>
         <SectionCard>
           <SectionTitle>Liens</SectionTitle>

@@ -211,7 +211,8 @@ function mapAnnouncementRowToItem(row: DbRow): InfoAnnouncement {
 }
 
 function toDbAnnouncementLevel(priority: InfoAnnouncementPriority) {
-  if (priority === "important" || priority === "urgent") return "important";
+  if (priority === "urgent") return "urgent";
+  if (priority === "important") return "important";
   return "info";
 }
 
@@ -321,6 +322,7 @@ export async function addAnnouncementToSupabase(
         date: todayIsoDate(),
         titre: title,
         contenu: content,
+        priority,
         niveau: toDbAnnouncementLevel(priority),
       })
       .select("*")

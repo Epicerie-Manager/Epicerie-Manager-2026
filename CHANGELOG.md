@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.60 - 2026-04-01
+
+- Infos / Manager : correction de l'enregistrement des annonces `Urgent`, qui n'est plus degrade en `Important` lors de l'ecriture Supabase ; le niveau et la priorite sont maintenant conserves correctement.
+- Collaborateurs / Header : le bouton `Actualiser` devient disponible directement dans les headers des principaux ecrans (`Accueil`, `Planning`, `Absences`, `Plan TG/GB`, `Infos`, `Plus`) avec un rendu commun.
+
 ## v0.6.59 - 2026-04-01
 
 - Collaborateurs / Infos : les cartes `Annonces` et `Documents` s'adaptent mieux au mode portrait, avec gestion des retours a la ligne sur les titres, contenus et pieces jointes pour eviter les debordements mobiles.

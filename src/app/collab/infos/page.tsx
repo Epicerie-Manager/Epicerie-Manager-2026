@@ -20,20 +20,6 @@ import {
 } from "@/lib/infos-store";
 import type { InfoAnnouncement, InfoCategory, InfoItem } from "@/lib/infos-data";
 
-function RefreshGlyph({ color = "currentColor" }: { color?: string }) {
-  return (
-    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
-      <path
-        d="M20 11A8 8 0 1 0 17.7 17M20 11V5M20 11H14"
-        stroke={color}
-        strokeWidth="1.8"
-        strokeLinecap="round"
-        strokeLinejoin="round"
-      />
-    </svg>
-  );
-}
-
 function formatBytes(bytes: number) {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 o";
   if (bytes < 1024) return `${bytes} o`;
@@ -153,31 +139,9 @@ export default function CollabInfosPage() {
         title="Infos & annonces"
         subtitle="Documents utiles et communications manager."
         right={<StatusPill label={`${announcements.length} annonce${announcements.length > 1 ? "s" : ""}`} color={collabTheme.gold} background="#fff7e8" />}
-        bottomRight={
-          <button
-            type="button"
-            onClick={() => void handleManualRefresh()}
-            aria-label="Actualiser les infos"
-            style={{
-              display: "inline-flex",
-              alignItems: "center",
-              gap: 6,
-              border: "1px solid rgba(255,255,255,0.28)",
-              borderRadius: 999,
-              background: "rgba(255,255,255,0.12)",
-              color: "#fff8f1",
-              minHeight: 34,
-              padding: "0 12px",
-              fontSize: 12,
-              fontWeight: 700,
-              cursor: refreshing ? "wait" : "pointer",
-              backdropFilter: "blur(8px)",
-            }}
-          >
-            <RefreshGlyph color="#fff8f1" />
-            {refreshing ? "Mise a jour..." : "Actualiser"}
-          </button>
-        }
+        showRefresh
+        onRefresh={handleManualRefresh}
+        refreshing={refreshing}
       />
 
       <div style={{ display: "grid", gap: 16 }}>

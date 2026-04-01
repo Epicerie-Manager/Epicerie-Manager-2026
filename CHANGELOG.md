@@ -21,6 +21,10 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.53 - 2026-04-01
+
+- RH / Modales employe : correction de l'affichage des fenetres `Modifier` et `Nouvel employe` pour garder les boutons d'action visibles a zoom navigateur `100%`, avec scroll interne du contenu et footer fixe.
+
 ## v0.6.52 - 2026-04-01
 
 - RH / Employes : ajout du support applicatif du champ Supabase `tg_rayons` pour porter directement les rayons responsables sur chaque fiche collaborateur.

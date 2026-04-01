@@ -125,8 +125,8 @@ const EditEmpModal=({emp,availableRayons,onSave,onClose})=>{
   };
 
   return(
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000}} onClick={onClose}>
-      <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:20,width:520,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 48px rgba(0,0,0,0.18)",overflow:"hidden"}}>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflowY:"auto",zIndex:1000}} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:20,width:"min(520px, calc(100vw - 32px))",maxHeight:"calc(100vh - 32px)",display:"flex",flexDirection:"column",boxShadow:"0 24px 48px rgba(0,0,0,0.18)",overflow:"hidden"}}>
         <div style={{background:V.mc,padding:"18px 24px",color:"#fff",display:"flex",alignItems:"center",gap:16}}>
           {/* Photo / Avatar */}
           <div style={{position:"relative"}}>
@@ -145,7 +145,7 @@ const EditEmpModal=({emp,availableRayons,onSave,onClose})=>{
             <div style={{fontSize:13,opacity:0.8}}>Fiche employé — Données RH</div>
           </div>
         </div>
-        <div style={{padding:24}}>
+        <div style={{padding:24,overflowY:"auto"}}>
           {/* Photo section */}
           {d.photo&&(
             <div style={{marginBottom:16,padding:"10px 14px",borderRadius:12,background:"#f8fafc",border:`1px solid ${V.line}`,display:"flex",alignItems:"center",justifyContent:"space-between"}}>
@@ -234,7 +234,7 @@ const EditEmpModal=({emp,availableRayons,onSave,onClose})=>{
             </div>
           </div>
         </div>
-        <div style={{padding:"14px 24px",borderTop:`1px solid ${V.line}`,display:"flex",gap:8,justifyContent:"flex-end"}}>
+        <div style={{padding:"14px 24px",borderTop:`1px solid ${V.line}`,background:"#fff",display:"flex",gap:8,justifyContent:"flex-end",flexShrink:0}}>
           <button onClick={onClose} style={{padding:"10px 20px",borderRadius:10,border:`1px solid ${V.line}`,background:"#fafafa",color:V.muted,cursor:"pointer",fontSize:13}}>Annuler</button>
           <button onClick={()=>onSave(d)} style={{padding:"10px 24px",borderRadius:10,border:"none",background:V.mc,color:"#fff",cursor:"pointer",fontSize:13,fontWeight:700}}>Enregistrer</button>
         </div>
@@ -353,8 +353,8 @@ const NewEmpModal=({availableRayons,onSave,onClose})=>{
   const canSave = d.n.trim().length > 1;
 
   return(
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000}} onClick={onClose}>
-      <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:20,width:720,maxHeight:"92vh",overflowY:"auto",boxShadow:"0 24px 48px rgba(0,0,0,0.18)",overflow:"hidden"}}>
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflowY:"auto",zIndex:1000}} onClick={onClose}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:20,width:"min(720px, calc(100vw - 32px))",maxHeight:"calc(100vh - 32px)",display:"flex",flexDirection:"column",boxShadow:"0 24px 48px rgba(0,0,0,0.18)",overflow:"hidden"}}>
         <div style={{background:V.mc,padding:"18px 24px",color:"#fff",display:"flex",alignItems:"center",gap:16}}>
           <div style={{position:"relative"}}>
             <Avatar name={d.n||"NOUVEAU"} photo={d.photo} size={64} active={d.actif}/>
@@ -368,7 +368,7 @@ const NewEmpModal=({availableRayons,onSave,onClose})=>{
             <div style={{fontSize:13,opacity:0.8}}>Creation fiche RH complete</div>
           </div>
         </div>
-        <div style={{padding:24}}>
+        <div style={{padding:24,overflowY:"auto"}}>
           <div style={{fontSize:12,color:V.muted,fontWeight:700,marginBottom:8}}>INFORMATIONS</div>
           <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:18}}>
             <div>
@@ -452,7 +452,7 @@ const NewEmpModal=({availableRayons,onSave,onClose})=>{
             ))}
           </div>
         </div>
-        <div style={{padding:"14px 24px",borderTop:`1px solid ${V.line}`,display:"flex",gap:8,justifyContent:"flex-end"}}>
+        <div style={{padding:"14px 24px",borderTop:`1px solid ${V.line}`,background:"#fff",display:"flex",gap:8,justifyContent:"flex-end",flexShrink:0}}>
           <button onClick={onClose} style={{padding:"10px 20px",borderRadius:10,border:`1px solid ${V.line}`,background:"#fafafa",color:V.muted,cursor:"pointer",fontSize:13}}>Annuler</button>
           <button disabled={!canSave} onClick={()=>canSave&&onSave({...d,cycle})} style={{padding:"10px 24px",borderRadius:10,border:"none",background:canSave?V.mc:"#cbd5e1",color:"#fff",cursor:canSave?"pointer":"not-allowed",fontSize:13,fontWeight:700}}>Creer employe</button>
         </div>

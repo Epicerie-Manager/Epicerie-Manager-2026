@@ -21,6 +21,10 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.57 - 2026-04-01
+
+- Collaborateurs / Plan TG-GB : le sélecteur de semaine indique maintenant les semaines où le collaborateur a des rayons affectés, avec le nombre de rayons concernés et un résumé visuel sous le champ.
+
 ## v0.6.56 - 2026-04-01
 
 - Collaborateurs / Plan TG-GB : ajout d'un sélecteur de semaine avec navigation précédente / suivante pour consulter le plan au-delà de la seule semaine en cours.

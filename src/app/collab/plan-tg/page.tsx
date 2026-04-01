@@ -21,6 +21,7 @@ type WeekOption = {
   label: string;
   weekNumber: number | null;
   year: number | null;
+  myCount: number;
 };
 
 type CollabTgRow = {
@@ -132,6 +133,7 @@ function buildWeekOptions(plans: TgWeekPlanRow[]) {
           (meta.weekNumber ? `S${String(meta.weekNumber).padStart(2, "0")} - ${id}` : id),
         weekNumber: meta.weekNumber,
         year: meta.year,
+        myCount: 0,
       } satisfies WeekOption;
     });
 }
@@ -325,13 +327,13 @@ export default function CollabPlanTgPage() {
     };
   }, [router]);
 
-  const weekOptions = useMemo(() => buildWeekOptions(plans), [plans]);
+  const baseWeekOptions = useMemo(() => buildWeekOptions(plans), [plans]);
   const effectiveSelectedWeekId = useMemo(() => {
-    if (selectedWeekId && weekOptions.some((week) => week.id === selectedWeekId)) {
+    if (selectedWeekId && baseWeekOptions.some((week) => week.id === selectedWeekId)) {
       return selectedWeekId;
     }
-    return getDefaultWeekId(weekOptions);
-  }, [selectedWeekId, weekOptions]);
+    return getDefaultWeekId(baseWeekOptions);
+  }, [baseWeekOptions, selectedWeekId]);
 
   const rows = useMemo(
     () => buildRows(plans, rayons, assignments, effectiveSelectedWeekId),
@@ -339,6 +341,23 @@ export default function CollabPlanTgPage() {
   );
 
   const collabName = normalizeName(profile?.employees?.name);
+  const weekOptions = useMemo(
+    () =>
+      baseWeekOptions.map((week) => {
+        const weekRows = buildRows(plans, rayons, assignments, week.id);
+        const myCount = weekRows.filter((row) =>
+          [row.responsable, row.tgResponsible].some((value) => normalizeName(value) === collabName),
+        ).length;
+        return {
+          ...week,
+          myCount,
+          label: myCount
+            ? `${week.label} - ${myCount} rayon${myCount > 1 ? "s" : ""}`
+            : week.label,
+        };
+      }),
+    [assignments, baseWeekOptions, collabName, plans, rayons],
+  );
   const myRows = useMemo(
     () =>
       rows.filter((row) =>
@@ -354,6 +373,8 @@ export default function CollabPlanTgPage() {
     selectedWeekIndex >= 0 && selectedWeekIndex < weekOptions.length - 1
       ? weekOptions[selectedWeekIndex + 1]?.id
       : "";
+  const selectedWeekMyCount =
+    weekOptions.find((week) => week.id === effectiveSelectedWeekId)?.myCount ?? 0;
   const selectedWeekLabel = effectiveSelectedWeekId
     ? getWeekDateRangeLabelFromWeekId(effectiveSelectedWeekId)
     : getWeekDateRangeLabel();
@@ -430,6 +451,36 @@ export default function CollabPlanTgPage() {
             >
               {">"}
             </button>
+          </div>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: 10,
+              flexWrap: "wrap",
+            }}
+          >
+            <div style={{ fontSize: 12, color: collabTheme.muted }}>
+              {selectedWeekMyCount
+                ? `${selectedWeekMyCount} rayon${selectedWeekMyCount > 1 ? "s" : ""} affecte${selectedWeekMyCount > 1 ? "s" : ""} cette semaine`
+                : "Aucun rayon affecte pour cette semaine"}
+            </div>
+            {selectedWeekMyCount ? (
+              <span
+                style={{
+                  borderRadius: 999,
+                  padding: "5px 10px",
+                  background: `${collabTheme.accent}14`,
+                  color: collabTheme.accent,
+                  fontSize: 11,
+                  fontWeight: 700,
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Semaine avec mes rayons
+              </span>
+            ) : null}
           </div>
         </div>
       </SectionCard>

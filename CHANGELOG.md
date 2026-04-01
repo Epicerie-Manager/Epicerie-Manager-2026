@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.58 - 2026-04-01
+
+- Collaborateurs / Infos : ajout d'une vraie page `/collab/infos` en lecture seule, branchée sur la même source de données que le module manager pour afficher annonces et documents utiles.
+- Collaborateurs / Navigation : l'accès rapide `Infos` de l'accueil et le lien `Infos & annonces` du menu `Plus` pointent maintenant vers cette nouvelle page.
+
 ## v0.6.57 - 2026-04-01
 
 - Collaborateurs / Plan TG-GB : le sélecteur de semaine indique maintenant les semaines où le collaborateur a des rayons affectés, avec le nombre de rayons concernés et un résumé visuel sous le champ.

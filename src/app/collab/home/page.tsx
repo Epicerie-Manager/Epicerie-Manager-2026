@@ -173,7 +173,7 @@ export default function CollabHomePage() {
         <QuickTile href="/collab/planning" title="Planning" subtitle="Semaine · Mois · Équipe" tone={collabTheme.blue} icon="planning" />
         <QuickTile href="/collab/absences" title="Absences" subtitle={pendingAbsences ? `${pendingAbsences} en attente` : "Suivi des demandes"} tone={collabTheme.violet} icon="absences" badge={pendingAbsences || null} />
         <QuickTile href="/collab/plan-tg" title="Plan TG/GB" subtitle={tgPlan ? "Sem. en cours" : "À venir"} tone={collabTheme.green} icon="tg" />
-        <QuickTile href="/collab/more" title="Infos" subtitle={annonces.length ? `${annonces.length} nouveauté${annonces.length > 1 ? "s" : ""}` : "Actualités magasin"} tone={collabTheme.gold} icon="infos" badge={annonces.length || null} />
+        <QuickTile href="/collab/infos" title="Infos" subtitle={annonces.length ? `${annonces.length} nouveauté${annonces.length > 1 ? "s" : ""}` : "Actualités magasin"} tone={collabTheme.gold} icon="infos" badge={annonces.length || null} />
       </div>
 
       <div style={{ display: "grid", gap: 16, marginTop: 18 }}>

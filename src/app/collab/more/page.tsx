@@ -9,7 +9,7 @@ import { collabSignOut, getCollabProfile } from "@/lib/collab-auth";
 
 const links = [
   { title: "Plan TG/GB", subtitle: "Voir vos rayons et la vue d’ensemble magasin.", tone: collabTheme.green, href: "/collab/plan-tg" },
-  { title: "Infos & annonces", subtitle: "Voir les annonces et documents utiles.", tone: collabTheme.gold, href: "/collab/more" },
+  { title: "Infos & annonces", subtitle: "Voir les annonces et documents utiles.", tone: collabTheme.gold, href: "/collab/infos" },
 ];
 
 export default function CollabMorePage() {

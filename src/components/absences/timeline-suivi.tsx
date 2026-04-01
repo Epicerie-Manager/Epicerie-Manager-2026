@@ -139,17 +139,20 @@ function EffectifParJour({
     ...perDay.flatMap((day) => [day.morningCount, day.afternoonCount]),
     1,
   );
+  const dayColumns = `repeat(${Math.max(perDay.length, 1)}, minmax(0, 1fr))`;
   const rows = [
     {
       key: "morning",
-      label: "Matin",
+      label: "M",
+      title: "Présents matin",
       warning: thresholds.warningMorning,
       critical: thresholds.criticalMorning,
       getCount: (day: PresenceDaySummary) => day.morningCount,
     },
     {
       key: "afternoon",
-      label: "Après-midi",
+      label: "AM",
+      title: "Présents après-midi",
       warning: thresholds.warningAfternoon,
       critical: thresholds.criticalAfternoon,
       getCount: (day: PresenceDaySummary) => day.afternoonCount,
@@ -196,20 +199,20 @@ function EffectifParJour({
         </div>
       </div>
 
-      <div style={{ display: "grid", gap: "8px" }}>
+      <div style={{ display: "grid", gap: "10px" }}>
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "72px 1fr",
+            gridTemplateColumns: "44px 1fr",
             gap: "10px",
             alignItems: "center",
           }}
         >
-          <div style={{ display: "grid", gap: "2px" }}>
-            <span style={{ fontSize: "10px", fontWeight: 700, color: "#475569" }}>Jours</span>
-            <span style={{ fontSize: "10px", color: "#94a3b8" }}>Frise seuil</span>
+          <div style={{ display: "grid", gap: "2px", alignSelf: "stretch", justifyItems: "center" }}>
+            <span style={{ fontSize: "10px", fontWeight: 700, color: "#475569" }}>J</span>
+            <span style={{ fontSize: "10px", color: "#94a3b8" }}>Mois</span>
           </div>
-          <div style={{ display: "flex", gap: "2px", minHeight: "24px", alignItems: "stretch" }}>
+          <div style={{ display: "grid", gridTemplateColumns: dayColumns, gap: "3px", minHeight: "28px", alignItems: "stretch" }}>
             {perDay.map((day, index) => {
               const dayDate = toDate(day.dayIso);
               const morningLevel = getPresenceCountLevel(
@@ -230,19 +233,19 @@ function EffectifParJour({
                   key={`summary-${day.dayIso}`}
                   title={`${day.dayIso} · matin ${day.morningCount} · après-midi ${day.afternoonCount}`}
                   style={{
-                    flex: 1,
                     minWidth: 0,
-                    borderRadius: "6px",
-                    background: `linear-gradient(180deg, ${color}22, ${color}cc)`,
+                    borderRadius: "8px",
+                    background: `linear-gradient(180deg, ${color}18, ${color}cc)`,
                     border: `1px solid ${color}55`,
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
                     color: "#0f172a",
-                    fontSize: "9px",
+                    fontSize: "10px",
                     fontWeight: 700,
                     lineHeight: 1,
-                    padding: "2px 0",
+                    padding: "6px 0",
+                    boxShadow: `inset 0 1px 0 ${color}22`,
                   }}
                 >
                   {showLabel ? dayDate.getDate() : ""}
@@ -256,34 +259,78 @@ function EffectifParJour({
             key={row.key}
             style={{
               display: "grid",
-              gridTemplateColumns: "72px 1fr",
+              gridTemplateColumns: "44px 1fr",
               gap: "10px",
-              alignItems: "end",
+              alignItems: "stretch",
             }}
           >
-            <div style={{ display: "grid", gap: "2px", alignSelf: "center" }}>
-              <span style={{ fontSize: "10px", fontWeight: 700, color: "#475569" }}>{row.label}</span>
+            <div
+              title={row.title}
+              style={{
+                display: "grid",
+                placeItems: "center",
+                borderRadius: "10px",
+                background: "#ffffff",
+                border: "1px solid #e2e8f0",
+                color: "#475569",
+                fontSize: "10px",
+                fontWeight: 800,
+                letterSpacing: "0.04em",
+              }}
+            >
+              {row.label}
             </div>
-            <div style={{ display: "flex", alignItems: "flex-end", gap: "2px", minHeight: "34px" }}>
+            <div
+              style={{
+                position: "relative",
+                minHeight: "72px",
+                borderRadius: "12px",
+                border: "1px solid #e2e8f0",
+                background: "linear-gradient(180deg,#ffffff 0%,#f8fafc 100%)",
+                padding: "8px 8px 6px",
+                overflow: "hidden",
+              }}
+            >
+              <div
+                aria-hidden
+                style={{
+                  position: "absolute",
+                  inset: "8px 8px 6px",
+                  backgroundImage: "linear-gradient(180deg, rgba(148,163,184,0.16) 1px, transparent 1px)",
+                  backgroundSize: "100% 25%",
+                  pointerEvents: "none",
+                }}
+              />
+              <div
+                style={{
+                  position: "relative",
+                  display: "grid",
+                  gridTemplateColumns: dayColumns,
+                  gap: "3px",
+                  alignItems: "end",
+                  minHeight: "56px",
+                }}
+              >
               {perDay.map((day) => {
                 const count = row.getCount(day);
                 const level = getPresenceCountLevel(count, row.warning, row.critical);
                 const color = getPresenceColor(level);
-                const height = count === 0 ? 6 : Math.max((count / peakCount) * 100, 14);
+                const height = count === 0 ? 8 : Math.max((count / peakCount) * 100, 16);
                 return (
                   <div
                     key={`${row.key}-${day.dayIso}`}
                     title={`${day.dayIso} · ${row.label}: ${count} · matin ${day.morningCount} · après-midi ${day.afternoonCount} · absents ${day.absentCount}`}
                     style={{
-                      flex: 1,
                       minWidth: 0,
                       height: `${height}%`,
-                      borderRadius: "5px 5px 0 0",
-                      background: `linear-gradient(180deg, ${color}66, ${color})`,
+                      borderRadius: "7px 7px 3px 3px",
+                      background: `linear-gradient(180deg, ${color}55, ${color} 65%)`,
+                      boxShadow: `inset 0 1px 0 rgba(255,255,255,0.35), 0 1px 2px ${color}22`,
                     }}
                   />
                 );
               })}
+              </div>
             </div>
           </div>
         ))}

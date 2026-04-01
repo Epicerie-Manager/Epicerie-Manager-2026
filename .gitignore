@@ -3,6 +3,9 @@ node_modules
 out
 build
 dist
+*.tsbuildinfo
+public/sw.js
+public/workbox-*.js
 
 .env
 .env.local

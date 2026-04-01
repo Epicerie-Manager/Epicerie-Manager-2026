@@ -10,12 +10,17 @@ export function attachRhActivityToBalisageStats(
   stats: BalisageEmployeeStat[],
   rhEmployees: RhEmployee[],
 ): BalisageEmployeeWithRhState[] {
+  const excludedNames = new Set(["DILAXSHAN"]);
   const statByName = new Map(
     stats.map((employee) => [employee.name.trim().toUpperCase(), employee]),
   );
 
   return rhEmployees
-    .filter((employee) => employee.t !== "E" && !isRhEmployeeCoordinatorRole(employee.obs, employee.t))
+    .filter((employee) => (
+      employee.t !== "E" &&
+      !isRhEmployeeCoordinatorRole(employee.obs, employee.t) &&
+      !excludedNames.has(employee.n.trim().toUpperCase())
+    ))
     .map((employee) => {
       const name = employee.n.trim().toUpperCase();
       const stat = statByName.get(name);

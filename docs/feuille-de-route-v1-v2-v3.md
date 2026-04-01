@@ -36,7 +36,7 @@ flowchart LR
     B --> C["V3<br/>Piloter"]
 ```
 
-## Tableau de suivi (etat au 22 mars 2026)
+## Tableau de suivi (etat au 1 avril 2026)
 
 ### V1
 
@@ -52,8 +52,8 @@ flowchart LR
 | Module RH | Gestion RH (fiche, suivi, creation employe) | Fait |
 | Tuile Google Agenda | Connexion OAuth + tuile dashboard | Fait |
 | Module Infos (contenu) | Contenu metier a injecter | En attente donnees |
-| Validation terrain | Verifier avec les vrais usages | A faire |
-| Mise en ligne | Rendre l'application utilisable | A faire |
+| Validation terrain | Verifier avec les vrais usages | Priorite immediate |
+| Mise en ligne | Rendre l'application utilisable | A preparer apres recette |
 
 ### V2
 
@@ -63,8 +63,10 @@ flowchart LR
 | Formulaire absence | Saisie collaborateur | Fait |
 | Suivi manager | Validation / refus / retour en attente | Fait |
 | Historique | Voir les demandes passees | Fait |
-| Integration planning | Repercuter les absences | En cours |
+| Integration planning | Repercuter les absences | Fait a consolider par recette |
 | Stabilisation UX timeline | Lisibilite, legendes, filtres, echelle, scroll | Fait |
+| PWA collaborateur | Login PIN, planning, absences, ecrans mobiles | Fait |
+| Authentification collaborateur | Stabiliser le provisioning / mapping comptes | En cours |
 
 ### V3
 
@@ -93,7 +95,7 @@ Types de cartes a suivre en priorite immediate :
 - `Validation terrain V1`
 - `Corrections V1`
 - `Mise en ligne V1`
-- `Integration absences <-> planning`
+- `Auth collaborateur`
 - `Module Infos - donnees et structure`
 - `Checklist exploitation (sauvegarde, securite, support)`
 
@@ -108,6 +110,6 @@ Types de cartes a suivre en priorite immediate :
 Les prochaines etapes logiques sont :
 
 - executer une validation terrain courte (checklist) ;
-- finaliser l'integration absences vers planning ;
+- verifier le flux complet collaborateur en conditions reelles ;
 - cadrer le contenu du module infos ;
 - corriger puis preparer la mise en ligne (Netlify + runbook).

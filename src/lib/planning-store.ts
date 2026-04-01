@@ -403,17 +403,19 @@ export async function syncPlanningFromSupabase(monthKey = getPlanningMonthKey(ne
       .order("binome_number", { ascending: true })
       .limit(20);
     if (Array.isArray(binomeRows) && binomeRows.length > 0) {
-      const binomes: PlanningBinomes = binomeRows
-        .map((row) => {
-          const name1 = employeeNameById.get(String(row.employee1_id));
-          const name2 = employeeNameById.get(String(row.employee2_id));
-          if (!name1 || !name2) return null;
-          return [name1, name2] as [string, string];
-        })
-        .filter((row): row is [string, string] => Boolean(row));
-      if (binomes.length > 0) {
-        nextBinomes = cloneBinomes(binomes);
-      }
+      const mergedBinomes = cloneBinomes(defaultPlanningBinomes);
+      binomeRows.forEach((row) => {
+        const name1 = employeeNameById.get(String(row.employee1_id));
+        const name2 = employeeNameById.get(String(row.employee2_id));
+        const index = Number(row.binome_number ?? 0) - 1;
+        if (!name1 || !name2 || index < 0) return;
+
+        while (mergedBinomes.length <= index) {
+          mergedBinomes.push(["", ""]);
+        }
+        mergedBinomes[index] = [name1, name2];
+      });
+      nextBinomes = mergedBinomes;
     }
     didChange = replacePlanningBinomesSnapshot(monthKey, nextBinomes) || didChange;
 

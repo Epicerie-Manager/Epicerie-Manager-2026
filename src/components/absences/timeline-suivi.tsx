@@ -200,7 +200,7 @@ function EffectifParJour({
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "92px 1fr",
+            gridTemplateColumns: "72px 1fr",
             gap: "10px",
             alignItems: "center",
           }}
@@ -256,16 +256,13 @@ function EffectifParJour({
             key={row.key}
             style={{
               display: "grid",
-              gridTemplateColumns: "92px 1fr",
+              gridTemplateColumns: "72px 1fr",
               gap: "10px",
               alignItems: "end",
             }}
           >
-            <div style={{ display: "grid", gap: "2px" }}>
+            <div style={{ display: "grid", gap: "2px", alignSelf: "center" }}>
               <span style={{ fontSize: "10px", fontWeight: 700, color: "#475569" }}>{row.label}</span>
-              <span style={{ fontSize: "10px", color: "#94a3b8" }}>
-                {`alerte < ${row.warning} · critique < ${row.critical}`}
-              </span>
             </div>
             <div style={{ display: "flex", alignItems: "flex-end", gap: "2px", minHeight: "34px" }}>
               {perDay.map((day) => {

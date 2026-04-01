@@ -1,6 +1,6 @@
 # Specification V1 (MVP) - Epicerie Manager 2026
 
-Date de reference : 21 mars 2026
+Date de reference : 1 avril 2026
 Statut : En cours de validation
 
 ## 1. Objectif du document
@@ -14,7 +14,7 @@ But :
 - definir les criteres d'acceptation ;
 - preparer la mise en service terrain.
 
-## 2. Etat actuel constate (au 21/03/2026)
+## 2. Etat actuel constate (au 01/04/2026)
 
 Fonctionnel deja en place dans l'application :
 
@@ -25,12 +25,14 @@ Fonctionnel deja en place dans l'application :
 - module stats balisage ;
 - module absences (creation + validation) ;
 - module infos ;
+- espace collaborateur `/collab` (login PIN, planning, absences, plus) ;
 - shell applicatif responsive.
 
 Avancee recente :
 
-- persistance locale des demandes d'absences ;
-- impact des absences approuvees dans le planning.
+- absences branchees sur `Supabase` comme source metier ;
+- impact des absences approuvees dans le planning ;
+- PWA collaborateur en place avec navigation mobile dediee.
 
 ## 3. Perimetre MVP V1
 
@@ -51,11 +53,15 @@ Avancee recente :
 
 ### 3.3 OUT (hors V1)
 
-- authentification complete en production ;
 - workflow absences multi-role avec notifications ;
 - audit terrain ;
 - exports avancees ;
 - synchronisation live avec source externe.
+
+Note :
+
+- l'authentification existe deja cote manager et collaborateur ;
+- le point encore hors perimetre V1 est la finition du dispositif de production, pas l'absence totale d'auth.
 
 ## 4. Ecrans MVP et criteres d'acceptation
 
@@ -118,14 +124,14 @@ Critere accepte si :
 
 ## 6. Donnees et persistance MVP
 
-- donnees modules : fichiers TypeScript statiques ;
-- absences : persistance locale navigateur (`localStorage`) ;
-- pas encore de base de donnees serveur.
+- donnees modules : mix entre jeux de donnees locaux et tables `Supabase` ;
+- absences : persistance `Supabase` ;
+- authentification : `NextAuth` cote manager et flux collaborateur via `Supabase Auth`.
 
 Consequence :
 
-- comportement stable pour les tests fonctionnels locaux ;
-- non adapte (encore) a un usage multi-poste/multi-utilisateur.
+- comportement beaucoup plus proche de l'usage reel ;
+- il reste a fiabiliser la recette terrain et le cadrage d'exploitation avant mise en service.
 
 ## 7. Definition de done V1
 
@@ -158,4 +164,4 @@ Prochaine etape recommande :
 
 - lancer la validation terrain V1 avec une checklist de tests par module ;
 - ouvrir les tickets de correction ;
-- figer une release candidate `v0.2.x` avant mise en ligne.
+- figer une release candidate dans la serie `v0.6.x` avant mise en ligne.

@@ -247,7 +247,7 @@ export async function getTeamWeekPlanning(startDate: string, endDate: string) {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("planning_entries")
-    .select("*, employees(id, name, type)")
+    .select("*, employees(id, name, type, observation)")
     .gte("date", startDate)
     .lte("date", endDate)
     .order("date");

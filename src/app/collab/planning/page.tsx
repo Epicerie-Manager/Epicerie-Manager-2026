@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { CollabBottomNav, CollabHeader, CollabPage, SectionCard, SectionTitle } from "@/components/collab/layout";
 import { collabCardStyle, collabSerifTitleStyle, collabTheme } from "@/components/collab/theme";
 import { getCollabProfile, type CollabProfile } from "@/lib/collab-auth";
+import { isRhEmployeeCoordinatorRole } from "@/lib/rh-status";
 import {
   endOfWeek,
   formatIsoDate,
@@ -84,6 +85,40 @@ function getTeamCellBackground(label: string) {
   return "#fbf8f3";
 }
 
+function normalizeEmployeeName(value: unknown) {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim()
+    .toUpperCase();
+}
+
+function getEmployeeShiftRank(type: unknown) {
+  const upper = String(type ?? "").toUpperCase();
+  if (upper.includes("APRES")) return 1;
+  if (upper.includes("ETUD")) return 2;
+  return 0;
+}
+
+function compareTeamPeople(
+  left: { name: string; type: unknown; observation: unknown },
+  right: { name: string; type: unknown; observation: unknown },
+) {
+  const leftShift = getEmployeeShiftRank(left.type);
+  const rightShift = getEmployeeShiftRank(right.type);
+  if (leftShift !== rightShift) return leftShift - rightShift;
+
+  const leftIsCoordinator =
+    isRhEmployeeCoordinatorRole(left.observation, String(left.type ?? "")) ||
+    ["ABDOU", "MASSIMO"].includes(normalizeEmployeeName(left.name));
+  const rightIsCoordinator =
+    isRhEmployeeCoordinatorRole(right.observation, String(right.type ?? "")) ||
+    ["ABDOU", "MASSIMO"].includes(normalizeEmployeeName(right.name));
+  if (leftIsCoordinator !== rightIsCoordinator) return leftIsCoordinator ? -1 : 1;
+
+  return left.name.localeCompare(right.name, "fr");
+}
+
 export default function CollabPlanningPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<CollabProfile | null>(null);
@@ -146,14 +181,29 @@ export default function CollabPlanningPage() {
   }, [monthRows]);
 
   const teamNames = useMemo(() => {
-    const names = new Map<string, { name: string; entries: Map<string, Record<string, unknown>> }>();
+    const names = new Map<
+      string,
+      {
+        name: string;
+        type: unknown;
+        observation: unknown;
+        entries: Map<string, Record<string, unknown>>;
+      }
+    >();
     teamRows.forEach((row) => {
       const employee = row.employees as Record<string, unknown> | null | undefined;
       const name = String(employee?.name ?? "Équipe");
-      if (!names.has(name)) names.set(name, { name, entries: new Map() });
+      if (!names.has(name)) {
+        names.set(name, {
+          name,
+          type: employee?.type ?? null,
+          observation: employee?.observation ?? null,
+          entries: new Map(),
+        });
+      }
       names.get(name)?.entries.set(String(row.date ?? ""), row);
     });
-    return Array.from(names.values()).sort((a, b) => a.name.localeCompare(b.name, "fr"));
+    return Array.from(names.values()).sort(compareTeamPeople);
   }, [teamRows]);
 
   const summary = useMemo(() => {

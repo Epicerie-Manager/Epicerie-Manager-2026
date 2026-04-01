@@ -3,6 +3,7 @@
 import { useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import appPackage from "../../../package.json";
 import { collabCardStyle, collabSerifTitleStyle, collabTheme } from "@/components/collab/theme";
 import { getCollabProfile } from "@/lib/collab-auth";
 import { getMyAbsences } from "@/lib/collab-data";
@@ -64,8 +65,10 @@ export function CollabHeader(props: {
   subtitle?: string;
   right?: ReactNode;
   accent?: boolean;
+  bottomRight?: ReactNode;
+  version?: string;
 }) {
-  const { title, subtitle, right } = props;
+  const { title, subtitle, right, bottomRight, version = appPackage.version } = props;
 
   return (
     <div
@@ -80,12 +83,33 @@ export function CollabHeader(props: {
       }}
     >
       <div style={{ padding: "12px 14px 14px" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+        <div style={{ display: "flex", alignItems: "start", justifyContent: "space-between", gap: 10, flexWrap: "wrap" }}>
           <div style={{ fontSize: 10, letterSpacing: "0.32em", color: "rgba(255,246,240,0.9)", textTransform: "uppercase" }}>Epicerie · Villebon 2</div>
           {right}
         </div>
         <div style={{ ...collabSerifTitleStyle({ fontSize: 20, color: "#fffdf9", marginTop: 8 }) }}>{title}</div>
-        {subtitle ? <div style={{ marginTop: 4, fontSize: 13, color: "rgba(255,248,241,0.92)" }}>{subtitle}</div> : null}
+        {(subtitle || version || bottomRight) ? (
+          <div
+            style={{
+              marginTop: 4,
+              display: "flex",
+              alignItems: "end",
+              justifyContent: "space-between",
+              gap: 12,
+              flexWrap: "wrap",
+            }}
+          >
+            <div style={{ minWidth: 0, flex: "1 1 220px" }}>
+              {subtitle ? <div style={{ fontSize: 13, color: "rgba(255,248,241,0.92)" }}>{subtitle}</div> : null}
+              {version ? (
+                <div style={{ marginTop: subtitle ? 5 : 0, fontSize: 11, color: "rgba(255,243,233,0.76)" }}>
+                  Version {version}
+                </div>
+              ) : null}
+            </div>
+            {bottomRight ? <div style={{ marginLeft: "auto", flexShrink: 0 }}>{bottomRight}</div> : null}
+          </div>
+        ) : null}
       </div>
     </div>
   );

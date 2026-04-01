@@ -20,6 +20,20 @@ import {
 } from "@/lib/infos-store";
 import type { InfoAnnouncement, InfoCategory, InfoItem } from "@/lib/infos-data";
 
+function RefreshGlyph({ color = "currentColor" }: { color?: string }) {
+  return (
+    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path
+        d="M20 11A8 8 0 1 0 17.7 17M20 11V5M20 11H14"
+        stroke={color}
+        strokeWidth="1.8"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  );
+}
+
 function formatBytes(bytes: number) {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 o";
   if (bytes < 1024) return `${bytes} o`;
@@ -29,12 +43,12 @@ function formatBytes(bytes: number) {
 
 function priorityMeta(priority: InfoAnnouncement["priority"]) {
   if (priority === "urgent") {
-    return { label: "Urgent", bg: "#fff1f2", color: "#9f1239", border: "#fecdd3" };
+    return { label: "Urgent", bg: "#fff1f2", color: "#991b1b", border: "#fda4af", pillBg: "#ffffff" };
   }
   if (priority === "important") {
-    return { label: "Important", bg: "#fffbeb", color: "#92400e", border: "#fde68a" };
+    return { label: "Important", bg: "#fff3e0", color: "#b45309", border: "#fdba74", pillBg: "#ffffff" };
   }
-  return { label: "Info", bg: "#eff6ff", color: "#1d4ed8", border: "#bfdbfe" };
+  return { label: "Info", bg: "#fff8d6", color: "#9a6700", border: "#f6d365", pillBg: "#ffffff" };
 }
 
 function getAttachmentLabel(item: InfoItem) {
@@ -45,6 +59,7 @@ function getAttachmentLabel(item: InfoItem) {
 export default function CollabInfosPage() {
   const router = useRouter();
   const [ready, setReady] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
   const [categories, setCategories] = useState<InfoCategory[]>([]);
   const [announcements, setAnnouncements] = useState<InfoAnnouncement[]>([]);
   const [activeCategoryId, setActiveCategoryId] = useState<string>("proc");
@@ -53,7 +68,7 @@ export default function CollabInfosPage() {
   useEffect(() => {
     let cancelled = false;
 
-    const refresh = () => {
+    const refreshLocalState = () => {
       if (cancelled) return;
       const nextCategories = loadInfoCategories();
       const nextAnnouncements = loadInfoAnnouncements();
@@ -65,6 +80,16 @@ export default function CollabInfosPage() {
       });
     };
 
+    const refreshRemoteState = async () => {
+      if (!cancelled) setRefreshing(true);
+      try {
+        await syncInfosFromSupabase();
+        if (!cancelled) refreshLocalState();
+      } finally {
+        if (!cancelled) setRefreshing(false);
+      }
+    };
+
     const load = async () => {
       const profile = await getCollabProfile();
       if (!profile || profile.role !== "collaborateur") {
@@ -73,19 +98,36 @@ export default function CollabInfosPage() {
       }
       if (cancelled) return;
       setReady(true);
-      refresh();
-      const synced = await syncInfosFromSupabase();
-      if (synced && !cancelled) refresh();
+      refreshLocalState();
+      await refreshRemoteState();
     };
 
     void load().catch(() => router.replace("/collab/login"));
     const eventName = getInfosUpdatedEventName();
-    window.addEventListener(eventName, refresh);
+    window.addEventListener(eventName, refreshLocalState);
     return () => {
       cancelled = true;
-      window.removeEventListener(eventName, refresh);
+      window.removeEventListener(eventName, refreshLocalState);
     };
   }, [router]);
+
+  const handleManualRefresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await syncInfosFromSupabase();
+      const nextCategories = loadInfoCategories();
+      const nextAnnouncements = loadInfoAnnouncements();
+      setCategories(nextCategories);
+      setAnnouncements(nextAnnouncements);
+      setActiveCategoryId((current) => {
+        if (current && nextCategories.some((category) => category.id === current)) return current;
+        return nextCategories[0]?.id ?? "proc";
+      });
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   const activeCategory = useMemo(
     () => categories.find((category) => category.id === activeCategoryId) ?? categories[0] ?? null,
@@ -111,10 +153,35 @@ export default function CollabInfosPage() {
         title="Infos & annonces"
         subtitle="Documents utiles et communications manager."
         right={<StatusPill label={`${announcements.length} annonce${announcements.length > 1 ? "s" : ""}`} color={collabTheme.gold} background="#fff7e8" />}
+        bottomRight={
+          <button
+            type="button"
+            onClick={() => void handleManualRefresh()}
+            aria-label="Actualiser les infos"
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              gap: 6,
+              border: "1px solid rgba(255,255,255,0.28)",
+              borderRadius: 999,
+              background: "rgba(255,255,255,0.12)",
+              color: "#fff8f1",
+              minHeight: 34,
+              padding: "0 12px",
+              fontSize: 12,
+              fontWeight: 700,
+              cursor: refreshing ? "wait" : "pointer",
+              backdropFilter: "blur(8px)",
+            }}
+          >
+            <RefreshGlyph color="#fff8f1" />
+            {refreshing ? "Mise a jour..." : "Actualiser"}
+          </button>
+        }
       />
 
       <div style={{ display: "grid", gap: 16 }}>
-        <SectionCard>
+        <SectionCard style={{ width: "100%", minWidth: 0 }}>
           <SectionTitle>Annonces</SectionTitle>
           <div style={{ display: "grid", gap: 10 }}>
             {announcements.length ? (
@@ -128,28 +195,40 @@ export default function CollabInfosPage() {
                       border: `1px solid ${meta.border}`,
                       background: meta.bg,
                       padding: "12px 12px 11px",
+                      width: "100%",
+                      minWidth: 0,
+                      boxSizing: "border-box",
                     }}
                   >
-                    <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "start" }}>
-                      <div>
-                        <div style={{ ...collabSerifTitleStyle({ fontSize: 20 }) }}>{announcement.title}</div>
+                    <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "start", flexWrap: "wrap" }}>
+                      <div style={{ minWidth: 0, flex: "1 1 220px" }}>
+                        <div style={{ ...collabSerifTitleStyle({ fontSize: 20 }), overflowWrap: "anywhere" }}>{announcement.title}</div>
                         <div style={{ marginTop: 4, fontSize: 12, color: collabTheme.muted }}>{announcement.date}</div>
                       </div>
                       <span
                         style={{
                           borderRadius: 999,
                           padding: "5px 9px",
-                          background: "#ffffff",
+                          background: meta.pillBg,
                           color: meta.color,
                           fontSize: 11,
                           fontWeight: 700,
                           whiteSpace: "nowrap",
+                          flexShrink: 0,
                         }}
                       >
                         {meta.label}
                       </span>
                     </div>
-                    <div style={{ marginTop: 8, fontSize: 13, lineHeight: 1.5, color: collabTheme.text }}>
+                    <div
+                      style={{
+                        marginTop: 8,
+                        fontSize: 14,
+                        lineHeight: 1.6,
+                        color: collabTheme.text,
+                        overflowWrap: "anywhere",
+                      }}
+                    >
                       {announcement.content}
                     </div>
                   </div>
@@ -161,7 +240,7 @@ export default function CollabInfosPage() {
           </div>
         </SectionCard>
 
-        <SectionCard>
+        <SectionCard style={{ width: "100%", minWidth: 0 }}>
           <SectionTitle>Documents</SectionTitle>
           <input
             type="search"
@@ -178,10 +257,11 @@ export default function CollabInfosPage() {
               padding: "0 14px",
               fontSize: 13,
               outline: "none",
+              boxSizing: "border-box",
             }}
           />
 
-          <div style={{ display: "flex", gap: 8, overflowX: "auto", marginTop: 12, paddingBottom: 2 }}>
+          <div style={{ display: "flex", gap: 8, overflowX: "auto", marginTop: 12, paddingBottom: 2, minWidth: 0 }}>
             {categories.map((category) => {
               const active = category.id === activeCategory?.id;
               return (
@@ -217,13 +297,24 @@ export default function CollabInfosPage() {
                     border: `1px solid ${collabTheme.line}`,
                     background: "#fffdfb",
                     padding: "12px 12px 11px",
+                    width: "100%",
+                    minWidth: 0,
+                    boxSizing: "border-box",
                   }}
                 >
-                  <div style={{ ...collabSerifTitleStyle({ fontSize: 20 }) }}>{item.title}</div>
-                  <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.5, color: collabTheme.muted }}>
+                  <div style={{ ...collabSerifTitleStyle({ fontSize: 20 }), overflowWrap: "anywhere" }}>{item.title}</div>
+                  <div
+                    style={{
+                      marginTop: 6,
+                      fontSize: 13,
+                      lineHeight: 1.5,
+                      color: collabTheme.muted,
+                      overflowWrap: "anywhere",
+                    }}
+                  >
                     {item.description}
                   </div>
-                  <div style={{ marginTop: 8, fontSize: 12, color: collabTheme.muted }}>
+                  <div style={{ marginTop: 8, fontSize: 12, color: collabTheme.muted, overflowWrap: "anywhere" }}>
                     {getAttachmentLabel(item)}
                   </div>
                   {item.attachment ? (
@@ -241,6 +332,8 @@ export default function CollabInfosPage() {
                         fontSize: 12,
                         fontWeight: 700,
                         textDecoration: "none",
+                        maxWidth: "100%",
+                        whiteSpace: "normal",
                       }}
                     >
                       Ouvrir le document

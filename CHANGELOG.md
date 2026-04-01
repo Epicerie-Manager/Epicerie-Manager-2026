@@ -21,6 +21,12 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.59 - 2026-04-01
+
+- Collaborateurs / Infos : les cartes `Annonces` et `Documents` s'adaptent mieux au mode portrait, avec gestion des retours a la ligne sur les titres, contenus et pieces jointes pour eviter les debordements mobiles.
+- Collaborateurs / Annonces : le contenu est legerement agrandi et le fond suit maintenant la priorite manager (`Info` jaune, `Important` orange, `Urgent` rouge) pour une lecture plus immediate.
+- Collaborateurs / Header : ajout d'un bouton `Actualiser` discret dans le bandeau rouge de la page `Infos`, et remontée visible de la version applicative dans le header pour qu'elle ne soit plus cachee par la navigation basse.
+
 ## v0.6.58 - 2026-04-01
 
 - Collaborateurs / Infos : ajout d'une vraie page `/collab/infos` en lecture seule, branchée sur la même source de données que le module manager pour afficher annonces et documents utiles.

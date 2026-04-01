@@ -21,6 +21,10 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.48 - 2026-04-01
+
+- Absences / Timeline & Suivi : suppression de la ligne de dates redondante dans le graphe d'effectifs et recalage des barres `M` / `AM` sur la meme grille de colonnes que le planning mensuel, pour une lecture directe jour par jour.
+
 ## v0.6.47 - 2026-04-01
 
 - Absences / Timeline & Suivi : le graphe `Effectif present par horaires` est maintenant aligne sur la meme trame de jours que le planning mensuel, avec des colonnes plus fines et une lecture plus utile des creux et pics du mois.

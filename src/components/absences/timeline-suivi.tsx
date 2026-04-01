@@ -46,6 +46,10 @@ type PresenceDaySummary = {
   scheduledCount: number;
 };
 
+const MONTH_NAME_COLUMN_WIDTH = 96;
+const MONTH_DAY_COLUMN_WIDTH = 28;
+const MONTH_TOTAL_COLUMN_WIDTH = 56;
+
 const MONTHS = [
   "Janvier",
   "Février",
@@ -122,12 +126,6 @@ function getPresenceColor(level: PresenceThresholdLevel) {
   return "#22c55e";
 }
 
-function getStrongestPresenceLevel(levels: PresenceThresholdLevel[]): PresenceThresholdLevel {
-  if (levels.includes("critical")) return "critical";
-  if (levels.includes("warning")) return "warning";
-  return "ok";
-}
-
 function EffectifParJour({
   perDay,
   thresholds,
@@ -139,8 +137,8 @@ function EffectifParJour({
     ...perDay.flatMap((day) => [day.morningCount, day.afternoonCount]),
     1,
   );
-  const leftColumnWidth = 96;
-  const dayColumnWidth = 28;
+  const leftColumnWidth = MONTH_NAME_COLUMN_WIDTH;
+  const dayColumnWidth = MONTH_DAY_COLUMN_WIDTH;
   const chartWidth = Math.max(perDay.length, 1) * dayColumnWidth;
   const rows = [
     {
@@ -202,72 +200,7 @@ function EffectifParJour({
 
       <div style={{ overflowX: "auto" }}>
         <div style={{ minWidth: `${leftColumnWidth + chartWidth}px` }}>
-          <div
-            style={{
-              display: "grid",
-              gridTemplateColumns: `${leftColumnWidth}px ${chartWidth}px`,
-              gap: "0",
-              alignItems: "stretch",
-            }}
-          >
-            <div
-              style={{
-                display: "grid",
-                placeItems: "center start",
-                padding: "8px 10px 4px",
-                fontSize: "11px",
-                fontWeight: 700,
-                color: "#94a3b8",
-                borderBottom: "2px solid #dbe3eb",
-              }}
-            >
-              Employe
-            </div>
-            <div
-              style={{
-                display: "grid",
-                gridTemplateColumns: `repeat(${Math.max(perDay.length, 1)}, ${dayColumnWidth}px)`,
-                borderBottom: "2px solid #dbe3eb",
-              }}
-            >
-              {perDay.map((day) => {
-              const dayDate = toDate(day.dayIso);
-              const dow = dayDate.getDay();
-              const isWeekend = dow === 0 || dow === 6;
-              const morningLevel = getPresenceCountLevel(
-                day.morningCount,
-                thresholds.warningMorning,
-                thresholds.criticalMorning,
-              );
-              const afternoonLevel = getPresenceCountLevel(
-                day.afternoonCount,
-                thresholds.warningAfternoon,
-                thresholds.criticalAfternoon,
-              );
-              const level = getStrongestPresenceLevel([morningLevel, afternoonLevel]);
-              const levelColor = getPresenceColor(level);
-              return (
-                <div
-                  key={`head-${day.dayIso}`}
-                  title={`${day.dayIso} · matin ${day.morningCount} · après-midi ${day.afternoonCount}`}
-                  style={{
-                    minWidth: `${dayColumnWidth}px`,
-                    textAlign: "center",
-                    color: level === "ok" ? (isWeekend ? "#8b5cf6" : "#16a34a") : levelColor,
-                    background: "transparent",
-                    fontSize: "10px",
-                    padding: "4px 0",
-                  }}
-                >
-                  <div style={{ fontSize: "8px", color: isWeekend ? "#8b5cf6" : "#94a3b8" }}>{DAYS_SHORT[dow]}</div>
-                  <div style={{ fontWeight: 700 }}>{dayDate.getDate()}</div>
-                </div>
-              );
-            })}
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gap: "10px", paddingTop: "10px" }}>
+          <div style={{ display: "grid", gap: "10px" }}>
             {rows.map((row) => (
               <div
                 key={row.key}
@@ -868,10 +801,17 @@ function VueMois({
         thresholds={thresholds}
       />
       <div style={{ overflowX: "auto", maxHeight: "440px", overflowY: "auto" }}>
-      <table style={{ borderCollapse: "collapse", width: "100%", minWidth: "980px" }}>
+       <table style={{ borderCollapse: "collapse", width: "100%", minWidth: "980px", tableLayout: "fixed" }}>
+        <colgroup>
+          <col style={{ width: `${MONTH_NAME_COLUMN_WIDTH}px` }} />
+          {dayList.map((day) => (
+            <col key={`col-${day}`} style={{ width: `${MONTH_DAY_COLUMN_WIDTH}px` }} />
+          ))}
+          <col style={{ width: `${MONTH_TOTAL_COLUMN_WIDTH}px` }} />
+        </colgroup>
         <thead>
           <tr>
-            <th style={{ position: "sticky", top: 0, left: 0, zIndex: 5, background: "#fff", padding: "8px 10px", borderBottom: "2px solid #dbe3eb", textAlign: "left", fontSize: "11px", color: "#94a3b8" }}>Employe</th>
+            <th style={{ position: "sticky", top: 0, left: 0, zIndex: 5, background: "#fff", padding: "8px 10px", borderBottom: "2px solid #dbe3eb", textAlign: "left", fontSize: "11px", color: "#94a3b8", width: `${MONTH_NAME_COLUMN_WIDTH}px` }}>Employe</th>
             {dayList.map((day) => {
               const dow = new Date(year, month, day).getDay();
               const isWeekend = dow === 0 || dow === 6;
@@ -882,7 +822,7 @@ function VueMois({
                   style={{
                     position: "sticky",
                     top: 0,
-                    minWidth: "28px",
+                    width: `${MONTH_DAY_COLUMN_WIDTH}px`,
                     textAlign: "center",
                     borderBottom: "2px solid #dbe3eb",
                     color: iso === todayIso ? "#5635b8" : isWeekend ? "#8b5cf6" : "#94a3b8",
@@ -897,13 +837,13 @@ function VueMois({
                 </th>
               );
             })}
-            <th style={{ position: "sticky", top: 0, right: 0, zIndex: 5, background: "#fff", padding: "8px 6px", borderBottom: "2px solid #dbe3eb", textAlign: "center", fontSize: "11px", color: "#5635b8" }}>Jours</th>
+            <th style={{ position: "sticky", top: 0, right: 0, zIndex: 5, background: "#fff", padding: "8px 6px", borderBottom: "2px solid #dbe3eb", textAlign: "center", fontSize: "11px", color: "#5635b8", width: `${MONTH_TOTAL_COLUMN_WIDTH}px` }}>Jours</th>
           </tr>
         </thead>
         <tbody>
           {employees.map((employee) => (
             <tr key={employee}>
-              <td style={{ position: "sticky", left: 0, zIndex: 2, background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "5px 10px", fontSize: "12px", fontWeight: 700, whiteSpace: "nowrap" }}>{employee}</td>
+              <td style={{ position: "sticky", left: 0, zIndex: 2, background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "5px 10px", fontSize: "12px", fontWeight: 700, whiteSpace: "nowrap", width: `${MONTH_NAME_COLUMN_WIDTH}px` }}>{employee}</td>
               {dayList.map((day) => {
                 const matches = getCell(employee, day);
                 if (matches.length) {

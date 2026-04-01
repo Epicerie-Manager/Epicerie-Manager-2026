@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.56 - 2026-04-01
+
+- Collaborateurs / Plan TG-GB : ajout d'un sélecteur de semaine avec navigation précédente / suivante pour consulter le plan au-delà de la seule semaine en cours.
+- Collaborateurs / Plan TG-GB : le sous-titre et les cartes se recalculent maintenant sur la semaine sélectionnée, avec rafraichissement fiable lors des mises à jour TG et RH.
+
 ## v0.6.55 - 2026-04-01
 
 - Absences / Timeline & Suivi : en vue mois, la heatmap `Matin / Après-midi` est désormais fusionnée dans la même table que le planning des employés pour garantir un alignement exact des cellules avec la ligne de dates du mois.

@@ -6,10 +6,22 @@ import { CollabBottomNav, CollabHeader, CollabPage, SectionCard } from "@/compon
 import { collabCardStyle, collabSerifTitleStyle, collabTheme } from "@/components/collab/theme";
 import { getCollabProfile, type CollabProfile } from "@/lib/collab-auth";
 import { getRhUpdatedEventName, syncRhFromSupabase } from "@/lib/rh-store";
-import { loadTgDefaultAssignments, loadTgRayons, loadTgWeekPlans, syncTgFromSupabase } from "@/lib/tg-store";
-import type { TgDefaultAssignment, TgRayon, TgWeekPlanRow } from "@/lib/tg-data";
+import {
+  getTgUpdatedEventName,
+  loadTgDefaultAssignments,
+  loadTgRayons,
+  loadTgWeekPlans,
+  syncTgFromSupabase,
+} from "@/lib/tg-store";
+import { tgWeeks, type TgDefaultAssignment, type TgRayon, type TgWeekPlanRow } from "@/lib/tg-data";
 
 type PlanView = "mine" | "all";
+type WeekOption = {
+  id: string;
+  label: string;
+  weekNumber: number | null;
+  year: number | null;
+};
 
 type CollabTgRow = {
   rayon: string;
@@ -58,14 +70,91 @@ function getWeekDateRangeLabel(date = new Date()) {
   return `Sem. ${week} · du ${startLabel} au ${endLabel}`;
 }
 
-function getCurrentWeekRows(plans: TgWeekPlanRow[]) {
-  const currentWeek = String(getCurrentIsoWeek()).padStart(2, "0");
-  const matches = plans.filter((row) => String(row.weekId ?? "").startsWith(`${currentWeek} `));
-  if (matches.length) return matches;
-  return plans.filter((row) => String(row.weekId ?? "").startsWith(`${currentWeek}`));
+function parseWeekMeta(weekId: string) {
+  const match = weekId.match(/^(\d{2})\s+.+\s+(\d{2})$/);
+  if (!match) return { weekNumber: null, year: null };
+  const weekNumber = Number(match[1]);
+  const year = 2000 + Number(match[2]);
+  return {
+    weekNumber: Number.isNaN(weekNumber) ? null : weekNumber,
+    year: Number.isNaN(year) ? null : year,
+  };
 }
 
-function buildRows(plans: TgWeekPlanRow[], rayons: TgRayon[], assignments: TgDefaultAssignment[]) {
+function getIsoWeekStartDate(year: number, week: number) {
+  const simple = new Date(year, 0, 4);
+  const day = (simple.getDay() + 6) % 7;
+  const mondayWeek1 = new Date(simple);
+  mondayWeek1.setDate(simple.getDate() - day);
+  const start = new Date(mondayWeek1);
+  start.setDate(mondayWeek1.getDate() + (week - 1) * 7);
+  start.setHours(0, 0, 0, 0);
+  return start;
+}
+
+function getWeekDateRangeLabelFromWeekId(weekId: string) {
+  const { weekNumber, year } = parseWeekMeta(weekId);
+  if (!weekNumber || !year) return weekId;
+  const start = getIsoWeekStartDate(year, weekNumber);
+  const end = new Date(start);
+  end.setDate(start.getDate() + 6);
+  const startLabel = start.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+  const endLabel = end.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
+  return `Sem. ${String(weekNumber).padStart(2, "0")} · du ${startLabel} au ${endLabel}`;
+}
+
+function buildWeekOptions(plans: TgWeekPlanRow[]) {
+  const ids = Array.from(
+    new Set(
+      plans
+        .map((row) => String(row.weekId ?? "").trim())
+        .filter(Boolean),
+    ),
+  );
+  const orderMap = new Map(tgWeeks.map((week, index) => [week.id, index]));
+  const labelMap = new Map(tgWeeks.map((week) => [week.id, week.label]));
+
+  return ids
+    .sort((a, b) => {
+      const aOrder = orderMap.get(a);
+      const bOrder = orderMap.get(b);
+      if (aOrder != null && bOrder != null) return aOrder - bOrder;
+      if (aOrder != null) return -1;
+      if (bOrder != null) return 1;
+      return a.localeCompare(b, "fr");
+    })
+    .map((id) => {
+      const meta = parseWeekMeta(id);
+      return {
+        id,
+        label:
+          labelMap.get(id) ??
+          (meta.weekNumber ? `S${String(meta.weekNumber).padStart(2, "0")} - ${id}` : id),
+        weekNumber: meta.weekNumber,
+        year: meta.year,
+      } satisfies WeekOption;
+    });
+}
+
+function getDefaultWeekId(weeks: WeekOption[]) {
+  if (!weeks.length) return "";
+  const currentWeek = getCurrentIsoWeek();
+  const currentYear = new Date().getFullYear();
+  const exactMatch = weeks.find(
+    (week) => week.weekNumber === currentWeek && (!week.year || week.year === currentYear),
+  );
+  if (exactMatch) return exactMatch.id;
+  const sameWeek = weeks.find((week) => week.weekNumber === currentWeek);
+  if (sameWeek) return sameWeek.id;
+  return weeks[0]?.id ?? "";
+}
+
+function buildRows(
+  plans: TgWeekPlanRow[],
+  rayons: TgRayon[],
+  assignments: TgDefaultAssignment[],
+  selectedWeekId: string,
+) {
   const rayonMap = new Map(
     rayons.map((rayon, index) => [
       rayon.rayon,
@@ -77,7 +166,8 @@ function buildRows(plans: TgWeekPlanRow[], rayons: TgRayon[], assignments: TgDef
   );
   const assignmentMap = new Map(assignments.map((assignment) => [assignment.rayon, assignment.employee]));
 
-  return getCurrentWeekRows(plans)
+  return plans
+    .filter((row) => String(row.weekId ?? "").trim() === selectedWeekId)
     .map((row) => {
       const rayonMeta = rayonMap.get(row.rayon);
       return {
@@ -193,15 +283,19 @@ export default function CollabPlanTgPage() {
   const router = useRouter();
   const [profile, setProfile] = useState<CollabProfile | null>(null);
   const [activeView, setActiveView] = useState<PlanView>("mine");
-  const [rows, setRows] = useState<CollabTgRow[]>([]);
+  const [plans, setPlans] = useState<TgWeekPlanRow[]>([]);
+  const [rayons, setRayons] = useState<TgRayon[]>([]);
+  const [assignments, setAssignments] = useState<TgDefaultAssignment[]>([]);
+  const [selectedWeekId, setSelectedWeekId] = useState("");
 
   useEffect(() => {
     let cancelled = false;
 
-    const refreshRows = () => {
+    const refreshData = () => {
       if (cancelled) return;
-      const nextRows = buildRows(loadTgWeekPlans(), loadTgRayons(), loadTgDefaultAssignments());
-      setRows(nextRows);
+      setPlans(loadTgWeekPlans());
+      setRayons(loadTgRayons());
+      setAssignments(loadTgDefaultAssignments());
     };
 
     const load = async () => {
@@ -216,17 +310,33 @@ export default function CollabPlanTgPage() {
       await Promise.all([syncTgFromSupabase(), syncRhFromSupabase()]);
       if (cancelled) return;
 
-      refreshRows();
+      refreshData();
     };
 
     void load().catch(() => router.replace("/collab/login"));
     const rhEventName = getRhUpdatedEventName();
-    window.addEventListener(rhEventName, refreshRows);
+    const tgEventName = getTgUpdatedEventName();
+    window.addEventListener(rhEventName, refreshData);
+    window.addEventListener(tgEventName, refreshData);
     return () => {
       cancelled = true;
-      window.removeEventListener(rhEventName, refreshRows);
+      window.removeEventListener(rhEventName, refreshData);
+      window.removeEventListener(tgEventName, refreshData);
     };
   }, [router]);
+
+  const weekOptions = useMemo(() => buildWeekOptions(plans), [plans]);
+  const effectiveSelectedWeekId = useMemo(() => {
+    if (selectedWeekId && weekOptions.some((week) => week.id === selectedWeekId)) {
+      return selectedWeekId;
+    }
+    return getDefaultWeekId(weekOptions);
+  }, [selectedWeekId, weekOptions]);
+
+  const rows = useMemo(
+    () => buildRows(plans, rayons, assignments, effectiveSelectedWeekId),
+    [assignments, effectiveSelectedWeekId, plans, rayons],
+  );
 
   const collabName = normalizeName(profile?.employees?.name);
   const myRows = useMemo(
@@ -238,12 +348,91 @@ export default function CollabPlanTgPage() {
   );
 
   const visibleRows = activeView === "mine" ? myRows : rows;
+  const selectedWeekIndex = weekOptions.findIndex((week) => week.id === effectiveSelectedWeekId);
+  const previousWeekId = selectedWeekIndex > 0 ? weekOptions[selectedWeekIndex - 1]?.id : "";
+  const nextWeekId =
+    selectedWeekIndex >= 0 && selectedWeekIndex < weekOptions.length - 1
+      ? weekOptions[selectedWeekIndex + 1]?.id
+      : "";
+  const selectedWeekLabel = effectiveSelectedWeekId
+    ? getWeekDateRangeLabelFromWeekId(effectiveSelectedWeekId)
+    : getWeekDateRangeLabel();
 
   if (!profile) return null;
 
   return (
     <CollabPage>
-      <CollabHeader title="Plan TG/GB" subtitle={getWeekDateRangeLabel()} />
+      <CollabHeader title="Plan TG/GB" subtitle={selectedWeekLabel} />
+
+      <SectionCard style={{ marginBottom: 16 }}>
+        <div style={{ display: "grid", gap: 10 }}>
+          <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: collabTheme.muted }}>
+            Semaine affichée
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "44px minmax(0, 1fr) 44px", gap: 8, alignItems: "center" }}>
+            <button
+              type="button"
+              onClick={() => previousWeekId && setSelectedWeekId(previousWeekId)}
+              disabled={!previousWeekId}
+              aria-label="Semaine précédente"
+              style={{
+                minHeight: 42,
+                borderRadius: 14,
+                border: `1px solid ${previousWeekId ? collabTheme.line : `${collabTheme.line}99`}`,
+                background: previousWeekId ? "#fffdfb" : "#f8f4ef",
+                color: previousWeekId ? collabTheme.text : collabTheme.muted,
+                fontSize: 18,
+                fontWeight: 700,
+                cursor: previousWeekId ? "pointer" : "not-allowed",
+                opacity: previousWeekId ? 1 : 0.6,
+              }}
+            >
+              {"<"}
+            </button>
+            <select
+              value={effectiveSelectedWeekId}
+              onChange={(event) => setSelectedWeekId(event.target.value)}
+              style={{
+                minHeight: 42,
+                width: "100%",
+                borderRadius: 14,
+                border: `1px solid ${collabTheme.line}`,
+                background: "#fffdfb",
+                color: collabTheme.text,
+                fontSize: 13,
+                fontWeight: 700,
+                padding: "0 14px",
+                outline: "none",
+              }}
+            >
+              {weekOptions.map((week) => (
+                <option key={week.id} value={week.id}>
+                  {week.label}
+                </option>
+              ))}
+            </select>
+            <button
+              type="button"
+              onClick={() => nextWeekId && setSelectedWeekId(nextWeekId)}
+              disabled={!nextWeekId}
+              aria-label="Semaine suivante"
+              style={{
+                minHeight: 42,
+                borderRadius: 14,
+                border: `1px solid ${nextWeekId ? collabTheme.line : `${collabTheme.line}99`}`,
+                background: nextWeekId ? "#fffdfb" : "#f8f4ef",
+                color: nextWeekId ? collabTheme.text : collabTheme.muted,
+                fontSize: 18,
+                fontWeight: 700,
+                cursor: nextWeekId ? "pointer" : "not-allowed",
+                opacity: nextWeekId ? 1 : 0.6,
+              }}
+            >
+              {">"}
+            </button>
+          </div>
+        </div>
+      </SectionCard>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, 1fr)", gap: 8, marginBottom: 16 }}>
         {[
@@ -299,8 +488,8 @@ export default function CollabPlanTgPage() {
             </div>
             <div style={{ marginTop: 8, fontSize: 13, lineHeight: 1.5, color: collabTheme.muted }}>
               {activeView === "mine"
-                ? "Aucun rayon n’est encore rattaché à votre profil pour la semaine en cours."
-                : "Le plan TG/GB n’est pas encore disponible pour la semaine en cours."}
+                ? "Aucun rayon n’est encore rattaché à votre profil pour la semaine sélectionnée."
+                : "Le plan TG/GB n’est pas encore disponible pour la semaine sélectionnée."}
             </div>
           </SectionCard>
         )}

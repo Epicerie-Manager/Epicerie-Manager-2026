@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { type ReactNode, useEffect, useMemo, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Kicker } from "@/components/ui/kicker";
 import { moduleThemes } from "@/lib/theme";
@@ -126,38 +126,72 @@ function getPresenceColor(level: PresenceThresholdLevel) {
   return "#22c55e";
 }
 
-function EffectifParJour({
+function getPresenceLevelForDay(day: PresenceDaySummary, thresholds: PresenceThresholds): PresenceThresholdLevel {
+  const morningLevel = getPresenceCountLevel(
+    day.morningCount,
+    thresholds.warningMorning,
+    thresholds.criticalMorning,
+  );
+  const afternoonLevel = getPresenceCountLevel(
+    day.afternoonCount,
+    thresholds.warningAfternoon,
+    thresholds.criticalAfternoon,
+  );
+  if (morningLevel === "critical" || afternoonLevel === "critical") return "critical";
+  if (morningLevel === "warning" || afternoonLevel === "warning") return "warning";
+  return "ok";
+}
+
+function getWorstShiftLabel(day: PresenceDaySummary, thresholds: PresenceThresholds) {
+  const morningLevel = getPresenceCountLevel(
+    day.morningCount,
+    thresholds.warningMorning,
+    thresholds.criticalMorning,
+  );
+  const afternoonLevel = getPresenceCountLevel(
+    day.afternoonCount,
+    thresholds.warningAfternoon,
+    thresholds.criticalAfternoon,
+  );
+  if (morningLevel === "critical" || morningLevel === "warning") return "Matin";
+  if (afternoonLevel === "critical" || afternoonLevel === "warning") return "Après-midi";
+  return "RAS";
+}
+
+function formatDayShort(dayIso: string) {
+  return toDate(dayIso).toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+}
+
+function PilotageEffectifs({
   perDay,
   thresholds,
+  mode,
 }: {
   perDay: PresenceDaySummary[];
   thresholds: PresenceThresholds;
+  mode: "mois" | "periode";
 }) {
-  const peakCount = Math.max(
-    ...perDay.flatMap((day) => [day.morningCount, day.afternoonCount]),
-    1,
-  );
-  const leftColumnWidth = MONTH_NAME_COLUMN_WIDTH;
-  const dayColumnWidth = MONTH_DAY_COLUMN_WIDTH;
-  const chartWidth = Math.max(perDay.length, 1) * dayColumnWidth;
-  const rows = [
-    {
-      key: "morning",
-      label: "M",
-      title: "Présents matin",
-      warning: thresholds.warningMorning,
-      critical: thresholds.criticalMorning,
-      getCount: (day: PresenceDaySummary) => day.morningCount,
-    },
-    {
-      key: "afternoon",
-      label: "AM",
-      title: "Présents après-midi",
-      warning: thresholds.warningAfternoon,
-      critical: thresholds.criticalAfternoon,
-      getCount: (day: PresenceDaySummary) => day.afternoonCount,
-    },
-  ];
+  const assessedDays = perDay.map((day) => ({
+    ...day,
+    level: getPresenceLevelForDay(day, thresholds),
+    worstShift: getWorstShiftLabel(day, thresholds),
+  }));
+  const criticalDays = assessedDays.filter((day) => day.level === "critical");
+  const warningDays = assessedDays.filter((day) => day.level === "warning");
+  const riskyDays = assessedDays.filter((day) => day.level !== "ok");
+  const worstDays = [...riskyDays].sort((left, right) => {
+    const leftScore = left.morningCount + left.afternoonCount;
+    const rightScore = right.morningCount + right.afternoonCount;
+    return leftScore - rightScore || left.dayIso.localeCompare(right.dayIso);
+  }).slice(0, 5);
+  const cellSize = mode === "mois" ? 28 : 18;
+  const labelStep = mode === "mois" ? 1 : perDay.length <= 21 ? 1 : perDay.length <= 45 ? 3 : 7;
+  const monthLabels = mode === "periode"
+    ? Array.from(new Set(assessedDays.map((day) => {
+        const date = toDate(day.dayIso);
+        return `${MONTHS[date.getMonth()]} ${date.getFullYear()}`;
+      })))
+    : [];
 
   return (
     <div
@@ -169,18 +203,18 @@ function EffectifParJour({
         padding: "10px 12px",
       }}
     >
-      <div
-        style={{
-          display: "flex",
-          justifyContent: "space-between",
-          alignItems: "center",
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
           gap: "8px",
           marginBottom: "8px",
           flexWrap: "wrap",
         }}
-      >
+        >
         <div style={{ fontSize: "11px", fontWeight: 700, color: "#94a3b8" }}>
-          EFFECTIF PRESENT PAR HORAIRES
+          PILOTAGE EFFECTIFS
         </div>
         <div style={{ display: "flex", gap: "10px", flexWrap: "wrap" }}>
           <span style={{ fontSize: "10px", color: "#64748b", display: "inline-flex", alignItems: "center", gap: "4px" }}>
@@ -198,91 +232,141 @@ function EffectifParJour({
         </div>
       </div>
 
-      <div style={{ overflowX: "auto" }}>
-        <div style={{ minWidth: `${leftColumnWidth + chartWidth}px` }}>
-          <div style={{ display: "grid", gap: "10px" }}>
-            {rows.map((row) => (
-              <div
-                key={row.key}
-                style={{
-                  display: "grid",
-                  gridTemplateColumns: `${leftColumnWidth}px ${chartWidth}px`,
-                  gap: "0",
-                  alignItems: "stretch",
-                }}
-              >
-                <div
-                  title={row.title}
-                  style={{
-                    display: "grid",
-                    placeItems: "center start",
-                    padding: "0 10px",
-                    color: "#475569",
-                    fontSize: "11px",
-                    fontWeight: 800,
-                    letterSpacing: "0.04em",
-                  }}
-                >
-                  {row.label}
-                </div>
-                <div
-                  style={{
-                    position: "relative",
-                    minHeight: "76px",
-                    borderRadius: "12px",
-                    border: "1px solid #e2e8f0",
-                    background: "linear-gradient(180deg,#ffffff 0%,#f8fafc 100%)",
-                    padding: "8px 0 6px",
-                    overflow: "hidden",
-                  }}
-                >
-                  <div
-                    aria-hidden
-                    style={{
-                      position: "absolute",
-                      inset: "8px 0 6px",
-                      backgroundImage: "linear-gradient(180deg, rgba(148,163,184,0.14) 1px, transparent 1px)",
-                      backgroundSize: "100% 25%",
-                      pointerEvents: "none",
-                    }}
-                  />
-                  <div
-                    style={{
-                      position: "relative",
-                      display: "grid",
-                      gridTemplateColumns: `repeat(${Math.max(perDay.length, 1)}, ${dayColumnWidth}px)`,
-                      alignItems: "end",
-                      minHeight: "60px",
-                    }}
-                  >
-                    {perDay.map((day) => {
-                      const count = row.getCount(day);
-                      const level = getPresenceCountLevel(count, row.warning, row.critical);
-                      const color = getPresenceColor(level);
-                      const height = count === 0 ? 8 : Math.max((count / peakCount) * 100, 16);
-                      return (
-                        <div
-                          key={`${row.key}-${day.dayIso}`}
-                          title={`${day.dayIso} · ${row.title}: ${count} · matin ${day.morningCount} · après-midi ${day.afternoonCount} · absents ${day.absentCount}`}
-                          style={{
-                            width: "22px",
-                            justifySelf: "center",
-                            height: `${height}%`,
-                            borderRadius: "7px 7px 3px 3px",
-                            background: `linear-gradient(180deg, ${color}55, ${color} 65%)`,
-                            boxShadow: `inset 0 1px 0 rgba(255,255,255,0.35), 0 1px 2px ${color}22`,
-                          }}
-                        />
-                      );
-                    })}
-                  </div>
-                </div>
-              </div>
-            ))}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(4, minmax(120px, 1fr))", gap: "10px", marginBottom: "12px" }}>
+        <div style={{ borderRadius: "12px", background: "#ffffff", border: "1px solid #e2e8f0", padding: "10px 12px" }}>
+          <div style={{ fontSize: "10px", color: "#94a3b8", textTransform: "uppercase", fontWeight: 700 }}>Jours critiques</div>
+          <div style={{ marginTop: "4px", fontSize: "24px", fontWeight: 800, color: "#b91c1c" }}>{criticalDays.length}</div>
+        </div>
+        <div style={{ borderRadius: "12px", background: "#ffffff", border: "1px solid #e2e8f0", padding: "10px 12px" }}>
+          <div style={{ fontSize: "10px", color: "#94a3b8", textTransform: "uppercase", fontWeight: 700 }}>Jours en alerte</div>
+          <div style={{ marginTop: "4px", fontSize: "24px", fontWeight: 800, color: "#b45309" }}>{warningDays.length}</div>
+        </div>
+        <div style={{ borderRadius: "12px", background: "#ffffff", border: "1px solid #e2e8f0", padding: "10px 12px" }}>
+          <div style={{ fontSize: "10px", color: "#94a3b8", textTransform: "uppercase", fontWeight: 700 }}>Période sous tension</div>
+          <div style={{ marginTop: "4px", fontSize: "24px", fontWeight: 800, color: "#334155" }}>{riskyDays.length}</div>
+        </div>
+        <div style={{ borderRadius: "12px", background: "#ffffff", border: "1px solid #e2e8f0", padding: "10px 12px" }}>
+          <div style={{ fontSize: "10px", color: "#94a3b8", textTransform: "uppercase", fontWeight: 700 }}>Seuils</div>
+          <div style={{ marginTop: "6px", fontSize: "12px", color: "#475569" }}>
+            Matin &lt; {thresholds.warningMorning} / {thresholds.criticalMorning}
+          </div>
+          <div style={{ marginTop: "2px", fontSize: "12px", color: "#475569" }}>
+            Après-midi &lt; {thresholds.warningAfternoon} / {thresholds.criticalAfternoon}
           </div>
         </div>
       </div>
+
+      <div style={{ borderRadius: "14px", background: "#ffffff", border: "1px solid #e2e8f0", padding: "12px" }}>
+        <div style={{ fontSize: "12px", fontWeight: 700, color: "#334155", marginBottom: "8px" }}>
+          Carte de tension jour par jour
+        </div>
+        {mode === "periode" && monthLabels.length ? (
+          <div style={{ display: "flex", gap: "10px", flexWrap: "wrap", marginBottom: "10px", fontSize: "11px", color: "#64748b", fontWeight: 700 }}>
+            {monthLabels.map((label) => (
+              <span key={label}>{label}</span>
+            ))}
+          </div>
+        ) : null}
+        <div style={{ overflowX: "auto" }}>
+          <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.max(assessedDays.length, 1)}, ${cellSize}px)`, gap: "4px", minWidth: "max-content" }}>
+            {assessedDays.map((day, index) => {
+              const date = toDate(day.dayIso);
+              const color = getPresenceColor(day.level);
+              const isWeekend = date.getDay() === 0 || date.getDay() === 6;
+              const showLabel = index % labelStep === 0 || index === assessedDays.length - 1;
+              return (
+                <div key={day.dayIso} style={{ display: "grid", gap: "4px", justifyItems: "center" }}>
+                  <button
+                    type="button"
+                    title={`${day.dayIso} · niveau ${day.level === "ok" ? "OK" : day.level === "warning" ? "Alerte" : "Critique"} · matin ${day.morningCount} · après-midi ${day.afternoonCount} · absents ${day.absentCount} · zone sensible ${day.worstShift}`}
+                    style={{
+                      width: `${cellSize}px`,
+                      height: mode === "mois" ? "42px" : "30px",
+                      borderRadius: mode === "mois" ? "10px" : "8px",
+                      border: `1px solid ${color}55`,
+                      background: `linear-gradient(180deg, ${color}22, ${color})`,
+                      color: "#ffffff",
+                      boxShadow: day.level === "critical" ? "0 0 0 1px rgba(239,68,68,0.18)" : "none",
+                      display: "grid",
+                      placeItems: "center",
+                      padding: 0,
+                      cursor: "default",
+                    }}
+                  >
+                    <span style={{ fontSize: mode === "mois" ? "13px" : "11px", fontWeight: 800 }}>
+                      {Math.min(day.morningCount, 99)}
+                    </span>
+                  </button>
+                  <div style={{ fontSize: "9px", lineHeight: 1, color: isWeekend ? "#8b5cf6" : "#94a3b8", minHeight: "18px", textAlign: "center" }}>
+                    {showLabel ? (
+                      <>
+                        <div>{DAYS_SHORT[date.getDay()]}</div>
+                        <div style={{ marginTop: "2px", fontWeight: 700, color: day.level === "ok" ? (isWeekend ? "#8b5cf6" : "#64748b") : color }}>
+                          {date.getDate()}
+                        </div>
+                      </>
+                    ) : null}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "10px", marginTop: "12px" }}>
+          {worstDays.length ? worstDays.map((day) => {
+            const color = getPresenceColor(day.level);
+            return (
+              <div
+                key={day.dayIso}
+                style={{
+                  borderRadius: "12px",
+                  border: `1px solid ${color}44`,
+                  background: `${color}10`,
+                  padding: "10px 12px",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", alignItems: "center" }}>
+                  <strong style={{ fontSize: "13px", color: "#0f172a" }}>{formatDayShort(day.dayIso)}</strong>
+                  <span style={{ fontSize: "11px", fontWeight: 700, color }}>
+                    {day.level === "critical" ? "Critique" : "Alerte"}
+                  </span>
+                </div>
+                <div style={{ marginTop: "6px", fontSize: "12px", color: "#475569" }}>
+                  Matin <strong style={{ color: "#0f172a" }}>{day.morningCount}</strong> · Après-midi{" "}
+                  <strong style={{ color: "#0f172a" }}>{day.afternoonCount}</strong>
+                </div>
+                <div style={{ marginTop: "2px", fontSize: "12px", color: "#475569" }}>
+                  Absents <strong style={{ color: "#0f172a" }}>{day.absentCount}</strong> · Zone sensible{" "}
+                  <strong style={{ color: "#0f172a" }}>{day.worstShift}</strong>
+                </div>
+              </div>
+            );
+          }) : (
+            <div style={{ fontSize: "12px", color: "#64748b" }}>Aucun jour sensible sur la période sélectionnée.</div>
+          )}
+        </div>
+      </div>
     </div>
+  );
+}
+
+function TimelineTableCard({
+  children,
+}: {
+  children: ReactNode;
+}) {
+  return (
+    <Card
+      static
+      style={{
+        marginTop: "12px",
+        padding: "14px",
+        borderRadius: "16px",
+      }}
+    >
+      {children}
+    </Card>
   );
 }
 
@@ -796,86 +880,85 @@ function VueMois({
 
   return (
     <div>
-      <EffectifParJour
-        perDay={perDay}
-        thresholds={thresholds}
-      />
-      <div style={{ overflowX: "auto", maxHeight: "440px", overflowY: "auto" }}>
-       <table style={{ borderCollapse: "collapse", width: "100%", minWidth: "980px", tableLayout: "fixed" }}>
-        <colgroup>
-          <col style={{ width: `${MONTH_NAME_COLUMN_WIDTH}px` }} />
-          {dayList.map((day) => (
-            <col key={`col-${day}`} style={{ width: `${MONTH_DAY_COLUMN_WIDTH}px` }} />
-          ))}
-          <col style={{ width: `${MONTH_TOTAL_COLUMN_WIDTH}px` }} />
-        </colgroup>
-        <thead>
-          <tr>
-            <th style={{ position: "sticky", top: 0, left: 0, zIndex: 5, background: "#fff", padding: "8px 10px", borderBottom: "2px solid #dbe3eb", textAlign: "left", fontSize: "11px", color: "#94a3b8", width: `${MONTH_NAME_COLUMN_WIDTH}px` }}>Employe</th>
-            {dayList.map((day) => {
-              const dow = new Date(year, month, day).getDay();
-              const isWeekend = dow === 0 || dow === 6;
-              const iso = isoDate(year, month, day);
-              return (
-                <th
-                  key={day}
-                  style={{
-                    position: "sticky",
-                    top: 0,
-                    width: `${MONTH_DAY_COLUMN_WIDTH}px`,
-                    textAlign: "center",
-                    borderBottom: "2px solid #dbe3eb",
-                    color: iso === todayIso ? "#5635b8" : isWeekend ? "#8b5cf6" : "#94a3b8",
-                    background: iso === todayIso ? "#f5f2fe" : "#fff",
-                    fontSize: "10px",
-                    padding: "4px 0",
-                    zIndex: 4,
-                  }}
-                >
-                  <div style={{ fontSize: "8px" }}>{DAYS_SHORT[dow]}</div>
-                  {day}
-                </th>
-              );
-            })}
-            <th style={{ position: "sticky", top: 0, right: 0, zIndex: 5, background: "#fff", padding: "8px 6px", borderBottom: "2px solid #dbe3eb", textAlign: "center", fontSize: "11px", color: "#5635b8", width: `${MONTH_TOTAL_COLUMN_WIDTH}px` }}>Jours</th>
-          </tr>
-        </thead>
-        <tbody>
-          {employees.map((employee) => (
-            <tr key={employee}>
-              <td style={{ position: "sticky", left: 0, zIndex: 2, background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "5px 10px", fontSize: "12px", fontWeight: 700, whiteSpace: "nowrap", width: `${MONTH_NAME_COLUMN_WIDTH}px` }}>{employee}</td>
-              {dayList.map((day) => {
-                const matches = getCell(employee, day);
-                if (matches.length) {
-                  const absence = matches[0];
-                  const color = typeColor(absence.type);
-                  const pending = absence.status === "en_attente";
+      <PilotageEffectifs perDay={perDay} thresholds={thresholds} mode="mois" />
+      <TimelineTableCard>
+        <div style={{ overflowX: "auto", maxHeight: "440px", overflowY: "auto" }}>
+          <table style={{ borderCollapse: "collapse", width: "100%", minWidth: "980px", tableLayout: "fixed" }}>
+            <colgroup>
+              <col style={{ width: `${MONTH_NAME_COLUMN_WIDTH}px` }} />
+              {dayList.map((day) => (
+                <col key={`col-${day}`} style={{ width: `${MONTH_DAY_COLUMN_WIDTH}px` }} />
+              ))}
+              <col style={{ width: `${MONTH_TOTAL_COLUMN_WIDTH}px` }} />
+            </colgroup>
+            <thead>
+              <tr>
+                <th style={{ position: "sticky", top: 0, left: 0, zIndex: 5, background: "#fff", padding: "8px 10px", borderBottom: "2px solid #dbe3eb", textAlign: "left", fontSize: "11px", color: "#94a3b8", width: `${MONTH_NAME_COLUMN_WIDTH}px` }}>Employe</th>
+                {dayList.map((day) => {
+                  const dow = new Date(year, month, day).getDay();
+                  const isWeekend = dow === 0 || dow === 6;
+                  const iso = isoDate(year, month, day);
                   return (
-                    <td key={day} title={`${employee}: ${typeLabel(absence.type)} ${fmtShort(absence.startDate)} → ${fmtShort(absence.endDate)}`} style={{ padding: 0, borderBottom: "1px solid #e2e8f0", background: pending ? pendingPattern(color) : `${color}22` }}>
-                      <div style={{ width: "100%", height: "24px" }} />
-                    </td>
+                    <th
+                      key={day}
+                      style={{
+                        position: "sticky",
+                        top: 0,
+                        width: `${MONTH_DAY_COLUMN_WIDTH}px`,
+                        textAlign: "center",
+                        borderBottom: "2px solid #dbe3eb",
+                        color: iso === todayIso ? "#5635b8" : isWeekend ? "#8b5cf6" : "#94a3b8",
+                        background: iso === todayIso ? "#f5f2fe" : "#fff",
+                        fontSize: "10px",
+                        padding: "4px 0",
+                        zIndex: 4,
+                      }}
+                    >
+                      <div style={{ fontSize: "8px" }}>{DAYS_SHORT[dow]}</div>
+                      {day}
+                    </th>
                   );
-                }
-                return (
-                  <td key={day} style={{ padding: 0, borderBottom: "1px solid #e2e8f0" }}>
-                    <div style={{ width: "100%", height: "24px" }} />
+                })}
+                <th style={{ position: "sticky", top: 0, right: 0, zIndex: 5, background: "#fff", padding: "8px 6px", borderBottom: "2px solid #dbe3eb", textAlign: "center", fontSize: "11px", color: "#5635b8", width: `${MONTH_TOTAL_COLUMN_WIDTH}px` }}>Jours</th>
+              </tr>
+            </thead>
+            <tbody>
+              {employees.map((employee) => (
+                <tr key={employee}>
+                  <td style={{ position: "sticky", left: 0, zIndex: 2, background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "5px 10px", fontSize: "12px", fontWeight: 700, whiteSpace: "nowrap", width: `${MONTH_NAME_COLUMN_WIDTH}px` }}>{employee}</td>
+                  {dayList.map((day) => {
+                    const matches = getCell(employee, day);
+                    if (matches.length) {
+                      const absence = matches[0];
+                      const color = typeColor(absence.type);
+                      const pending = absence.status === "en_attente";
+                      return (
+                        <td key={day} title={`${employee}: ${typeLabel(absence.type)} ${fmtShort(absence.startDate)} → ${fmtShort(absence.endDate)}`} style={{ padding: 0, borderBottom: "1px solid #e2e8f0", background: pending ? pendingPattern(color) : `${color}22` }}>
+                          <div style={{ width: "100%", height: "24px" }} />
+                        </td>
+                      );
+                    }
+                    return (
+                      <td key={day} style={{ padding: 0, borderBottom: "1px solid #e2e8f0" }}>
+                        <div style={{ width: "100%", height: "24px" }} />
+                      </td>
+                    );
+                  })}
+                  <td style={{ position: "sticky", right: 0, zIndex: 2, background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "5px 6px", textAlign: "center", fontSize: "12px", fontWeight: 700, color: "#5635b8" }}>
+                    {relevant
+                      .filter((absence) => absence.employee === employee)
+                      .reduce((sum, absence) => {
+                        const start = Math.max(toDate(absence.startDate).getTime(), toDate(monthStart).getTime());
+                        const end = Math.min(toDate(absence.endDate).getTime(), toDate(monthEnd).getTime());
+                        return end >= start ? sum + Math.round((end - start) / 86400000) + 1 : sum;
+                      }, 0) || ""}
                   </td>
-                );
-              })}
-              <td style={{ position: "sticky", right: 0, zIndex: 2, background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "5px 6px", textAlign: "center", fontSize: "12px", fontWeight: 700, color: "#5635b8" }}>
-                {relevant
-                  .filter((absence) => absence.employee === employee)
-                  .reduce((sum, absence) => {
-                    const start = Math.max(toDate(absence.startDate).getTime(), toDate(monthStart).getTime());
-                    const end = Math.min(toDate(absence.endDate).getTime(), toDate(monthEnd).getTime());
-                    return end >= start ? sum + Math.round((end - start) / 86400000) + 1 : sum;
-                  }, 0) || ""}
-              </td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
-      </div>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </TimelineTableCard>
     </div>
   );
 }
@@ -959,194 +1042,192 @@ function VuePeriode({
 
   return (
     <div>
-      <EffectifParJour
-        perDay={perDay}
-        thresholds={thresholds}
-      />
+      <PilotageEffectifs perDay={perDay} thresholds={thresholds} mode="periode" />
+      <TimelineTableCard>
+        <div style={{ position: "relative" }}>
+          <div
+            style={{
+              position: "sticky",
+              top: 0,
+              zIndex: 3,
+              background: "#fff",
+              borderBottom: "1px solid #e2e8f0",
+              marginBottom: "8px",
+              paddingBottom: "6px",
+            }}
+          >
+            <div style={{ display: "grid", gridTemplateColumns: "96px 1fr", gap: "8px", alignItems: "end" }}>
+              <div style={{ fontSize: "10px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase" }}>
+                Echelle
+              </div>
+              <div style={{ position: "relative", minHeight: shortRange ? "28px" : "42px" }}>
+                {shortRange ? (
+                  dayTicks.map((tick) => (
+                    <div
+                      key={tick.key}
+                      style={{
+                        position: "absolute",
+                        left: `${(tick.offset / Math.max(totalDays - 1, 1)) * 100}%`,
+                        transform: "translateX(-50%)",
+                        fontSize: "10px",
+                        color: tick.showLabel ? "#64748b" : "transparent",
+                        whiteSpace: "nowrap",
+                        fontWeight: tick.showLabel ? 600 : 400,
+                      }}
+                    >
+                      {tick.showLabel ? tick.label : "."}
+                    </div>
+                  ))
+                ) : null}
 
-      <div style={{ position: "relative" }}>
-        <div
-          style={{
-            position: "sticky",
-            top: 0,
-            zIndex: 3,
-            background: "#fff",
-            borderBottom: "1px solid #e2e8f0",
-            marginBottom: "8px",
-            paddingBottom: "6px",
-          }}
-        >
-          <div style={{ display: "grid", gridTemplateColumns: "96px 1fr", gap: "8px", alignItems: "end" }}>
-            <div style={{ fontSize: "10px", fontWeight: 700, color: "#94a3b8", textTransform: "uppercase" }}>
-              Echelle
-            </div>
-            <div style={{ position: "relative", minHeight: shortRange ? "28px" : "42px" }}>
-              {shortRange ? (
-                dayTicks.map((tick) => (
-                  <div
-                    key={tick.key}
-                    style={{
-                      position: "absolute",
-                      left: `${(tick.offset / Math.max(totalDays - 1, 1)) * 100}%`,
-                      transform: "translateX(-50%)",
-                      fontSize: "10px",
-                      color: tick.showLabel ? "#64748b" : "transparent",
-                      whiteSpace: "nowrap",
-                      fontWeight: tick.showLabel ? 600 : 400,
-                    }}
-                  >
-                    {tick.showLabel ? tick.label : "."}
-                  </div>
-                ))
-              ) : null}
+                {!shortRange
+                  ? monthTicks.map((tick, index) => {
+                      const left = (tick.offset / totalDays) * 100;
+                      const next = monthTicks[index + 1];
+                      const right = next ? (next.offset / totalDays) * 100 : 100;
+                      const center = (left + right) / 2;
+                      return (
+                        <div
+                          key={`month-${tick.label}-${index}`}
+                          style={{
+                            position: "absolute",
+                            left: `${center}%`,
+                            top: "0px",
+                            transform: "translateX(-50%)",
+                            fontSize: "11px",
+                            color: "#475569",
+                            whiteSpace: "nowrap",
+                            fontWeight: 800,
+                          }}
+                        >
+                          {tick.label}
+                        </div>
+                      );
+                    })
+                  : null}
 
-              {!shortRange
-                ? monthTicks.map((tick, index) => {
-                    const left = (tick.offset / totalDays) * 100;
-                    const next = monthTicks[index + 1];
-                    const right = next ? (next.offset / totalDays) * 100 : 100;
-                    const center = (left + right) / 2;
-                    return (
+                {!shortRange
+                  ? weekTicks.map((tick) => (
                       <div
-                        key={`month-${tick.label}-${index}`}
+                        key={`week-label-${tick.key}`}
                         style={{
                           position: "absolute",
-                          left: `${center}%`,
-                          top: "0px",
+                          left: `${(tick.offset / Math.max(totalDays - 1, 1)) * 100}%`,
+                          top: "20px",
                           transform: "translateX(-50%)",
-                          fontSize: "11px",
-                          color: "#475569",
+                          fontSize: "9px",
+                          color: "#94a3b8",
                           whiteSpace: "nowrap",
-                          fontWeight: 800,
+                          fontWeight: 700,
                         }}
                       >
                         {tick.label}
                       </div>
-                    );
-                  })
-                : null}
+                    ))
+                  : null}
+              </div>
+            </div>
+          </div>
 
-              {!shortRange
-                ? weekTicks.map((tick) => (
+          <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0 }}>
+            {shortRange
+              ? dayTicks.map((tick) =>
+                  tick.offset > 0 ? (
                     <div
-                      key={`week-label-${tick.key}`}
+                      key={`day-grid-${tick.key}`}
                       style={{
                         position: "absolute",
                         left: `${(tick.offset / Math.max(totalDays - 1, 1)) * 100}%`,
-                        top: "20px",
-                        transform: "translateX(-50%)",
-                        fontSize: "9px",
-                        color: "#94a3b8",
-                        whiteSpace: "nowrap",
-                        fontWeight: 700,
+                        top: 0,
+                        bottom: 0,
+                        width: "1px",
+                        background: tick.offset % 7 === 0 ? "#cfd9e5" : "#e2e8f0",
                       }}
-                    >
-                      {tick.label}
-                    </div>
-                  ))
-                : null}
-            </div>
+                    />
+                  ) : null,
+                )
+              : monthTicks.map((tick, index) =>
+                  index > 0 ? (
+                    <div
+                      key={`${tick.label}-${index}`}
+                      style={{
+                        position: "absolute",
+                        left: `${(tick.offset / totalDays) * 100}%`,
+                        top: 0,
+                        bottom: 0,
+                        width: "2px",
+                        background: "#c5d0dc",
+                      }}
+                    />
+                  ) : null,
+                )}
+            {(!shortRange || mediumRange)
+              ? dayTicks.map((tick) =>
+                  tick.offset > 0 && toDate(tick.key).getDay() === 1 ? (
+                    <div
+                      key={`week-grid-${tick.key}`}
+                      style={{
+                        position: "absolute",
+                        left: `${(tick.offset / Math.max(totalDays - 1, 1)) * 100}%`,
+                        top: 0,
+                        bottom: 0,
+                        width: "1px",
+                        background: "#d8e2ec",
+                      }}
+                    />
+                  ) : null,
+                )
+              : null}
+          </div>
+
+          <div style={{ display: "grid", gap: "6px", maxHeight: "420px", overflowY: "auto", position: "relative", zIndex: 1 }}>
+            {employees.map((employee) => {
+              const rowAbsences = filtered.filter((absence) => absence.employee === employee);
+              return (
+                <div key={employee} style={{ display: "grid", gridTemplateColumns: "96px 1fr", gap: "8px", alignItems: "center" }}>
+                  <div style={{ fontSize: "12px", fontWeight: 700, color: "#334155" }}>{employee}</div>
+                  <div style={{ position: "relative", height: "24px", background: "#f1f5f9", borderRadius: "5px" }}>
+                    {rowAbsences.map((absence) => {
+                      const clampedStart = Math.max(toDate(absence.startDate).getTime(), from.getTime());
+                      const clampedEnd = Math.min(toDate(absence.endDate).getTime(), to.getTime());
+                      const left = ((clampedStart - from.getTime()) / (86400000 * totalDays)) * 100;
+                      const width = Math.max(((clampedEnd - clampedStart) / (86400000 * totalDays)) * 100 + 100 / totalDays, 0.6);
+                      const color = typeColor(absence.type);
+                      const pending = absence.status === "en_attente";
+                      return (
+                        <div
+                          key={absence.id}
+                          title={`${typeLabel(absence.type)}: ${fmtShort(absence.startDate)} → ${fmtShort(absence.endDate)} (${diffDays(absence.startDate, absence.endDate)}j)`}
+                          style={{
+                            position: "absolute",
+                            left: `${left}%`,
+                            width: `${width}%`,
+                            top: "3px",
+                            height: "18px",
+                            borderRadius: "4px",
+                            background: pending ? pendingPattern(color) : color,
+                            opacity: 0.85,
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            overflow: "hidden",
+                            minWidth: "4px",
+                            color: "#fff",
+                            fontSize: "9px",
+                            fontWeight: 700,
+                          }}
+                        >
+                          {width > 8 ? `${typeLabel(absence.type).slice(0, 3)} ${diffDays(absence.startDate, absence.endDate)}j` : ""}
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
           </div>
         </div>
-
-        <div style={{ position: "absolute", inset: 0, pointerEvents: "none", zIndex: 0 }}>
-          {shortRange
-            ? dayTicks.map((tick) =>
-                tick.offset > 0 ? (
-                  <div
-                    key={`day-grid-${tick.key}`}
-                    style={{
-                      position: "absolute",
-                      left: `${(tick.offset / Math.max(totalDays - 1, 1)) * 100}%`,
-                      top: 0,
-                      bottom: 0,
-                      width: "1px",
-                      background: tick.offset % 7 === 0 ? "#cfd9e5" : "#e2e8f0",
-                    }}
-                  />
-                ) : null,
-              )
-            : monthTicks.map((tick, index) =>
-                index > 0 ? (
-                  <div
-                    key={`${tick.label}-${index}`}
-                    style={{
-                      position: "absolute",
-                      left: `${(tick.offset / totalDays) * 100}%`,
-                      top: 0,
-                      bottom: 0,
-                      width: "2px",
-                      background: "#c5d0dc",
-                    }}
-                  />
-                ) : null,
-              )}
-          {(!shortRange || mediumRange)
-            ? dayTicks.map((tick) =>
-                tick.offset > 0 && toDate(tick.key).getDay() === 1 ? (
-                  <div
-                    key={`week-grid-${tick.key}`}
-                    style={{
-                      position: "absolute",
-                      left: `${(tick.offset / Math.max(totalDays - 1, 1)) * 100}%`,
-                      top: 0,
-                      bottom: 0,
-                      width: "1px",
-                      background: "#d8e2ec",
-                    }}
-                  />
-                ) : null,
-              )
-            : null}
-        </div>
-
-        <div style={{ display: "grid", gap: "6px", maxHeight: "420px", overflowY: "auto", position: "relative", zIndex: 1 }}>
-          {employees.map((employee) => {
-            const rowAbsences = filtered.filter((absence) => absence.employee === employee);
-            return (
-              <div key={employee} style={{ display: "grid", gridTemplateColumns: "96px 1fr", gap: "8px", alignItems: "center" }}>
-                <div style={{ fontSize: "12px", fontWeight: 700, color: "#334155" }}>{employee}</div>
-                <div style={{ position: "relative", height: "24px", background: "#f1f5f9", borderRadius: "5px" }}>
-                  {rowAbsences.map((absence) => {
-                    const clampedStart = Math.max(toDate(absence.startDate).getTime(), from.getTime());
-                    const clampedEnd = Math.min(toDate(absence.endDate).getTime(), to.getTime());
-                    const left = ((clampedStart - from.getTime()) / (86400000 * totalDays)) * 100;
-                    const width = Math.max(((clampedEnd - clampedStart) / (86400000 * totalDays)) * 100 + 100 / totalDays, 0.6);
-                    const color = typeColor(absence.type);
-                    const pending = absence.status === "en_attente";
-                    return (
-                      <div
-                        key={absence.id}
-                        title={`${typeLabel(absence.type)}: ${fmtShort(absence.startDate)} → ${fmtShort(absence.endDate)} (${diffDays(absence.startDate, absence.endDate)}j)`}
-                        style={{
-                          position: "absolute",
-                          left: `${left}%`,
-                          width: `${width}%`,
-                          top: "3px",
-                          height: "18px",
-                          borderRadius: "4px",
-                          background: pending ? pendingPattern(color) : color,
-                          opacity: 0.85,
-                          display: "flex",
-                          alignItems: "center",
-                          justifyContent: "center",
-                          overflow: "hidden",
-                          minWidth: "4px",
-                          color: "#fff",
-                          fontSize: "9px",
-                          fontWeight: 700,
-                        }}
-                      >
-                        {width > 8 ? `${typeLabel(absence.type).slice(0, 3)} ${diffDays(absence.startDate, absence.endDate)}j` : ""}
-                      </div>
-                    );
-                  })}
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      </div>
+      </TimelineTableCard>
     </div>
   );
 }

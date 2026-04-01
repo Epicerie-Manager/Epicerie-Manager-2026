@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.49 - 2026-04-01
+
+- Absences / Timeline & Suivi : remplacement du graphe d'effectifs par une carte de tension journaliere plus utile au pilotage, avec jours critiques / alertes, lecture immediate des dates sensibles et detail des jours les plus tendus.
+- Absences / Timeline & Suivi : les vues mois et periode sont maintenant encapsulees dans de vraies tuiles arrondies pour rester coherentes avec le reste du dashboard.
+
 ## v0.6.48 - 2026-04-01
 
 - Absences / Timeline & Suivi : suppression de la ligne de dates redondante dans le graphe d'effectifs et recalage des barres `M` / `AM` sur la meme grille de colonnes que le planning mensuel, pour une lecture directe jour par jour.

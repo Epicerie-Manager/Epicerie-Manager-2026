@@ -42,6 +42,34 @@ function cloneAssignments(assignments: TgDefaultAssignment[]): TgDefaultAssignme
   return assignments.map((row) => ({ ...row }));
 }
 
+function mergeAssignmentsWithSupabase(assignmentsFromDb: Map<string, string>) {
+  const currentAssignments = cloneAssignments(tgAssignmentsSnapshot);
+  const defaultAssignmentsByRayon = new Map(
+    tgDefaultAssignments.map((assignment) => [assignment.rayon, assignment.employee]),
+  );
+  const currentRayons = new Set(currentAssignments.map((assignment) => assignment.rayon));
+
+  const nextAssignments = currentAssignments.map((assignment) => {
+    const dbEmployee = assignmentsFromDb.get(assignment.rayon);
+    const defaultEmployee = defaultAssignmentsByRayon.get(assignment.rayon) ?? "";
+    const shouldHydrateFromDb =
+      Boolean(dbEmployee) &&
+      (!assignment.employee || assignment.employee === defaultEmployee);
+
+    return {
+      ...assignment,
+      employee: shouldHydrateFromDb ? String(dbEmployee) : assignment.employee,
+    };
+  });
+
+  assignmentsFromDb.forEach((employee, rayon) => {
+    if (currentRayons.has(rayon)) return;
+    nextAssignments.push({ rayon, employee });
+  });
+
+  return nextAssignments;
+}
+
 function replaceTgRayonsSnapshot(rayons: TgRayon[]) {
   const nextRayons = cloneRayons(rayons);
   const serialized = JSON.stringify(nextRayons);
@@ -250,10 +278,7 @@ export async function syncTgFromSupabase() {
     });
 
     const nextPlans = Array.from(byKey.values());
-    const nextAssignments = cloneAssignments(tgDefaultAssignments).map((assignment) => ({
-      ...assignment,
-      employee: assignmentMap.get(assignment.rayon) ?? assignment.employee,
-    }));
+    const nextAssignments = mergeAssignmentsWithSupabase(assignmentMap);
 
     const plansChanged = replaceTgWeekPlansSnapshot(nextPlans);
     const assignmentsChanged = replaceTgAssignmentsSnapshot(nextAssignments);

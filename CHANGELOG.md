@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.51 - 2026-04-01
+
+- RH / Rayons : correction de la prise en compte des rayons responsables TG/GB depuis la fiche RH, avec rechargement plus fiable entre RH et Plan TG.
+- Plan TG / Sync : la synchronisation depuis Supabase ne doit plus ecraser les affectations rayons decidees par le manager lorsqu'elles ont deja ete modifiees dans l'application.
+
 ## v0.6.50 - 2026-04-01
 
 - Absences / Timeline & Suivi : simplification du pilotage effectifs avec une lecture plus manager, sans cartes detaillees, et exclusion des dimanches du calcul de tension par defaut.

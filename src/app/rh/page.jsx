@@ -20,9 +20,11 @@ import {
   getRhEmployeeRoleMeta,
 } from "@/lib/rh-status";
 import {
+  getTgUpdatedEventName,
   loadTgDefaultAssignments,
   loadTgRayons,
   saveTgDefaultAssignments,
+  syncTgFromSupabase,
 } from "@/lib/tg-store";
 
 /* ═══════════════════════════════════════════════════════════
@@ -597,6 +599,18 @@ function attachTgRayonsToEmployees(employees, assignments){
   }));
 }
 
+function replaceEmployeeAssignments(assignments, employeeName, rayons, nextEmployeeName = employeeName){
+  const normalizedRayons = Array.isArray(rayons) ? [...new Set(rayons)] : [];
+  const next = assignments.filter((item)=>
+    item.employee!==employeeName &&
+    !normalizedRayons.includes(item.rayon),
+  );
+  normalizedRayons.forEach((rayon)=>{
+    next.push({ employee: nextEmployeeName, rayon });
+  });
+  return next;
+}
+
 /* ═══════════════════════════════════════════════════════════
    MAIN APP
    ═══════════════════════════════════════════════════════════ */
@@ -632,6 +646,14 @@ export default function RHModule(){
     return map;
   },[tgAssignments]);
 
+  const refreshFromStores = () => {
+    const refreshedAssignments = loadTgDefaultAssignments();
+    setEmps(attachTgRayonsToEmployees(loadRhEmployees(), refreshedAssignments));
+    setCycles(loadRhCycles());
+    setTgRayons(loadTgRayons());
+    setTgAssignments(refreshedAssignments);
+  };
+
   const employeeOptions = useMemo(()=>{
     let list=[...emps];
     if(filterType!=="ALL") list=list.filter(e=>e.t===filterType);
@@ -651,20 +673,20 @@ export default function RHModule(){
   },[employeeFilter,employeeOptions]);
 
   useEffect(() => {
-    const refresh = () => {
-      const refreshedAssignments = loadTgDefaultAssignments();
-      setEmps(attachTgRayonsToEmployees(loadRhEmployees(), refreshedAssignments));
-      setCycles(loadRhCycles());
-      setTgRayons(loadTgRayons());
-      setTgAssignments(refreshedAssignments);
+    const rhEventName = getRhUpdatedEventName();
+    const tgEventName = getTgUpdatedEventName();
+    window.addEventListener(rhEventName, refreshFromStores);
+    window.addEventListener(tgEventName, refreshFromStores);
+    return () => {
+      window.removeEventListener(rhEventName, refreshFromStores);
+      window.removeEventListener(tgEventName, refreshFromStores);
     };
-    const eventName = getRhUpdatedEventName();
-    window.addEventListener(eventName, refresh);
-    return () => window.removeEventListener(eventName, refresh);
   }, []);
 
   useEffect(() => {
-    void syncRhFromSupabase();
+    void Promise.all([syncRhFromSupabase(), syncTgFromSupabase()]).then(() => {
+      refreshFromStores();
+    });
   }, []);
 
   const saveEmp=async(updated)=>{
@@ -692,14 +714,9 @@ export default function RHModule(){
 
       if (Array.isArray(updated.rayons)) {
         setTgAssignments((currentAssignments)=>{
-          const next = currentAssignments.filter((item)=>
-            item.employee!==previousName &&
-            !updated.rayons.includes(item.rayon),
-          );
-          updated.rayons.forEach((rayon)=>{
-            next.push({ employee: synced.n, rayon });
-          });
+          const next = replaceEmployeeAssignments(currentAssignments, previousName, updated.rayons, synced.n);
           saveTgDefaultAssignments(next);
+          setEmps((currentEmployees)=>attachTgRayonsToEmployees(currentEmployees, next));
           return next;
         });
       }
@@ -750,11 +767,9 @@ export default function RHModule(){
       setCycles((current)=>({ ...current, [name]: payload.cycle }));
       if (Array.isArray(payload.rayons) && payload.rayons.length) {
         setTgAssignments((current)=>{
-          const next = current.filter((item)=>!payload.rayons.includes(item.rayon));
-          payload.rayons.forEach((rayon)=>{
-            next.push({ employee: name, rayon });
-          });
+          const next = replaceEmployeeAssignments(current, "", payload.rayons, name);
           saveTgDefaultAssignments(next);
+          setEmps((currentEmployees)=>attachTgRayonsToEmployees(currentEmployees, next));
           return next;
         });
       }

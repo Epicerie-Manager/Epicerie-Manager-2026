@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.50 - 2026-04-01
+
+- Absences / Timeline & Suivi : simplification du pilotage effectifs avec une lecture plus manager, sans cartes detaillees, et exclusion des dimanches du calcul de tension par defaut.
+- Absences / Timeline & Suivi : en vue mois, la ligne de tension est maintenant recalee sur la meme grille que le planning des employes pour une lecture jour par jour plus directe ; en vue periode, la bande de tension prend toute la largeur utile.
+
 ## v0.6.49 - 2026-04-01
 
 - Absences / Timeline & Suivi : remplacement du graphe d'effectifs par une carte de tension journaliere plus utile au pilotage, avec jours critiques / alertes, lecture immediate des dates sensibles et detail des jours les plus tendus.

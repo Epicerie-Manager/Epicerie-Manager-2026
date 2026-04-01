@@ -46,6 +46,7 @@ type PresenceDaySummary = {
   scheduledCount: number;
 };
 type PresencePilotageLevel = PresenceThresholdLevel | "neutral";
+type PresenceHeatmapLevel = PresenceThresholdLevel | "off";
 
 const MONTH_NAME_COLUMN_WIDTH = 96;
 const MONTH_DAY_COLUMN_WIDTH = 28;
@@ -125,18 +126,6 @@ function isSunday(dayIso: string) {
   return toDate(dayIso).getDay() === 0;
 }
 
-function getPresenceColor(level: PresencePilotageLevel) {
-  if (level === "neutral") return "#cbd5e1";
-  if (level === "critical") return "#ef4444";
-  if (level === "warning") return "#f59e0b";
-  return "#22c55e";
-}
-
-function getPresenceBackground(level: PresencePilotageLevel) {
-  if (level === "neutral") return "#f1f5f9";
-  return `linear-gradient(180deg, ${getPresenceColor(level)}22, ${getPresenceColor(level)})`;
-}
-
 function getWeakestShift(day: PresenceDaySummary, thresholds: PresenceThresholds) {
   const morningLevel = getPresenceCountLevel(
     day.morningCount,
@@ -170,25 +159,33 @@ function getPresenceLevelForDay(day: PresenceDaySummary, thresholds: PresenceThr
   return getWeakestShift(day, thresholds).level;
 }
 
-function getWorstShiftLabel(day: PresenceDaySummary, thresholds: PresenceThresholds) {
-  if (isSunday(day.dayIso)) return "Dimanche";
-  return getWeakestShift(day, thresholds).fullLabel;
+function getShiftLevel(
+  count: number,
+  warningThreshold: number,
+  criticalThreshold: number,
+  off: boolean,
+): PresenceHeatmapLevel {
+  if (off) return "off";
+  return getPresenceCountLevel(count, warningThreshold, criticalThreshold);
 }
 
-function getDisplayShiftLabel(day: PresenceDaySummary, thresholds: PresenceThresholds) {
-  if (isSunday(day.dayIso)) return "OFF";
-  return getWeakestShift(day, thresholds).label;
+function getHeatmapPalette(level: PresenceHeatmapLevel) {
+  if (level === "critical") {
+    return { background: "#f8d7da", color: "#842029", border: "#f1aeb5" };
+  }
+  if (level === "warning") {
+    return { background: "#fff3cd", color: "#856404", border: "#ffe69c" };
+  }
+  if (level === "off") {
+    return { background: "#f1f5f9", color: "#94a3b8", border: "#e2e8f0" };
+  }
+  return { background: "#d4edda", color: "#2d6a3f", border: "#a3cfbb" };
 }
 
-function getDisplayCount(day: PresenceDaySummary, thresholds: PresenceThresholds) {
-  if (isSunday(day.dayIso)) return null;
-  return getWeakestShift(day, thresholds).count;
-}
-
-function getPresenceLevelForTooltip(level: PresencePilotageLevel) {
-  if (level === "neutral") return "Hors critère";
+function getHeatmapTooltipStatus(level: PresenceHeatmapLevel) {
   if (level === "critical") return "Critique";
   if (level === "warning") return "Alerte";
+  if (level === "off") return "Dimanche exclu";
   return "OK";
 }
 
@@ -203,16 +200,71 @@ function PilotageEffectifs({
 }) {
   const assessedDays = perDay.map((day) => ({
     ...day,
+    date: toDate(day.dayIso),
     level: getPresenceLevelForDay(day, thresholds),
-    worstShift: getWorstShiftLabel(day, thresholds),
-    displayShift: getDisplayShiftLabel(day, thresholds),
-    displayCount: getDisplayCount(day, thresholds),
+    worstShift: isSunday(day.dayIso) ? "Dimanche" : getWeakestShift(day, thresholds).fullLabel,
+    morningLevel: getShiftLevel(
+      day.morningCount,
+      thresholds.warningMorning,
+      thresholds.criticalMorning,
+      isSunday(day.dayIso),
+    ),
+    afternoonLevel: getShiftLevel(
+      day.afternoonCount,
+      thresholds.warningAfternoon,
+      thresholds.criticalAfternoon,
+      isSunday(day.dayIso),
+    ),
   }));
   const criticalDays = assessedDays.filter((day) => day.level === "critical");
   const warningDays = assessedDays.filter((day) => day.level === "warning");
   const riskyDays = assessedDays.filter((day) => day.level === "critical" || day.level === "warning");
   const sundayCount = assessedDays.filter((day) => day.level === "neutral").length;
-  const labelStep = perDay.length <= 21 ? 1 : perDay.length <= 45 ? 3 : 7;
+  const compactCells = mode === "periode" && perDay.length > 45;
+  const cellSize = compactCells ? 22 : 30;
+  const headerHeight = compactCells ? 26 : 32;
+  const dayGap = compactCells ? 3 : 4;
+  const rowLabelWidth = compactCells ? 72 : 82;
+
+  const renderHeatmapCell = (
+    day: (typeof assessedDays)[number],
+    shift: "morning" | "afternoon",
+  ) => {
+    const level = shift === "morning" ? day.morningLevel : day.afternoonLevel;
+    const count = shift === "morning" ? day.morningCount : day.afternoonCount;
+    const shiftLabel = shift === "morning" ? "Matin" : "Après-midi";
+    const palette = getHeatmapPalette(level);
+    const displayValue = level === "off" ? "—" : String(count);
+
+    return (
+      <div
+        key={`${day.dayIso}-${shift}`}
+        title={
+          level === "off"
+            ? `${day.dayIso} · ${shiftLabel} · Dimanche exclu`
+            : `${day.dayIso} · ${shiftLabel} · ${getHeatmapTooltipStatus(level)} · ${count} présents`
+        }
+        style={{
+          width: `${cellSize}px`,
+          height: `${cellSize}px`,
+          borderRadius: compactCells ? "4px" : "5px",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          fontSize: compactCells ? "8px" : "10px",
+          fontWeight: 700,
+          background: palette.background,
+          color: palette.color,
+          border: `1px solid ${palette.border}`,
+          boxSizing: "border-box",
+          opacity: level === "off" ? 0.7 : 1,
+          flexShrink: 0,
+        }}
+      >
+        {displayValue}
+      </div>
+    );
+  };
 
   return (
     <div
@@ -284,123 +336,105 @@ function PilotageEffectifs({
 
       <div style={{ borderRadius: "14px", background: "#ffffff", border: "1px solid #e2e8f0", padding: "12px" }}>
         <div style={{ fontSize: "12px", fontWeight: 700, color: "#334155", marginBottom: "8px" }}>
-          Carte de tension jour par jour
+          Heatmap de tension Matin / Après-midi
         </div>
-        {mode === "mois" ? (
-          <div style={{ overflowX: "auto" }}>
-            <table style={{ borderCollapse: "collapse", width: "100%", minWidth: "980px", tableLayout: "fixed" }}>
-              <colgroup>
-                <col style={{ width: `${MONTH_NAME_COLUMN_WIDTH}px` }} />
-                {assessedDays.map((day) => (
-                  <col key={`pilotage-col-${day.dayIso}`} style={{ width: `${MONTH_DAY_COLUMN_WIDTH}px` }} />
-                ))}
-                <col style={{ width: `${MONTH_TOTAL_COLUMN_WIDTH}px` }} />
-              </colgroup>
-              <tbody>
-                <tr>
-                  <td style={{ padding: "0 10px 0 0", fontSize: "11px", fontWeight: 700, color: "#64748b", verticalAlign: "middle" }}>
-                    Tension
-                  </td>
-                  {assessedDays.map((day) => {
-                    const color = getPresenceColor(day.level);
-                    return (
-                      <td key={day.dayIso} style={{ padding: "0 1px 0 0", verticalAlign: "top" }}>
-                        <div
-                          title={`${day.dayIso} · ${getPresenceLevelForTooltip(day.level)} · matin ${day.morningCount} · après-midi ${day.afternoonCount} · absents ${day.absentCount} · zone sensible ${day.worstShift}`}
-                          style={{
-                            minHeight: "46px",
-                            borderRadius: "8px",
-                            border: `1px solid ${color}55`,
-                            background: getPresenceBackground(day.level),
-                            color: day.level === "neutral" ? "#94a3b8" : "#ffffff",
-                            display: "grid",
-                            justifyItems: "center",
-                            alignContent: "center",
-                            gap: "1px",
-                            boxShadow: day.level === "critical" ? "0 0 0 1px rgba(239,68,68,0.16)" : "none",
-                          }}
-                        >
-                          <span style={{ fontSize: "13px", fontWeight: 800, lineHeight: 1 }}>
-                            {day.displayCount ?? "—"}
-                          </span>
-                          <span style={{ fontSize: "8px", fontWeight: 700, lineHeight: 1 }}>
-                            {day.displayShift}
-                          </span>
-                        </div>
-                      </td>
-                    );
-                  })}
-                  <td style={{ paddingLeft: "6px", textAlign: "center", color: "#475569", fontSize: "11px", fontWeight: 700 }}>
-                    {riskyDays.length}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        ) : (
-          <div style={{ display: "grid", gap: "6px" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "96px minmax(0, 1fr)", gap: "8px", alignItems: "stretch" }}>
-              <div style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", display: "grid", alignItems: "center" }}>
-                Tension
+        <div style={{ overflowX: "auto", paddingBottom: "4px" }}>
+          <div style={{ display: "flex", gap: 0, width: "max-content", minWidth: "100%" }}>
+            <div
+              style={{
+                display: "flex",
+                flexDirection: "column",
+                gap: `${dayGap}px`,
+                marginRight: "6px",
+                flexShrink: 0,
+                minWidth: `${rowLabelWidth}px`,
+              }}
+            >
+              <div style={{ height: `${headerHeight}px` }} />
+              <div
+                style={{
+                  height: `${cellSize}px`,
+                  display: "flex",
+                  alignItems: "center",
+                  fontSize: compactCells ? "9px" : "10px",
+                  fontWeight: 600,
+                  color: "#64748b",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Matin
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.max(assessedDays.length, 1)}, minmax(0, 1fr))`, gap: "2px" }}>
-                {assessedDays.map((day) => {
-                  const color = getPresenceColor(day.level);
-                  return (
-                    <div
-                      key={day.dayIso}
-                      title={`${day.dayIso} · ${getPresenceLevelForTooltip(day.level)} · matin ${day.morningCount} · après-midi ${day.afternoonCount} · absents ${day.absentCount} · zone sensible ${day.worstShift}`}
-                      style={{
-                        minHeight: "36px",
-                        borderRadius: "6px",
-                        border: `1px solid ${color}55`,
-                        background: getPresenceBackground(day.level),
-                        color: day.level === "neutral" ? "#94a3b8" : "#ffffff",
-                        display: "grid",
-                        placeItems: "center",
-                        fontSize: "11px",
-                        fontWeight: 800,
-                        boxShadow: day.level === "critical" ? "0 0 0 1px rgba(239,68,68,0.14)" : "none",
-                      }}
-                    >
-                      {day.displayCount ?? "—"}
-                    </div>
-                  );
-                })}
+              <div
+                style={{
+                  height: `${cellSize}px`,
+                  display: "flex",
+                  alignItems: "center",
+                  fontSize: compactCells ? "9px" : "10px",
+                  fontWeight: 600,
+                  color: "#64748b",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                Après-midi
               </div>
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "96px minmax(0, 1fr)", gap: "8px" }}>
-              <div />
-              <div style={{ display: "grid", gridTemplateColumns: `repeat(${Math.max(assessedDays.length, 1)}, minmax(0, 1fr))`, gap: "2px" }}>
-                {assessedDays.map((day, index) => {
-                  const date = toDate(day.dayIso);
-                  const showLabel = index % labelStep === 0 || index === assessedDays.length - 1;
-                  return (
+
+            <div style={{ display: "flex", gap: `${dayGap}px`, alignItems: "flex-start" }}>
+              {assessedDays.map((day) => {
+                const isWeekend = day.date.getDay() === 0 || day.date.getDay() === 6;
+                return (
+                  <div
+                    key={day.dayIso}
+                    style={{
+                      display: "flex",
+                      flexDirection: "column",
+                      alignItems: "center",
+                      gap: `${dayGap}px`,
+                      minWidth: `${cellSize}px`,
+                    }}
+                  >
                     <div
-                      key={`label-${day.dayIso}`}
                       style={{
-                        minHeight: "22px",
-                        fontSize: "9px",
-                        lineHeight: 1.1,
-                        textAlign: "center",
-                        color: isSunday(day.dayIso) ? "#8b5cf6" : "#94a3b8",
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        height: `${headerHeight}px`,
+                        minWidth: `${cellSize}px`,
                       }}
                     >
-                      {showLabel ? (
-                        <>
-                          <div>{DAYS_SHORT[date.getDay()]}</div>
-                          <div style={{ marginTop: "2px", fontWeight: 700 }}>
-                            {date.getDate()}
-                          </div>
-                        </>
-                      ) : null}
+                      <span
+                        style={{
+                          fontSize: compactCells ? "8px" : "9px",
+                          fontWeight: 500,
+                          color: isWeekend ? "#94a3b8" : "#64748b",
+                          lineHeight: 1,
+                          opacity: isWeekend ? 0.75 : 1,
+                        }}
+                      >
+                        {DAYS_SHORT[day.date.getDay()]}
+                      </span>
+                      <span
+                        style={{
+                          fontSize: compactCells ? "9px" : "10px",
+                          fontWeight: 700,
+                          color: isWeekend ? "#94a3b8" : "#334155",
+                          lineHeight: 1.2,
+                          opacity: isWeekend ? 0.75 : 1,
+                          marginTop: "2px",
+                        }}
+                      >
+                        {day.date.getDate()}
+                      </span>
                     </div>
-                  );
-                })}
-              </div>
+                    {renderHeatmapCell(day, "morning")}
+                    {renderHeatmapCell(day, "afternoon")}
+                  </div>
+                );
+              })}
             </div>
           </div>
-        )}
+        </div>
       </div>
     </div>
   );

@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.54 - 2026-04-01
+
+- Absences / Timeline & Suivi : remplacement de la `Carte de tension jour par jour` par une heatmap double ligne `Matin / Après-midi`, avec une cellule par jour et une lecture directe des niveaux `OK / Alerte / Critique / OFF`.
+- Absences / Timeline & Suivi : les dimanches restent exclus du calcul de tension et s'affichent maintenant en cellules grises `—`, tout en conservant les KPI et le tableau d'absences existants.
+
 ## v0.6.53 - 2026-04-01
 
 - RH / Modales employe : correction de l'affichage des fenetres `Modifier` et `Nouvel employe` pour garder les boutons d'action visibles a zoom navigateur `100%`, avec scroll interne du contenu et footer fixe.

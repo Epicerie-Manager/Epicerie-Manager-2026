@@ -193,10 +193,12 @@ function PilotageEffectifs({
   perDay,
   thresholds,
   mode,
+  showHeatmap = true,
 }: {
   perDay: PresenceDaySummary[];
   thresholds: PresenceThresholds;
   mode: "mois" | "periode";
+  showHeatmap?: boolean;
 }) {
   const assessedDays = perDay.map((day) => ({
     ...day,
@@ -334,108 +336,110 @@ function PilotageEffectifs({
         </div>
       </div>
 
-      <div style={{ borderRadius: "14px", background: "#ffffff", border: "1px solid #e2e8f0", padding: "12px" }}>
-        <div style={{ fontSize: "12px", fontWeight: 700, color: "#334155", marginBottom: "8px" }}>
-          Heatmap de tension Matin / Après-midi
-        </div>
-        <div style={{ overflowX: "auto", paddingBottom: "4px" }}>
-          <div style={{ display: "flex", gap: 0, width: "max-content", minWidth: "100%" }}>
-            <div
-              style={{
-                display: "flex",
-                flexDirection: "column",
-                gap: `${dayGap}px`,
-                marginRight: "6px",
-                flexShrink: 0,
-                minWidth: `${rowLabelWidth}px`,
-              }}
-            >
-              <div style={{ height: `${headerHeight}px` }} />
+      {showHeatmap ? (
+        <div style={{ borderRadius: "14px", background: "#ffffff", border: "1px solid #e2e8f0", padding: "12px" }}>
+          <div style={{ fontSize: "12px", fontWeight: 700, color: "#334155", marginBottom: "8px" }}>
+            Heatmap de tension Matin / Après-midi
+          </div>
+          <div style={{ overflowX: "auto", paddingBottom: "4px" }}>
+            <div style={{ display: "flex", gap: 0, width: "max-content", minWidth: "100%" }}>
               <div
                 style={{
-                  height: `${cellSize}px`,
                   display: "flex",
-                  alignItems: "center",
-                  fontSize: compactCells ? "9px" : "10px",
-                  fontWeight: 600,
-                  color: "#64748b",
-                  whiteSpace: "nowrap",
+                  flexDirection: "column",
+                  gap: `${dayGap}px`,
+                  marginRight: "6px",
+                  flexShrink: 0,
+                  minWidth: `${rowLabelWidth}px`,
                 }}
               >
-                Matin
+                <div style={{ height: `${headerHeight}px` }} />
+                <div
+                  style={{
+                    height: `${cellSize}px`,
+                    display: "flex",
+                    alignItems: "center",
+                    fontSize: compactCells ? "9px" : "10px",
+                    fontWeight: 600,
+                    color: "#64748b",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Matin
+                </div>
+                <div
+                  style={{
+                    height: `${cellSize}px`,
+                    display: "flex",
+                    alignItems: "center",
+                    fontSize: compactCells ? "9px" : "10px",
+                    fontWeight: 600,
+                    color: "#64748b",
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  Après-midi
+                </div>
               </div>
-              <div
-                style={{
-                  height: `${cellSize}px`,
-                  display: "flex",
-                  alignItems: "center",
-                  fontSize: compactCells ? "9px" : "10px",
-                  fontWeight: 600,
-                  color: "#64748b",
-                  whiteSpace: "nowrap",
-                }}
-              >
-                Après-midi
-              </div>
-            </div>
 
-            <div style={{ display: "flex", gap: `${dayGap}px`, alignItems: "flex-start" }}>
-              {assessedDays.map((day) => {
-                const isWeekend = day.date.getDay() === 0 || day.date.getDay() === 6;
-                return (
-                  <div
-                    key={day.dayIso}
-                    style={{
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      gap: `${dayGap}px`,
-                      minWidth: `${cellSize}px`,
-                    }}
-                  >
+              <div style={{ display: "flex", gap: `${dayGap}px`, alignItems: "flex-start" }}>
+                {assessedDays.map((day) => {
+                  const isWeekend = day.date.getDay() === 0 || day.date.getDay() === 6;
+                  return (
                     <div
+                      key={day.dayIso}
                       style={{
                         display: "flex",
                         flexDirection: "column",
                         alignItems: "center",
-                        justifyContent: "center",
-                        height: `${headerHeight}px`,
+                        gap: `${dayGap}px`,
                         minWidth: `${cellSize}px`,
                       }}
                     >
-                      <span
+                      <div
                         style={{
-                          fontSize: compactCells ? "8px" : "9px",
-                          fontWeight: 500,
-                          color: isWeekend ? "#94a3b8" : "#64748b",
-                          lineHeight: 1,
-                          opacity: isWeekend ? 0.75 : 1,
+                          display: "flex",
+                          flexDirection: "column",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          height: `${headerHeight}px`,
+                          minWidth: `${cellSize}px`,
                         }}
                       >
-                        {DAYS_SHORT[day.date.getDay()]}
-                      </span>
-                      <span
-                        style={{
-                          fontSize: compactCells ? "9px" : "10px",
-                          fontWeight: 700,
-                          color: isWeekend ? "#94a3b8" : "#334155",
-                          lineHeight: 1.2,
-                          opacity: isWeekend ? 0.75 : 1,
-                          marginTop: "2px",
-                        }}
-                      >
-                        {day.date.getDate()}
-                      </span>
+                        <span
+                          style={{
+                            fontSize: compactCells ? "8px" : "9px",
+                            fontWeight: 500,
+                            color: isWeekend ? "#94a3b8" : "#64748b",
+                            lineHeight: 1,
+                            opacity: isWeekend ? 0.75 : 1,
+                          }}
+                        >
+                          {DAYS_SHORT[day.date.getDay()]}
+                        </span>
+                        <span
+                          style={{
+                            fontSize: compactCells ? "9px" : "10px",
+                            fontWeight: 700,
+                            color: isWeekend ? "#94a3b8" : "#334155",
+                            lineHeight: 1.2,
+                            opacity: isWeekend ? 0.75 : 1,
+                            marginTop: "2px",
+                          }}
+                        >
+                          {day.date.getDate()}
+                        </span>
+                      </div>
+                      {renderHeatmapCell(day, "morning")}
+                      {renderHeatmapCell(day, "afternoon")}
                     </div>
-                    {renderHeatmapCell(day, "morning")}
-                    {renderHeatmapCell(day, "afternoon")}
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
             </div>
           </div>
         </div>
-      </div>
+      ) : null}
     </div>
   );
 }
@@ -956,6 +960,21 @@ function VueMois({
       scheduledCount,
     };
   });
+  const heatmapDays = perDay.map((day) => ({
+    ...day,
+    morningLevel: getShiftLevel(
+      day.morningCount,
+      thresholds.warningMorning,
+      thresholds.criticalMorning,
+      isSunday(day.dayIso),
+    ),
+    afternoonLevel: getShiftLevel(
+      day.afternoonCount,
+      thresholds.warningAfternoon,
+      thresholds.criticalAfternoon,
+      isSunday(day.dayIso),
+    ),
+  }));
 
   const getCell = (employee: string, day: number) => {
     const currentIso = isoDate(year, month, day);
@@ -969,7 +988,7 @@ function VueMois({
 
   return (
     <div>
-      <PilotageEffectifs perDay={perDay} thresholds={thresholds} mode="mois" />
+      <PilotageEffectifs perDay={perDay} thresholds={thresholds} mode="mois" showHeatmap={false} />
       <TimelineTableCard>
         <div style={{ overflowX: "auto", maxHeight: "440px", overflowY: "auto" }}>
           <table style={{ borderCollapse: "collapse", width: "100%", minWidth: "980px", tableLayout: "fixed" }}>
@@ -1012,6 +1031,144 @@ function VueMois({
               </tr>
             </thead>
             <tbody>
+              <tr>
+                <td
+                  style={{
+                    position: "sticky",
+                    left: 0,
+                    zIndex: 3,
+                    background: "#f8fafc",
+                    borderBottom: "1px solid #e2e8f0",
+                    padding: "6px 10px",
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    color: "#64748b",
+                    whiteSpace: "nowrap",
+                    width: `${MONTH_NAME_COLUMN_WIDTH}px`,
+                  }}
+                >
+                  Matin
+                </td>
+                {heatmapDays.map((day) => {
+                  const palette = getHeatmapPalette(day.morningLevel);
+                  const displayValue = day.morningLevel === "off" ? "—" : String(day.morningCount);
+                  return (
+                    <td
+                      key={`heatmap-morning-${day.dayIso}`}
+                      title={
+                        day.morningLevel === "off"
+                          ? `${day.dayIso} · Matin · Dimanche exclu`
+                          : `${day.dayIso} · Matin · ${getHeatmapTooltipStatus(day.morningLevel)} · ${day.morningCount} présents`
+                      }
+                      style={{ padding: "2px", borderBottom: "1px solid #e2e8f0", background: "#f8fafc" }}
+                    >
+                      <div
+                        style={{
+                          height: "26px",
+                          borderRadius: "6px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          background: palette.background,
+                          color: palette.color,
+                          border: `1px solid ${palette.border}`,
+                          boxSizing: "border-box",
+                          opacity: day.morningLevel === "off" ? 0.75 : 1,
+                        }}
+                      >
+                        {displayValue}
+                      </div>
+                    </td>
+                  );
+                })}
+                <td
+                  style={{
+                    position: "sticky",
+                    right: 0,
+                    zIndex: 3,
+                    background: "#f8fafc",
+                    borderBottom: "1px solid #e2e8f0",
+                    padding: "6px",
+                    textAlign: "center",
+                    color: "#94a3b8",
+                    fontSize: "11px",
+                    fontWeight: 700,
+                  }}
+                >
+                  —
+                </td>
+              </tr>
+              <tr>
+                <td
+                  style={{
+                    position: "sticky",
+                    left: 0,
+                    zIndex: 3,
+                    background: "#f8fafc",
+                    borderBottom: "2px solid #dbe3eb",
+                    padding: "6px 10px",
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    color: "#64748b",
+                    whiteSpace: "nowrap",
+                    width: `${MONTH_NAME_COLUMN_WIDTH}px`,
+                  }}
+                >
+                  Après-midi
+                </td>
+                {heatmapDays.map((day) => {
+                  const palette = getHeatmapPalette(day.afternoonLevel);
+                  const displayValue = day.afternoonLevel === "off" ? "—" : String(day.afternoonCount);
+                  return (
+                    <td
+                      key={`heatmap-afternoon-${day.dayIso}`}
+                      title={
+                        day.afternoonLevel === "off"
+                          ? `${day.dayIso} · Après-midi · Dimanche exclu`
+                          : `${day.dayIso} · Après-midi · ${getHeatmapTooltipStatus(day.afternoonLevel)} · ${day.afternoonCount} présents`
+                      }
+                      style={{ padding: "2px", borderBottom: "2px solid #dbe3eb", background: "#f8fafc" }}
+                    >
+                      <div
+                        style={{
+                          height: "26px",
+                          borderRadius: "6px",
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          background: palette.background,
+                          color: palette.color,
+                          border: `1px solid ${palette.border}`,
+                          boxSizing: "border-box",
+                          opacity: day.afternoonLevel === "off" ? 0.75 : 1,
+                        }}
+                      >
+                        {displayValue}
+                      </div>
+                    </td>
+                  );
+                })}
+                <td
+                  style={{
+                    position: "sticky",
+                    right: 0,
+                    zIndex: 3,
+                    background: "#f8fafc",
+                    borderBottom: "2px solid #dbe3eb",
+                    padding: "6px",
+                    textAlign: "center",
+                    color: "#94a3b8",
+                    fontSize: "11px",
+                    fontWeight: 700,
+                  }}
+                >
+                  —
+                </td>
+              </tr>
               {employees.map((employee) => (
                 <tr key={employee}>
                   <td style={{ position: "sticky", left: 0, zIndex: 2, background: "#fff", borderBottom: "1px solid #e2e8f0", padding: "5px 10px", fontSize: "12px", fontWeight: 700, whiteSpace: "nowrap", width: `${MONTH_NAME_COLUMN_WIDTH}px` }}>{employee}</td>

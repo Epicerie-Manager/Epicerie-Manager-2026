@@ -21,6 +21,10 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.55 - 2026-04-01
+
+- Absences / Timeline & Suivi : en vue mois, la heatmap `Matin / Après-midi` est désormais fusionnée dans la même table que le planning des employés pour garantir un alignement exact des cellules avec la ligne de dates du mois.
+
 ## v0.6.54 - 2026-04-01
 
 - Absences / Timeline & Suivi : remplacement de la `Carte de tension jour par jour` par une heatmap double ligne `Matin / Après-midi`, avec une cellule par jour et une lecture directe des niveaux `OK / Alerte / Critique / OFF`.

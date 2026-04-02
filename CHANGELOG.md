@@ -21,6 +21,12 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.66 - 2026-04-02
+
+- Planning / Etudiants : correction de la réinjection d'anciens horaires étudiants (`12h30-20h`, `12h-19h30`) provenant du seed historique du planning, qui pouvaient réapparaître après actualisation.
+- Planning / Persistance : retour fiable au vrai défaut étudiant du samedi lors d'une remise à l'horaire normal, sans que d'anciens overrides embarqués ne reviennent au rechargement.
+- Planning / Données : le store planning recharge maintenant aussi `horaire_samedi` depuis `employees` pour mieux aligner la logique planning sur la source RH Supabase.
+
 ## v0.6.65 - 2026-04-02
 
 - Planning / Impression : ajout de deux boutons d'impression dans le module `Planning` manager pour sortir soit un planning `2 semaines`, soit un planning `Mois`.

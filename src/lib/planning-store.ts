@@ -26,6 +26,7 @@ export type PlanningEmployee = {
   t: "M" | "S" | "E";
   hs: string | null;
   hm: string | null;
+  hsa?: string | null;
   actif: boolean;
 };
 
@@ -57,7 +58,7 @@ function isAbsencePlanningStatus(status: string) {
 function getPlanningDefaultHoraire(employee: PlanningEmployee, date: Date) {
   const dow = date.getDay();
   if (dow === 2) return employee.hm;
-  if (dow === 6 && employee.t === "E") return "14h-21h30";
+  if (dow === 6 && employee.t === "E") return employee.hsa ?? "14h-21h30";
   return employee.hs;
 }
 
@@ -112,6 +113,10 @@ function buildPlanningBaseOverrides(source: PlanningOverrides) {
         if (isAbsencePlanningStatus(value.s)) return false;
         const parsed = parsePlanningOverrideKey(key);
         if (!parsed) return true;
+        const employee = sheetPlanningEmployees.find((item) => item.n === parsed.employeeName);
+        if (employee?.t === "E" && String(value.s ?? "").toUpperCase().trim() === "PRESENT" && value.h) {
+          return false;
+        }
         return shouldKeepPlanningOverrideEntry(parsed.employeeName, parsed.date, value, sheetPlanningEmployees);
       })
       .map(([key, value]) => [key, { ...value }]),
@@ -327,7 +332,7 @@ export async function syncPlanningFromSupabase(monthKey = getPlanningMonthKey(ne
 
     const { data: employeeRows, error: employeeError } = await supabase
       .from("employees")
-      .select("id,name,type,horaire_standard,horaire_mardi,actif")
+      .select("id,name,type,horaire_standard,horaire_mardi,horaire_samedi,actif")
       .limit(5000);
     if (employeeError) throw employeeError;
     if (!employeeRows || employeeRows.length === 0) return false;
@@ -338,6 +343,7 @@ export async function syncPlanningFromSupabase(monthKey = getPlanningMonthKey(ne
       t: normalizeRhType(String(employee.type ?? "")),
       hs: employee.horaire_standard ?? null,
       hm: employee.horaire_mardi ?? null,
+      hsa: employee.horaire_samedi ?? null,
       actif: Boolean(employee.actif),
     }));
     const employeesSerialized = JSON.stringify(mappedEmployees);
@@ -575,7 +581,7 @@ async function getEmployeeIdByName(name: string) {
   const supabase = createClient();
   const { data, error } = await supabase
     .from("employees")
-    .select("id,name,type,horaire_standard,horaire_mardi,actif")
+    .select("id,name,type,horaire_standard,horaire_mardi,horaire_samedi,actif")
     .eq("name", normalizedName)
     .maybeSingle();
   if (error) throw error;

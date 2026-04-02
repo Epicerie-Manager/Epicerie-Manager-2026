@@ -5,6 +5,7 @@ type RawEmployee = {
   type: "M" | "S" | "E";
   horaire_standard: string | null;
   horaire_mardi: string | null;
+  horaire_samedi?: string | null;
   actif: boolean;
 };
 
@@ -25,6 +26,7 @@ export type SheetPlanningEmployee = {
   t: "M" | "S" | "E";
   hs: string | null;
   hm: string | null;
+  hsa?: string | null;
   actif: boolean;
 };
 
@@ -76,6 +78,7 @@ export const sheetPlanningEmployees: SheetPlanningEmployee[] = data.employees.ma
   t: employee.type,
   hs: employee.horaire_standard,
   hm: employee.horaire_mardi,
+  hsa: employee.horaire_samedi ?? null,
   actif: employee.actif,
 }));
 

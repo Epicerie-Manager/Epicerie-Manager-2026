@@ -5,6 +5,9 @@ export type CollabPlanningEntry = Record<string, unknown>;
 export type CollabAbsenceRequest = Record<string, unknown>;
 export type CollabDocument = Record<string, unknown>;
 export type CollabAnnonce = Record<string, unknown>;
+export type CollabAnnouncementPriority = "urgent" | "important" | "normal";
+
+const COLLAB_ANNOUNCEMENTS_SEEN_EVENT = "epicerie-collab:announcements-seen";
 
 function normalizeCollabAbsenceStatus(status: unknown) {
   const value = String(status ?? "").toLowerCase();
@@ -36,6 +39,36 @@ function normalizeCollabEmployeeType(value: unknown) {
   if (upper.includes("APRES")) return "S";
   if (upper.includes("ETUD")) return "E";
   return "M";
+}
+
+export function getCollabAnnouncementsSeenStorageKey(profileKey: string) {
+  return `epicerie-collab-announcements-seen:${profileKey}`;
+}
+
+export function getCollabAnnouncementsSeenEventName() {
+  return COLLAB_ANNOUNCEMENTS_SEEN_EVENT;
+}
+
+export function getCollabProfileStorageKey(profile: CollabProfile | null | undefined) {
+  return String(profile?.employee_id ?? profile?.id ?? profile?.employees?.name ?? "collab");
+}
+
+export function normalizeAnnouncementPriority(value: unknown): CollabAnnouncementPriority {
+  const normalized = String(value ?? "").toLowerCase();
+  if (normalized === "urgent") return "urgent";
+  if (normalized === "important") return "important";
+  return "normal";
+}
+
+export function getAnnouncementTimestamp(row: Record<string, unknown>) {
+  return String(row.created_at ?? row.updated_at ?? row.date_publication ?? row.date ?? "");
+}
+
+export function markCollabAnnouncementsSeen(profile: CollabProfile | null | undefined, seenAt = new Date().toISOString()) {
+  if (typeof window === "undefined") return;
+  const storageKey = getCollabAnnouncementsSeenStorageKey(getCollabProfileStorageKey(profile));
+  window.localStorage.setItem(storageKey, seenAt);
+  window.dispatchEvent(new Event(COLLAB_ANNOUNCEMENTS_SEEN_EVENT));
 }
 
 function getIsoWeek(input: Date) {

@@ -8,22 +8,57 @@ import {
   CollabPage,
   QuickTile,
   SectionCard,
-  SectionTitle,
   StatusPill,
 } from "@/components/collab/layout";
 import { collabSerifTitleStyle, collabTheme } from "@/components/collab/theme";
 import { getCollabProfile, type CollabProfile } from "@/lib/collab-auth";
 import {
   formatFrenchLongDate,
+  getAnnouncementTimestamp,
+  getCollabAnnouncementsSeenEventName,
+  getCollabAnnouncementsSeenStorageKey,
+  getCollabProfileStorageKey,
   getCurrentTGPlan,
   getEntryDate,
   getMyAbsences,
   getMyWeekPlanning,
+  normalizeAnnouncementPriority,
   getRecentAnnonces,
   getShiftDisplayText,
   getTodayAndTomorrowIso,
   type CollabPlanningEntry,
 } from "@/lib/collab-data";
+
+function AnnouncementBubble({
+  count,
+  bg,
+  color,
+}: {
+  count: number;
+  bg: string;
+  color: string;
+}) {
+  return (
+    <span
+      style={{
+        minWidth: 22,
+        height: 22,
+        borderRadius: 999,
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        padding: "0 6px",
+        background: bg,
+        color,
+        fontSize: 11,
+        fontWeight: 800,
+        boxShadow: "0 0 0 2px rgba(255,255,255,0.18)",
+      }}
+    >
+      {count}
+    </span>
+  );
+}
 
 function getWeekLabel(dateIso: string) {
   const date = new Date(`${dateIso}T12:00:00`);
@@ -86,10 +121,13 @@ export default function CollabHomePage() {
   const [tomorrowEntry, setTomorrowEntry] = useState<CollabPlanningEntry | null>(null);
   const [tgPlan, setTgPlan] = useState<Record<string, unknown> | null>(null);
   const [annonces, setAnnonces] = useState<Array<Record<string, unknown>>>([]);
+  const [announcementSeenAt, setAnnouncementSeenAt] = useState("");
   const [pendingAbsences, setPendingAbsences] = useState(0);
   const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
+
     const load = async () => {
       const collabProfile = await getCollabProfile();
       if (!collabProfile || collabProfile.role !== "collaborateur") {
@@ -107,13 +145,17 @@ export default function CollabHomePage() {
         const [planningRows, currentTgPlan, recentAnnonces, absences] = await Promise.all([
           getMyWeekPlanning(today, tomorrow),
           getCurrentTGPlan(),
-          getRecentAnnonces(3),
+          getRecentAnnonces(50),
           getMyAbsences(),
         ]);
         setTodayEntry((planningRows.find((entry) => getEntryDate(entry) === today) as CollabPlanningEntry | undefined) ?? null);
         setTomorrowEntry((planningRows.find((entry) => getEntryDate(entry) === tomorrow) as CollabPlanningEntry | undefined) ?? null);
         setTgPlan((currentTgPlan as Record<string, unknown> | null) ?? null);
         setAnnonces(recentAnnonces as Array<Record<string, unknown>>);
+        if (!cancelled) {
+          const storageKey = getCollabAnnouncementsSeenStorageKey(getCollabProfileStorageKey(collabProfile));
+          setAnnouncementSeenAt(window.localStorage.getItem(storageKey) ?? "");
+        }
         setPendingAbsences(
           (absences as Array<Record<string, unknown>>).filter((row) => String(row.statut ?? "").toLowerCase().includes("attente")).length,
         );
@@ -129,11 +171,57 @@ export default function CollabHomePage() {
     };
 
     void load().catch(() => router.replace("/collab/login"));
+    const seenEventName = getCollabAnnouncementsSeenEventName();
+    const updateSeenState = async () => {
+      const collabProfile = await getCollabProfile();
+      if (!collabProfile || cancelled) return;
+      const storageKey = getCollabAnnouncementsSeenStorageKey(getCollabProfileStorageKey(collabProfile));
+      setAnnouncementSeenAt(window.localStorage.getItem(storageKey) ?? "");
+    };
+    const handleSeen = () => {
+      void updateSeenState();
+    };
+    window.addEventListener(seenEventName, handleSeen);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(seenEventName, handleSeen);
+    };
   }, [router]);
 
   const displayName = profile?.employees?.name ?? "Collaborateur";
   const displayDate = useMemo(() => formatFrenchLongDate(new Date()), []);
   const todayIso = getTodayAndTomorrowIso().today;
+  const unreadAnnouncements = useMemo(
+    () =>
+      annonces.filter((row) => {
+        const timestamp = getAnnouncementTimestamp(row);
+        if (!timestamp) return !announcementSeenAt;
+        if (!announcementSeenAt) return true;
+        return timestamp > announcementSeenAt;
+      }),
+    [announcementSeenAt, annonces],
+  );
+  const announcementCounts = useMemo(
+    () =>
+      unreadAnnouncements.reduce(
+        (acc: Record<"urgent" | "important" | "normal", number>, row) => {
+          const priority = normalizeAnnouncementPriority(row.priority ?? row.niveau);
+          acc[priority] += 1;
+          return acc;
+        },
+        { urgent: 0, important: 0, normal: 0 },
+      ),
+    [unreadAnnouncements],
+  );
+  const unreadAnnouncementCount =
+    announcementCounts.urgent + announcementCounts.important + announcementCounts.normal;
+  const announcementBadge = unreadAnnouncementCount ? (
+    <>
+      {announcementCounts.urgent ? <AnnouncementBubble count={announcementCounts.urgent} bg="#ffffff" color="#b91c1c" /> : null}
+      {announcementCounts.important ? <AnnouncementBubble count={announcementCounts.important} bg="#fff3e0" color="#b45309" /> : null}
+      {announcementCounts.normal ? <AnnouncementBubble count={announcementCounts.normal} bg="#fff8d6" color="#9a6700" /> : null}
+    </>
+  ) : null;
 
   if (!profile) return null;
 
@@ -174,22 +262,18 @@ export default function CollabHomePage() {
         <QuickTile href="/collab/planning" title="Planning" subtitle="Semaine · Mois · Équipe" tone={collabTheme.blue} icon="planning" />
         <QuickTile href="/collab/absences" title="Absences" subtitle={pendingAbsences ? `${pendingAbsences} en attente` : "Suivi des demandes"} tone={collabTheme.violet} icon="absences" badge={pendingAbsences || null} />
         <QuickTile href="/collab/plan-tg" title="Plan TG/GB" subtitle={tgPlan ? "Sem. en cours" : "À venir"} tone={collabTheme.green} icon="tg" />
-        <QuickTile href="/collab/infos" title="Infos" subtitle={annonces.length ? `${annonces.length} nouveauté${annonces.length > 1 ? "s" : ""}` : "Actualités magasin"} tone={collabTheme.gold} icon="infos" badge={annonces.length || null} />
+        <QuickTile
+          href="/collab/infos"
+          title="Infos"
+          subtitle={unreadAnnouncementCount ? `${unreadAnnouncementCount} nouveauté${unreadAnnouncementCount > 1 ? "s" : ""}` : "Actualités magasin"}
+          tone={collabTheme.gold}
+          icon="infos"
+          badge={announcementBadge}
+          badgeLabel={unreadAnnouncementCount ? `${unreadAnnouncementCount} annonces non lues` : undefined}
+        />
       </div>
 
       <div style={{ display: "grid", gap: 16, marginTop: 18 }}>
-        <SectionCard>
-          <SectionTitle>Annonces récentes</SectionTitle>
-          <div style={{ display: "grid", gap: 10 }}>
-            {annonces.length ? annonces.map((annonce, index) => (
-              <div key={index} style={{ paddingTop: index ? 10 : 0, borderTop: index ? `1px solid ${collabTheme.line}` : "none" }}>
-                <div style={{ ...collabSerifTitleStyle({ fontSize: 18 }) }}>{String(annonce.titre ?? annonce.title ?? "Annonce")}</div>
-                <div style={{ marginTop: 4, fontSize: 12, color: collabTheme.muted }}>{String(annonce.date_publication ?? annonce.created_at ?? "").slice(0, 10)}</div>
-                <div style={{ marginTop: 6, fontSize: 13, lineHeight: 1.5, color: collabTheme.muted }}>{String(annonce.contenu ?? annonce.content ?? "")}</div>
-              </div>
-            )) : <div style={{ fontSize: 13, color: collabTheme.muted }}>Aucune annonce récente.</div>}
-          </div>
-        </SectionCard>
         {loadError ? (
           <SectionCard style={{ background: "#fff7eb" }}>
             <div style={{ color: collabTheme.gold, fontSize: 13 }}>{loadError}</div>

@@ -12,6 +12,7 @@ import {
 } from "@/components/collab/layout";
 import { collabSerifTitleStyle, collabTheme } from "@/components/collab/theme";
 import { getCollabProfile } from "@/lib/collab-auth";
+import { markCollabAnnouncementsSeen } from "@/lib/collab-data";
 import {
   getInfosUpdatedEventName,
   loadInfoAnnouncements,
@@ -83,6 +84,7 @@ export default function CollabInfosPage() {
         return;
       }
       if (cancelled) return;
+      markCollabAnnouncementsSeen(profile);
       setReady(true);
       refreshLocalState();
       await refreshRemoteState();

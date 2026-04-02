@@ -21,6 +21,12 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.63 - 2026-04-02
+
+- Collaborateurs / Accueil : suppression du bloc `Annonces récentes` sur la page d'accueil au profit d'un indicateur plus compact directement sur la tuile `Infos`.
+- Collaborateurs / Infos : la tuile `Infos` de l'accueil affiche maintenant des bulles distinctes par niveau non lu (`Info`, `Important`, `Urgent`) et le texte `nouveaute` disparait apres consultation de la page `Infos`.
+- Collaborateurs / Lecture : l'ouverture de `/collab/infos` marque les annonces comme consultees pour le collaborateur courant, afin d'effacer les badges de nouveaute au retour sur l'accueil.
+
 ## v0.6.62 - 2026-04-02
 
 - Infos / Manager : identification du vrai blocage des annonces `Urgent` cote base de donnees. Le front sait deja les afficher en rouge, mais la contrainte SQL `annonces_niveau_check` refusait encore la valeur `urgent`.

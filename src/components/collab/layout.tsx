@@ -198,13 +198,15 @@ export function QuickTile({
   subtitle,
   tone = collabTheme.blue,
   badge,
+  badgeLabel,
   icon = "planning",
 }: {
   href: string;
   title: string;
   subtitle: string;
   tone?: string;
-  badge?: number | string | null;
+  badge?: ReactNode;
+  badgeLabel?: string;
   icon?: "planning" | "absences" | "tg" | "infos";
 }) {
   return (
@@ -227,25 +229,43 @@ export function QuickTile({
         <CollabGlyph kind={icon} color="#ffffff" />
       </div>
       {badge ? (
-        <span
-          style={{
-            position: "absolute",
-            top: 14,
-            right: 14,
-            minWidth: 24,
-            height: 24,
-            borderRadius: 999,
-            display: "grid",
-            placeItems: "center",
-            padding: "0 6px",
-            background: "#ffffff",
-            color: tone,
-            fontSize: 12,
-            fontWeight: 800,
-          }}
-        >
-          {badge}
-        </span>
+        typeof badge === "string" || typeof badge === "number" ? (
+          <span
+            aria-label={badgeLabel}
+            style={{
+              position: "absolute",
+              top: 14,
+              right: 14,
+              minWidth: 24,
+              height: 24,
+              borderRadius: 999,
+              display: "grid",
+              placeItems: "center",
+              padding: "0 6px",
+              background: "#ffffff",
+              color: tone,
+              fontSize: 12,
+              fontWeight: 800,
+            }}
+          >
+            {badge}
+          </span>
+        ) : (
+          <div
+            aria-label={badgeLabel}
+            style={{
+              position: "absolute",
+              top: 14,
+              right: 14,
+              display: "flex",
+              gap: 6,
+              alignItems: "center",
+              justifyContent: "flex-end",
+            }}
+          >
+            {badge}
+          </div>
+        )
       ) : null}
       <div style={{ marginTop: 16, fontSize: 18, fontWeight: 700, fontFamily: collabTheme.titleFont }}>{title}</div>
       <div style={{ marginTop: 6, fontSize: 12, lineHeight: 1.4, color: "rgba(255,255,255,0.92)" }}>{subtitle}</div>

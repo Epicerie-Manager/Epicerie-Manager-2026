@@ -461,6 +461,7 @@ const Chev=({dir,onClick})=>(<button onClick={onClick} style={{width:36,height:3
 const CalIcon=<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={V.mc} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
 const CartIcon=<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={V.mc} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>;
 const LinkIcon=<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={V.mc} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>;
+const PrintIcon=<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9V4h12v5"/><rect x="4" y="9" width="16" height="8" rx="2"/><path d="M8 17h8v3H8z"/><circle cx="17" cy="13" r="1"/></svg>;
 const EditIcon=<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
 const RoleDot=({emp,size=8,ringColor})=>{
   const roleMeta=getPlanningEmployeeRoleMeta(emp);
@@ -976,12 +977,230 @@ const VueJour=({date,overrides,triData,binomes,presenceThresholds,onEdit})=>{
   );
 };
 
+function getPlanningFilterLabel(filter){
+  if(filter==="M") return "Équipe matin";
+  if(filter==="S") return "Équipe après-midi";
+  if(filter==="E") return "Étudiants";
+  return "Toute l'équipe";
+}
+
+function getPlanningPrintDates(mode,year,month,weekStart){
+  if(mode==="month"){
+    const totalDays=daysInMonth(year,month);
+    return Array.from({length:totalDays},(_,index)=>new Date(year,month,index+1));
+  }
+  return Array.from({length:14},(_,index)=>{
+    const date=new Date(weekStart);
+    date.setDate(date.getDate()+index);
+    return date;
+  });
+}
+
+function getPlanningPrintPeriodLabel(mode,year,month,weekStart){
+  if(mode==="month") return `${MOIS_FR[month]} ${year}`;
+  const end=new Date(weekStart);
+  end.setDate(end.getDate()+13);
+  return `Du ${weekStart.toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"})} au ${end.toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"})}`;
+}
+
+function getPlanningPrintCell(emp,date,overrides,pendingAbsenceLookup){
+  const status=getStatus(emp,date,overrides);
+  const pendingStatus=getPendingAbsenceStatusForDate(emp,date,pendingAbsenceLookup);
+  const hasPendingDisplay=Boolean(pendingStatus)&&!hasBlockingApprovedAbsence(emp,date,status,overrides);
+  if(hasPendingDisplay){
+    const config=ST[pendingStatus]||ST.ABS;
+    return {
+      primary:config.short,
+      secondary:"att.",
+      color:config.c,
+      background:`repeating-linear-gradient(135deg,rgba(255,255,255,0.9) 0px,rgba(255,255,255,0.9) 6px,rgba(255,255,255,0.3) 6px,rgba(255,255,255,0.3) 12px), ${config.bg}`,
+      border:`1px dashed ${config.c}66`,
+    };
+  }
+  if(status==="PRESENT"){
+    return {
+      primary:getHoraire(emp,date,overrides)||"P",
+      secondary:"",
+      color:V.body,
+      background:"#eff6ff",
+      border:"1px solid #bfdbfe",
+    };
+  }
+  const config=ST[status]||ST.X;
+  return {
+    primary:config.short,
+    secondary:"",
+    color:config.c,
+    background:config.bg,
+    border:`1px solid ${config.c}30`,
+  };
+}
+
+const PrintLegend=()=>(
+  <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:10}}>
+    {Object.entries(ST)
+      .filter(([key])=>key!=="X")
+      .map(([key,value])=>(
+        <div key={key} style={{display:"inline-flex",alignItems:"center",gap:5,fontSize:10,color:"#475569"}}>
+          <span style={{width:10,height:10,borderRadius:3,background:value.c,display:"inline-block"}}/>
+          {value.short}
+        </div>
+      ))}
+    <div style={{display:"inline-flex",alignItems:"center",gap:5,fontSize:10,color:"#475569"}}>
+      <span style={{width:12,height:10,borderRadius:3,display:"inline-block",...getPendingCellStyles({c:"#475569",bg:"#f8fafc"})}}/>
+      Attente
+    </div>
+  </div>
+);
+
+const PlanningPrintDocument=({mode,year,month,weekStart,filter,overrides,pendingAbsenceLookup,presenceThresholds})=>{
+  const dates=getPlanningPrintDates(mode,year,month,weekStart);
+  const sections=getPlanningMonthSections(filter);
+  const todayIso=formatPlanningDate(new Date());
+  const totalColumns=dates.length+2;
+  const cellMinWidth=mode==="month"?28:54;
+  const title=mode==="month"?"Planning mensuel":"Planning sur 2 semaines";
+
+  return(
+    <div data-planning-print style={{fontFamily:"'Segoe UI',system-ui,sans-serif",color:"#0f172a",background:"#ffffff",padding:"8mm"}}>
+      <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:16,marginBottom:10}}>
+        <div>
+          <div style={{fontSize:11,fontWeight:800,letterSpacing:"0.12em",textTransform:"uppercase",color:V.mc}}>Epicerie Manager 2026</div>
+          <div style={{fontSize:24,fontWeight:800,marginTop:4,color:V.text}}>{title}</div>
+          <div style={{fontSize:13,fontWeight:600,color:"#475569",marginTop:3}}>{getPlanningPrintPeriodLabel(mode,year,month,weekStart)}</div>
+          <div style={{fontSize:11,color:"#64748b",marginTop:4}}>
+            Filtre : {getPlanningFilterLabel(filter)} · Édité le {new Date().toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"})}
+          </div>
+        </div>
+        <div style={{minWidth:180,padding:"12px 14px",border:"1px solid #dbe3eb",borderRadius:14,background:"#f8fafc"}}>
+          <div style={{fontSize:10,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:V.mc}}>Seuils partagés</div>
+          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:8}}>
+            <div>
+              <div style={{fontSize:10,color:"#64748b"}}>Matin</div>
+              <div style={{fontSize:11,fontWeight:700,color:"#0f172a"}}>Alerte {presenceThresholds.warningMorning} · Critique {presenceThresholds.criticalMorning}</div>
+            </div>
+            <div>
+              <div style={{fontSize:10,color:"#64748b"}}>Après-midi</div>
+              <div style={{fontSize:11,fontWeight:700,color:"#0f172a"}}>Alerte {presenceThresholds.warningAfternoon} · Critique {presenceThresholds.criticalAfternoon}</div>
+            </div>
+          </div>
+          <PrintLegend/>
+        </div>
+      </div>
+
+      <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}>
+        <thead>
+          <tr>
+            <th style={{padding:"6px 6px",fontSize:10,fontWeight:800,textAlign:"left",border:"1px solid #cbd5e1",background:"#eff6ff",width:132}}>Employé</th>
+            {dates.map((date)=>{
+              const isToday=formatPlanningDate(date)===todayIso;
+              return(
+                <th
+                  key={formatPlanningDate(date)}
+                  style={{
+                    padding:"5px 2px",
+                    fontSize:9,
+                    fontWeight:800,
+                    textAlign:"center",
+                    border:`1px solid ${isToday?"#16a34a":"#cbd5e1"}`,
+                    background:isToday?"#ecfdf5":"#f8fafc",
+                    color:isToday?"#166534":"#334155",
+                    minWidth:cellMinWidth,
+                  }}
+                >
+                  <div style={{fontSize:8,fontWeight:800,color:isToday?"#166534":"#64748b"}}>{JC_SHORT[date.getDay()]}</div>
+                  {date.getDate()}
+                </th>
+              );
+            })}
+            <th style={{padding:"6px 4px",fontSize:10,fontWeight:800,textAlign:"center",border:"1px solid #cbd5e1",background:"#eff6ff",width:38}}>Jrs</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td style={{padding:"6px 6px",fontSize:9,fontWeight:800,color:V.mc,border:"1px solid #cbd5e1",background:"#f8fafc"}}>Effectif</td>
+            {dates.map((date)=>{
+              const counts=getPlanningDayPresence(date,overrides);
+              const morningLevel=getPlanningCountLevel(counts.morningCount,"morning",presenceThresholds);
+              const afternoonLevel=getPlanningCountLevel(counts.afternoonCount,"afternoon",presenceThresholds);
+              return(
+                <td key={`presence-${formatPlanningDate(date)}`} style={{padding:"4px 1px",textAlign:"center",border:"1px solid #cbd5e1",background:"#f8fafc"}}>
+                  <div style={{fontSize:9,fontWeight:800,color:getPlanningLevelColor(morningLevel),lineHeight:1.1}}>{counts.morningCount}</div>
+                  <div style={{fontSize:8,fontWeight:800,color:getPlanningLevelColor(afternoonLevel),lineHeight:1.1,marginTop:2}}>{counts.afternoonCount}</div>
+                </td>
+              );
+            })}
+            <td style={{border:"1px solid #cbd5e1",background:"#f8fafc"}}/>
+          </tr>
+          {sections.map((section)=>(
+            <Fragment key={`print-${section.id}`}>
+              <tr>
+                <td colSpan={totalColumns} style={{padding:"6px 8px",fontSize:9,fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:section.text,border:`1px solid ${section.border}`,background:section.sticky}}>
+                  {section.label}
+                </td>
+              </tr>
+              {section.employees.map((emp)=>{
+                let presentCount=0;
+                return(
+                  <tr key={`print-row-${emp.n}`}>
+                    <td style={{padding:"5px 6px",fontSize:9,fontWeight:800,color:"#0f172a",border:`1px solid ${section.border}`,background:section.row}}>
+                      {emp.n}
+                    </td>
+                    {dates.map((date)=>{
+                      const cell=getPlanningPrintCell(emp,date,overrides,pendingAbsenceLookup);
+                      if(getStatus(emp,date,overrides)==="PRESENT") presentCount+=1;
+                      return(
+                        <td
+                          key={`${emp.n}-${formatPlanningDate(date)}`}
+                          style={{
+                            padding:"2px 1px",
+                            textAlign:"center",
+                            border:`1px solid ${section.border}`,
+                            background:section.row,
+                          }}
+                        >
+                          <div
+                            style={{
+                              borderRadius:6,
+                              minHeight:mode==="month"?22:28,
+                              display:"flex",
+                              flexDirection:"column",
+                              alignItems:"center",
+                              justifyContent:"center",
+                              padding:"2px 1px",
+                              background:cell.background,
+                              color:cell.color,
+                              border:cell.border,
+                              lineHeight:1.05,
+                            }}
+                          >
+                            <div style={{fontSize:mode==="month"?7:8,fontWeight:800}}>{cell.primary}</div>
+                            {cell.secondary?<div style={{fontSize:6,opacity:0.8,marginTop:1}}>{cell.secondary}</div>:null}
+                          </div>
+                        </td>
+                      );
+                    })}
+                    <td style={{padding:"4px 2px",textAlign:"center",fontSize:9,fontWeight:800,color:section.count,border:`1px solid ${section.border}`,background:section.row}}>
+                      {presentCount||""}
+                    </td>
+                  </tr>
+                );
+              })}
+            </Fragment>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+};
+
 /* ═══════════════════════════════════════════════════════════
    MAIN APP
    ═══════════════════════════════════════════════════════════ */
 export default function PlanningApp(){
   const [,setRhVersion]=useState(0);
   const [view,setView]=useState("mois");
+  const [printMode,setPrintMode]=useState(null);
   const [year,setYear]=useState(null);
   const [month,setMonth]=useState(null);
   const [selectedDate,setSelectedDate]=useState(null);
@@ -1070,6 +1289,21 @@ export default function PlanningApp(){
     return ()=>window.removeEventListener(eventName,refreshPresenceThresholds);
   },[]);
 
+  useEffect(()=>{
+    if(!printMode) return;
+    const timeout=setTimeout(()=>{
+      window.print();
+    },120);
+    const handleAfterPrint=()=>{
+      setPrintMode(null);
+    };
+    window.addEventListener("afterprint",handleAfterPrint);
+    return ()=>{
+      clearTimeout(timeout);
+      window.removeEventListener("afterprint",handleAfterPrint);
+    };
+  },[printMode]);
+
   const weekStart=useMemo(()=>{
     if(!selectedDate) return null;
     const d=new Date(selectedDate);
@@ -1085,6 +1319,10 @@ export default function PlanningApp(){
     if(view==="mois"){if(dir<0){if(month===0){setMonth(11);setYear(y=>y-1);}else setMonth(m=>m-1);}else{if(month===11){setMonth(0);setYear(y=>y+1);}else setMonth(m=>m+1);}}
     else if(view==="semaine"){setSelectedDate(d=>{const n=new Date(d);n.setDate(n.getDate()+(dir*7));return n;});}
     else{setSelectedDate(d=>{const n=new Date(d);n.setDate(n.getDate()+dir);return n;});}
+  };
+
+  const triggerPrint=(mode)=>{
+    setPrintMode(mode);
   };
 
   const handleEdit=(emp,date)=>{
@@ -1240,8 +1478,35 @@ export default function PlanningApp(){
   }
 
   return(
-    <div style={{fontFamily:"'Segoe UI',system-ui,sans-serif",color:V.body,minHeight:"100vh",background:`radial-gradient(circle at top left,rgba(29,95,160,0.06),transparent 24%),linear-gradient(180deg,#f9fbfd 0%,${V.bg} 100%)`}}>
-      <div style={{maxWidth:1600,margin:"0 auto",padding:18}}>
+    <div data-planning-root style={{fontFamily:"'Segoe UI',system-ui,sans-serif",color:V.body,minHeight:"100vh",background:`radial-gradient(circle at top left,rgba(29,95,160,0.06),transparent 24%),linear-gradient(180deg,#f9fbfd 0%,${V.bg} 100%)`}}>
+      <style>{`
+        @page {
+          size: A3 landscape;
+          margin: 10mm;
+        }
+        @media screen {
+          [data-planning-print] {
+            display: none !important;
+          }
+        }
+        @media print {
+          html, body {
+            background: #ffffff !important;
+            -webkit-print-color-adjust: exact;
+            print-color-adjust: exact;
+          }
+          [data-planning-root] > :not([data-planning-print]) {
+            display: none !important;
+          }
+          [data-planning-screen] {
+            display: none !important;
+          }
+          [data-planning-print] {
+            display: block !important;
+          }
+        }
+      `}</style>
+      <div data-planning-screen style={{maxWidth:1600,margin:"0 auto",padding:18}}>
 
         {/* HEADER */}
         <Card style={{padding:"14px 22px",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
@@ -1269,6 +1534,32 @@ export default function PlanningApp(){
                 ))}
               </div>
             )}
+            <div style={{display:"flex",gap:6,marginLeft:6}}>
+              <button
+                type="button"
+                onClick={()=>triggerPrint("2weeks")}
+                style={{
+                  display:"inline-flex",alignItems:"center",gap:6,
+                  padding:"8px 12px",borderRadius:10,border:`1px solid ${V.mc}22`,
+                  background:"#ffffff",color:V.mc,cursor:"pointer",fontSize:12,fontWeight:700,
+                }}
+              >
+                {PrintIcon}
+                2 semaines
+              </button>
+              <button
+                type="button"
+                onClick={()=>triggerPrint("month")}
+                style={{
+                  display:"inline-flex",alignItems:"center",gap:6,
+                  padding:"8px 12px",borderRadius:10,border:`1px solid ${V.mc}22`,
+                  background:"#ffffff",color:V.mc,cursor:"pointer",fontSize:12,fontWeight:700,
+                }}
+              >
+                {PrintIcon}
+                Mois A3
+              </button>
+            </div>
           </div>
         </Card>
         {(error||busy)&&(
@@ -1426,6 +1717,18 @@ export default function PlanningApp(){
           setBusy(false);
         }
       }} onClose={()=>setEditBinome(null)}/>}
+      {printMode&&(
+        <PlanningPrintDocument
+          mode={printMode}
+          year={year}
+          month={month}
+          weekStart={weekStart}
+          filter={filter}
+          overrides={overrides}
+          pendingAbsenceLookup={pendingAbsenceLookup}
+          presenceThresholds={presenceThresholds}
+        />
+      )}
     </div>
   );
 }

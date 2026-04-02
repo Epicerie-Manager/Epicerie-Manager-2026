@@ -21,6 +21,12 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.65 - 2026-04-02
+
+- Planning / Impression : ajout de deux boutons d'impression dans le module `Planning` manager pour sortir soit un planning `2 semaines`, soit un planning `Mois`.
+- Planning / Print : creation d'un vrai rendu d'impression dedie en `A3 paysage`, avec en-tete propre, rappel des seuils partages, legende statuts et tableau compact adapte au papier.
+- Planning / Print : l'impression `2 semaines` couvre la semaine courante affichee plus la suivante, tandis que l'impression `Mois` reprend le mois courant avec le filtre actif du planning.
+
 ## v0.6.64 - 2026-04-02
 
 - Collaborateurs / Accueil : les alertes de la tuile `Infos` sont maintenant beaucoup plus explicites, avec des badges libelles `Urgent`, `Important` et `Info` au lieu de simples petites bulles numeriques.

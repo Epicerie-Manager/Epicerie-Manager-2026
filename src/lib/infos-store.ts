@@ -148,6 +148,9 @@ function normalizeActionError(error: unknown) {
   ) {
     return new Error("Action réservée aux managers.");
   }
+  if (message.includes("annonces_niveau_check")) {
+    return new Error("La base Supabase n'autorise pas encore le niveau Urgent. Appliquez le patch SQL annonces pour ajouter 'urgent' dans la contrainte de la table.");
+  }
   if (message.includes("jwt") || message.includes("auth session missing") || message.includes("not authenticated")) {
     return new Error("Veuillez vous reconnecter.");
   }

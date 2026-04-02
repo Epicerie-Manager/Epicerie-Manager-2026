@@ -21,6 +21,12 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.62 - 2026-04-02
+
+- Infos / Manager : identification du vrai blocage des annonces `Urgent` cote base de donnees. Le front sait deja les afficher en rouge, mais la contrainte SQL `annonces_niveau_check` refusait encore la valeur `urgent`.
+- SQL / Supabase : ajout du patch [supabase/patch_annonces_urgent.sql](/D:/Epicerie%20Manager%202026/supabase/patch_annonces_urgent.sql) pour autoriser `info`, `important` et `urgent` dans la colonne `niveau` de `public.annonces`.
+- Infos / Manager : le message d'erreur de creation d'annonce devient plus explicite quand la contrainte SQL de la base n'autorise pas encore `Urgent`.
+
 ## v0.6.61 - 2026-04-02
 
 - Infos / Manager : correction immediate du formulaire `Nouvelle annonce` pour rester compatible avec le schema Supabase reel de `annonces`, en supprimant l'ecriture du champ inexistant `priority` et en repassant uniquement par `niveau`.

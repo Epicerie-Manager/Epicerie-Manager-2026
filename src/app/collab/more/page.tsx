@@ -1,32 +1,136 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CollabBottomNav, CollabHeader, CollabPage, SectionCard, SectionTitle } from "@/components/collab/layout";
 import { collabSerifTitleStyle, collabTheme } from "@/components/collab/theme";
-import { collabSignOut, getCollabProfile } from "@/lib/collab-auth";
+import { collabSignOut, getCollabProfile, type CollabProfile } from "@/lib/collab-auth";
+import {
+  getAnnouncementTimestamp,
+  getCollabAnnouncementsSeenEventName,
+  getCollabAnnouncementsSeenStorageKey,
+  getCollabProfileStorageKey,
+  getRecentAnnonces,
+  normalizeAnnouncementPriority,
+} from "@/lib/collab-data";
 
-const links = [
-  { title: "Plan TG/GB", subtitle: "Voir vos rayons et la vue d’ensemble magasin.", tone: collabTheme.green, href: "/collab/plan-tg" },
-  { title: "Infos & annonces", subtitle: "Voir les annonces et documents utiles.", tone: collabTheme.gold, href: "/collab/infos" },
-];
+function InlineBadge({
+  label,
+  count,
+  bg,
+  color,
+}: {
+  label: string;
+  count: number;
+  bg: string;
+  color: string;
+}) {
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        minHeight: 24,
+        borderRadius: 999,
+        padding: "0 9px",
+        background: bg,
+        color,
+        fontSize: 10,
+        fontWeight: 800,
+        textTransform: "uppercase",
+        letterSpacing: "0.04em",
+      }}
+    >
+      <span>{label}</span>
+      <span
+        style={{
+          minWidth: 18,
+          height: 18,
+          borderRadius: 999,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "rgba(255,255,255,0.24)",
+          color: "inherit",
+          padding: "0 4px",
+        }}
+      >
+        {count}
+      </span>
+    </span>
+  );
+}
 
 export default function CollabMorePage() {
   const router = useRouter();
   const [ready, setReady] = useState(false);
+  const [annonces, setAnnonces] = useState<Array<Record<string, unknown>>>([]);
+  const [announcementSeenAt, setAnnouncementSeenAt] = useState("");
 
   useEffect(() => {
+    let cancelled = false;
+
+    const refreshSeenState = async (currentProfile?: CollabProfile | null) => {
+      const targetProfile = currentProfile ?? (await getCollabProfile());
+      if (!targetProfile || cancelled) return;
+      const storageKey = getCollabAnnouncementsSeenStorageKey(getCollabProfileStorageKey(targetProfile));
+      setAnnouncementSeenAt(window.localStorage.getItem(storageKey) ?? "");
+    };
+
     void getCollabProfile()
-      .then((profile) => {
+      .then(async (profile) => {
         if (!profile || profile.role !== "collaborateur") {
           router.replace("/collab/login");
           return;
         }
+        const rows = await getRecentAnnonces(50);
+        if (cancelled) return;
+        setAnnonces(rows as Array<Record<string, unknown>>);
+        await refreshSeenState(profile);
         setReady(true);
       })
       .catch(() => router.replace("/collab/login"));
+
+    const seenEventName = getCollabAnnouncementsSeenEventName();
+    const handleSeen = () => {
+      void refreshSeenState();
+    };
+    window.addEventListener(seenEventName, handleSeen);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(seenEventName, handleSeen);
+    };
   }, [router]);
+
+  const announcementCounts = useMemo(
+    () =>
+      annonces
+        .filter((row) => {
+          const timestamp = getAnnouncementTimestamp(row);
+          if (!timestamp) return !announcementSeenAt;
+          if (!announcementSeenAt) return true;
+          return timestamp > announcementSeenAt;
+        })
+        .reduce(
+          (acc: Record<"urgent" | "important" | "normal", number>, row) => {
+            const priority = normalizeAnnouncementPriority(row.priority ?? row.niveau);
+            acc[priority] += 1;
+            return acc;
+          },
+          { urgent: 0, important: 0, normal: 0 },
+        ),
+    [announcementSeenAt, annonces],
+  );
+
+  const infoBadges = (
+    <>
+      {announcementCounts.urgent ? <InlineBadge label="Urgent" count={announcementCounts.urgent} bg="#c1121f" color="#fff8f3" /> : null}
+      {announcementCounts.important ? <InlineBadge label="Important" count={announcementCounts.important} bg="#d97706" color="#fffaf2" /> : null}
+      {announcementCounts.normal ? <InlineBadge label="Info" count={announcementCounts.normal} bg="#facc15" color="#6b4f00" /> : null}
+    </>
+  );
 
   if (!ready) return null;
 
@@ -37,7 +141,10 @@ export default function CollabMorePage() {
         <SectionCard>
           <SectionTitle>Liens</SectionTitle>
           <div style={{ display: "grid", gap: 12 }}>
-            {links.map((link) => (
+            {[
+              { title: "Plan TG/GB", subtitle: "Voir vos rayons et la vue d’ensemble magasin.", tone: collabTheme.green, href: "/collab/plan-tg" },
+              { title: "Infos & annonces", subtitle: "Voir les annonces et documents utiles.", tone: collabTheme.gold, href: "/collab/infos" },
+            ].map((link) => (
               <Link
                 key={link.title}
                 href={link.href}
@@ -51,9 +158,16 @@ export default function CollabMorePage() {
                   display: "block",
                 }}
               >
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                  <div style={{ width: 10, height: 10, borderRadius: 999, background: link.tone }} />
-                  <div style={{ ...collabSerifTitleStyle({ fontSize: 20 }) }}>{link.title}</div>
+                <div style={{ display: "flex", alignItems: "start", justifyContent: "space-between", gap: 10 }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
+                    <div style={{ width: 10, height: 10, borderRadius: 999, background: link.tone, flexShrink: 0 }} />
+                    <div style={{ ...collabSerifTitleStyle({ fontSize: 20 }) }}>{link.title}</div>
+                  </div>
+                  {link.href === "/collab/infos" && (announcementCounts.urgent || announcementCounts.important || announcementCounts.normal) ? (
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 6, justifyContent: "flex-end" }}>
+                      {infoBadges}
+                    </div>
+                  ) : null}
                 </div>
                 <div style={{ marginTop: 6, fontSize: 13, color: collabTheme.muted }}>{link.subtitle}</div>
               </Link>

@@ -258,9 +258,11 @@ export function QuickTile({
               top: 14,
               right: 14,
               display: "flex",
+              flexDirection: "column",
               gap: 6,
-              alignItems: "center",
+              alignItems: "flex-end",
               justifyContent: "flex-end",
+              maxWidth: "52%",
             }}
           >
             {badge}

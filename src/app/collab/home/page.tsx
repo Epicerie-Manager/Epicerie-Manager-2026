@@ -30,10 +30,12 @@ import {
 } from "@/lib/collab-data";
 
 function AnnouncementBubble({
+  label,
   count,
   bg,
   color,
 }: {
+  label: string;
   count: number;
   bg: string;
   color: string;
@@ -41,21 +43,41 @@ function AnnouncementBubble({
   return (
     <span
       style={{
-        minWidth: 22,
-        height: 22,
+        minHeight: 24,
         borderRadius: 999,
         display: "inline-flex",
         alignItems: "center",
         justifyContent: "center",
-        padding: "0 6px",
+        gap: 6,
+        padding: "0 8px 0 10px",
         background: bg,
         color,
-        fontSize: 11,
+        fontSize: 10,
         fontWeight: 800,
-        boxShadow: "0 0 0 2px rgba(255,255,255,0.18)",
+        letterSpacing: "0.04em",
+        textTransform: "uppercase",
+        boxShadow: "0 4px 12px rgba(26,20,16,0.14)",
+        border: "1px solid rgba(255,255,255,0.16)",
       }}
     >
-      {count}
+      <span>{label}</span>
+      <span
+        style={{
+          minWidth: 18,
+          height: 18,
+          borderRadius: 999,
+          display: "inline-flex",
+          alignItems: "center",
+          justifyContent: "center",
+          background: "rgba(255,255,255,0.24)",
+          color: "inherit",
+          padding: "0 4px",
+          fontSize: 10,
+          fontWeight: 900,
+        }}
+      >
+        {count}
+      </span>
     </span>
   );
 }
@@ -215,11 +237,18 @@ export default function CollabHomePage() {
   );
   const unreadAnnouncementCount =
     announcementCounts.urgent + announcementCounts.important + announcementCounts.normal;
+  const unreadAnnouncementSummary = [
+    announcementCounts.urgent ? `${announcementCounts.urgent} urgent${announcementCounts.urgent > 1 ? "s" : ""}` : null,
+    announcementCounts.important ? `${announcementCounts.important} important${announcementCounts.important > 1 ? "s" : ""}` : null,
+    announcementCounts.normal ? `${announcementCounts.normal} info${announcementCounts.normal > 1 ? "s" : ""}` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
   const announcementBadge = unreadAnnouncementCount ? (
     <>
-      {announcementCounts.urgent ? <AnnouncementBubble count={announcementCounts.urgent} bg="#ffffff" color="#b91c1c" /> : null}
-      {announcementCounts.important ? <AnnouncementBubble count={announcementCounts.important} bg="#fff3e0" color="#b45309" /> : null}
-      {announcementCounts.normal ? <AnnouncementBubble count={announcementCounts.normal} bg="#fff8d6" color="#9a6700" /> : null}
+      {announcementCounts.urgent ? <AnnouncementBubble label="Urgent" count={announcementCounts.urgent} bg="#c1121f" color="#fff8f3" /> : null}
+      {announcementCounts.important ? <AnnouncementBubble label="Important" count={announcementCounts.important} bg="#d97706" color="#fffaf2" /> : null}
+      {announcementCounts.normal ? <AnnouncementBubble label="Info" count={announcementCounts.normal} bg="#facc15" color="#6b4f00" /> : null}
     </>
   ) : null;
 
@@ -265,7 +294,7 @@ export default function CollabHomePage() {
         <QuickTile
           href="/collab/infos"
           title="Infos"
-          subtitle={unreadAnnouncementCount ? `${unreadAnnouncementCount} nouveauté${unreadAnnouncementCount > 1 ? "s" : ""}` : "Actualités magasin"}
+          subtitle={unreadAnnouncementCount ? unreadAnnouncementSummary : "Actualités magasin"}
           tone={collabTheme.gold}
           icon="infos"
           badge={announcementBadge}

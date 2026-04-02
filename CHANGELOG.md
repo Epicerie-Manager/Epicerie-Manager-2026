@@ -21,6 +21,12 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.64 - 2026-04-02
+
+- Collaborateurs / Accueil : les alertes de la tuile `Infos` sont maintenant beaucoup plus explicites, avec des badges libelles `Urgent`, `Important` et `Info` au lieu de simples petites bulles numeriques.
+- Collaborateurs / Accueil : le sous-texte de la tuile `Infos` detaille maintenant les niveaux non lus (`1 urgent · 1 important`, etc.) pour rendre la priorite visible d'un coup d'oeil.
+- Collaborateurs / Plus : le lien `Infos & annonces` dans l'ecran `Plus` reprend aussi ces badges de priorite non lue pour garder une lecture coherente hors page d'accueil.
+
 ## v0.6.63 - 2026-04-02
 
 - Collaborateurs / Accueil : suppression du bloc `Annonces récentes` sur la page d'accueil au profit d'un indicateur plus compact directement sur la tuile `Infos`.

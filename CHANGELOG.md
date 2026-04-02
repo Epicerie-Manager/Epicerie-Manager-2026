@@ -21,6 +21,10 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.61 - 2026-04-02
+
+- Infos / Manager : correction immediate du formulaire `Nouvelle annonce` pour rester compatible avec le schema Supabase reel de `annonces`, en supprimant l'ecriture du champ inexistant `priority` et en repassant uniquement par `niveau`.
+
 ## v0.6.60 - 2026-04-01
 
 - Infos / Manager : correction de l'enregistrement des annonces `Urgent`, qui n'est plus degrade en `Important` lors de l'ecriture Supabase ; le niveau et la priorite sont maintenant conserves correctement.

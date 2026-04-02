@@ -322,7 +322,6 @@ export async function addAnnouncementToSupabase(
         date: todayIsoDate(),
         titre: title,
         contenu: content,
-        priority,
         niveau: toDbAnnouncementLevel(priority),
       })
       .select("*")

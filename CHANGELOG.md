@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.68 - 2026-04-03
+
+- Absences / Manager : correction du faux effet de duplication sur les nouvelles demandes lorsqu'on tentait de les approuver sans recharger la page. Le probleme venait d'un identifiant UI non stable, pas d'une duplication Supabase.
+- Absences / Fiabilite : les demandes utilisent maintenant un identifiant d'interface stable base sur `dbId` quand il existe, ce qui evite les collisions de lignes et les mauvaises actions sur la liste manager.
+
 ## v0.6.67 - 2026-04-03
 
 - Exports : ajout du module `Exports & impressions` avec sorties A3 dediees pour `Planning equipe`, `Controle balisage` et `Plan TG/GB`, afin de sortir les impressions hors des ecrans manager.

@@ -66,6 +66,13 @@ function buildAbsenceRequestIdentity(request: AbsenceRequest) {
   ].join("|");
 }
 
+function buildAbsenceRequestId(row: Record<string, unknown>, fallbackIdentity: string, index: number) {
+  const dbId = String(row.id ?? "").trim();
+  if (dbId) return `db:${dbId}`;
+  if (fallbackIdentity) return `tmp:${fallbackIdentity}`;
+  return `idx:${index}`;
+}
+
 function dedupeAbsenceRequests(requests: AbsenceRequest[]) {
   const deduped = new Map<string, AbsenceRequest>();
   requests.forEach((request) => {
@@ -200,9 +207,21 @@ function mapRowToAbsenceRequest(
     String(row.employee_name ?? row.employee ?? row.name ?? fallbackEmployee ?? "").toUpperCase();
   if (!employee) return null;
 
+  const dbId = row.id ? String(row.id) : undefined;
   const next: AbsenceRequest = {
-    id: index + 1,
-    dbId: row.id ? String(row.id) : undefined,
+    id: buildAbsenceRequestId(
+      row,
+      [
+        employee,
+        String(row.type ?? row.absence_type ?? "AUTRE"),
+        startDate,
+        endDate,
+        normalizeAbsenceStatus(row.statut ?? row.status),
+        normalizeAbsenceNote(row.note),
+      ].join("|"),
+      index,
+    ),
+    dbId,
     employee,
     type: String(row.type ?? row.absence_type ?? "AUTRE") as AbsenceRequest["type"],
     startDate,

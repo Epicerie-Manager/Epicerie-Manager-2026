@@ -100,7 +100,7 @@ export default function AbsencesPage() {
   }, [employeeFilter, requests, statusFilter]);
 
   const pendingRiskBadges = useMemo(() => {
-    const nextBadges = new Map<number, PendingRiskBadge>();
+    const nextBadges = new Map<string, PendingRiskBadge>();
     requests
       .filter((request) => request.status === "en_attente")
       .forEach((request) => {
@@ -208,7 +208,7 @@ export default function AbsencesPage() {
     }
   };
 
-  const updateStatus = async (id: number, status: AbsenceStatusId) => {
+  const updateStatus = async (id: string, status: AbsenceStatusId) => {
     const request = requests.find((item) => item.id === id);
     if (!request?.dbId) return;
     setError("");
@@ -226,7 +226,7 @@ export default function AbsencesPage() {
     }
   };
 
-  const deleteRequest = async (id: number) => {
+  const deleteRequest = async (id: string) => {
     const request = requests.find((item) => item.id === id);
     if (!request?.dbId) return;
     setError("");

@@ -780,7 +780,7 @@ export default function InfosPage() {
                 checked={announcementConfirmationRequired}
                 onChange={(event) => setAnnouncementConfirmationRequired(event.target.checked)}
               />
-              Confirmation de lecture demandée côté collaborateur
+              Ouverture obligatoire avant lecture côté collaborateur
             </label>
             {announcementTargeting === "employees" ? (
               <div style={{ border: "1px solid #dbe3eb", borderRadius: "10px", padding: "10px", background: "#f8fafc" }}>
@@ -929,8 +929,8 @@ export default function InfosPage() {
                     </span>
                     <span style={{ fontSize: "10px", fontWeight: 700, color: announcement.confirmationRequired ? "#0f172a" : "#64748b", padding: "2px 6px", borderRadius: 6, background: "#fff" }}>
                       {announcement.confirmationRequired
-                        ? `${confirmedCount}/${announcement.recipients.length} confirmés`
-                        : "Confirmation facultative"}
+                        ? `${confirmedCount}/${announcement.recipients.length} ouverts`
+                        : "Ouverture libre"}
                     </span>
                   </div>
                   {expanded ? (
@@ -961,7 +961,7 @@ export default function InfosPage() {
                                 {recipient.seenAt ? "Vu" : "Non lu"}
                               </span>
                               <span style={{ fontSize: "10px", fontWeight: 700, color: recipient.confirmedAt ? "#1d4ed8" : "#64748b" }}>
-                                {recipient.confirmedAt ? "Confirmé" : announcement.confirmationRequired ? "À confirmer" : "—"}
+                                {recipient.confirmedAt ? "Ouvert" : announcement.confirmationRequired ? "À ouvrir" : "—"}
                               </span>
                             </div>
                           ))

@@ -222,7 +222,6 @@ export default function CollabInfosPage() {
             {announcements.length ? (
               announcements.map((announcement) => {
                 const meta = priorityMeta(announcement.priority);
-                const isConfirmed = Boolean(announcement.selfReceipt?.confirmedAt);
                 const isExpanded = expandedAnnouncementIds.includes(announcement.id);
                 const isSeen = Boolean(announcement.selfReceipt?.seenAt);
                 return (
@@ -315,28 +314,11 @@ export default function CollabInfosPage() {
                         >
                           {openingAnnouncementId === announcement.id ? "Ouverture..." : "Lire"}
                         </button>
-                      ) : announcement.confirmationRequired ? (
-                        isConfirmed ? (
-                          <span
-                            style={{
-                              borderRadius: 999,
-                              padding: "5px 9px",
-                              background: "#eff6ff",
-                              color: "#1d4ed8",
-                              fontSize: 11,
-                              fontWeight: 700,
-                            }}
-                          >
-                            Lecture confirmée
-                          </span>
-                        ) : (
-                          <span style={{ fontSize: 11, color: collabTheme.muted }}>
-                            Confirmation en attente
-                          </span>
-                        )
                       ) : (
                         <span style={{ fontSize: 11, color: collabTheme.muted }}>
-                          Lecture enregistrée automatiquement
+                          {announcement.confirmationRequired
+                            ? "Ouverture enregistrée automatiquement"
+                            : "Lecture enregistrée automatiquement"}
                         </span>
                       )}
                     </div>

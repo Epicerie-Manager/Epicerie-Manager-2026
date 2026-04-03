@@ -21,6 +21,10 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.72 - 2026-04-03
+
+- Exports / Planning : suppression du badge `Repere` affiche a cote de `CECILE` dans les impressions planning, pour garder une feuille plus sobre et plus lisible.
+
 ## v0.6.71 - 2026-04-03
 
 - Infos / Supabase : ajout du patch [docs/sql/2026-04-03-annonce-recipients-policies.sql](/D:/Epicerie%20Manager%202026/docs/sql/2026-04-03-annonce-recipients-policies.sql) pour donner les droits/policies necessaires a `annonce_recipients` cote manager et collaborateur.

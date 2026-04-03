@@ -220,7 +220,6 @@ function getSectionId(employee: RhEmployee): ExportPlanningSectionId {
 
 export function getEmployeeBadges(employee: RhEmployee) {
   if (employee.n === "ABDOU") return [{ label: "Coordo", bg: "#fee2e2", color: "#b91c1c" }];
-  if (employee.n === "CECILE") return [{ label: "Repere", bg: "#dcfce7", color: "#15803d" }];
   if (employee.n === "MASSIMO") return [{ label: "Coordo", bg: "#dbeafe", color: "#1d4ed8" }];
   return [];
 }

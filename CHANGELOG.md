@@ -21,6 +21,12 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.71 - 2026-04-03
+
+- Infos / Supabase : ajout du patch [docs/sql/2026-04-03-annonce-recipients-policies.sql](/D:/Epicerie%20Manager%202026/docs/sql/2026-04-03-annonce-recipients-policies.sql) pour donner les droits/policies necessaires a `annonce_recipients` cote manager et collaborateur.
+- Infos / Fiabilite : correction de la creation d'annonce ciblee pour eviter les annonces partiellement creees si le snapshot des destinataires echoue. Une annonce est maintenant rollbackee si l'insertion des recipients ne passe pas.
+- Infos / Diagnostic : le message d'erreur est maintenant explicite quand le blocage vient des droits Supabase sur `annonce_recipients`, au lieu de renvoyer a tort vers le patch de structure.
+
 ## v0.6.70 - 2026-04-03
 
 - Infos / Manager : les annonces peuvent maintenant etre programmees avec une date/heure de debut et une date/heure de fin, afin de diffuser une information automatiquement sur une plage donnee.

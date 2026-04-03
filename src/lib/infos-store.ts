@@ -184,6 +184,13 @@ function normalizeActionError(error: unknown) {
   const message = rawMessage.toLowerCase();
 
   if (
+    (message.includes("annonce_recipients") && message.includes("permission denied")) ||
+    (message.includes("annonce_recipients") && message.includes("row-level security")) ||
+    (message.includes("annonce_recipients") && message.includes("42501"))
+  ) {
+    return new Error("La table annonce_recipients existe, mais ses droits Supabase ne permettent pas encore l'écriture/lecture via l'application. Appliquez le patch SQL des policies annonce_recipients.");
+  }
+  if (
     message.includes("could not find the 'publie_a_partir_de' column") ||
     message.includes("could not find the 'expire_le' column") ||
     message.includes("could not find the 'ciblage' column") ||
@@ -550,6 +557,7 @@ export async function removeDocumentFromSupabase(itemId: string): Promise<void> 
 }
 
 export async function addAnnouncementToSupabase(input: CreateInfoAnnouncementInput): Promise<InfoAnnouncement> {
+  let createdAnnouncementId = "";
   try {
     const supabase = createClient();
     const targetEmployeeIds = Array.from(new Set(input.targetEmployeeIds.filter(Boolean)));
@@ -579,13 +587,14 @@ export async function addAnnouncementToSupabase(input: CreateInfoAnnouncementInp
       .select("*")
       .single();
     if (error) throw error;
+    createdAnnouncementId = String((data as DbRow).id ?? "");
 
     if (recipients.length) {
       const { error: recipientError } = await supabase
         .from("annonce_recipients")
         .insert(
           recipients.map((recipient) => ({
-            annonce_id: String((data as DbRow).id ?? ""),
+            annonce_id: createdAnnouncementId,
             employee_id: recipient.id,
           })),
         );
@@ -593,9 +602,17 @@ export async function addAnnouncementToSupabase(input: CreateInfoAnnouncementInp
     }
 
     await refreshManagerSnapshots();
-    const created = loadInfoAnnouncements().find((announcement) => announcement.id === String((data as DbRow).id ?? ""));
+    const created = loadInfoAnnouncements().find((announcement) => announcement.id === createdAnnouncementId);
     return created ?? mapAnnouncementRowToItem(data as DbRow);
   } catch (error) {
+    if (createdAnnouncementId) {
+      try {
+        const supabase = createClient();
+        await supabase.from("annonces").delete().eq("id", createdAnnouncementId);
+      } catch {
+        // Keep original error if rollback fails.
+      }
+    }
     throw normalizeActionError(error);
   }
 }

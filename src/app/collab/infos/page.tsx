@@ -11,13 +11,12 @@ import {
   StatusPill,
 } from "@/components/collab/layout";
 import { collabSerifTitleStyle, collabTheme } from "@/components/collab/theme";
-import { getCollabProfile } from "@/lib/collab-auth";
-import { markCollabAnnouncementsSeen } from "@/lib/collab-data";
+import { getCollabProfile, type CollabProfile } from "@/lib/collab-auth";
 import {
+  confirmAnnouncementReadingInSupabase,
+  getCollabInfosFromSupabase,
   getInfosUpdatedEventName,
-  loadInfoAnnouncements,
-  loadInfoCategories,
-  syncInfosFromSupabase,
+  markAnnouncementsSeenInSupabase,
 } from "@/lib/infos-store";
 import type { InfoAnnouncement, InfoCategory, InfoItem } from "@/lib/infos-data";
 
@@ -45,75 +44,155 @@ function getAttachmentLabel(item: InfoItem) {
 
 export default function CollabInfosPage() {
   const router = useRouter();
+  const [profile, setProfile] = useState<CollabProfile | null>(null);
   const [ready, setReady] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [categories, setCategories] = useState<InfoCategory[]>([]);
   const [announcements, setAnnouncements] = useState<InfoAnnouncement[]>([]);
   const [activeCategoryId, setActiveCategoryId] = useState<string>("proc");
   const [search, setSearch] = useState("");
+  const [confirmingAnnouncementId, setConfirmingAnnouncementId] = useState<string | null>(null);
 
   useEffect(() => {
     let cancelled = false;
 
-    const refreshLocalState = () => {
+    const load = async (currentProfile: CollabProfile, markSeen: boolean) => {
+      if (!currentProfile.employee_id) return;
+      const payload = await getCollabInfosFromSupabase(currentProfile.employee_id);
       if (cancelled) return;
-      const nextCategories = loadInfoCategories();
-      const nextAnnouncements = loadInfoAnnouncements();
-      setCategories(nextCategories);
-      setAnnouncements(nextAnnouncements);
+
+      const unseenIds = payload.announcements
+        .filter((announcement) => !announcement.selfReceipt?.seenAt)
+        .map((announcement) => announcement.id);
+
+      if (markSeen && unseenIds.length) {
+        const seenAt = new Date().toISOString();
+        await markAnnouncementsSeenInSupabase(currentProfile.employee_id, unseenIds);
+        payload.announcements = payload.announcements.map((announcement) =>
+          unseenIds.includes(announcement.id)
+            ? {
+                ...announcement,
+                selfReceipt: {
+                  seenAt,
+                  confirmedAt: announcement.selfReceipt?.confirmedAt ?? null,
+                },
+              }
+            : announcement,
+        );
+      }
+
+      if (cancelled) return;
+      setCategories(payload.categories);
+      setAnnouncements(payload.announcements);
       setActiveCategoryId((current) => {
-        if (current && nextCategories.some((category) => category.id === current)) return current;
-        return nextCategories[0]?.id ?? "proc";
+        if (current && payload.categories.some((category) => category.id === current)) return current;
+        return payload.categories[0]?.id ?? "proc";
       });
     };
 
-    const refreshRemoteState = async () => {
-      if (!cancelled) setRefreshing(true);
+    const bootstrap = async () => {
+      const currentProfile = await getCollabProfile();
+      if (!currentProfile || currentProfile.role !== "collaborateur") {
+        router.replace("/collab/login");
+        return;
+      }
+      if (cancelled) return;
+      setProfile(currentProfile);
+      setReady(true);
+      setRefreshing(true);
       try {
-        await syncInfosFromSupabase();
-        if (!cancelled) refreshLocalState();
+        await load(currentProfile, true);
+      } catch {
+        if (!cancelled) {
+          setCategories([]);
+          setAnnouncements([]);
+        }
       } finally {
         if (!cancelled) setRefreshing(false);
       }
     };
 
-    const load = async () => {
-      const profile = await getCollabProfile();
-      if (!profile || profile.role !== "collaborateur") {
-        router.replace("/collab/login");
-        return;
-      }
-      if (cancelled) return;
-      markCollabAnnouncementsSeen(profile);
-      setReady(true);
-      refreshLocalState();
-      await refreshRemoteState();
-    };
+    void bootstrap().catch(() => router.replace("/collab/login"));
 
-    void load().catch(() => router.replace("/collab/login"));
     const eventName = getInfosUpdatedEventName();
-    window.addEventListener(eventName, refreshLocalState);
+    const handleInfosUpdated = () => {
+      void getCollabProfile().then((currentProfile) => {
+        if (!currentProfile?.employee_id || cancelled) return;
+        setRefreshing(true);
+        void load(currentProfile, false)
+          .catch(() => undefined)
+          .finally(() => {
+            if (!cancelled) setRefreshing(false);
+          });
+      });
+    };
+    window.addEventListener(eventName, handleInfosUpdated);
     return () => {
       cancelled = true;
-      window.removeEventListener(eventName, refreshLocalState);
+      window.removeEventListener(eventName, handleInfosUpdated);
     };
   }, [router]);
 
   const handleManualRefresh = async () => {
-    if (refreshing) return;
+    if (!profile?.employee_id || refreshing) return;
     setRefreshing(true);
     try {
-      await syncInfosFromSupabase();
-      const nextCategories = loadInfoCategories();
-      const nextAnnouncements = loadInfoAnnouncements();
-      setCategories(nextCategories);
-      setAnnouncements(nextAnnouncements);
+      const payload = await getCollabInfosFromSupabase(profile.employee_id);
+      const unseenIds = payload.announcements
+        .filter((announcement) => !announcement.selfReceipt?.seenAt)
+        .map((announcement) => announcement.id);
+      if (unseenIds.length) {
+        const seenAt = new Date().toISOString();
+        await markAnnouncementsSeenInSupabase(profile.employee_id, unseenIds);
+        payload.announcements = payload.announcements.map((announcement) =>
+          unseenIds.includes(announcement.id)
+            ? {
+                ...announcement,
+                selfReceipt: {
+                  seenAt,
+                  confirmedAt: announcement.selfReceipt?.confirmedAt ?? null,
+                },
+              }
+            : announcement,
+        );
+      }
+      setCategories(payload.categories);
+      setAnnouncements(payload.announcements);
       setActiveCategoryId((current) => {
-        if (current && nextCategories.some((category) => category.id === current)) return current;
-        return nextCategories[0]?.id ?? "proc";
+        if (current && payload.categories.some((category) => category.id === current)) return current;
+        return payload.categories[0]?.id ?? "proc";
       });
+    } catch {
+      setCategories([]);
+      setAnnouncements([]);
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const handleConfirmAnnouncement = async (announcementId: string) => {
+    if (!profile?.employee_id || confirmingAnnouncementId) return;
+    setConfirmingAnnouncementId(announcementId);
+    try {
+      const confirmedAt = new Date().toISOString();
+      await confirmAnnouncementReadingInSupabase(profile.employee_id, announcementId);
+      setAnnouncements((current) =>
+        current.map((announcement) =>
+          announcement.id === announcementId
+            ? {
+                ...announcement,
+                selfReceipt: {
+                  seenAt: announcement.selfReceipt?.seenAt ?? confirmedAt,
+                  confirmedAt,
+                },
+              }
+            : announcement,
+        ),
+      );
+    } catch {
+      // Keep current state if confirmation fails.
+    } finally {
+      setConfirmingAnnouncementId(null);
     }
   };
 
@@ -133,6 +212,14 @@ export default function CollabInfosPage() {
     );
   }, [activeCategory, search]);
 
+  const pendingConfirmations = useMemo(
+    () =>
+      announcements.filter(
+        (announcement) => announcement.confirmationRequired && !announcement.selfReceipt?.confirmedAt,
+      ).length,
+    [announcements],
+  );
+
   if (!ready) return null;
 
   return (
@@ -140,7 +227,17 @@ export default function CollabInfosPage() {
       <CollabHeader
         title="Infos & annonces"
         subtitle="Documents utiles et communications manager."
-        right={<StatusPill label={`${announcements.length} annonce${announcements.length > 1 ? "s" : ""}`} color={collabTheme.gold} background="#fff7e8" />}
+        right={
+          <StatusPill
+            label={
+              pendingConfirmations
+                ? `${pendingConfirmations} confirmation${pendingConfirmations > 1 ? "s" : ""}`
+                : `${announcements.length} annonce${announcements.length > 1 ? "s" : ""}`
+            }
+            color={pendingConfirmations ? "#9a3412" : collabTheme.gold}
+            background={pendingConfirmations ? "#fff7ed" : "#fff7e8"}
+          />
+        }
         showRefresh
         onRefresh={handleManualRefresh}
         refreshing={refreshing}
@@ -153,6 +250,7 @@ export default function CollabInfosPage() {
             {announcements.length ? (
               announcements.map((announcement) => {
                 const meta = priorityMeta(announcement.priority);
+                const isConfirmed = Boolean(announcement.selfReceipt?.confirmedAt);
                 return (
                   <div
                     key={announcement.id}
@@ -196,6 +294,60 @@ export default function CollabInfosPage() {
                       }}
                     >
                       {announcement.content}
+                    </div>
+                    <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10, alignItems: "center" }}>
+                      <span
+                        style={{
+                          borderRadius: 999,
+                          padding: "5px 9px",
+                          background: announcement.selfReceipt?.seenAt ? "#ecfdf5" : "#fff7ed",
+                          color: announcement.selfReceipt?.seenAt ? "#166534" : "#b45309",
+                          fontSize: 11,
+                          fontWeight: 700,
+                        }}
+                      >
+                        {announcement.selfReceipt?.seenAt ? "Lu" : "Nouveau"}
+                      </span>
+                      {announcement.confirmationRequired ? (
+                        isConfirmed ? (
+                          <span
+                            style={{
+                              borderRadius: 999,
+                              padding: "5px 9px",
+                              background: "#eff6ff",
+                              color: "#1d4ed8",
+                              fontSize: 11,
+                              fontWeight: 700,
+                            }}
+                          >
+                            Lecture confirmée
+                          </span>
+                        ) : (
+                          <button
+                            type="button"
+                            onClick={() => void handleConfirmAnnouncement(announcement.id)}
+                            disabled={confirmingAnnouncementId === announcement.id}
+                            style={{
+                              minHeight: 32,
+                              borderRadius: 999,
+                              border: "1px solid #1d4ed8",
+                              background: "#eff6ff",
+                              color: "#1d4ed8",
+                              padding: "0 12px",
+                              fontSize: 11,
+                              fontWeight: 800,
+                              cursor: confirmingAnnouncementId === announcement.id ? "not-allowed" : "pointer",
+                              opacity: confirmingAnnouncementId === announcement.id ? 0.7 : 1,
+                            }}
+                          >
+                            {confirmingAnnouncementId === announcement.id ? "Confirmation..." : "Confirmer la lecture"}
+                          </button>
+                        )
+                      ) : (
+                        <span style={{ fontSize: 11, color: collabTheme.muted }}>
+                          Confirmation non requise
+                        </span>
+                      )}
                     </div>
                   </div>
                 );

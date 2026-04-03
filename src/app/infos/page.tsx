@@ -8,16 +8,21 @@ import { moduleThemes } from "@/lib/theme";
 import {
   infoAnnouncements as defaultInfoAnnouncements,
   infoCategories as defaultInfoCategories,
+  type InfoAnnouncement,
+  type InfoAnnouncementAudience,
   type InfoAnnouncementPriority,
+  type InfoAnnouncementTargeting,
   type InfoCategoryId,
   type InfoItem,
 } from "@/lib/infos-data";
 import {
   addAnnouncementToSupabase,
   addDocumentToSupabase,
+  getInfoAnnouncementAudience,
   getInfosUpdatedEventName,
   loadInfoAnnouncements,
   loadInfoCategories,
+  isInfoAnnouncementActiveNow,
   removeAnnouncementFromSupabase,
   removeDocumentFromSupabase,
   syncInfosFromSupabase,
@@ -159,11 +164,51 @@ function formatBytes(bytes: number) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
 }
 
+function toIsoDateTime(value: string) {
+  if (!value.trim()) return null;
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return null;
+  return parsed.toISOString();
+}
+
+function formatDateTimeLabel(value: string | null) {
+  if (!value) return "";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toLocaleString("fr-FR", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function getTargetingLabel(announcement: InfoAnnouncement) {
+  if (announcement.targeting === "employees") {
+    return `${announcement.recipients.length} collaborateur${announcement.recipients.length > 1 ? "s" : ""} ciblé${announcement.recipients.length > 1 ? "s" : ""}`;
+  }
+  if (announcement.targeting === "rayons") {
+    return `${announcement.targetRayons.length} rayon${announcement.targetRayons.length > 1 ? "s" : ""} ciblé${announcement.targetRayons.length > 1 ? "s" : ""}`;
+  }
+  return "Toute l'équipe";
+}
+
+function getAnnouncementWindowLabel(announcement: InfoAnnouncement) {
+  const startLabel = formatDateTimeLabel(announcement.publishAt);
+  const endLabel = formatDateTimeLabel(announcement.expiresAt);
+  if (startLabel && endLabel) return `Diffusion ${startLabel} → ${endLabel}`;
+  if (startLabel) return `Diffusion à partir du ${startLabel}`;
+  if (endLabel) return `Visible jusqu'au ${endLabel}`;
+  return "Diffusion immédiate";
+}
+
 export default function InfosPage() {
   const [activeCategoryId, setActiveCategoryId] = useState<InfoCategoryId>("proc");
   const [search, setSearch] = useState("");
   const [categories, setCategories] = useState(defaultInfoCategories);
-  const [announcements, setAnnouncements] = useState(defaultInfoAnnouncements);
+  const [announcements, setAnnouncements] = useState<InfoAnnouncement[]>(defaultInfoAnnouncements);
+  const [audience, setAudience] = useState<InfoAnnouncementAudience>({ employees: [], rayons: [] });
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 
   const [docTitle, setDocTitle] = useState("");
@@ -175,8 +220,15 @@ export default function InfosPage() {
   const [announcementTitle, setAnnouncementTitle] = useState("");
   const [announcementContent, setAnnouncementContent] = useState("");
   const [announcementPriority, setAnnouncementPriority] = useState<InfoAnnouncementPriority>("normal");
+  const [announcementTargeting, setAnnouncementTargeting] = useState<InfoAnnouncementTargeting>("all");
+  const [announcementPublishAt, setAnnouncementPublishAt] = useState("");
+  const [announcementExpireAt, setAnnouncementExpireAt] = useState("");
+  const [announcementEmployeeIds, setAnnouncementEmployeeIds] = useState<string[]>([]);
+  const [announcementRayons, setAnnouncementRayons] = useState<string[]>([]);
+  const [announcementConfirmationRequired, setAnnouncementConfirmationRequired] = useState(true);
   const [announcementBusy, setAnnouncementBusy] = useState(false);
   const [announcementError, setAnnouncementError] = useState("");
+  const [expandedAnnouncementId, setExpandedAnnouncementId] = useState<string | null>(null);
 
   const theme = moduleThemes.infos;
   const activeCategory = categories.find((category) => category.id === activeCategoryId) ?? categories[0];
@@ -187,10 +239,20 @@ export default function InfosPage() {
       setAnnouncements(loadInfoAnnouncements());
     };
 
+    const refreshAudience = async () => {
+      try {
+        const nextAudience = await getInfoAnnouncementAudience();
+        setAudience(nextAudience);
+      } catch {
+        setAudience({ employees: [], rayons: [] });
+      }
+    };
+
     refresh();
     void syncInfosFromSupabase().then((synced) => {
       if (synced) refresh();
     });
+    void refreshAudience();
     const eventName = getInfosUpdatedEventName();
     window.addEventListener(eventName, refresh);
     return () => window.removeEventListener(eventName, refresh);
@@ -219,6 +281,35 @@ export default function InfosPage() {
     () => categories.filter((category) => category.items.length > 0).length,
     [categories],
   );
+
+  const selectedEmployeesPreview = useMemo(
+    () => audience.employees.filter((employee) => announcementEmployeeIds.includes(employee.id)),
+    [announcementEmployeeIds, audience.employees],
+  );
+
+  const selectedRayonEmployeesPreview = useMemo(
+    () =>
+      audience.employees.filter((employee) =>
+        employee.tgRayons.some((rayon) => announcementRayons.includes(rayon)),
+      ),
+    [announcementRayons, audience.employees],
+  );
+
+  function toggleEmployeeSelection(employeeId: string) {
+    setAnnouncementEmployeeIds((current) =>
+      current.includes(employeeId)
+        ? current.filter((id) => id !== employeeId)
+        : [...current, employeeId],
+    );
+  }
+
+  function toggleRayonSelection(rayon: string) {
+    setAnnouncementRayons((current) =>
+      current.includes(rayon)
+        ? current.filter((entry) => entry !== rayon)
+        : [...current, rayon],
+    );
+  }
 
   async function handleAddDocument() {
     const title = docTitle.trim();
@@ -271,14 +362,45 @@ export default function InfosPage() {
       setAnnouncementError("Le titre et le contenu sont obligatoires.");
       return;
     }
+    if (announcementTargeting === "employees" && announcementEmployeeIds.length === 0) {
+      setAnnouncementError("Sélectionnez au moins un collaborateur ciblé.");
+      return;
+    }
+    if (announcementTargeting === "rayons" && announcementRayons.length === 0) {
+      setAnnouncementError("Sélectionnez au moins un rayon ciblé.");
+      return;
+    }
+
+    const publishAt = toIsoDateTime(announcementPublishAt);
+    const expiresAt = toIsoDateTime(announcementExpireAt);
+    if (publishAt && expiresAt && new Date(expiresAt).getTime() <= new Date(publishAt).getTime()) {
+      setAnnouncementError("La fin de diffusion doit être après le début.");
+      return;
+    }
 
     setAnnouncementBusy(true);
     try {
-      await addAnnouncementToSupabase(title, content, announcementPriority);
+      await addAnnouncementToSupabase({
+        title,
+        content,
+        priority: announcementPriority,
+        publishAt,
+        expiresAt,
+        targeting: announcementTargeting,
+        targetEmployeeIds: announcementEmployeeIds,
+        targetRayons: announcementRayons,
+        confirmationRequired: announcementConfirmationRequired,
+      });
       setAnnouncements(loadInfoAnnouncements());
       setAnnouncementTitle("");
       setAnnouncementContent("");
       setAnnouncementPriority("normal");
+      setAnnouncementTargeting("all");
+      setAnnouncementPublishAt("");
+      setAnnouncementExpireAt("");
+      setAnnouncementEmployeeIds([]);
+      setAnnouncementRayons([]);
+      setAnnouncementConfirmationRequired(true);
     } catch (error) {
       setAnnouncementError(error instanceof Error ? error.message : "Impossible de publier l'annonce.");
     } finally {
@@ -620,6 +742,121 @@ export default function InfosPage() {
               <option value="important">Important</option>
               <option value="urgent">Urgent</option>
             </select>
+            <div style={{ display: "grid", gap: "8px", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+              <label style={{ display: "grid", gap: 4, fontSize: 11, color: "#64748b" }}>
+                <span>Ciblage</span>
+                <select
+                  value={announcementTargeting}
+                  onChange={(event) => setAnnouncementTargeting(event.target.value as InfoAnnouncementTargeting)}
+                  style={{ minHeight: "34px", borderRadius: "8px", border: "1px solid #dbe3eb", padding: "0 8px", fontSize: "12px", color: "#0f172a" }}
+                >
+                  <option value="all">Tous les collaborateurs</option>
+                  <option value="employees">Collaborateurs ciblés</option>
+                  <option value="rayons">Rayons ciblés</option>
+                </select>
+              </label>
+              <label style={{ display: "grid", gap: 4, fontSize: 11, color: "#64748b" }}>
+                <span>Diffusion à partir de</span>
+                <input
+                  type="datetime-local"
+                  value={announcementPublishAt}
+                  onChange={(event) => setAnnouncementPublishAt(event.target.value)}
+                  style={{ minHeight: "34px", borderRadius: "8px", border: "1px solid #dbe3eb", padding: "0 10px", fontSize: "12px", color: "#0f172a" }}
+                />
+              </label>
+              <label style={{ display: "grid", gap: 4, fontSize: 11, color: "#64748b" }}>
+                <span>Expire le</span>
+                <input
+                  type="datetime-local"
+                  value={announcementExpireAt}
+                  onChange={(event) => setAnnouncementExpireAt(event.target.value)}
+                  style={{ minHeight: "34px", borderRadius: "8px", border: "1px solid #dbe3eb", padding: "0 10px", fontSize: "12px", color: "#0f172a" }}
+                />
+              </label>
+            </div>
+            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "12px", color: "#334155" }}>
+              <input
+                type="checkbox"
+                checked={announcementConfirmationRequired}
+                onChange={(event) => setAnnouncementConfirmationRequired(event.target.checked)}
+              />
+              Confirmation de lecture demandée côté collaborateur
+            </label>
+            {announcementTargeting === "employees" ? (
+              <div style={{ border: "1px solid #dbe3eb", borderRadius: "10px", padding: "10px", background: "#f8fafc" }}>
+                <div style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  Destinataires ciblés
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                  {audience.employees.map((employee) => {
+                    const active = announcementEmployeeIds.includes(employee.id);
+                    return (
+                      <button
+                        key={employee.id}
+                        type="button"
+                        onClick={() => toggleEmployeeSelection(employee.id)}
+                        style={{
+                          minHeight: "30px",
+                          borderRadius: "999px",
+                          border: `1px solid ${active ? theme.color : "#dbe3eb"}`,
+                          background: active ? theme.light : "#fff",
+                          color: active ? theme.color : "#334155",
+                          padding: "0 10px",
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {employee.name}
+                      </button>
+                    );
+                  })}
+                </div>
+                {selectedEmployeesPreview.length ? (
+                  <div style={{ marginTop: 8, fontSize: "11px", color: "#64748b" }}>
+                    Sélection : {selectedEmployeesPreview.slice(0, 4).map((employee) => employee.name).join(", ")}
+                    {selectedEmployeesPreview.length > 4 ? ` +${selectedEmployeesPreview.length - 4}` : ""}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+            {announcementTargeting === "rayons" ? (
+              <div style={{ border: "1px solid #dbe3eb", borderRadius: "10px", padding: "10px", background: "#f8fafc" }}>
+                <div style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  Rayons ciblés
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                  {audience.rayons.map((rayon) => {
+                    const active = announcementRayons.includes(rayon);
+                    return (
+                      <button
+                        key={rayon}
+                        type="button"
+                        onClick={() => toggleRayonSelection(rayon)}
+                        style={{
+                          minHeight: "30px",
+                          borderRadius: "999px",
+                          border: `1px solid ${active ? theme.color : "#dbe3eb"}`,
+                          background: active ? theme.light : "#fff",
+                          color: active ? theme.color : "#334155",
+                          padding: "0 10px",
+                          fontSize: "11px",
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        {rayon}
+                      </button>
+                    );
+                  })}
+                </div>
+                {selectedRayonEmployeesPreview.length ? (
+                  <div style={{ marginTop: 8, fontSize: "11px", color: "#64748b" }}>
+                    Exemple destinataires: {selectedRayonEmployeesPreview.slice(0, 3).map((employee) => employee.name).join(", ")}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
             {announcementError ? <span style={{ fontSize: "11px", color: "#b91c1c" }}>{announcementError}</span> : null}
             <button
               type="button"
@@ -644,36 +881,116 @@ export default function InfosPage() {
           <div style={{ display: "grid", gap: "8px", marginTop: "10px" }}>
             {announcements.map((announcement) => {
               const meta = PRIORITY_META[announcement.priority];
+              const seenCount = announcement.recipients.filter((recipient) => recipient.seenAt).length;
+              const confirmedCount = announcement.recipients.filter((recipient) => recipient.confirmedAt).length;
+              const expanded = expandedAnnouncementId === announcement.id;
+              const activeNow = isInfoAnnouncementActiveNow(announcement);
               return (
-              <div
-                key={announcement.id}
-                style={{
-                  borderRadius: "10px",
-                  border: `1px solid ${meta.border}`,
-                  borderLeft: `3px solid ${meta.text}`,
-                  background: meta.bg,
-                  padding: "8px 10px",
-                  boxShadow: announcement.priority === "urgent" ? "0 1px 2px rgba(0,0,0,0.03), 0 8px 18px rgba(159,18,57,0.15)" : "none",
-                }}
-              >
-                <div style={{ display: "flex", justifyContent: "space-between", gap: "8px" }}>
-                  <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                    {announcement.priority !== "normal" ? <AlertIcon color={meta.text} /> : null}
-                    <strong style={{ display: "block", fontSize: "13px", color: "#0f172a" }}>{announcement.title}</strong>
-                  </span>
-                  <span style={{ fontSize: "10px", fontWeight: 700, color: meta.text, padding: "2px 6px", borderRadius: 6, background: "#fff" }}>{meta.label}</span>
-                </div>
-                <span style={{ display: "block", fontSize: "11px", color: "#64748b", marginTop: "2px" }}>{announcement.date}</span>
-                <p style={{ marginTop: "4px", fontSize: "12px", color: "#64748b" }}>{announcement.content}</p>
-                <button
-                  type="button"
-                  onClick={() => removeAnnouncement(announcement.id)}
-                  disabled={announcementBusy}
-                  style={{ border: "none", background: "transparent", fontSize: "11px", color: "#b91c1c", cursor: announcementBusy ? "not-allowed" : "pointer", padding: 0, opacity: announcementBusy ? 0.7 : 1 }}
+                <div
+                  key={announcement.id}
+                  style={{
+                    borderRadius: "10px",
+                    border: `1px solid ${meta.border}`,
+                    borderLeft: `3px solid ${meta.text}`,
+                    background: meta.bg,
+                    padding: "8px 10px",
+                    boxShadow: announcement.priority === "urgent" ? "0 1px 2px rgba(0,0,0,0.03), 0 8px 18px rgba(159,18,57,0.15)" : "none",
+                  }}
                 >
-                  Supprimer
-                </button>
-              </div>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", alignItems: "start" }}>
+                    <button
+                      type="button"
+                      onClick={() => setExpandedAnnouncementId((current) => (current === announcement.id ? null : announcement.id))}
+                      style={{ flex: 1, textAlign: "left", border: "none", background: "transparent", padding: 0, cursor: "pointer" }}
+                    >
+                      <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
+                        {announcement.priority !== "normal" ? <AlertIcon color={meta.text} /> : null}
+                        <strong style={{ display: "block", fontSize: "13px", color: "#0f172a" }}>{announcement.title}</strong>
+                      </span>
+                      <span style={{ display: "block", fontSize: "11px", color: "#64748b", marginTop: "2px" }}>{announcement.date}</span>
+                    </button>
+                    <span style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
+                      <span style={{ fontSize: "10px", fontWeight: 700, color: activeNow ? "#166534" : "#64748b", padding: "2px 6px", borderRadius: 6, background: "#fff" }}>
+                        {activeNow ? "En ligne" : "Planifiée / terminée"}
+                      </span>
+                      <span style={{ fontSize: "10px", fontWeight: 700, color: meta.text, padding: "2px 6px", borderRadius: 6, background: "#fff" }}>{meta.label}</span>
+                    </span>
+                  </div>
+                  <p style={{ marginTop: "4px", fontSize: "12px", color: "#475569" }}>{announcement.content}</p>
+                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
+                    <span style={{ fontSize: "10px", fontWeight: 700, color: "#334155", padding: "2px 6px", borderRadius: 6, background: "#fff" }}>
+                      {getTargetingLabel(announcement)}
+                    </span>
+                    <span style={{ fontSize: "10px", fontWeight: 700, color: "#334155", padding: "2px 6px", borderRadius: 6, background: "#fff" }}>
+                      {getAnnouncementWindowLabel(announcement)}
+                    </span>
+                    <span style={{ fontSize: "10px", fontWeight: 700, color: "#334155", padding: "2px 6px", borderRadius: 6, background: "#fff" }}>
+                      {seenCount}/{announcement.recipients.length} vus
+                    </span>
+                    <span style={{ fontSize: "10px", fontWeight: 700, color: announcement.confirmationRequired ? "#0f172a" : "#64748b", padding: "2px 6px", borderRadius: 6, background: "#fff" }}>
+                      {announcement.confirmationRequired
+                        ? `${confirmedCount}/${announcement.recipients.length} confirmés`
+                        : "Confirmation facultative"}
+                    </span>
+                  </div>
+                  {expanded ? (
+                    <div style={{ marginTop: 10, borderTop: "1px solid rgba(148,163,184,0.25)", paddingTop: 10, display: "grid", gap: 8 }}>
+                      {announcement.targetRayons.length ? (
+                        <div style={{ fontSize: "11px", color: "#64748b" }}>
+                          Rayons : {announcement.targetRayons.join(", ")}
+                        </div>
+                      ) : null}
+                      <div style={{ display: "grid", gap: 6, maxHeight: 220, overflowY: "auto", paddingRight: 4 }}>
+                        {announcement.recipients.length ? (
+                          announcement.recipients.map((recipient) => (
+                            <div
+                              key={recipient.id}
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns: "1fr auto auto",
+                                gap: 8,
+                                alignItems: "center",
+                                borderRadius: 8,
+                                background: "#fff",
+                                border: "1px solid rgba(226,232,240,0.9)",
+                                padding: "6px 8px",
+                              }}
+                            >
+                              <strong style={{ fontSize: "11px", color: "#0f172a" }}>{recipient.employeeName}</strong>
+                              <span style={{ fontSize: "10px", fontWeight: 700, color: recipient.seenAt ? "#166534" : "#92400e" }}>
+                                {recipient.seenAt ? "Vu" : "Non lu"}
+                              </span>
+                              <span style={{ fontSize: "10px", fontWeight: 700, color: recipient.confirmedAt ? "#1d4ed8" : "#64748b" }}>
+                                {recipient.confirmedAt ? "Confirmé" : announcement.confirmationRequired ? "À confirmer" : "—"}
+                              </span>
+                            </div>
+                          ))
+                        ) : (
+                          <div style={{ fontSize: "11px", color: "#64748b" }}>
+                            Aucun destinataire figé pour cette annonce.
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  ) : null}
+                  <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                    <button
+                      type="button"
+                      onClick={() => setExpandedAnnouncementId((current) => (current === announcement.id ? null : announcement.id))}
+                      style={{ border: "none", background: "transparent", fontSize: "11px", color: theme.color, cursor: "pointer", padding: 0, fontWeight: 700 }}
+                    >
+                      {expanded ? "Masquer le suivi" : "Voir les destinataires"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => removeAnnouncement(announcement.id)}
+                      disabled={announcementBusy}
+                      style={{ border: "none", background: "transparent", fontSize: "11px", color: "#b91c1c", cursor: announcementBusy ? "not-allowed" : "pointer", padding: 0, opacity: announcementBusy ? 0.7 : 1 }}
+                    >
+                      Supprimer
+                    </button>
+                  </div>
+                </div>
               );
             })}
           </div>

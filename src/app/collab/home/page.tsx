@@ -14,20 +14,16 @@ import { collabSerifTitleStyle, collabTheme } from "@/components/collab/theme";
 import { getCollabProfile, type CollabProfile } from "@/lib/collab-auth";
 import {
   formatFrenchLongDate,
-  getAnnouncementTimestamp,
-  getCollabAnnouncementsSeenEventName,
-  getCollabAnnouncementsSeenStorageKey,
-  getCollabProfileStorageKey,
   getCurrentTGPlan,
   getEntryDate,
   getMyAbsences,
   getMyWeekPlanning,
-  normalizeAnnouncementPriority,
-  getRecentAnnonces,
   getShiftDisplayText,
   getTodayAndTomorrowIso,
   type CollabPlanningEntry,
 } from "@/lib/collab-data";
+import { getCollabInfosFromSupabase } from "@/lib/infos-store";
+import type { InfoAnnouncement } from "@/lib/infos-data";
 
 function AnnouncementBubble({
   label,
@@ -142,14 +138,11 @@ export default function CollabHomePage() {
   const [todayEntry, setTodayEntry] = useState<CollabPlanningEntry | null>(null);
   const [tomorrowEntry, setTomorrowEntry] = useState<CollabPlanningEntry | null>(null);
   const [tgPlan, setTgPlan] = useState<Record<string, unknown> | null>(null);
-  const [annonces, setAnnonces] = useState<Array<Record<string, unknown>>>([]);
-  const [announcementSeenAt, setAnnouncementSeenAt] = useState("");
+  const [announcements, setAnnouncements] = useState<InfoAnnouncement[]>([]);
   const [pendingAbsences, setPendingAbsences] = useState(0);
   const [loadError, setLoadError] = useState("");
 
   useEffect(() => {
-    let cancelled = false;
-
     const load = async () => {
       const collabProfile = await getCollabProfile();
       if (!collabProfile || collabProfile.role !== "collaborateur") {
@@ -160,24 +153,24 @@ export default function CollabHomePage() {
         router.replace("/collab/change-pin");
         return;
       }
+      if (!collabProfile.employee_id) {
+        setLoadError("Profil collaborateur incomplet.");
+        return;
+      }
       setProfile(collabProfile);
 
       const { today, tomorrow } = getTodayAndTomorrowIso();
       try {
-        const [planningRows, currentTgPlan, recentAnnonces, absences] = await Promise.all([
+        const [planningRows, currentTgPlan, infoPayload, absences] = await Promise.all([
           getMyWeekPlanning(today, tomorrow),
           getCurrentTGPlan(),
-          getRecentAnnonces(50),
+          getCollabInfosFromSupabase(collabProfile.employee_id),
           getMyAbsences(),
         ]);
         setTodayEntry((planningRows.find((entry) => getEntryDate(entry) === today) as CollabPlanningEntry | undefined) ?? null);
         setTomorrowEntry((planningRows.find((entry) => getEntryDate(entry) === tomorrow) as CollabPlanningEntry | undefined) ?? null);
         setTgPlan((currentTgPlan as Record<string, unknown> | null) ?? null);
-        setAnnonces(recentAnnonces as Array<Record<string, unknown>>);
-        if (!cancelled) {
-          const storageKey = getCollabAnnouncementsSeenStorageKey(getCollabProfileStorageKey(collabProfile));
-          setAnnouncementSeenAt(window.localStorage.getItem(storageKey) ?? "");
-        }
+        setAnnouncements(infoPayload.announcements);
         setPendingAbsences(
           (absences as Array<Record<string, unknown>>).filter((row) => String(row.statut ?? "").toLowerCase().includes("attente")).length,
         );
@@ -186,49 +179,27 @@ export default function CollabHomePage() {
         setTodayEntry(null);
         setTomorrowEntry(null);
         setTgPlan(null);
-        setAnnonces([]);
+        setAnnouncements([]);
         setPendingAbsences(0);
         setLoadError("Certaines informations collaborateur n'ont pas pu être chargées.");
       }
     };
 
     void load().catch(() => router.replace("/collab/login"));
-    const seenEventName = getCollabAnnouncementsSeenEventName();
-    const updateSeenState = async () => {
-      const collabProfile = await getCollabProfile();
-      if (!collabProfile || cancelled) return;
-      const storageKey = getCollabAnnouncementsSeenStorageKey(getCollabProfileStorageKey(collabProfile));
-      setAnnouncementSeenAt(window.localStorage.getItem(storageKey) ?? "");
-    };
-    const handleSeen = () => {
-      void updateSeenState();
-    };
-    window.addEventListener(seenEventName, handleSeen);
-    return () => {
-      cancelled = true;
-      window.removeEventListener(seenEventName, handleSeen);
-    };
   }, [router]);
 
   const displayName = profile?.employees?.name ?? "Collaborateur";
   const displayDate = useMemo(() => formatFrenchLongDate(new Date()), []);
   const todayIso = getTodayAndTomorrowIso().today;
   const unreadAnnouncements = useMemo(
-    () =>
-      annonces.filter((row) => {
-        const timestamp = getAnnouncementTimestamp(row);
-        if (!timestamp) return !announcementSeenAt;
-        if (!announcementSeenAt) return true;
-        return timestamp > announcementSeenAt;
-      }),
-    [announcementSeenAt, annonces],
+    () => announcements.filter((announcement) => !announcement.selfReceipt?.seenAt),
+    [announcements],
   );
   const announcementCounts = useMemo(
     () =>
       unreadAnnouncements.reduce(
-        (acc: Record<"urgent" | "important" | "normal", number>, row) => {
-          const priority = normalizeAnnouncementPriority(row.priority ?? row.niveau);
-          acc[priority] += 1;
+        (acc: Record<"urgent" | "important" | "normal", number>, announcement) => {
+          acc[announcement.priority] += 1;
           return acc;
         },
         { urgent: 0, important: 0, normal: 0 },

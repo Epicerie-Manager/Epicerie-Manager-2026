@@ -21,6 +21,14 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.70 - 2026-04-03
+
+- Infos / Manager : les annonces peuvent maintenant etre programmees avec une date/heure de debut et une date/heure de fin, afin de diffuser une information automatiquement sur une plage donnee.
+- Infos / Manager : ajout du ciblage par `toute l'equipe`, `collaborateurs precis` ou `rayons`, avec suivi detaille des destinataires sur chaque annonce.
+- Infos / Collaborateurs : la page `Infos & annonces` marque desormais les annonces comme vues dans Supabase et permet une `confirmation de lecture` explicite, remontee ensuite dans le fil manager.
+- Infos / Dashboard collab : les badges de nouveaute de l'accueil et du menu `Plus` reposent maintenant sur les statuts reels `vu / confirme` stockes en base, sans compteur local pour cette fonctionnalite.
+- SQL / Supabase : ajout du patch [docs/sql/2026-04-03-annonces-ciblees-programmees-confirmations.sql](/D:/Epicerie%20Manager%202026/docs/sql/2026-04-03-annonces-ciblees-programmees-confirmations.sql) pour enrichir `annonces` et creer `annonce_recipients`.
+
 ## v0.6.69 - 2026-04-03
 
 - Absences / Manager : la saisie `Nouvelle demande` propose maintenant aussi `TOUS LES EMPLOYES`, pour creer rapidement un jour ferie ou une absence globale sans devoir passer employe par employe.

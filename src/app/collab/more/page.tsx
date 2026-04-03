@@ -5,15 +5,9 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { CollabBottomNav, CollabHeader, CollabPage, SectionCard, SectionTitle } from "@/components/collab/layout";
 import { collabSerifTitleStyle, collabTheme } from "@/components/collab/theme";
-import { collabSignOut, getCollabProfile, type CollabProfile } from "@/lib/collab-auth";
-import {
-  getAnnouncementTimestamp,
-  getCollabAnnouncementsSeenEventName,
-  getCollabAnnouncementsSeenStorageKey,
-  getCollabProfileStorageKey,
-  getRecentAnnonces,
-  normalizeAnnouncementPriority,
-} from "@/lib/collab-data";
+import { collabSignOut, getCollabProfile } from "@/lib/collab-auth";
+import { getCollabInfosFromSupabase } from "@/lib/infos-store";
+import type { InfoAnnouncement } from "@/lib/infos-data";
 
 function InlineBadge({
   label,
@@ -66,18 +60,10 @@ function InlineBadge({
 export default function CollabMorePage() {
   const router = useRouter();
   const [ready, setReady] = useState(false);
-  const [annonces, setAnnonces] = useState<Array<Record<string, unknown>>>([]);
-  const [announcementSeenAt, setAnnouncementSeenAt] = useState("");
+  const [announcements, setAnnouncements] = useState<InfoAnnouncement[]>([]);
 
   useEffect(() => {
     let cancelled = false;
-
-    const refreshSeenState = async (currentProfile?: CollabProfile | null) => {
-      const targetProfile = currentProfile ?? (await getCollabProfile());
-      if (!targetProfile || cancelled) return;
-      const storageKey = getCollabAnnouncementsSeenStorageKey(getCollabProfileStorageKey(targetProfile));
-      setAnnouncementSeenAt(window.localStorage.getItem(storageKey) ?? "");
-    };
 
     void getCollabProfile()
       .then(async (profile) => {
@@ -85,43 +71,34 @@ export default function CollabMorePage() {
           router.replace("/collab/login");
           return;
         }
-        const rows = await getRecentAnnonces(50);
+        let infoPayload: { announcements: InfoAnnouncement[] } = { announcements: [] };
+        try {
+          infoPayload = await getCollabInfosFromSupabase(profile.employee_id ?? "");
+        } catch {
+          infoPayload = { announcements: [] };
+        }
         if (cancelled) return;
-        setAnnonces(rows as Array<Record<string, unknown>>);
-        await refreshSeenState(profile);
+        setAnnouncements(infoPayload.announcements);
         setReady(true);
       })
       .catch(() => router.replace("/collab/login"));
-
-    const seenEventName = getCollabAnnouncementsSeenEventName();
-    const handleSeen = () => {
-      void refreshSeenState();
-    };
-    window.addEventListener(seenEventName, handleSeen);
     return () => {
       cancelled = true;
-      window.removeEventListener(seenEventName, handleSeen);
     };
   }, [router]);
 
   const announcementCounts = useMemo(
     () =>
-      annonces
-        .filter((row) => {
-          const timestamp = getAnnouncementTimestamp(row);
-          if (!timestamp) return !announcementSeenAt;
-          if (!announcementSeenAt) return true;
-          return timestamp > announcementSeenAt;
-        })
+      announcements
+        .filter((announcement) => !announcement.selfReceipt?.seenAt)
         .reduce(
-          (acc: Record<"urgent" | "important" | "normal", number>, row) => {
-            const priority = normalizeAnnouncementPriority(row.priority ?? row.niveau);
-            acc[priority] += 1;
+          (acc: Record<"urgent" | "important" | "normal", number>, announcement) => {
+            acc[announcement.priority] += 1;
             return acc;
           },
           { urgent: 0, important: 0, normal: 0 },
         ),
-    [announcementSeenAt, annonces],
+    [announcements],
   );
 
   const infoBadges = (

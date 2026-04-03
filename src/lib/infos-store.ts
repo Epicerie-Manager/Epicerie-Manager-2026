@@ -2,13 +2,17 @@ import {
   infoAnnouncements,
   infoCategories,
   type InfoAnnouncement,
+  type InfoAnnouncementAudience,
   type InfoAnnouncementPriority,
+  type InfoAnnouncementRecipient,
+  type InfoAnnouncementTargeting,
   type InfoCategory,
   type InfoCategoryId,
   type InfoItem,
 } from "@/lib/infos-data";
 import { hasBrowserWindow, purgeLegacyCacheKeys } from "@/lib/browser-cache";
 import { createClient } from "@/lib/supabase";
+import { tgRayons } from "@/lib/tg-data";
 
 const INFO_CATEGORIES_STORAGE_KEY = "epicerie-manager-info-categories-v1";
 const INFO_ANNOUNCEMENTS_STORAGE_KEY = "epicerie-manager-info-announcements-v1";
@@ -33,6 +37,33 @@ const INFO_CATEGORY_FROM_DB: Record<string, InfoCategoryId> = {
 };
 
 type DbRow = Record<string, unknown>;
+
+type AnnouncementRecipientRow = {
+  id: string;
+  annonce_id: string;
+  employee_id: string;
+  seen_at: string | null;
+  confirmed_at: string | null;
+};
+
+type AnnouncementAudienceEmployeeRow = {
+  id: string;
+  name: string | null;
+  actif: boolean | null;
+  tg_rayons?: string[] | null;
+};
+
+export type CreateInfoAnnouncementInput = {
+  title: string;
+  content: string;
+  priority: InfoAnnouncementPriority;
+  publishAt: string | null;
+  expiresAt: string | null;
+  targeting: InfoAnnouncementTargeting;
+  targetEmployeeIds: string[];
+  targetRayons: string[];
+  confirmationRequired: boolean;
+};
 
 let infoCategoriesSnapshot = cloneCategories(infoCategories);
 let infoCategoriesSerialized = JSON.stringify(infoCategoriesSnapshot);
@@ -59,7 +90,13 @@ function cloneCategories(categories: InfoCategory[]) {
 }
 
 function cloneAnnouncements(announcements: InfoAnnouncement[]) {
-  return announcements.map((announcement) => ({ ...announcement }));
+  return announcements.map((announcement) => ({
+    ...announcement,
+    targetEmployeeIds: [...announcement.targetEmployeeIds],
+    targetRayons: [...announcement.targetRayons],
+    recipients: announcement.recipients.map((recipient) => ({ ...recipient })),
+    selfReceipt: announcement.selfReceipt ? { ...announcement.selfReceipt } : announcement.selfReceipt ?? null,
+  }));
 }
 
 function replaceInfoCategoriesSnapshot(categories: InfoCategory[]) {
@@ -81,12 +118,12 @@ function replaceInfoAnnouncementsSnapshot(announcements: InfoAnnouncement[]) {
 }
 
 export function loadInfoCategories(): InfoCategory[] {
-  if (!canUseStorage()) return infoCategories;
+  if (!canUseStorage()) return cloneCategories(infoCategories);
   purgeLegacyCacheKeys([INFO_CATEGORIES_STORAGE_KEY]);
   try {
     return cloneCategories(infoCategoriesSnapshot);
   } catch {
-    return infoCategories;
+    return cloneCategories(infoCategories);
   }
 }
 
@@ -96,12 +133,12 @@ export function saveInfoCategories(categories: InfoCategory[]) {
 }
 
 export function loadInfoAnnouncements(): InfoAnnouncement[] {
-  if (!canUseStorage()) return infoAnnouncements;
+  if (!canUseStorage()) return cloneAnnouncements(infoAnnouncements);
   purgeLegacyCacheKeys([INFO_ANNOUNCEMENTS_STORAGE_KEY]);
   try {
     return cloneAnnouncements(infoAnnouncementsSnapshot);
   } catch {
-    return infoAnnouncements;
+    return cloneAnnouncements(infoAnnouncements);
   }
 }
 
@@ -118,8 +155,15 @@ function toPriority(value: unknown): InfoAnnouncementPriority {
   const normalized = String(value ?? "").toLowerCase();
   if (normalized === "urgent") return "urgent";
   if (normalized === "important") return "important";
-  if (normalized === "info") return "normal";
+  if (normalized === "info" || normalized === "normal") return "normal";
   return "normal";
+}
+
+function toTargeting(value: unknown): InfoAnnouncementTargeting {
+  const normalized = String(value ?? "").toLowerCase();
+  if (normalized === "employees") return "employees";
+  if (normalized === "rayons") return "rayons";
+  return "all";
 }
 
 function categoryExists(id: string, categories: InfoCategory[]) {
@@ -133,12 +177,25 @@ function todayIsoDate() {
 function normalizeActionError(error: unknown) {
   const rawMessage = String(
     (error as { message?: string; error_description?: string })?.message ??
-    (error as { error_description?: string })?.error_description ??
-    error ??
-    "",
+      (error as { error_description?: string })?.error_description ??
+      error ??
+      "",
   );
   const message = rawMessage.toLowerCase();
 
+  if (
+    message.includes("could not find the 'publie_a_partir_de' column") ||
+    message.includes("could not find the 'expire_le' column") ||
+    message.includes("could not find the 'ciblage' column") ||
+    message.includes("could not find the 'target_employee_ids' column") ||
+    message.includes("could not find the 'target_rayons' column") ||
+    message.includes("could not find the 'confirmation_requise' column") ||
+    message.includes("relation \"annonce_recipients\" does not exist") ||
+    message.includes("relation 'annonce_recipients' does not exist") ||
+    message.includes("annonce_recipients")
+  ) {
+    return new Error("Le module d'annonces ciblées nécessite le patch SQL Infos (colonnes annonces + table annonce_recipients).");
+  }
   if (
     message.includes("row-level security") ||
     message.includes("permission denied") ||
@@ -199,17 +256,63 @@ function mapDocumentRowToItem(row: DbRow): InfoItem {
   };
 }
 
-function mapAnnouncementRowToItem(row: DbRow): InfoAnnouncement {
-  const rawDate = String(row.date ?? row.created_at ?? "");
-  const displayDate = /^\d{4}-\d{2}-\d{2}$/.test(rawDate)
-    ? new Date(`${rawDate}T00:00:00`).toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" })
-    : rawDate;
+function normalizeStringArray(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((entry) => String(entry ?? "").trim())
+    .filter(Boolean);
+}
+
+function formatAnnouncementDate(value: string) {
+  if (!value) return "";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return value;
+  return parsed.toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+}
+
+function mapRecipientRows(
+  recipients: AnnouncementRecipientRow[],
+  employeeNames: Map<string, string>,
+): InfoAnnouncementRecipient[] {
+  return recipients
+    .map((recipient) => ({
+      id: String(recipient.id ?? `${recipient.annonce_id}-${recipient.employee_id}`),
+      employeeId: String(recipient.employee_id ?? ""),
+      employeeName: employeeNames.get(String(recipient.employee_id ?? "")) ?? "Collaborateur",
+      seenAt: recipient.seen_at ? String(recipient.seen_at) : null,
+      confirmedAt: recipient.confirmed_at ? String(recipient.confirmed_at) : null,
+    }))
+    .sort((left, right) => left.employeeName.localeCompare(right.employeeName, "fr"));
+}
+
+function mapAnnouncementRowToItem(
+  row: DbRow,
+  recipients: InfoAnnouncementRecipient[] = [],
+  selfReceipt: { seenAt: string | null; confirmedAt: string | null } | null = null,
+): InfoAnnouncement {
+  const publishAt = row.publie_a_partir_de == null ? null : String(row.publie_a_partir_de);
+  const createdAt = String(row.created_at ?? row.date_publication ?? new Date().toISOString());
+  const displayDate = formatAnnouncementDate(publishAt ?? createdAt);
+
   return {
     id: String(row.id ?? ""),
     date: displayDate,
+    createdAt,
     title: String(row.title ?? row.titre ?? "Annonce"),
     content: String(row.content ?? row.contenu ?? row.message ?? ""),
     priority: toPriority(row.priority ?? row.niveau),
+    publishAt,
+    expiresAt: row.expire_le == null ? null : String(row.expire_le),
+    targeting: toTargeting(row.ciblage),
+    targetEmployeeIds: normalizeStringArray(row.target_employee_ids),
+    targetRayons: normalizeStringArray(row.target_rayons).map((rayon) => rayon.toUpperCase()),
+    confirmationRequired: row.confirmation_requise == null ? false : Boolean(row.confirmation_requise),
+    recipients,
+    selfReceipt,
   };
 }
 
@@ -222,6 +325,140 @@ function toDbAnnouncementLevel(priority: InfoAnnouncementPriority) {
 function toDbDocumentType(file?: File) {
   if (file && file.type.toLowerCase().includes("pdf")) return "pdf";
   return "doc";
+}
+
+function getAnnouncementNowIso() {
+  return new Date().toISOString();
+}
+
+export function isInfoAnnouncementActiveNow(announcement: InfoAnnouncement, nowIso = getAnnouncementNowIso()) {
+  if (!announcement.publishAt && !announcement.expiresAt) return true;
+  const now = new Date(nowIso).getTime();
+  const startsAt = announcement.publishAt ? new Date(announcement.publishAt).getTime() : null;
+  const endsAt = announcement.expiresAt ? new Date(announcement.expiresAt).getTime() : null;
+  if (startsAt != null && now < startsAt) return false;
+  if (endsAt != null && now > endsAt) return false;
+  return true;
+}
+
+async function fetchAnnouncementAudienceEmployees() {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("employees")
+    .select("id,name,actif,tg_rayons")
+    .eq("actif", true)
+    .order("name");
+  if (error) throw error;
+  return ((data ?? []) as AnnouncementAudienceEmployeeRow[]).map((employee) => ({
+    id: String(employee.id ?? ""),
+    name: String(employee.name ?? "").trim().toUpperCase(),
+    tgRayons: normalizeStringArray(employee.tg_rayons).map((rayon) => rayon.toUpperCase()),
+  }));
+}
+
+export async function getInfoAnnouncementAudience(): Promise<InfoAnnouncementAudience> {
+  try {
+    const employees = await fetchAnnouncementAudienceEmployees();
+    const rayonSet = new Set(
+      tgRayons
+        .filter((row) => row.active)
+        .map((row) => row.rayon.trim().toUpperCase()),
+    );
+    employees.forEach((employee) => {
+      employee.tgRayons.forEach((rayon) => rayonSet.add(rayon));
+    });
+    return {
+      employees,
+      rayons: Array.from(rayonSet).sort((left, right) => left.localeCompare(right, "fr")),
+    };
+  } catch (error) {
+    throw normalizeActionError(error);
+  }
+}
+
+async function buildAnnouncementRecipients(
+  targeting: InfoAnnouncementTargeting,
+  targetEmployeeIds: string[],
+  targetRayons: string[],
+) {
+  const audience = await getInfoAnnouncementAudience();
+  if (targeting === "employees") {
+    return audience.employees.filter((employee) => targetEmployeeIds.includes(employee.id));
+  }
+  if (targeting === "rayons") {
+    const targetRayonSet = new Set(targetRayons.map((rayon) => rayon.toUpperCase()));
+    return audience.employees.filter((employee) =>
+      employee.tgRayons.some((rayon) => targetRayonSet.has(rayon)),
+    );
+  }
+  return audience.employees;
+}
+
+async function fetchDocumentsCategoriesFromSupabase() {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("documents")
+    .select("*")
+    .limit(5000);
+  if (error) throw error;
+
+  const nextCategories: InfoCategory[] = infoCategories.map((category) => ({ ...category, items: [] }));
+  ((data ?? []) as DbRow[]).forEach((row) => {
+    const categoryId =
+      INFO_CATEGORY_FROM_DB[String(row.category_id ?? row.category ?? row.categorie ?? "proc").toLowerCase()] ?? "proc";
+    if (!categoryExists(categoryId, nextCategories)) return;
+    const item = mapDocumentRowToItem(row);
+    const category = nextCategories.find((entry) => entry.id === categoryId);
+    if (category) category.items.push(item);
+  });
+  return nextCategories;
+}
+
+async function fetchManagerAnnouncementsFromSupabase() {
+  const supabase = createClient();
+  const { data: announcementRows, error: announcementError } = await supabase
+    .from("annonces")
+    .select("*")
+    .order("created_at", { ascending: false })
+    .limit(5000);
+  if (announcementError) throw announcementError;
+
+  let recipientRows: AnnouncementRecipientRow[] = [];
+  try {
+    const { data, error } = await supabase
+      .from("annonce_recipients")
+      .select("id,annonce_id,employee_id,seen_at,confirmed_at")
+      .limit(20000);
+    if (error) throw error;
+    recipientRows = (data ?? []) as AnnouncementRecipientRow[];
+  } catch {
+    recipientRows = [];
+  }
+
+  const employees = await fetchAnnouncementAudienceEmployees().catch(() => []);
+  const employeeNames = new Map(employees.map((employee) => [employee.id, employee.name]));
+  const recipientsByAnnouncement = new Map<string, AnnouncementRecipientRow[]>();
+  recipientRows.forEach((row) => {
+    const key = String(row.annonce_id ?? "");
+    if (!recipientsByAnnouncement.has(key)) recipientsByAnnouncement.set(key, []);
+    recipientsByAnnouncement.get(key)?.push(row);
+  });
+
+  return ((announcementRows ?? []) as DbRow[]).map((row) => {
+    const announcementId = String(row.id ?? "");
+    const recipients = mapRecipientRows(recipientsByAnnouncement.get(announcementId) ?? [], employeeNames);
+    return mapAnnouncementRowToItem(row, recipients, null);
+  });
+}
+
+async function refreshManagerSnapshots() {
+  const [categories, announcements] = await Promise.all([
+    fetchDocumentsCategoriesFromSupabase(),
+    fetchManagerAnnouncementsFromSupabase(),
+  ]);
+  const categoriesChanged = replaceInfoCategoriesSnapshot(categories);
+  const announcementsChanged = replaceInfoAnnouncementsSnapshot(announcements);
+  if (categoriesChanged || announcementsChanged) emitUpdated();
 }
 
 export async function addDocumentToSupabase(
@@ -312,28 +549,52 @@ export async function removeDocumentFromSupabase(itemId: string): Promise<void> 
   }
 }
 
-export async function addAnnouncementToSupabase(
-  title: string,
-  content: string,
-  priority: InfoAnnouncementPriority,
-): Promise<InfoAnnouncement> {
+export async function addAnnouncementToSupabase(input: CreateInfoAnnouncementInput): Promise<InfoAnnouncement> {
   try {
     const supabase = createClient();
+    const targetEmployeeIds = Array.from(new Set(input.targetEmployeeIds.filter(Boolean)));
+    const targetRayons = Array.from(
+      new Set(input.targetRayons.map((rayon) => rayon.trim().toUpperCase()).filter(Boolean)),
+    );
+    const recipients = await buildAnnouncementRecipients(input.targeting, targetEmployeeIds, targetRayons);
+
+    if (input.targeting !== "all" && recipients.length === 0) {
+      throw new Error("Sélectionnez au moins un destinataire pour cette annonce.");
+    }
+
     const { data, error } = await supabase
       .from("annonces")
       .insert({
         date: todayIsoDate(),
-        titre: title,
-        contenu: content,
-        niveau: toDbAnnouncementLevel(priority),
+        titre: input.title.trim(),
+        contenu: input.content.trim(),
+        niveau: toDbAnnouncementLevel(input.priority),
+        publie_a_partir_de: input.publishAt,
+        expire_le: input.expiresAt,
+        ciblage: input.targeting,
+        target_employee_ids: input.targeting === "employees" ? targetEmployeeIds : [],
+        target_rayons: input.targeting === "rayons" ? targetRayons : [],
+        confirmation_requise: input.confirmationRequired,
       })
       .select("*")
       .single();
     if (error) throw error;
 
-    replaceInfoAnnouncementsSnapshot([mapAnnouncementRowToItem(data as DbRow), ...loadInfoAnnouncements()]);
-    emitUpdated();
-    return mapAnnouncementRowToItem(data as DbRow);
+    if (recipients.length) {
+      const { error: recipientError } = await supabase
+        .from("annonce_recipients")
+        .insert(
+          recipients.map((recipient) => ({
+            annonce_id: String((data as DbRow).id ?? ""),
+            employee_id: recipient.id,
+          })),
+        );
+      if (recipientError) throw recipientError;
+    }
+
+    await refreshManagerSnapshots();
+    const created = loadInfoAnnouncements().find((announcement) => announcement.id === String((data as DbRow).id ?? ""));
+    return created ?? mapAnnouncementRowToItem(data as DbRow);
   } catch (error) {
     throw normalizeActionError(error);
   }
@@ -359,46 +620,110 @@ export async function syncInfosFromSupabase() {
   if (!canUseStorage()) return false;
 
   try {
-    const supabase = createClient();
-    const { data: documentsRows, error: documentsError } = await supabase
-      .from("documents")
-      .select("*")
-      .limit(5000);
-    if (documentsError) throw documentsError;
-
-    const { data: annoncesRows, error: annoncesError } = await supabase
-      .from("annonces")
-      .select("*")
-      .limit(5000);
-    if (annoncesError) throw annoncesError;
-
-    let hasData = false;
-
-    if (Array.isArray(documentsRows)) {
-      const nextCategories: InfoCategory[] = infoCategories.map((category) => ({ ...category, items: [] }));
-
-      documentsRows.forEach((row: Record<string, unknown>) => {
-        const categoryId = INFO_CATEGORY_FROM_DB[String(row.category_id ?? row.category ?? row.categorie ?? "proc").toLowerCase()] ?? "proc";
-        if (!categoryExists(categoryId, nextCategories)) return;
-
-        const item = mapDocumentRowToItem(row);
-        const category = nextCategories.find((entry) => entry.id === categoryId);
-        if (category) category.items.push(item);
-      });
-
-      hasData = replaceInfoCategoriesSnapshot(nextCategories) || hasData;
-    }
-
-    if (Array.isArray(annoncesRows)) {
-      const nextAnnouncements: InfoAnnouncement[] = annoncesRows.map((row: Record<string, unknown>) => (
-        mapAnnouncementRowToItem(row)
-      ));
-      hasData = replaceInfoAnnouncementsSnapshot(nextAnnouncements) || hasData;
-    }
-
-    if (hasData) emitUpdated();
-    return hasData;
+    await refreshManagerSnapshots();
+    return true;
   } catch {
     return false;
+  }
+}
+
+function mergeCollabAnnouncementRows(
+  announcementRows: DbRow[],
+  recipientRows: AnnouncementRecipientRow[],
+  employeeId: string,
+) {
+  const recipientsByAnnouncement = new Map<string, AnnouncementRecipientRow[]>();
+  recipientRows.forEach((row) => {
+    const key = String(row.annonce_id ?? "");
+    if (!recipientsByAnnouncement.has(key)) recipientsByAnnouncement.set(key, []);
+    recipientsByAnnouncement.get(key)?.push(row);
+  });
+
+  return announcementRows
+    .map((row) => {
+      const announcementId = String(row.id ?? "");
+      const ownRecipient = (recipientsByAnnouncement.get(announcementId) ?? []).find(
+        (recipient) => String(recipient.employee_id ?? "") === employeeId,
+      );
+      const announcement = mapAnnouncementRowToItem(row, [], ownRecipient
+        ? { seenAt: ownRecipient.seen_at ? String(ownRecipient.seen_at) : null, confirmedAt: ownRecipient.confirmed_at ? String(ownRecipient.confirmed_at) : null }
+        : null);
+      return announcement;
+    })
+    .filter((announcement) => {
+      if (!isInfoAnnouncementActiveNow(announcement)) return false;
+      if (announcement.targeting === "all") {
+        return true;
+      }
+      return Boolean(announcement.selfReceipt);
+    });
+}
+
+export async function getCollabInfosFromSupabase(employeeId: string) {
+  try {
+    const supabase = createClient();
+    const [categories, announcementResult, recipientResult] = await Promise.all([
+      fetchDocumentsCategoriesFromSupabase(),
+      supabase.from("annonces").select("*").order("created_at", { ascending: false }).limit(5000),
+      supabase
+        .from("annonce_recipients")
+        .select("id,annonce_id,employee_id,seen_at,confirmed_at")
+        .eq("employee_id", employeeId)
+        .limit(5000),
+    ]);
+
+    const announcementRows = announcementResult.error ? [] : ((announcementResult.data ?? []) as DbRow[]);
+    const recipientRows = recipientResult.error ? [] : ((recipientResult.data ?? []) as AnnouncementRecipientRow[]);
+
+    return {
+      categories,
+      announcements: mergeCollabAnnouncementRows(announcementRows, recipientRows, employeeId),
+    };
+  } catch (error) {
+    throw normalizeActionError(error);
+  }
+}
+
+export async function markAnnouncementsSeenInSupabase(employeeId: string, announcementIds: string[]) {
+  const dedupedIds = Array.from(new Set(announcementIds.filter(Boolean)));
+  if (!dedupedIds.length) return;
+
+  try {
+    const nowIso = new Date().toISOString();
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("annonce_recipients")
+      .upsert(
+        dedupedIds.map((announcementId) => ({
+          annonce_id: announcementId,
+          employee_id: employeeId,
+          seen_at: nowIso,
+        })),
+        { onConflict: "annonce_id,employee_id" },
+      );
+    if (error) throw error;
+  } catch (error) {
+    throw normalizeActionError(error);
+  }
+}
+
+export async function confirmAnnouncementReadingInSupabase(employeeId: string, announcementId: string) {
+  try {
+    const nowIso = new Date().toISOString();
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("annonce_recipients")
+      .upsert(
+        {
+          annonce_id: announcementId,
+          employee_id: employeeId,
+          seen_at: nowIso,
+          confirmed_at: nowIso,
+        },
+        { onConflict: "annonce_id,employee_id" },
+      );
+    if (error) throw error;
+  } catch (error) {
+    throw normalizeActionError(error);
   }
 }

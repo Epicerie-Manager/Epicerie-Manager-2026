@@ -51,35 +51,16 @@ export default function CollabInfosPage() {
   const [announcements, setAnnouncements] = useState<InfoAnnouncement[]>([]);
   const [activeCategoryId, setActiveCategoryId] = useState<string>("proc");
   const [search, setSearch] = useState("");
-  const [confirmingAnnouncementId, setConfirmingAnnouncementId] = useState<string | null>(null);
+  const [openingAnnouncementId, setOpeningAnnouncementId] = useState<string | null>(null);
+  const [expandedAnnouncementIds, setExpandedAnnouncementIds] = useState<string[]>([]);
 
   useEffect(() => {
     let cancelled = false;
 
-    const load = async (currentProfile: CollabProfile, markSeen: boolean) => {
+    const load = async (currentProfile: CollabProfile) => {
       if (!currentProfile.employee_id) return;
       const payload = await getCollabInfosFromSupabase(currentProfile.employee_id);
       if (cancelled) return;
-
-      const unseenIds = payload.announcements
-        .filter((announcement) => !announcement.selfReceipt?.seenAt)
-        .map((announcement) => announcement.id);
-
-      if (markSeen && unseenIds.length) {
-        const seenAt = new Date().toISOString();
-        await markAnnouncementsSeenInSupabase(currentProfile.employee_id, unseenIds);
-        payload.announcements = payload.announcements.map((announcement) =>
-          unseenIds.includes(announcement.id)
-            ? {
-                ...announcement,
-                selfReceipt: {
-                  seenAt,
-                  confirmedAt: announcement.selfReceipt?.confirmedAt ?? null,
-                },
-              }
-            : announcement,
-        );
-      }
 
       if (cancelled) return;
       setCategories(payload.categories);
@@ -101,7 +82,7 @@ export default function CollabInfosPage() {
       setReady(true);
       setRefreshing(true);
       try {
-        await load(currentProfile, true);
+        await load(currentProfile);
       } catch {
         if (!cancelled) {
           setCategories([]);
@@ -119,7 +100,7 @@ export default function CollabInfosPage() {
       void getCollabProfile().then((currentProfile) => {
         if (!currentProfile?.employee_id || cancelled) return;
         setRefreshing(true);
-        void load(currentProfile, false)
+        void load(currentProfile)
           .catch(() => undefined)
           .finally(() => {
             if (!cancelled) setRefreshing(false);
@@ -138,24 +119,6 @@ export default function CollabInfosPage() {
     setRefreshing(true);
     try {
       const payload = await getCollabInfosFromSupabase(profile.employee_id);
-      const unseenIds = payload.announcements
-        .filter((announcement) => !announcement.selfReceipt?.seenAt)
-        .map((announcement) => announcement.id);
-      if (unseenIds.length) {
-        const seenAt = new Date().toISOString();
-        await markAnnouncementsSeenInSupabase(profile.employee_id, unseenIds);
-        payload.announcements = payload.announcements.map((announcement) =>
-          unseenIds.includes(announcement.id)
-            ? {
-                ...announcement,
-                selfReceipt: {
-                  seenAt,
-                  confirmedAt: announcement.selfReceipt?.confirmedAt ?? null,
-                },
-              }
-            : announcement,
-        );
-      }
       setCategories(payload.categories);
       setAnnouncements(payload.announcements);
       setActiveCategoryId((current) => {
@@ -170,29 +133,38 @@ export default function CollabInfosPage() {
     }
   };
 
-  const handleConfirmAnnouncement = async (announcementId: string) => {
-    if (!profile?.employee_id || confirmingAnnouncementId) return;
-    setConfirmingAnnouncementId(announcementId);
+  const handleOpenAnnouncement = async (targetAnnouncement: InfoAnnouncement) => {
+    if (!profile?.employee_id || openingAnnouncementId) return;
+    setOpeningAnnouncementId(targetAnnouncement.id);
     try {
-      const confirmedAt = new Date().toISOString();
-      await confirmAnnouncementReadingInSupabase(profile.employee_id, announcementId);
+      const readAt = new Date().toISOString();
+      if (targetAnnouncement.confirmationRequired) {
+        await confirmAnnouncementReadingInSupabase(profile.employee_id, targetAnnouncement.id);
+      } else {
+        await markAnnouncementsSeenInSupabase(profile.employee_id, [targetAnnouncement.id]);
+      }
       setAnnouncements((current) =>
         current.map((announcement) =>
-          announcement.id === announcementId
+          announcement.id === targetAnnouncement.id
             ? {
                 ...announcement,
                 selfReceipt: {
-                  seenAt: announcement.selfReceipt?.seenAt ?? confirmedAt,
-                  confirmedAt,
+                  seenAt: announcement.selfReceipt?.seenAt ?? readAt,
+                  confirmedAt: targetAnnouncement.confirmationRequired
+                    ? announcement.selfReceipt?.confirmedAt ?? readAt
+                    : announcement.selfReceipt?.confirmedAt ?? null,
                 },
               }
             : announcement,
         ),
       );
+      setExpandedAnnouncementIds((current) =>
+        current.includes(targetAnnouncement.id) ? current : [...current, targetAnnouncement.id],
+      );
     } catch {
-      // Keep current state if confirmation fails.
+      // Keep current state if opening/confirmation fails.
     } finally {
-      setConfirmingAnnouncementId(null);
+      setOpeningAnnouncementId(null);
     }
   };
 
@@ -228,12 +200,12 @@ export default function CollabInfosPage() {
         title="Infos & annonces"
         subtitle="Documents utiles et communications manager."
         right={
-          <StatusPill
-            label={
-              pendingConfirmations
-                ? `${pendingConfirmations} confirmation${pendingConfirmations > 1 ? "s" : ""}`
-                : `${announcements.length} annonce${announcements.length > 1 ? "s" : ""}`
-            }
+            <StatusPill
+              label={
+                pendingConfirmations
+                  ? `${pendingConfirmations} annonce${pendingConfirmations > 1 ? "s" : ""} à ouvrir`
+                  : `${announcements.length} annonce${announcements.length > 1 ? "s" : ""}`
+              }
             color={pendingConfirmations ? "#9a3412" : collabTheme.gold}
             background={pendingConfirmations ? "#fff7ed" : "#fff7e8"}
           />
@@ -251,6 +223,8 @@ export default function CollabInfosPage() {
               announcements.map((announcement) => {
                 const meta = priorityMeta(announcement.priority);
                 const isConfirmed = Boolean(announcement.selfReceipt?.confirmedAt);
+                const isExpanded = expandedAnnouncementIds.includes(announcement.id);
+                const isSeen = Boolean(announcement.selfReceipt?.seenAt);
                 return (
                   <div
                     key={announcement.id}
@@ -284,31 +258,64 @@ export default function CollabInfosPage() {
                         {meta.label}
                       </span>
                     </div>
-                    <div
-                      style={{
-                        marginTop: 8,
-                        fontSize: 14,
-                        lineHeight: 1.6,
-                        color: collabTheme.text,
-                        overflowWrap: "anywhere",
-                      }}
-                    >
-                      {announcement.content}
-                    </div>
+                    {isExpanded ? (
+                      <div
+                        style={{
+                          marginTop: 8,
+                          fontSize: 14,
+                          lineHeight: 1.6,
+                          color: collabTheme.text,
+                          overflowWrap: "anywhere",
+                        }}
+                      >
+                        {announcement.content}
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          marginTop: 8,
+                          fontSize: 13,
+                          lineHeight: 1.5,
+                          color: collabTheme.muted,
+                        }}
+                      >
+                        Cliquez sur Lire pour afficher le contenu de cette annonce.
+                      </div>
+                    )}
                     <div style={{ display: "flex", flexWrap: "wrap", gap: 8, marginTop: 10, alignItems: "center" }}>
                       <span
                         style={{
                           borderRadius: 999,
                           padding: "5px 9px",
-                          background: announcement.selfReceipt?.seenAt ? "#ecfdf5" : "#fff7ed",
-                          color: announcement.selfReceipt?.seenAt ? "#166534" : "#b45309",
+                          background: isSeen ? "#ecfdf5" : "#fff7ed",
+                          color: isSeen ? "#166534" : "#b45309",
                           fontSize: 11,
                           fontWeight: 700,
                         }}
                       >
-                        {announcement.selfReceipt?.seenAt ? "Lu" : "Nouveau"}
+                        {isSeen ? "Lu" : "Nouveau"}
                       </span>
-                      {announcement.confirmationRequired ? (
+                      {!isExpanded ? (
+                        <button
+                          type="button"
+                          onClick={() => void handleOpenAnnouncement(announcement)}
+                          disabled={openingAnnouncementId === announcement.id}
+                          style={{
+                            minHeight: 32,
+                            borderRadius: 999,
+                            border: "1px solid #1d4ed8",
+                            background: "#eff6ff",
+                            color: "#1d4ed8",
+                            padding: "0 12px",
+                            fontSize: 11,
+                            fontWeight: 800,
+                            cursor: openingAnnouncementId === announcement.id ? "not-allowed" : "pointer",
+                            opacity: openingAnnouncementId === announcement.id ? 0.7 : 1,
+                          }}
+                        >
+                          {openingAnnouncementId === announcement.id ? "Ouverture..." : "Lire"}
+                        </button>
+                      ) : announcement.confirmationRequired ? (
                         isConfirmed ? (
                           <span
                             style={{
@@ -323,29 +330,13 @@ export default function CollabInfosPage() {
                             Lecture confirmée
                           </span>
                         ) : (
-                          <button
-                            type="button"
-                            onClick={() => void handleConfirmAnnouncement(announcement.id)}
-                            disabled={confirmingAnnouncementId === announcement.id}
-                            style={{
-                              minHeight: 32,
-                              borderRadius: 999,
-                              border: "1px solid #1d4ed8",
-                              background: "#eff6ff",
-                              color: "#1d4ed8",
-                              padding: "0 12px",
-                              fontSize: 11,
-                              fontWeight: 800,
-                              cursor: confirmingAnnouncementId === announcement.id ? "not-allowed" : "pointer",
-                              opacity: confirmingAnnouncementId === announcement.id ? 0.7 : 1,
-                            }}
-                          >
-                            {confirmingAnnouncementId === announcement.id ? "Confirmation..." : "Confirmer la lecture"}
-                          </button>
+                          <span style={{ fontSize: 11, color: collabTheme.muted }}>
+                            Confirmation en attente
+                          </span>
                         )
                       ) : (
                         <span style={{ fontSize: 11, color: collabTheme.muted }}>
-                          Confirmation non requise
+                          Lecture enregistrée automatiquement
                         </span>
                       )}
                     </div>

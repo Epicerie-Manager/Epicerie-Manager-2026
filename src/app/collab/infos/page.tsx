@@ -314,13 +314,7 @@ export default function CollabInfosPage() {
                         >
                           {openingAnnouncementId === announcement.id ? "Ouverture..." : "Lire"}
                         </button>
-                      ) : (
-                        <span style={{ fontSize: 11, color: collabTheme.muted }}>
-                          {announcement.confirmationRequired
-                            ? "Ouverture enregistrée automatiquement"
-                            : "Lecture enregistrée automatiquement"}
-                        </span>
-                      )}
+                      ) : null}
                     </div>
                   </div>
                 );

@@ -21,6 +21,10 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.73 - 2026-04-03
+
+- Exports / Contrôle balisage : suppression de la tuile `Repère du mois` dans l'impression, afin d'alléger la page et de recentrer la feuille sur les KPI d'équipe et le tableau principal.
+
 ## v0.6.72 - 2026-04-03
 
 - Exports / Planning : suppression du badge `Repere` affiche a cote de `CECILE` dans les impressions planning, pour garder une feuille plus sobre et plus lisible.

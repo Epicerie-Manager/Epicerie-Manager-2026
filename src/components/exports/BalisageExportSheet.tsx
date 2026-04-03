@@ -109,15 +109,6 @@ export default function BalisageExportSheet({
   );
   const employeesOk = activeStats.filter((item) => getDynamicStatus(item.total, monthId) === "OK").length;
   const employeesAlert = activeStats.filter((item) => getDynamicStatus(item.total, monthId) === "Alerte").length;
-  const leaderboard = [...activeStats]
-    .sort((a, b) => b.total - a.total || a.name.localeCompare(b.name, "fr"))
-    .slice(0, 3);
-  const medals = [
-    { icon: "🥇", label: "Or", bg: "#fef3c7", border: "#fcd34d", color: "#92400e" },
-    { icon: "🥈", label: "Argent", bg: "#f1f5f9", border: "#cbd5e1", color: "#475569" },
-    { icon: "🥉", label: "Bronze", bg: "#ffedd5", border: "#fdba74", color: "#9a3412" },
-  ] as const;
-
   return (
     <div
       className="print-sheet"
@@ -149,7 +140,7 @@ export default function BalisageExportSheet({
       <div
         style={{
           display: "grid",
-          gridTemplateColumns: "1.3fr 1fr",
+          gridTemplateColumns: "1fr",
           gap: 8,
           marginBottom: 10,
         }}
@@ -181,80 +172,6 @@ export default function BalisageExportSheet({
             noShimmer
             style={{ marginTop: 8 }}
           />
-        </div>
-
-        <div
-          style={{
-            border: `1px solid ${theme.medium}`,
-            borderRadius: 18,
-            background: "#ffffff",
-            padding: 10,
-            display: "grid",
-            gap: 6,
-          }}
-        >
-          <div style={{ fontSize: 9, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: theme.color }}>
-            Repère du mois
-          </div>
-          <div style={{ fontSize: 11, color: "#64748b" }}>Classement du mois</div>
-          <div style={{ display: "grid", gap: 6 }}>
-            {leaderboard.map((employee, index) => {
-              const medal = medals[index];
-              return (
-                <div
-                  key={`leader-${employee.name}`}
-                  style={{
-                    display: "grid",
-                      gridTemplateColumns: "56px 1fr auto",
-                      gap: 7,
-                      alignItems: "center",
-                      padding: "5px 7px",
-                      borderRadius: 12,
-                      border: `1px solid ${medal.border}`,
-                      background: medal.bg,
-                  }}
-                >
-                  <div
-                    style={{
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 4,
-                      minWidth: 42,
-                      padding: "2px 5px",
-                      borderRadius: 999,
-                      background: "#ffffff",
-                      color: medal.color,
-                      fontSize: 10,
-                      fontWeight: 800,
-                    }}
-                  >
-                    <span>{medal.icon}</span>
-                  </div>
-                  <div style={{ minWidth: 0 }}>
-                    <div
-                      style={{
-                        fontSize: 10.5,
-                        fontWeight: 800,
-                        color: "#0f172a",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
-                      }}
-                    >
-                      {employee.name}
-                    </div>
-                    <div style={{ fontSize: 8.5, color: "#64748b", marginTop: 1 }}>
-                      {employee.errorRate === null || employee.errorRate === undefined ? "Taux d’erreur —" : `Taux d’erreur ${employee.errorRate}%`}
-                    </div>
-                  </div>
-                  <div style={{ fontSize: 15, fontWeight: 900, color: medal.color, letterSpacing: "-0.04em" }}>
-                    {employee.total}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
         </div>
       </div>
 

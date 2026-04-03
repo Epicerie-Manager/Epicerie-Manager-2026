@@ -24,7 +24,7 @@ type AppShellProps = {
 };
 
 type ModuleNavItem = {
-  id: "dashboard" | "planning" | "exports" | "plantg" | "plateau" | "balisage" | "absences" | "infos" | "rh";
+  id: "dashboard" | "planning" | "exports" | "plantg" | "plateau" | "balisage" | "absences" | "infos" | "rh" | "suivi";
   label: string;
   desc: string;
   href: string;
@@ -39,6 +39,7 @@ const moduleItems: ModuleNavItem[] = [
   { id: "balisage",  label: "Balisage",   desc: "Contrôle étiquetage",   href: "/stats" },
   { id: "absences",  label: "Absences",   desc: "Demandes et validation",href: "/absences" },
   { id: "rh",        label: "RH",         desc: "Fiches employés",        href: "/rh" },
+  { id: "suivi",     label: "Suivi",      desc: "Suivi collaborateur",    href: "/suivi" },
   { id: "infos",     label: "Infos",      desc: "Base documentaire",     href: "/infos" },
 ];
 
@@ -119,6 +120,12 @@ const ICONS: Record<string, React.ReactNode> = {
       <path d="M16 3.13a4 4 0 010 7.75" />
     </svg>
   ),
+  suivi: (
+    <svg viewBox="0 0 24 24" style={iconStyle}>
+      <path d="M9 11l3 3L22 4" />
+      <path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11" />
+    </svg>
+  ),
 };
 
 function getTodayLabel() {
@@ -141,6 +148,7 @@ export function AppShell({ version, children }: AppShellProps) {
   const pathname  = usePathname();
   const router = useRouter();
   const isCollabRoute = pathname.startsWith("/collab");
+  const isManagerRoute = pathname.startsWith("/manager");
   const isPrintRoute = pathname.startsWith("/exports/") && pathname.endsWith("/print");
   const activeId  = getThemeByPathname(pathname) as ModuleNavItem["id"];
   const activeModule = moduleItems.find((m) => m.id === activeId) ?? moduleItems[0];
@@ -151,7 +159,7 @@ export function AppShell({ version, children }: AppShellProps) {
   const signingOutRef = useRef(false);
 
   useEffect(() => {
-    if (isCollabRoute || isPrintRoute) return;
+    if (isCollabRoute || isPrintRoute || isManagerRoute) return;
     const refreshClock = () => {
       setTodayLabel(getTodayLabel());
       setTimeLabel(getTimeLabel());
@@ -160,7 +168,7 @@ export function AppShell({ version, children }: AppShellProps) {
     refreshClock();
     const timer = window.setInterval(refreshClock, 1000);
     return () => window.clearInterval(timer);
-  }, [isCollabRoute, isPrintRoute]);
+  }, [isCollabRoute, isManagerRoute, isPrintRoute]);
 
   useEffect(() => {
     if (pathname === "/login" || isCollabRoute || isPrintRoute) return;
@@ -287,7 +295,7 @@ export function AppShell({ version, children }: AppShellProps) {
     }
   };
 
-  if (pathname === "/login" || pathname === "/change-password" || isCollabRoute || isPrintRoute) {
+  if (pathname === "/login" || pathname === "/change-password" || isCollabRoute || isPrintRoute || isManagerRoute) {
     return <>{children}</>;
   }
 

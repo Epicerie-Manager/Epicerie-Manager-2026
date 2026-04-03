@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase";
+import { countCalendarDaysInclusive, countDaysExcludingSundays } from "@/lib/absence-days";
 import { getCollabProfile, type CollabProfile } from "@/lib/collab-auth";
 
 export type CollabPlanningEntry = Record<string, unknown>;
@@ -355,23 +356,11 @@ export async function getDocuments(categorie?: string) {
 }
 
 export function calcJoursOuvres(dateDebut: string, dateFin: string) {
-  const start = new Date(dateDebut);
-  const end = new Date(dateFin);
-  let count = 0;
-  const current = new Date(start);
-  while (current <= end) {
-    const day = current.getDay();
-    if (day !== 0 && day !== 6) count += 1;
-    current.setDate(current.getDate() + 1);
-  }
-  return count;
+  return countDaysExcludingSundays(dateDebut, dateFin);
 }
 
 export function calcJoursTotal(dateDebut: string, dateFin: string) {
-  const start = new Date(dateDebut);
-  const end = new Date(dateFin);
-  const diff = end.getTime() - start.getTime();
-  return Math.round(diff / (1000 * 60 * 60 * 24)) + 1;
+  return countCalendarDaysInclusive(dateDebut, dateFin);
 }
 
 export function startOfWeek(input = new Date()) {

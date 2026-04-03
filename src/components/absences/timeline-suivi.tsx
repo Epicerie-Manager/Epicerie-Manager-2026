@@ -1510,7 +1510,10 @@ function VueResume({
       const start = Math.max(toDate(absence.startDate).getTime(), new Date(year, 0, 1).getTime());
       const end = Math.min(toDate(absence.endDate).getTime(), new Date(year, 11, 31).getTime());
       if (end >= start) {
-        const days = Math.round((end - start) / 86400000) + 1;
+        const days = countDaysExcludingSundays(
+          new Date(start).toISOString().slice(0, 10),
+          new Date(end).toISOString().slice(0, 10),
+        );
         totalDays += days;
         byType[absence.type] += days;
       }
@@ -1567,3 +1570,4 @@ function VueResume({
     </div>
   );
 }
+import { countDaysExcludingSundays } from "@/lib/absence-days";

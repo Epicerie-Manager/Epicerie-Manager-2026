@@ -39,6 +39,7 @@ import {
   loadPresenceThresholds,
   syncPresenceThresholdsFromSupabase,
 } from "@/lib/presence-thresholds-store";
+import { countDaysExcludingSundays } from "@/lib/absence-days";
 
 type FilterStatus = "ALL" | AbsenceStatusId;
 type PendingRiskBadge = {
@@ -55,9 +56,7 @@ function formatDate(value: string) {
 }
 
 function getDayDiff(startDate: string, endDate: string) {
-  const start = new Date(`${startDate}T00:00:00`);
-  const end = new Date(`${endDate}T00:00:00`);
-  return Math.round((end.getTime() - start.getTime()) / 86400000) + 1;
+  return countDaysExcludingSundays(startDate, endDate);
 }
 
 export default function AbsencesPage() {
@@ -417,7 +416,7 @@ export default function AbsencesPage() {
                     </span>
                   ) : null}
                   <span style={{ fontSize: "12px", color: "#64748b" }}>
-                    {formatDate(request.startDate)} - {formatDate(request.endDate)} ({getDayDiff(request.startDate, request.endDate)}j)
+                    {formatDate(request.startDate)} - {formatDate(request.endDate)} ({getDayDiff(request.startDate, request.endDate)}j hors dimanche)
                   </span>
                   {request.note ? <span style={{ fontSize: "12px", color: "#64748b" }}>{request.note}</span> : null}
                 </div>

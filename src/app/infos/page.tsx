@@ -229,6 +229,7 @@ export default function InfosPage() {
   const [announcementBusy, setAnnouncementBusy] = useState(false);
   const [announcementError, setAnnouncementError] = useState("");
   const [expandedAnnouncementId, setExpandedAnnouncementId] = useState<string | null>(null);
+  const [expandedAnnouncementRecipientsId, setExpandedAnnouncementRecipientsId] = useState<string | null>(null);
 
   const theme = moduleThemes.infos;
   const activeCategory = categories.find((category) => category.id === activeCategoryId) ?? categories[0];
@@ -271,6 +272,22 @@ export default function InfosPage() {
 
   const selectedItem: InfoItem | undefined =
     filteredItems.find((item) => item.id === selectedItemId) ?? filteredItems[0];
+
+  useEffect(() => {
+    if (!announcements.length) {
+      setExpandedAnnouncementId(null);
+      setExpandedAnnouncementRecipientsId(null);
+      return;
+    }
+    setExpandedAnnouncementId((current) =>
+      current && announcements.some((announcement) => announcement.id === current)
+        ? current
+        : announcements[0]?.id ?? null,
+    );
+    setExpandedAnnouncementRecipientsId((current) =>
+      current && announcements.some((announcement) => announcement.id === current) ? current : null,
+    );
+  }, [announcements]);
 
   const allDocumentCount = useMemo(
     () => categories.reduce((sum, category) => sum + category.items.length, 0),
@@ -479,242 +496,243 @@ export default function InfosPage() {
         <KPI moduleKey="infos" value={categoriesWithDocsCount} label="Categories actives" style={{ background: "linear-gradient(135deg,#ecfdf5,#f7fffb)", border: "1px solid #bbf7d0" }} valueColor="#166534" />
       </KPIRow>
 
-      <Card style={{ border: "1px solid #e8ecf1", boxShadow: "0 1px 2px rgba(0,0,0,0.03), 0 8px 22px rgba(0,0,0,0.05)", background: "rgba(255,255,255,0.96)" }}>
-        <Kicker moduleKey="infos" label="Recherche" />
-        <h2 style={{ marginTop: "6px", fontSize: "18px", color: "#0f172a" }}>Acces rapide document</h2>
-        <div style={{ position: "relative", marginTop: "10px" }}>
-          <span style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
-            <SearchIcon />
-          </span>
-          <input
-            type="search"
-            value={search}
-            onChange={(event) => setSearch(event.target.value)}
-            placeholder="Ex: ouverture, HACCP, EPI, commandes..."
-            style={{
-              minHeight: "38px",
-              width: "100%",
-              borderRadius: "11px",
-              border: "1px solid #dbe3eb",
-              padding: "0 12px 0 34px",
-              fontSize: "12px",
-              background: "#f8fafc",
-            }}
-          />
-        </div>
-      </Card>
-
       <div style={{ display: "grid", gap: "12px", gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" }}>
-        <Card style={{ border: "1px solid #e8ecf1", boxShadow: "0 1px 2px rgba(0,0,0,0.03), 0 8px 22px rgba(0,0,0,0.05)", background: "rgba(255,255,255,0.96)" }}>
-          <Kicker moduleKey="infos" label="Categories" />
-          <h2 style={{ marginTop: "6px", fontSize: "18px", color: "#0f172a" }}>Navigation docs</h2>
+        <Card style={{ border: "1px solid #e8ecf1", boxShadow: "0 1px 2px rgba(0,0,0,0.03), 0 8px 22px rgba(0,0,0,0.05)", background: "rgba(255,255,255,0.96)", gridColumn: "1 / -1" }}>
+          <Kicker moduleKey="infos" label="Documents" />
+          <h2 style={{ marginTop: "6px", fontSize: "18px", color: "#0f172a" }}>Documents & catégories</h2>
           <p style={{ marginTop: "6px", fontSize: "12px", color: "#64748b" }}>
-            Menus fixes. Les sections/documents se gerent dans la categorie selectionnee.
+            Une seule zone de travail pour choisir la catégorie, ajouter une section et consulter son contenu.
           </p>
-          <div style={{ display: "grid", gap: "8px", marginTop: "10px" }}>
-            {categories.map((category) => {
-              const active = category.id === activeCategory.id;
-              return (
-                <button
-                  key={category.id}
-                  type="button"
-                  style={{
-                    textAlign: "left",
-                    borderRadius: "10px",
-                    border: `1px solid ${active ? theme.color : "#dbe3eb"}`,
-                    background: active ? theme.light : "#fff",
-                    padding: "8px 10px",
-                  }}
-                  onClick={() => {
-                    setActiveCategoryId(category.id);
-                    setSelectedItemId(null);
-                  }}
-                >
-                  <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <CategoryIcon id={category.id} color={active ? theme.color : "#64748b"} />
-                    <strong style={{ display: "block", fontSize: "13px", color: "#0f172a" }}>{category.label}</strong>
+
+          <div style={{ position: "relative", marginTop: "12px" }}>
+            <span style={{ position: "absolute", left: "10px", top: "50%", transform: "translateY(-50%)", pointerEvents: "none" }}>
+              <SearchIcon />
+            </span>
+            <input
+              type="search"
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Rechercher une section, un document ou un mot-clé..."
+              style={{
+                minHeight: "40px",
+                width: "100%",
+                borderRadius: "12px",
+                border: "1px solid #dbe3eb",
+                padding: "0 12px 0 34px",
+                fontSize: "12px",
+                background: "#f8fafc",
+              }}
+            />
+          </div>
+
+          <div style={{ display: "grid", gridTemplateColumns: "280px minmax(0, 1fr)", gap: "12px", marginTop: "12px" }}>
+            <div style={{ display: "grid", gap: "12px" }}>
+              <div style={{ border: "1px solid #e8ecf1", borderRadius: "12px", background: "#fbfcfe", padding: "10px" }}>
+                <strong style={{ fontSize: "13px", color: "#0f172a" }}>Catégories</strong>
+                <div style={{ display: "grid", gap: "8px", marginTop: "10px" }}>
+                  {categories.map((category) => {
+                    const active = category.id === activeCategory.id;
+                    return (
+                      <button
+                        key={category.id}
+                        type="button"
+                        style={{
+                          textAlign: "left",
+                          borderRadius: "10px",
+                          border: `1px solid ${active ? theme.color : "#dbe3eb"}`,
+                          background: active ? theme.light : "#fff",
+                          padding: "9px 10px",
+                        }}
+                        onClick={() => {
+                          setActiveCategoryId(category.id);
+                          setSelectedItemId(null);
+                        }}
+                      >
+                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <CategoryIcon id={category.id} color={active ? theme.color : "#64748b"} />
+                          <strong style={{ display: "block", fontSize: "13px", color: "#0f172a" }}>{category.label}</strong>
+                        </span>
+                        <span style={{ fontSize: "11px", color: "#64748b" }}>{category.items.length} section(s)</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={{ border: "1px solid #f0e2bd", background: "linear-gradient(135deg,#fff9ec,#fffef8)", borderRadius: "12px", padding: "10px" }}>
+                <strong style={{ fontSize: "13px", color: "#0f172a" }}>Ajouter une section/document</strong>
+                <div style={{ display: "grid", gap: "8px", marginTop: "8px" }}>
+                  <input
+                    value={docTitle}
+                    onChange={(event) => setDocTitle(event.target.value)}
+                    placeholder="Titre (ex: Regles port des EPI)"
+                    style={{ minHeight: "34px", borderRadius: "8px", border: "1px solid #dbe3eb", padding: "0 10px", fontSize: "12px" }}
+                  />
+                  <textarea
+                    value={docDescription}
+                    onChange={(event) => setDocDescription(event.target.value)}
+                    placeholder="Resume de la section"
+                    rows={3}
+                    style={{ borderRadius: "8px", border: "1px solid #dbe3eb", padding: "8px 10px", fontSize: "12px", resize: "vertical" }}
+                  />
+                  <input
+                    type="file"
+                    accept={FILE_ACCEPT}
+                    onChange={(event) => setDocFile(event.target.files?.[0] ?? null)}
+                    style={{ fontSize: "12px", color: "#475569" }}
+                  />
+                  <span style={{ fontSize: "11px", color: "#64748b" }}>
+                    Formats courants: PDF, image, texte, Word, Excel, CSV. Fichier optionnel.
                   </span>
-                  <span style={{ fontSize: "11px", color: "#64748b" }}>{category.items.length} section(s)</span>
-                </button>
-              );
-            })}
-          </div>
-        </Card>
-
-        <Card style={{ border: "1px solid #e8ecf1", boxShadow: "0 1px 2px rgba(0,0,0,0.03), 0 8px 22px rgba(0,0,0,0.05)", background: "rgba(255,255,255,0.96)" }}>
-          <Kicker moduleKey="infos" label={activeCategory?.label ?? "Categorie"} />
-          <h2 style={{ marginTop: "6px", fontSize: "18px", color: "#0f172a" }}>Documents disponibles</h2>
-
-          <div style={{ marginTop: "10px", border: "1px solid #f0e2bd", background: "linear-gradient(135deg,#fff9ec,#fffef8)", borderRadius: "12px", padding: "10px" }}>
-            <strong style={{ fontSize: "13px", color: "#0f172a" }}>Ajouter une section/document</strong>
-            <div style={{ display: "grid", gap: "8px", marginTop: "8px" }}>
-              <input
-                value={docTitle}
-                onChange={(event) => setDocTitle(event.target.value)}
-                placeholder="Titre (ex: Regles port des EPI)"
-                style={{ minHeight: "34px", borderRadius: "8px", border: "1px solid #dbe3eb", padding: "0 10px", fontSize: "12px" }}
-              />
-              <textarea
-                value={docDescription}
-                onChange={(event) => setDocDescription(event.target.value)}
-                placeholder="Resume de la section"
-                rows={3}
-                style={{ borderRadius: "8px", border: "1px solid #dbe3eb", padding: "8px 10px", fontSize: "12px", resize: "vertical" }}
-              />
-              <input
-                type="file"
-                accept={FILE_ACCEPT}
-                onChange={(event) => setDocFile(event.target.files?.[0] ?? null)}
-                style={{ fontSize: "12px", color: "#475569" }}
-              />
-              <span style={{ fontSize: "11px", color: "#64748b" }}>
-                Formats courants: PDF, image, texte, Word, Excel, CSV. Fichier optionnel.
-              </span>
-              {docError ? <span style={{ fontSize: "11px", color: "#b91c1c" }}>{docError}</span> : null}
-              <button
-                type="button"
-                onClick={handleAddDocument}
-                disabled={docBusy}
-                style={{
-                  minHeight: "34px",
-                  borderRadius: "8px",
-                  border: `1px solid ${theme.color}`,
-                  background: theme.light,
-                  color: theme.color,
-                  fontWeight: 700,
-                  fontSize: "12px",
-                  cursor: docBusy ? "not-allowed" : "pointer",
-                  opacity: docBusy ? 0.7 : 1,
-                }}
-              >
-                {docBusy ? "Ajout..." : "Ajouter la section"}
-              </button>
-            </div>
-          </div>
-
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))", gap: "10px", marginTop: "10px" }}>
-            <div style={{ display: "grid", gap: "8px" }}>
-              {filteredItems.map((item) => {
-                const active = selectedItem?.id === item.id;
-                const attachmentType = getAttachmentType(item);
-                const typeStyle = TYPE_STYLE[attachmentType];
-                return (
-                  <div
-                    key={item.id}
+                  {docError ? <span style={{ fontSize: "11px", color: "#b91c1c" }}>{docError}</span> : null}
+                  <button
+                    type="button"
+                    onClick={handleAddDocument}
+                    disabled={docBusy}
                     style={{
-                      borderRadius: "11px",
-                      border: `1px solid ${active ? "#f0c979" : "#e2e8f0"}`,
-                      background: active ? "linear-gradient(135deg,#fff8e8,#fffef9)" : "#fff",
-                      padding: "8px 10px",
-                      boxShadow: active ? "0 1px 2px rgba(0,0,0,0.03), 0 8px 18px rgba(164,114,8,0.12)" : "none",
+                      minHeight: "34px",
+                      borderRadius: "8px",
+                      border: `1px solid ${theme.color}`,
+                      background: theme.light,
+                      color: theme.color,
+                      fontWeight: 700,
+                      fontSize: "12px",
+                      cursor: docBusy ? "not-allowed" : "pointer",
+                      opacity: docBusy ? 0.7 : 1,
                     }}
                   >
-                    <button
-                      type="button"
-                      onClick={() => setSelectedItemId(item.id)}
-                      style={{ width: "100%", textAlign: "left", border: "none", background: "transparent", padding: 0, cursor: "pointer" }}
-                    >
-                      <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                        <span style={{ width: 20, height: 20, borderRadius: 6, background: typeStyle.bg, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
-                          <FileTypeIcon type={attachmentType} />
-                        </span>
-                        <strong style={{ display: "block", fontSize: "13px", color: "#0f172a" }}>{item.title}</strong>
-                      </span>
-                      <span style={{ fontSize: "11px", color: "#64748b" }}>{item.description}</span>
-                    </button>
-                    <div style={{ marginTop: "8px", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
-                      <span style={{ fontSize: "10px", color: "#64748b" }}>
-                        {item.attachment ? `${item.attachment.name} (${formatBytes(item.attachment.size)})` : "Sans fichier"}
-                      </span>
-                      {item.attachment ? (
-                        <span style={{ fontSize: "10px", fontWeight: 700, padding: "2px 6px", borderRadius: 6, background: typeStyle.bg, color: typeStyle.color }}>
-                          {typeStyle.label}
-                        </span>
-                      ) : null}
-                      <button
-                        type="button"
-                        onClick={() => removeDocument(item.id)}
-                        disabled={docBusy}
-                        style={{ border: "none", background: "transparent", fontSize: "11px", color: "#b91c1c", cursor: docBusy ? "not-allowed" : "pointer", fontWeight: 700, opacity: docBusy ? 0.7 : 1 }}
-                      >
-                        Supprimer
-                      </button>
-                    </div>
-                  </div>
-                );
-              })}
-              {filteredItems.length === 0 ? (
-                <p style={{ fontSize: "12px", color: "#64748b" }}>
-                  Aucune section dans cette categorie pour cette recherche.
-                </p>
-              ) : null}
+                    {docBusy ? "Ajout..." : "Ajouter la section"}
+                  </button>
+                </div>
+              </div>
             </div>
 
-            <div style={{ border: "1px solid #dbe3eb", borderRadius: "12px", padding: "10px", background: "#fff" }}>
-              {selectedItem ? (
-                <>
-                  <Kicker moduleKey="infos" label="Lecture" />
-                  <h3 style={{ marginTop: "6px", fontSize: "16px", color: "#0f172a" }}>{selectedItem.title}</h3>
-                  <p style={{ marginTop: "8px", fontSize: "12px", color: "#64748b" }}>{selectedItem.description}</p>
-                  {selectedItem.attachment ? (
+            <div style={{ display: "grid", gridTemplateColumns: "minmax(260px, 0.95fr) minmax(300px, 1.05fr)", gap: "10px" }}>
+              <div style={{ display: "grid", gap: "8px" }}>
+                {filteredItems.map((item) => {
+                  const active = selectedItem?.id === item.id;
+                  const attachmentType = getAttachmentType(item);
+                  const typeStyle = TYPE_STYLE[attachmentType];
+                  return (
                     <div
+                      key={item.id}
                       style={{
-                        marginTop: "10px",
-                        borderRadius: "10px",
-                        border: `1px dashed ${theme.medium}`,
-                        background: theme.light,
-                        color: theme.color,
-                        fontSize: "12px",
-                        padding: "10px",
-                        display: "grid",
-                        gap: "6px",
+                        borderRadius: "11px",
+                        border: `1px solid ${active ? "#f0c979" : "#e2e8f0"}`,
+                        background: active ? "linear-gradient(135deg,#fff8e8,#fffef9)" : "#fff",
+                        padding: "8px 10px",
+                        boxShadow: active ? "0 1px 2px rgba(0,0,0,0.03), 0 8px 18px rgba(164,114,8,0.12)" : "none",
                       }}
                     >
-                      <strong>Document joint</strong>
-                      <span>{selectedItem.attachment.name}</span>
-                      <span style={{ color: "#334155", fontSize: "11px" }}>
-                        {selectedItem.attachment.mimeType || "Type inconnu"} - {formatBytes(selectedItem.attachment.size)}
-                      </span>
-                      <a
-                        href={selectedItem.attachment.dataUrl}
-                        download={selectedItem.attachment.name}
-                        style={{ color: theme.color, fontWeight: 700, fontSize: "12px", textDecoration: "none" }}
+                      <button
+                        type="button"
+                        onClick={() => setSelectedItemId(item.id)}
+                        style={{ width: "100%", textAlign: "left", border: "none", background: "transparent", padding: 0, cursor: "pointer" }}
                       >
-                        Ouvrir / telecharger
-                      </a>
-                      {selectedItem.attachment.mimeType.startsWith("image/") ? (
-                        // eslint-disable-next-line @next/next/no-img-element
-                        <img
-                          src={selectedItem.attachment.dataUrl}
-                          alt={selectedItem.title}
-                          style={{ marginTop: "4px", width: "100%", borderRadius: "8px", border: "1px solid #dbe3eb" }}
-                        />
-                      ) : null}
+                        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                          <span style={{ width: 20, height: 20, borderRadius: 6, background: typeStyle.bg, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+                            <FileTypeIcon type={attachmentType} />
+                          </span>
+                          <strong style={{ display: "block", fontSize: "13px", color: "#0f172a" }}>{item.title}</strong>
+                        </span>
+                        <span style={{ fontSize: "11px", color: "#64748b" }}>{item.description}</span>
+                      </button>
+                      <div style={{ marginTop: "8px", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                        <span style={{ fontSize: "10px", color: "#64748b" }}>
+                          {item.attachment ? `${item.attachment.name} (${formatBytes(item.attachment.size)})` : "Sans fichier"}
+                        </span>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          {item.attachment ? (
+                            <span style={{ fontSize: "10px", fontWeight: 700, padding: "2px 6px", borderRadius: 6, background: typeStyle.bg, color: typeStyle.color }}>
+                              {typeStyle.label}
+                            </span>
+                          ) : null}
+                          <button
+                            type="button"
+                            onClick={() => removeDocument(item.id)}
+                            disabled={docBusy}
+                            style={{ border: "none", background: "transparent", fontSize: "11px", color: "#b91c1c", cursor: docBusy ? "not-allowed" : "pointer", fontWeight: 700, opacity: docBusy ? 0.7 : 1 }}
+                          >
+                            Supprimer
+                          </button>
+                        </div>
+                      </div>
                     </div>
-                  ) : (
-                    <div
-                      style={{
-                        marginTop: "10px",
-                        borderRadius: "10px",
-                        border: "1px dashed #dbe3eb",
-                        background: "#f8fafc",
-                        color: "#475569",
-                        fontSize: "12px",
-                        padding: "10px",
-                      }}
-                    >
-                      Pas encore de fichier joint sur cette section.
-                    </div>
-                  )}
-                </>
-              ) : (
-                <p style={{ fontSize: "12px", color: "#64748b" }}>Aucun document selectionne.</p>
-              )}
+                  );
+                })}
+                {filteredItems.length === 0 ? (
+                  <p style={{ fontSize: "12px", color: "#64748b", margin: 0 }}>
+                    Aucune section dans cette categorie pour cette recherche.
+                  </p>
+                ) : null}
+              </div>
+
+              <div style={{ border: "1px solid #dbe3eb", borderRadius: "12px", padding: "10px", background: "#fff" }}>
+                {selectedItem ? (
+                  <>
+                    <Kicker moduleKey="infos" label="Lecture" />
+                    <h3 style={{ marginTop: "6px", fontSize: "16px", color: "#0f172a" }}>{selectedItem.title}</h3>
+                    <p style={{ marginTop: "8px", fontSize: "12px", color: "#64748b" }}>{selectedItem.description}</p>
+                    {selectedItem.attachment ? (
+                      <div
+                        style={{
+                          marginTop: "10px",
+                          borderRadius: "10px",
+                          border: `1px dashed ${theme.medium}`,
+                          background: theme.light,
+                          color: theme.color,
+                          fontSize: "12px",
+                          padding: "10px",
+                          display: "grid",
+                          gap: "6px",
+                        }}
+                      >
+                        <strong>Document joint</strong>
+                        <span>{selectedItem.attachment.name}</span>
+                        <span style={{ color: "#334155", fontSize: "11px" }}>
+                          {selectedItem.attachment.mimeType || "Type inconnu"} - {formatBytes(selectedItem.attachment.size)}
+                        </span>
+                        <a
+                          href={selectedItem.attachment.dataUrl}
+                          download={selectedItem.attachment.name}
+                          style={{ color: theme.color, fontWeight: 700, fontSize: "12px", textDecoration: "none" }}
+                        >
+                          Ouvrir / telecharger
+                        </a>
+                        {selectedItem.attachment.mimeType.startsWith("image/") ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={selectedItem.attachment.dataUrl}
+                            alt={selectedItem.title}
+                            style={{ marginTop: "4px", width: "100%", borderRadius: "8px", border: "1px solid #dbe3eb" }}
+                          />
+                        ) : null}
+                      </div>
+                    ) : (
+                      <div
+                        style={{
+                          marginTop: "10px",
+                          borderRadius: "10px",
+                          border: "1px dashed #dbe3eb",
+                          background: "#f8fafc",
+                          color: "#475569",
+                          fontSize: "12px",
+                          padding: "10px",
+                        }}
+                      >
+                        Pas encore de fichier joint sur cette section.
+                      </div>
+                    )}
+                  </>
+                ) : (
+                  <p style={{ fontSize: "12px", color: "#64748b" }}>Aucun document selectionne.</p>
+                )}
+              </div>
             </div>
           </div>
         </Card>
 
-        <Card style={{ border: "1px solid #e8ecf1", boxShadow: "0 1px 2px rgba(0,0,0,0.03), 0 8px 22px rgba(0,0,0,0.05)", background: "rgba(255,255,255,0.96)" }}>
+        <Card style={{ border: "1px solid #e8ecf1", boxShadow: "0 1px 2px rgba(0,0,0,0.03), 0 8px 22px rgba(0,0,0,0.05)", background: "rgba(255,255,255,0.96)", gridColumn: "1 / -1", order: -1 }}>
           <Kicker moduleKey="infos" label="Annonces" />
           <h2 style={{ marginTop: "6px", fontSize: "18px", color: "#0f172a" }}>Fil manager</h2>
 
@@ -884,31 +902,28 @@ export default function InfosPage() {
               const seenCount = announcement.recipients.filter((recipient) => recipient.seenAt).length;
               const confirmedCount = announcement.recipients.filter((recipient) => recipient.confirmedAt).length;
               const expanded = expandedAnnouncementId === announcement.id;
+              const recipientsExpanded = expandedAnnouncementRecipientsId === announcement.id;
               const activeNow = isInfoAnnouncementActiveNow(announcement);
               return (
                 <div
                   key={announcement.id}
                   style={{
-                    borderRadius: "10px",
+                    borderRadius: "12px",
                     border: `1px solid ${meta.border}`,
                     borderLeft: `3px solid ${meta.text}`,
-                    background: meta.bg,
-                    padding: "8px 10px",
+                    background: expanded ? meta.bg : "#fff",
+                    padding: expanded ? "10px 12px" : "8px 11px",
                     boxShadow: announcement.priority === "urgent" ? "0 1px 2px rgba(0,0,0,0.03), 0 8px 18px rgba(159,18,57,0.15)" : "none",
                   }}
                 >
                   <div style={{ display: "flex", justifyContent: "space-between", gap: "8px", alignItems: "start" }}>
-                    <button
-                      type="button"
-                      onClick={() => setExpandedAnnouncementId((current) => (current === announcement.id ? null : announcement.id))}
-                      style={{ flex: 1, textAlign: "left", border: "none", background: "transparent", padding: 0, cursor: "pointer" }}
-                    >
+                    <div style={{ flex: 1, minWidth: 0 }}>
                       <span style={{ display: "flex", alignItems: "center", gap: 5 }}>
                         {announcement.priority !== "normal" ? <AlertIcon color={meta.text} /> : null}
                         <strong style={{ display: "block", fontSize: "13px", color: "#0f172a" }}>{announcement.title}</strong>
                       </span>
                       <span style={{ display: "block", fontSize: "11px", color: "#64748b", marginTop: "2px" }}>{announcement.date}</span>
-                    </button>
+                    </div>
                     <span style={{ display: "flex", gap: 6, flexWrap: "wrap", justifyContent: "flex-end" }}>
                       <span style={{ fontSize: "10px", fontWeight: 700, color: activeNow ? "#166534" : "#64748b", padding: "2px 6px", borderRadius: 6, background: "#fff" }}>
                         {activeNow ? "En ligne" : "Planifiée / terminée"}
@@ -916,71 +931,95 @@ export default function InfosPage() {
                       <span style={{ fontSize: "10px", fontWeight: 700, color: meta.text, padding: "2px 6px", borderRadius: 6, background: "#fff" }}>{meta.label}</span>
                     </span>
                   </div>
-                  <p style={{ marginTop: "4px", fontSize: "12px", color: "#475569" }}>{announcement.content}</p>
-                  <div style={{ display: "flex", gap: 6, flexWrap: "wrap", marginTop: 8 }}>
-                    <span style={{ fontSize: "10px", fontWeight: 700, color: "#334155", padding: "2px 6px", borderRadius: 6, background: "#fff" }}>
-                      {getTargetingLabel(announcement)}
-                    </span>
-                    <span style={{ fontSize: "10px", fontWeight: 700, color: "#334155", padding: "2px 6px", borderRadius: 6, background: "#fff" }}>
-                      {getAnnouncementWindowLabel(announcement)}
-                    </span>
-                    <span style={{ fontSize: "10px", fontWeight: 700, color: "#334155", padding: "2px 6px", borderRadius: 6, background: "#fff" }}>
-                      {seenCount}/{announcement.recipients.length} vus
-                    </span>
-                    <span style={{ fontSize: "10px", fontWeight: 700, color: announcement.confirmationRequired ? "#0f172a" : "#64748b", padding: "2px 6px", borderRadius: 6, background: "#fff" }}>
-                      {announcement.confirmationRequired
-                        ? `${confirmedCount}/${announcement.recipients.length} ouverts`
-                        : "Ouverture libre"}
-                    </span>
-                  </div>
                   {expanded ? (
                     <div style={{ marginTop: 10, borderTop: "1px solid rgba(148,163,184,0.25)", paddingTop: 10, display: "grid", gap: 8 }}>
+                      <p style={{ margin: 0, fontSize: "12px", color: "#475569", lineHeight: 1.55 }}>
+                        {announcement.content}
+                      </p>
+                      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+                        <span style={{ fontSize: "10px", fontWeight: 700, color: "#334155", padding: "2px 6px", borderRadius: 6, background: "#fff" }}>
+                          {getTargetingLabel(announcement)}
+                        </span>
+                        <span style={{ fontSize: "10px", fontWeight: 700, color: "#334155", padding: "2px 6px", borderRadius: 6, background: "#fff" }}>
+                          {getAnnouncementWindowLabel(announcement)}
+                        </span>
+                        <span style={{ fontSize: "10px", fontWeight: 700, color: "#334155", padding: "2px 6px", borderRadius: 6, background: "#fff" }}>
+                          {seenCount}/{announcement.recipients.length} vus
+                        </span>
+                        <span style={{ fontSize: "10px", fontWeight: 700, color: announcement.confirmationRequired ? "#0f172a" : "#64748b", padding: "2px 6px", borderRadius: 6, background: "#fff" }}>
+                          {announcement.confirmationRequired
+                            ? `${confirmedCount}/${announcement.recipients.length} ouverts`
+                            : "Ouverture libre"}
+                        </span>
+                      </div>
                       {announcement.targetRayons.length ? (
                         <div style={{ fontSize: "11px", color: "#64748b" }}>
                           Rayons : {announcement.targetRayons.join(", ")}
                         </div>
                       ) : null}
-                      <div style={{ display: "grid", gap: 6, maxHeight: 220, overflowY: "auto", paddingRight: 4 }}>
-                        {announcement.recipients.length ? (
-                          announcement.recipients.map((recipient) => (
-                            <div
-                              key={recipient.id}
-                              style={{
-                                display: "grid",
-                                gridTemplateColumns: "1fr auto auto",
-                                gap: 8,
-                                alignItems: "center",
-                                borderRadius: 8,
-                                background: "#fff",
-                                border: "1px solid rgba(226,232,240,0.9)",
-                                padding: "6px 8px",
-                              }}
-                            >
-                              <strong style={{ fontSize: "11px", color: "#0f172a" }}>{recipient.employeeName}</strong>
-                              <span style={{ fontSize: "10px", fontWeight: 700, color: recipient.seenAt ? "#166534" : "#92400e" }}>
-                                {recipient.seenAt ? "Vu" : "Non lu"}
-                              </span>
-                              <span style={{ fontSize: "10px", fontWeight: 700, color: recipient.confirmedAt ? "#1d4ed8" : "#64748b" }}>
-                                {recipient.confirmedAt ? "Ouvert" : announcement.confirmationRequired ? "À ouvrir" : "—"}
-                              </span>
+                      {recipientsExpanded ? (
+                        <div style={{ display: "grid", gap: 6, maxHeight: 220, overflowY: "auto", paddingRight: 4 }}>
+                          {announcement.recipients.length ? (
+                            announcement.recipients.map((recipient) => (
+                              <div
+                                key={recipient.id}
+                                style={{
+                                  display: "grid",
+                                  gridTemplateColumns: "1fr auto auto",
+                                  gap: 8,
+                                  alignItems: "center",
+                                  borderRadius: 8,
+                                  background: "#fff",
+                                  border: "1px solid rgba(226,232,240,0.9)",
+                                  padding: "6px 8px",
+                                }}
+                              >
+                                <strong style={{ fontSize: "11px", color: "#0f172a" }}>{recipient.employeeName}</strong>
+                                <span style={{ fontSize: "10px", fontWeight: 700, color: recipient.seenAt ? "#166534" : "#92400e" }}>
+                                  {recipient.seenAt ? "Vu" : "Non lu"}
+                                </span>
+                                <span style={{ fontSize: "10px", fontWeight: 700, color: recipient.confirmedAt ? "#1d4ed8" : "#64748b" }}>
+                                  {recipient.confirmedAt ? "Ouvert" : announcement.confirmationRequired ? "À ouvrir" : "—"}
+                                </span>
+                              </div>
+                            ))
+                          ) : (
+                            <div style={{ fontSize: "11px", color: "#64748b" }}>
+                              Aucun destinataire figé pour cette annonce.
                             </div>
-                          ))
-                        ) : (
-                          <div style={{ fontSize: "11px", color: "#64748b" }}>
-                            Aucun destinataire figé pour cette annonce.
-                          </div>
-                        )}
-                      </div>
+                          )}
+                        </div>
+                      ) : null}
                     </div>
                   ) : null}
                   <div style={{ marginTop: 8, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-                    <button
-                      type="button"
-                      onClick={() => setExpandedAnnouncementId((current) => (current === announcement.id ? null : announcement.id))}
-                      style={{ border: "none", background: "transparent", fontSize: "11px", color: theme.color, cursor: "pointer", padding: 0, fontWeight: 700 }}
-                    >
-                      {expanded ? "Masquer le suivi" : "Voir les destinataires"}
-                    </button>
+                    <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExpandedAnnouncementId((current) => (current === announcement.id ? null : announcement.id));
+                          if (expanded) {
+                            setExpandedAnnouncementRecipientsId((current) => (current === announcement.id ? null : current));
+                          }
+                        }}
+                        style={{ border: "none", background: "transparent", fontSize: "11px", color: theme.color, cursor: "pointer", padding: 0, fontWeight: 700 }}
+                      >
+                        {expanded ? "Réduire" : "Voir plus"}
+                      </button>
+                      {expanded ? (
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setExpandedAnnouncementRecipientsId((current) =>
+                              current === announcement.id ? null : announcement.id,
+                            )
+                          }
+                          style={{ border: "none", background: "transparent", fontSize: "11px", color: "#475569", cursor: "pointer", padding: 0, fontWeight: 700 }}
+                        >
+                          {recipientsExpanded ? "Masquer le suivi" : "Voir le suivi"}
+                        </button>
+                      ) : null}
+                    </div>
                     <button
                       type="button"
                       onClick={() => removeAnnouncement(announcement.id)}

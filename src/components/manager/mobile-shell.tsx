@@ -1,0 +1,298 @@
+"use client";
+
+import Link from "next/link";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { loadManagerDisplayName } from "@/lib/followup-store";
+
+type ManagerMobileShellProps = {
+  version: string;
+  children: React.ReactNode;
+};
+
+type NavItem = {
+  label: string;
+  href: string;
+  icon: React.ReactNode;
+};
+
+const iconStyle = {
+  width: 18,
+  height: 18,
+  fill: "none",
+  stroke: "currentColor",
+  strokeWidth: 1.8,
+  strokeLinecap: "round" as const,
+  strokeLinejoin: "round" as const,
+};
+
+const navItems: NavItem[] = [
+  {
+    label: "Accueil",
+    href: "/manager",
+    icon: (
+      <svg viewBox="0 0 24 24" style={iconStyle}>
+        <path d="M3 10.5L12 3l9 7.5" />
+        <path d="M5 9.5V21h14V9.5" />
+      </svg>
+    ),
+  },
+  {
+    label: "Terrain",
+    href: "/manager/terrain",
+    icon: (
+      <svg viewBox="0 0 24 24" style={iconStyle}>
+        <path d="M12 20l9-5-9-5-9 5 9 5z" />
+        <path d="M21 9l-9-5-9 5" />
+        <path d="M3 15l9 5 9-5" />
+      </svg>
+    ),
+  },
+  {
+    label: "Planning",
+    href: "/manager/planning",
+    icon: (
+      <svg viewBox="0 0 24 24" style={iconStyle}>
+        <rect x="3" y="4" width="18" height="17" rx="2" />
+        <path d="M8 2v4M16 2v4M3 10h18" />
+      </svg>
+    ),
+  },
+  {
+    label: "Suivi",
+    href: "/manager/suivi",
+    icon: (
+      <svg viewBox="0 0 24 24" style={iconStyle}>
+        <path d="M8 18l4-4 3 3 5-7" />
+        <path d="M4 4v16h16" />
+      </svg>
+    ),
+  },
+  {
+    label: "Absences",
+    href: "/manager/absences",
+    icon: (
+      <svg viewBox="0 0 24 24" style={iconStyle}>
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+        <path d="M14 2v6h6" />
+        <path d="M8 13h8M8 17h5" />
+      </svg>
+    ),
+  },
+  {
+    label: "Infos",
+    href: "/manager/infos",
+    icon: (
+      <svg viewBox="0 0 24 24" style={iconStyle}>
+        <circle cx="12" cy="12" r="9" />
+        <path d="M12 10v6" />
+        <path d="M12 7h.01" />
+      </svg>
+    ),
+  },
+  {
+    label: "Bureau",
+    href: "/",
+    icon: (
+      <svg viewBox="0 0 24 24" style={iconStyle}>
+        <rect x="3" y="3" width="7" height="7" rx="1.5" />
+        <rect x="14" y="3" width="7" height="7" rx="1.5" />
+        <rect x="3" y="14" width="7" height="7" rx="1.5" />
+        <rect x="14" y="14" width="7" height="7" rx="1.5" />
+      </svg>
+    ),
+  },
+];
+
+function getSectionTitle(pathname: string) {
+  if (pathname.startsWith("/manager/terrain")) return "Saisie terrain";
+  if (pathname.startsWith("/manager/planning")) return "Planning manager";
+  if (pathname.startsWith("/manager/suivi")) return "Suivi collaborateur";
+  if (pathname.startsWith("/manager/absences")) return "Absences manager";
+  if (pathname.startsWith("/manager/infos")) return "Infos manager";
+  return "Accueil manager";
+}
+
+export function ManagerMobileShell({ version, children }: ManagerMobileShellProps) {
+  const pathname = usePathname();
+  const sectionTitle = getSectionTitle(pathname);
+  const [managerName, setManagerName] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadName = async () => {
+      try {
+        const name = await loadManagerDisplayName();
+        if (!cancelled) setManagerName(name);
+      } catch {
+        if (!cancelled) setManagerName("");
+      }
+    };
+    void loadName();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  return (
+    <div
+      style={{
+        minHeight: "100vh",
+        background:
+          "radial-gradient(circle at top left, rgba(185,28,46,0.16) 0%, transparent 28%), " +
+          "radial-gradient(circle at bottom right, rgba(14,116,144,0.12) 0%, transparent 30%), " +
+          "linear-gradient(180deg, #f8f3ee 0%, #f4efe9 48%, #eee7df 100%)",
+        fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif",
+        color: "#1f2937",
+      }}
+    >
+      <div
+        style={{
+          width: "min(100%, 520px)",
+          margin: "0 auto",
+          minHeight: "100vh",
+          padding: "18px 16px 108px",
+          position: "relative",
+        }}
+      >
+        <header
+          style={{
+            paddingTop: 8,
+            marginBottom: 16,
+          }}
+        >
+          <div
+            style={{
+              borderRadius: 28,
+              padding: "14px 16px",
+              background: "rgba(255,255,255,0.8)",
+              backdropFilter: "blur(16px)",
+              WebkitBackdropFilter: "blur(16px)",
+              border: "1px solid rgba(255,255,255,0.75)",
+              boxShadow: "0 10px 30px rgba(80,45,20,0.08)",
+            }}
+          >
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: 12 }}>
+              <div>
+                <div
+                  style={{
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                    fontSize: 11,
+                    fontWeight: 800,
+                    letterSpacing: "0.08em",
+                    textTransform: "uppercase",
+                    color: "#9f1239",
+                  }}
+                >
+                  <span
+                    style={{
+                      width: 10,
+                      height: 10,
+                      borderRadius: 999,
+                      background: "linear-gradient(135deg, #be123c, #fb7185)",
+                      boxShadow: "0 0 0 4px rgba(190,24,93,0.12)",
+                    }}
+                  />
+                  Manager 2026
+                </div>
+                <div style={{ marginTop: 8, fontSize: 26, fontWeight: 800, letterSpacing: "-0.05em", color: "#111827" }}>
+                  {sectionTitle}
+                </div>
+              </div>
+
+              <div style={{ display: "grid", gap: 8, justifyItems: "end" }}>
+                {managerName ? (
+                  <div
+                    style={{
+                      flexShrink: 0,
+                      borderRadius: 999,
+                      padding: "7px 10px",
+                      background: "rgba(255,255,255,0.92)",
+                      border: "1px solid rgba(31,41,55,0.12)",
+                      color: "#111827",
+                      fontSize: 11,
+                      fontWeight: 700,
+                    }}
+                  >
+                    {managerName}
+                  </div>
+                ) : null}
+                <div
+                  style={{
+                    flexShrink: 0,
+                    borderRadius: 999,
+                    padding: "6px 9px",
+                    background: "rgba(255,255,255,0.92)",
+                    border: "1px solid rgba(190,24,93,0.16)",
+                    color: "#9f1239",
+                    fontSize: 10,
+                    fontWeight: 700,
+                  }}
+                >
+                  v{version}
+                </div>
+              </div>
+            </div>
+          </div>
+        </header>
+
+        {children}
+      </div>
+
+      <nav
+        aria-label="Navigation application manager"
+        style={{
+          position: "fixed",
+          left: "50%",
+          bottom: 12,
+          transform: "translateX(-50%)",
+          width: "min(calc(100% - 18px), 500px)",
+          zIndex: 30,
+        }}
+      >
+        <div
+          style={{
+            display: "grid",
+            gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+            gap: 6,
+            padding: "10px",
+            borderRadius: 26,
+            background: "rgba(17,24,39,0.92)",
+            backdropFilter: "blur(18px)",
+            WebkitBackdropFilter: "blur(18px)",
+            boxShadow: "0 12px 36px rgba(15,23,42,0.24)",
+          }}
+        >
+          {navItems.map((item) => {
+            const active =
+              item.href === "/manager"
+                ? pathname === item.href
+                : pathname.startsWith(item.href);
+
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                style={{
+                  display: "grid",
+                  justifyItems: "center",
+                  gap: 6,
+                  padding: "10px 4px",
+                  borderRadius: 18,
+                  textDecoration: "none",
+                  color: active ? "#ffffff" : "rgba(226,232,240,0.78)",
+                  background: active ? "linear-gradient(135deg, rgba(190,24,93,0.95), rgba(239,68,68,0.9))" : "transparent",
+                }}
+              >
+                <span style={{ display: "inline-flex" }}>{item.icon}</span>
+                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "-0.01em" }}>{item.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      </nav>
+    </div>
+  );
+}

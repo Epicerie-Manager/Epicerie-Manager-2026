@@ -140,6 +140,7 @@ function getPlanningMonthKeyForDate(date: string) {
 function getAbsenceTypeFromPlanningStatus(status: string): AbsenceRequest["type"] | null {
   const upper = String(status ?? "").toUpperCase().trim();
   if (upper === "CP") return "CP";
+  if (upper === "DEPLACEMENT_RH") return "DEPLACEMENT_RH";
   if (upper === "MAL") return "MAL";
   if (upper === "CONGE_MAT") return "CONGE_MAT";
   if (upper === "FORM") return "FORM";

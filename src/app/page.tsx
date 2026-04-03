@@ -233,6 +233,11 @@ export default function DashboardPage() {
 
   const today = now;
   const todayIso = today.toISOString().slice(0, 10);
+  const startOfToday = useMemo(() => {
+    const base = new Date(today);
+    base.setHours(0, 0, 0, 0);
+    return base;
+  }, [today]);
 
   const presenceByType = useMemo(() => {
     return planningEmployees.reduce(
@@ -271,6 +276,7 @@ export default function DashboardPage() {
         month: "2-digit",
       });
       const dayCounts = getPlanningPresenceCountsForDate(date, planningOverrides);
+      const isPastDay = date < startOfToday;
       const level = isFuture
         ? "ok"
         : getPresenceThresholdLevel(
@@ -295,12 +301,12 @@ export default function DashboardPage() {
               : level === "warning"
                 ? "Alerte"
                 : "OK",
-        alert,
+        alert: !isPastDay && alert,
         level,
         active: dayIso === todayIso,
       };
     });
-  }, [planningOverrides, presenceThresholds, today, todayIso]);
+  }, [planningOverrides, presenceThresholds, startOfToday, today, todayIso]);
 
   const monthlyPlanningDays = useMemo(() => {
     const year = dashboardMonthCursor.getFullYear();
@@ -332,11 +338,16 @@ export default function DashboardPage() {
     });
   }, [dashboardMonthCursor, planningOverrides, presenceThresholds]);
 
+  const isCurrentDashboardMonth =
+    dashboardMonthCursor.getFullYear() === today.getFullYear() &&
+    dashboardMonthCursor.getMonth() === today.getMonth();
+  const dashboardMonthLabel = dashboardMonthCursor.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
   const monthlyMonitoredDays = monthlyPlanningDays.filter((day) => day.date.getDay() !== 0);
-  const monthlyRiskDays = monthlyMonitoredDays.filter((day) => day.level !== "ok");
-  const monthlyAlertDays = monthlyMonitoredDays.filter((day) => day.level === "warning");
-  const monthlyCriticalDays = monthlyMonitoredDays.filter((day) => day.level === "critical");
-  const mostTenseDay = [...monthlyMonitoredDays].sort((a, b) =>
+  const monthlyRelevantDays = monthlyMonitoredDays.filter((day) => !isCurrentDashboardMonth || day.date >= startOfToday);
+  const monthlyRiskDays = monthlyRelevantDays.filter((day) => day.level !== "ok");
+  const monthlyAlertDays = monthlyRelevantDays.filter((day) => day.level === "warning");
+  const monthlyCriticalDays = monthlyRelevantDays.filter((day) => day.level === "critical");
+  const mostTenseDay = [...monthlyRelevantDays].sort((a, b) =>
     a.morningCount - b.morningCount ||
     a.afternoonCount - b.afternoonCount ||
     a.dayIso.localeCompare(b.dayIso),
@@ -373,10 +384,6 @@ export default function DashboardPage() {
   ).size;
   const pendingCriticalRiskCount = pendingRiskRequests.filter((item) => item.highestLevel === "critical").length;
   const monthlyIssueDays = monthlyIssuePanel === "critical" ? monthlyCriticalDays : monthlyAlertDays;
-  const dashboardMonthLabel = dashboardMonthCursor.toLocaleDateString("fr-FR", { month: "long", year: "numeric" });
-  const isCurrentDashboardMonth =
-    dashboardMonthCursor.getFullYear() === today.getFullYear() &&
-    dashboardMonthCursor.getMonth() === today.getMonth();
   const shiftDashboardMonth = (offset: number) => {
     setDashboardMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() + offset, 1));
   };

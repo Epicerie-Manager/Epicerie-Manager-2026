@@ -52,7 +52,7 @@ export const defaultPlanningBinomes: PlanningBinomes = sheetPlanningBinomes;
 
 function isAbsencePlanningStatus(status: string) {
   const upper = String(status ?? "").toUpperCase().trim();
-  return ["ABS", "ABSENT", "CP", "MAL", "CONGE_MAT", "FERIE", "FORM", "X"].includes(upper);
+  return ["ABS", "ABSENT", "CP", "MAL", "CONGE_MAT", "FERIE", "FORM", "DEPLACEMENT_RH", "X"].includes(upper);
 }
 
 function getPlanningDefaultHoraire(employee: PlanningEmployee, date: Date) {
@@ -319,6 +319,7 @@ function listPlanningAbsenceDates(startDate: string, endDate: string) {
 function getPlanningStatusFromAbsenceType(type: string) {
   const upper = String(type ?? "").toUpperCase();
   if (upper === "CP") return "CP";
+  if (upper === "DEPLACEMENT_RH") return "DEPLACEMENT_RH";
   if (upper === "MAL") return "MAL";
   if (upper === "CONGE_MAT") return "CONGE_MAT";
   if (upper === "FORM") return "FORM";

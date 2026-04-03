@@ -128,7 +128,7 @@ export default function NewCollabAbsencePage() {
               <div style={{ marginTop: 12, width: "100%", minHeight: 10, borderRadius: 999, background: "#f7f0e8", position: "relative" }}>
                 <div style={{ position: "absolute", left: 10, top: 2, width: 6, height: 6, borderRadius: 999, background: collabTheme.accent }} />
               </div>
-              <div style={{ marginTop: 8, fontSize: 12, color: collabTheme.muted }}>{totalDays || 0} jour · {openDays || 0} jour ouvré</div>
+              <div style={{ marginTop: 8, fontSize: 12, color: collabTheme.muted }}>{totalDays || 0} jour calendaire · {openDays || 0} jour posé hors dimanche</div>
             </SectionCard>
 
             {isRhShift ? (
@@ -175,7 +175,7 @@ export default function NewCollabAbsencePage() {
                 <div><strong>Type :</strong> {ABSENCE_TYPES.find((item) => item.value === type)?.label ?? type}</div>
                 <div><strong>{periodLabel} :</strong> {dateDebut} → {dateFin}</div>
                 <div><strong>Durée totale :</strong> {totalDays} jour(s)</div>
-                <div><strong>Jours ouvrés :</strong> {openDays}</div>
+                <div><strong>Jours posés hors dimanche :</strong> {openDays}</div>
                 {isRhShift && displacedRh.trim() ? <div><strong>RH déplacée :</strong> {displacedRh}</div> : null}
                 {comment.trim() ? <div><strong>Commentaire :</strong> {comment.trim()}</div> : null}
               </div>

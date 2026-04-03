@@ -1,0 +1,300 @@
+"use client";
+
+import Link from "next/link";
+import { useEffect, useState } from "react";
+import {
+  METRE_A_METRE_SECTIONS,
+  computeGlobalScore,
+  computeSectionScore,
+  createEmptyMetreAuditDraft,
+  type BooleanAnswer,
+  type MetreAuditDraft,
+} from "@/lib/metre-a-metre-config";
+import {
+  loadFollowupEmployees,
+  loadManagerDisplayName,
+  saveMetreAudit,
+  type FollowupEmployeeOption,
+} from "@/lib/followup-store";
+
+const RATING_LEGEND = [
+  { value: 0, label: "Très insuffisant", color: "#991b1b", background: "#fef2f2", border: "#fecaca" },
+  { value: 1, label: "Insuffisant", color: "#b45309", background: "#fff7ed", border: "#fed7aa" },
+  { value: 2, label: "À corriger", color: "#92400e", background: "#fffbeb", border: "#fde68a" },
+  { value: 3, label: "Correct", color: "#166534", background: "#f0fdf4", border: "#bbf7d0" },
+  { value: 4, label: "Très bon", color: "#166534", background: "#ecfdf5", border: "#86efac" },
+  { value: 5, label: "Exemplaire", color: "#155e75", background: "#ecfeff", border: "#a5f3fc" },
+];
+
+function shellCard(): React.CSSProperties {
+  return {
+    borderRadius: 28,
+    padding: "18px 18px 20px",
+    background: "rgba(255,255,255,0.86)",
+    border: "1px solid rgba(255,255,255,0.8)",
+    boxShadow: "0 16px 40px rgba(17,24,39,0.08)",
+  };
+}
+
+function metricTileStyle(): React.CSSProperties {
+  return {
+    borderRadius: 22,
+    padding: "14px 14px 12px",
+    background: "#fffdfb",
+    border: "1px solid rgba(230,220,212,0.92)",
+    boxShadow: "0 10px 24px rgba(17,24,39,0.04)",
+  };
+}
+
+export default function ManagerNewTerrainVisitPage() {
+  const [employees, setEmployees] = useState<FollowupEmployeeOption[]>([]);
+  const [draft, setDraft] = useState<MetreAuditDraft>(() => createEmptyMetreAuditDraft());
+  const [activeSectionIndex, setActiveSectionIndex] = useState(0);
+  const [saving, setSaving] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadPage = async () => {
+      try {
+        setLoading(true);
+        const [employeeOptions, managerName] = await Promise.all([loadFollowupEmployees(), loadManagerDisplayName()]);
+        if (cancelled) return;
+        setEmployees(employeeOptions.filter((employee) => employee.eligibleForFieldVisit));
+        setDraft((current) => ({ ...current, managerName: current.managerName || managerName }));
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(loadError instanceof Error ? loadError.message : "Impossible de charger la saisie terrain.");
+        }
+      } finally {
+        if (!cancelled) setLoading(false);
+      }
+    };
+    void loadPage();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const activeSection = METRE_A_METRE_SECTIONS[activeSectionIndex];
+  const globalScore = computeGlobalScore(draft);
+  const completedSections = METRE_A_METRE_SECTIONS.filter((section) => {
+    const response = draft.sections[section.key];
+    const answeredCount = section.type === "rating"
+      ? Object.values(response.ratings).filter((value) => typeof value === "number").length
+      : Object.values(response.booleans).filter((value) => value === "OUI" || value === "NON").length;
+    return answeredCount === section.questions.length;
+  }).length;
+  const activeResponse = draft.sections[activeSection.key];
+  const activeSectionScore = computeSectionScore(activeSection, activeResponse);
+
+  const handleEmployeeChange = (employeeId: string) => {
+    const employee = employees.find((entry) => entry.id === employeeId);
+    setDraft((current) => ({
+      ...current,
+      employeeId,
+      collaboratorName: employee?.name ?? "",
+      rayon: current.rayon || employee?.rayons[0] || "",
+    }));
+  };
+
+  const setDraftField = <K extends keyof MetreAuditDraft>(field: K, value: MetreAuditDraft[K]) => {
+    setDraft((current) => ({ ...current, [field]: value }));
+  };
+
+  const setRating = (questionKey: string, value: number) => {
+    setDraft((current) => ({
+      ...current,
+      sections: {
+        ...current.sections,
+        [activeSection.key]: {
+          ...current.sections[activeSection.key],
+          ratings: { ...current.sections[activeSection.key].ratings, [questionKey]: value },
+        },
+      },
+    }));
+  };
+
+  const setBoolean = (questionKey: string, value: BooleanAnswer) => {
+    setDraft((current) => ({
+      ...current,
+      sections: {
+        ...current.sections,
+        [activeSection.key]: {
+          ...current.sections[activeSection.key],
+          booleans: { ...current.sections[activeSection.key].booleans, [questionKey]: value },
+        },
+      },
+    }));
+  };
+
+  const setComment = (value: string) => {
+    setDraft((current) => ({
+      ...current,
+      sections: {
+        ...current.sections,
+        [activeSection.key]: { ...current.sections[activeSection.key], comment: value },
+      },
+    }));
+  };
+
+  const handleSave = async () => {
+    if (!draft.employeeId) return setError("Choisis d'abord un collaborateur.");
+    if (!draft.rayon.trim()) return setError("Précise le rayon du passage.");
+    try {
+      setSaving(true);
+      setError("");
+      setSuccess("");
+      await saveMetreAudit(draft);
+      setSuccess(`Audit enregistré avec succès, score global ${Math.round(computeGlobalScore(draft))}%.`);
+      setDraft((current) => ({ ...createEmptyMetreAuditDraft(), managerName: current.managerName }));
+      setActiveSectionIndex(0);
+    } catch (saveError) {
+      setError(saveError instanceof Error ? saveError.message : "Impossible d'enregistrer l'audit.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section style={{ display: "grid", gap: 16 }}>
+      <div style={shellCard()}>
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "start" }}>
+          <div style={{ display: "grid", gap: 8 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#9f1239" }}>
+              Mètre à mètre
+            </div>
+            <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.06em", color: "#111827" }}>
+              Nouvelle visite terrain
+            </div>
+            <div style={{ fontSize: 14, color: "#6b7280", lineHeight: 1.6 }}>
+              Une section à la fois, puis enregistrement direct en base.
+            </div>
+          </div>
+          <div style={{ display: "grid", gap: 8 }}>
+            <Link href="/manager/terrain" style={{ textDecoration: "none", minHeight: 40, borderRadius: 999, padding: "0 14px", display: "inline-flex", alignItems: "center", justifyContent: "center", background: "#fff", color: "#374151", fontSize: 12, fontWeight: 800, border: "1px solid rgba(216,209,200,1)" }}>
+              Retour
+            </Link>
+            <Link href="/manager/terrain" style={{ textDecoration: "none", minHeight: 40, borderRadius: 999, padding: "0 14px", display: "inline-flex", alignItems: "center", justifyContent: "center", background: "#fff7ed", color: "#c2410c", fontSize: 12, fontWeight: 800, border: "1px solid #fdba74" }}>
+              Annuler
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
+        <div style={metricTileStyle()}><div style={{ fontSize: 11, color: "#6b7280" }}>Progression</div><div style={{ marginTop: 6, fontSize: 24, fontWeight: 800, color: "#111827" }}>{completedSections}/5</div></div>
+        <div style={metricTileStyle()}><div style={{ fontSize: 11, color: "#6b7280" }}>Score live</div><div style={{ marginTop: 6, fontSize: 24, fontWeight: 800, color: "#7c2d12" }}>{Math.round(globalScore)}%</div></div>
+        <div style={metricTileStyle()}><div style={{ fontSize: 11, color: "#6b7280" }}>Section</div><div style={{ marginTop: 6, fontSize: 24, fontWeight: 800, color: "#6d28d9" }}>{activeSectionIndex + 1}</div></div>
+      </div>
+
+      <div style={shellCard()}>
+        <div style={{ display: "grid", gap: 12 }}>
+          <label style={{ display: "grid", gap: 5 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>Collaborateur</span>
+            <select value={draft.employeeId} onChange={(event) => handleEmployeeChange(event.target.value)} style={{ minHeight: 48, borderRadius: 18, border: "1px solid #d8d1c8", padding: "0 14px", fontSize: 14, background: "#fff" }}>
+              <option value="">Sélectionner un collaborateur</option>
+              {employees.map((employee) => <option key={employee.id} value={employee.id}>{employee.name}</option>)}
+            </select>
+          </label>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+            <label style={{ display: "grid", gap: 5 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>Date</span>
+              <input type="date" value={draft.auditDate} onChange={(event) => setDraftField("auditDate", event.target.value)} style={{ minHeight: 48, borderRadius: 18, border: "1px solid #d8d1c8", padding: "0 14px", fontSize: 14, background: "#fff" }} />
+            </label>
+            <label style={{ display: "grid", gap: 5 }}>
+              <span style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>Rayon</span>
+              <input value={draft.rayon} onChange={(event) => setDraftField("rayon", event.target.value)} placeholder="Bio, liquides, épicerie..." style={{ minHeight: 48, borderRadius: 18, border: "1px solid #d8d1c8", padding: "0 14px", fontSize: 14, background: "#fff" }} />
+            </label>
+          </div>
+        </div>
+      </div>
+
+      <div style={shellCard()}>
+        <div style={{ display: "grid", gap: 12 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline" }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#6d28d9" }}>Section {activeSectionIndex + 1} / {METRE_A_METRE_SECTIONS.length}</div>
+              <div style={{ marginTop: 6, fontSize: 24, fontWeight: 800, letterSpacing: "-0.05em", color: "#111827" }}>{activeSection.label}</div>
+            </div>
+            <div style={{ borderRadius: 999, padding: "8px 10px", background: activeSectionScore >= 80 ? "#ecfdf5" : activeSectionScore >= 60 ? "#fffbeb" : "#fef2f2", color: activeSectionScore >= 80 ? "#166534" : activeSectionScore >= 60 ? "#92400e" : "#b91c1c", fontSize: 12, fontWeight: 800 }}>
+              {Math.round(activeSectionScore)}%
+            </div>
+          </div>
+
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {METRE_A_METRE_SECTIONS.map((section, index) => {
+              const currentScore = computeSectionScore(section, draft.sections[section.key]);
+              const active = index === activeSectionIndex;
+              return <button key={section.key} type="button" onClick={() => setActiveSectionIndex(index)} style={{ minHeight: 36, borderRadius: 999, border: `1px solid ${active ? "#8b5cf6" : "#ded6cd"}`, background: active ? "#f5f3ff" : "#fffdfb", color: active ? "#6d28d9" : "#475569", padding: "0 12px", fontSize: 12, fontWeight: 700 }}>{index + 1}. {Math.round(currentScore)}%</button>;
+            })}
+          </div>
+
+          {activeSection.type === "rating" ? (
+            <div style={{ display: "grid", gap: 10 }}>
+              <div style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.5 }}>Même logique que la fiche initiale. Les couleurs servent juste à se repérer plus vite sur le terrain.</div>
+              <div style={{ display: "grid", gap: 8 }}>
+                {RATING_LEGEND.map((entry) => <div key={entry.value} style={{ display: "flex", alignItems: "center", gap: 10, borderRadius: 16, border: `1px solid ${entry.border}`, background: entry.background, color: entry.color, padding: "10px 12px", fontSize: 12, fontWeight: 700 }}><span style={{ fontSize: 16 }}>{entry.value === 0 ? "☆" : "★"}</span><span>{entry.value}</span><span>{entry.label}</span></div>)}
+              </div>
+            </div>
+          ) : null}
+
+          <div style={{ display: "grid", gap: 12 }}>
+            {activeSection.questions.map((question) => (
+              <div key={question.key} style={{ display: "grid", gap: 10, borderRadius: 22, border: "1px solid rgba(230,220,212,0.95)", background: "#fffdfb", padding: "14px 14px 16px" }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "start" }}>
+                  <div style={{ fontSize: 14, fontWeight: 800, color: "#111827", lineHeight: 1.45 }}>{question.label}</div>
+                  {question.type === "boolean" && question.expectedAnswer ? <span style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", whiteSpace: "nowrap" }}>Attendu {question.expectedAnswer}</span> : null}
+                </div>
+                {question.type === "rating" ? (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
+                    {RATING_LEGEND.map((entry) => {
+                      const active = activeResponse.ratings[question.key] === entry.value;
+                      return <button key={entry.value} type="button" onClick={() => setRating(question.key, entry.value)} style={{ minHeight: 42, borderRadius: 16, border: `1px solid ${active ? entry.border : "#ded6cd"}`, background: active ? entry.background : "#fff", color: active ? entry.color : "#475569", fontWeight: 800, fontSize: 14 }}>{entry.value}</button>;
+                    })}
+                  </div>
+                ) : (
+                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
+                    {(["OUI", "NON"] as const).map((answer) => {
+                      const active = activeResponse.booleans[question.key] === answer;
+                      const positive = question.expectedAnswer === answer;
+                      return <button key={answer} type="button" onClick={() => setBoolean(question.key, answer)} style={{ minHeight: 46, borderRadius: 16, border: `1px solid ${active ? (positive ? "#86efac" : "#fca5a5") : "#ded6cd"}`, background: active ? (positive ? "#ecfdf5" : "#fef2f2") : "#fff", color: active ? (positive ? "#166534" : "#991b1b") : "#374151", fontSize: 14, fontWeight: 800 }}>{answer}</button>;
+                    })}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+
+          <label style={{ display: "grid", gap: 5 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>Commentaire de section</span>
+            <textarea value={activeResponse.comment} onChange={(event) => setComment(event.target.value)} rows={3} placeholder={`Observation ${activeSection.label}`} style={{ borderRadius: 18, border: "1px solid #d8d1c8", padding: "12px 14px", fontSize: 14, resize: "vertical", background: "#fff" }} />
+          </label>
+
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
+            <button type="button" onClick={() => setActiveSectionIndex((current) => Math.max(current - 1, 0))} disabled={activeSectionIndex === 0} style={{ minHeight: 44, flex: 1, borderRadius: 999, border: "1px solid #ded6cd", background: "#fff", color: "#374151", fontSize: 13, fontWeight: 800, opacity: activeSectionIndex === 0 ? 0.5 : 1 }}>Section précédente</button>
+            <button type="button" onClick={() => setActiveSectionIndex((current) => Math.min(current + 1, METRE_A_METRE_SECTIONS.length - 1))} disabled={activeSectionIndex === METRE_A_METRE_SECTIONS.length - 1} style={{ minHeight: 44, flex: 1, borderRadius: 999, border: "1px solid #8b5cf6", background: "#f5f3ff", color: "#6d28d9", fontSize: 13, fontWeight: 800, opacity: activeSectionIndex === METRE_A_METRE_SECTIONS.length - 1 ? 0.5 : 1 }}>Section suivante</button>
+          </div>
+        </div>
+      </div>
+
+      <div style={shellCard()}>
+        <div style={{ display: "grid", gap: 12 }}>
+          <label style={{ display: "grid", gap: 5 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>Axes de progrès</span>
+            <textarea value={draft.progressAxes} onChange={(event) => setDraftField("progressAxes", event.target.value)} rows={4} placeholder="Remarques globales, points à revoir, suivi à prévoir..." style={{ borderRadius: 18, border: "1px solid #d8d1c8", padding: "12px 14px", fontSize: 14, resize: "vertical", background: "#fff" }} />
+          </label>
+          {error ? <div style={{ fontSize: 13, color: "#b91c1c" }}>{error}</div> : null}
+          {success ? <div style={{ fontSize: 13, color: "#166534" }}>{success}</div> : null}
+          {loading ? <div style={{ fontSize: 13, color: "#6b7280" }}>Chargement des références terrain...</div> : null}
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
+            <Link href="/manager/terrain" style={{ textDecoration: "none", minHeight: 52, borderRadius: 999, border: "1px solid #d8d1c8", background: "#fff", color: "#374151", fontSize: 14, fontWeight: 800, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>Annuler</Link>
+            <button type="button" onClick={handleSave} disabled={saving || loading} style={{ minHeight: 52, borderRadius: 999, border: "none", background: "linear-gradient(135deg, #be123c, #ef4444)", color: "#fff", fontSize: 15, fontWeight: 800, boxShadow: "0 14px 28px rgba(190,24,93,0.24)", opacity: saving || loading ? 0.7 : 1 }}>{saving ? "Enregistrement..." : "Enregistrer l'audit"}</button>
+          </div>
+        </div>
+      </div>
+    </section>
+  );
+}

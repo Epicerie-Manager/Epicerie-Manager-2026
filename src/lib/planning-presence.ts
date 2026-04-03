@@ -24,7 +24,7 @@ export function isPlanningEmployeeCountedForPresence(
 }
 
 export function getPlanningHoraireForDate(
-  employee: Pick<PlanningEmployee, "n" | "t" | "hs" | "hm">,
+  employee: Pick<PlanningEmployee, "n" | "t" | "hs" | "hm" | "hsa">,
   date: Date,
   overrides: PlanningOverrides,
 ) {
@@ -33,7 +33,7 @@ export function getPlanningHoraireForDate(
   if (override?.h) return override.h;
   const dow = date.getDay();
   if (dow === 2) return employee.hm;
-  if (dow === 6 && employee.t === "E") return "14h-21h30";
+  if (dow === 6 && employee.t === "E") return employee.hsa ?? "14h-21h30";
   return employee.hs;
 }
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { Card }        from "@/components/ui/card";
 import { Kicker }      from "@/components/ui/kicker";
 import { KPI, KPIRow } from "@/components/ui/kpi";
@@ -176,6 +177,7 @@ function StatusBox({ children, tone }: { children: React.ReactNode; tone: "yello
 
 // ── Page ──────────────────────────────────────────
 export default function DashboardPage() {
+  const router = useRouter();
   const dash  = moduleThemes.dashboard;
   const plan  = moduleThemes.planning;
   const bal   = moduleThemes.balisage;
@@ -433,18 +435,50 @@ export default function DashboardPage() {
     };
   });
 
+  const weeklyAlertDays = weekCards.filter((item) => item.alert);
+
   const alerts = [
     ...(weekCards.some((item) => item.alert)
-      ? [{ id: "plan-low", text: "Présence sous seuil sur la semaine en cours", module: "Planning", tone: "yellow" as AlertTone }]
+      ? [{
+          id: "plan-low",
+          text: "Présence sous seuil sur la semaine en cours",
+          detail: weeklyAlertDays
+            .map((item) => `${item.label.toLowerCase()} ${item.dateLabel}`)
+            .join(" · "),
+          module: "Planning",
+          tone: "yellow" as AlertTone,
+          href: `/planning?view=semaine&date=${weeklyAlertDays[0]?.dayIso ?? todayIso}`,
+        }]
       : []),
     ...(pendingAbsences > 0
-      ? [{ id: "abs-pending", text: `${pendingAbsences} demande(s) d'absence en attente`, module: "Absences", tone: "yellow" as AlertTone }]
+      ? [{
+          id: "abs-pending",
+          text: `${pendingAbsences} demande(s) d'absence en attente`,
+          detail: "Ouvrir la liste manager des demandes",
+          module: "Absences",
+          tone: "yellow" as AlertTone,
+          href: "/absences",
+        }]
       : []),
     ...(balisageAlertsCount > 0
-      ? [{ id: "bal-alert", text: `${balisageAlertsCount} profil(s) balisage en alerte`, module: "Balisage", tone: "red" as AlertTone }]
+      ? [{
+          id: "bal-alert",
+          text: `${balisageAlertsCount} profil(s) balisage en alerte`,
+          detail: "Consulter le suivi balisage",
+          module: "Balisage",
+          tone: "red" as AlertTone,
+          href: "/stats",
+        }]
       : []),
     ...(plateauOperations.length > 0
-      ? [{ id: "plat-active", text: "Opérations plateau actives sur la semaine en cours", module: "Plateau", tone: "blue" as AlertTone }]
+      ? [{
+          id: "plat-active",
+          text: "Opérations plateau actives sur la semaine en cours",
+          detail: `${plateauOperations.length} opération(s) active(s)`,
+          module: "Plateau",
+          tone: "blue" as AlertTone,
+          href: "/plan-plateau",
+        }]
       : []),
   ];
 
@@ -637,11 +671,17 @@ export default function DashboardPage() {
             {alerts.map((a) => {
               const c = alertColors[a.tone];
               return (
-                <div key={a.id} style={{
+                <button
+                  key={a.id}
+                  type="button"
+                  onClick={() => router.push(a.href)}
+                  style={{
                   display: "flex", alignItems: "flex-start", gap: "10px",
                   padding: "12px 14px", borderRadius: "10px", marginBottom: "8px",
                   background: c.bg, border: `1px solid ${c.border}`,
                   cursor: "pointer",
+                  width: "100%",
+                  textAlign: "left",
                 }}>
                   <div style={{
                     width: "8px", height: "8px", borderRadius: "50%",
@@ -650,6 +690,11 @@ export default function DashboardPage() {
                   }} />
                   <div>
                     <div style={{ fontSize: "13px", fontWeight: 600, color: c.text, lineHeight: 1.4 }}>{a.text}</div>
+                    {"detail" in a && a.detail ? (
+                      <div style={{ fontSize: "11px", color: "#64748b", marginTop: "4px", lineHeight: 1.35 }}>
+                        {a.detail}
+                      </div>
+                    ) : null}
                     <span style={{
                       display: "inline-block", marginTop: "4px",
                       fontSize: "10px", fontWeight: 700, letterSpacing: "0.04em",
@@ -659,7 +704,7 @@ export default function DashboardPage() {
                       {a.module}
                     </span>
                   </div>
-                </div>
+                </button>
               );
             })}
           </Card>
@@ -672,7 +717,7 @@ export default function DashboardPage() {
 
             <div style={{ display: "grid", gridTemplateColumns: "repeat(6, 1fr)", gap: "8px" }}>
               {weekCards.map((d) => (
-                <div key={d.dayIso} style={{
+                <button key={d.dayIso} type="button" onClick={() => router.push(`/planning?view=jour&date=${d.dayIso}`)} style={{
                   borderRadius: "12px", padding: "10px 6px", textAlign: "center",
                   border: d.active
                     ? `1px solid ${plan.color}`
@@ -682,6 +727,7 @@ export default function DashboardPage() {
                     : "white",
                   boxShadow: d.active ? `0 2px 8px ${plan.color}26` : "none",
                   cursor: "pointer",
+                  width: "100%",
                 }}>
                   <div style={{
                     fontSize: "10px", fontWeight: 700, textTransform: "uppercase",
@@ -732,7 +778,7 @@ export default function DashboardPage() {
                   }}>
                     {d.sub}
                   </div>
-                </div>
+                </button>
               ))}
             </div>
           </Card>

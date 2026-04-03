@@ -23,8 +23,28 @@ import {
 } from "@/lib/absences-store";
 import { TimelineSuivi } from "@/components/absences/timeline-suivi";
 import { defaultRhEmployees, getRhEmployeeNames, getRhUpdatedEventName } from "@/lib/rh-store";
+import {
+  getPlanningUpdatedEventName,
+  loadPlanningOverrides,
+  syncPlanningFromSupabase,
+  type PlanningOverrides,
+} from "@/lib/planning-store";
+import { getPlanningPresenceCountsForDate } from "@/lib/planning-presence";
+import {
+  getPresenceThresholdLevel,
+  type PresenceThresholdLevel,
+} from "@/lib/presence-thresholds";
+import {
+  getPresenceThresholdsUpdatedEventName,
+  loadPresenceThresholds,
+  syncPresenceThresholdsFromSupabase,
+} from "@/lib/presence-thresholds-store";
 
 type FilterStatus = "ALL" | AbsenceStatusId;
+type PendingRiskBadge = {
+  highestLevel: PresenceThresholdLevel;
+  riskDays: number;
+};
 
 function formatDate(value: string) {
   return new Date(`${value}T00:00:00`).toLocaleDateString("fr-FR", {
@@ -44,6 +64,8 @@ export default function AbsencesPage() {
   const theme = moduleThemes.absences;
   const [isInitialized, setIsInitialized] = useState(false);
   const [requests, setRequests] = useState<AbsenceRequest[]>(() => loadAbsenceRequests());
+  const [planningOverrides, setPlanningOverrides] = useState<PlanningOverrides>(() => loadPlanningOverrides());
+  const [presenceThresholds, setPresenceThresholds] = useState(() => loadPresenceThresholds());
   const [employees, setEmployees] = useState<string[]>(
     defaultRhEmployees.map((employee) => employee.n).sort((a, b) => a.localeCompare(b)),
   );
@@ -77,20 +99,64 @@ export default function AbsencesPage() {
       });
   }, [employeeFilter, requests, statusFilter]);
 
+  const pendingRiskBadges = useMemo(() => {
+    const nextBadges = new Map<number, PendingRiskBadge>();
+    requests
+      .filter((request) => request.status === "en_attente")
+      .forEach((request) => {
+        const start = new Date(`${request.startDate}T00:00:00`);
+        const end = new Date(`${request.endDate}T00:00:00`);
+        let riskDays = 0;
+        let highestLevel: PresenceThresholdLevel = "ok";
+
+        for (const current = new Date(start); current <= end; current.setDate(current.getDate() + 1)) {
+          if (current.getDay() === 0) continue;
+          const counts = getPlanningPresenceCountsForDate(current, planningOverrides);
+          const level = getPresenceThresholdLevel(
+            {
+              morning: counts.morningCount,
+              afternoon: counts.afternoonCount,
+            },
+            presenceThresholds,
+          );
+          if (level === "ok") continue;
+          riskDays += 1;
+          if (level === "critical") highestLevel = "critical";
+          else if (highestLevel !== "critical") highestLevel = "warning";
+        }
+
+        if (riskDays > 0) {
+          nextBadges.set(request.id, { highestLevel, riskDays });
+        }
+      });
+
+    return nextBadges;
+  }, [planningOverrides, presenceThresholds, requests]);
+
   useEffect(() => {
     const refresh = () => {
       setRequests(loadAbsenceRequests());
       setEmployees(getRhEmployeeNames());
+      setPlanningOverrides(loadPlanningOverrides());
+      setPresenceThresholds(loadPresenceThresholds());
     };
 
     refresh();
     setIsInitialized(true);
-    void syncAbsencesFromSupabase().then(() => {
+    void Promise.all([
+      syncAbsencesFromSupabase(),
+      syncPlanningFromSupabase(),
+      syncPresenceThresholdsFromSupabase(),
+    ]).then(() => {
       refresh();
     });
-    const eventName = getAbsencesUpdatedEventName();
-    window.addEventListener(eventName, refresh);
-    return () => window.removeEventListener(eventName, refresh);
+    const listeners = [
+      getAbsencesUpdatedEventName(),
+      getPlanningUpdatedEventName(),
+      getPresenceThresholdsUpdatedEventName(),
+    ];
+    listeners.forEach((eventName) => window.addEventListener(eventName, refresh));
+    return () => listeners.forEach((eventName) => window.removeEventListener(eventName, refresh));
   }, []);
 
   useEffect(() => {
@@ -312,12 +378,14 @@ export default function AbsencesPage() {
           {filteredRequests.map((request) => {
             const requestType = absenceTypes.find((type) => type.id === request.type)?.label ?? request.type;
             const isPending = request.status === "en_attente";
+            const riskBadge = pendingRiskBadges.get(request.id);
+            const isCriticalRisk = riskBadge?.highestLevel === "critical";
             return (
               <div
                 key={request.id}
                 style={{
-                  border: `1px solid ${isPending ? "#fcd34d" : "#dbe3eb"}`,
-                  background: isPending ? "#fffbeb" : "#fff",
+                  border: `1px solid ${riskBadge ? (isCriticalRisk ? "#fca5a5" : "#fdba74") : isPending ? "#fcd34d" : "#dbe3eb"}`,
+                  background: riskBadge ? (isCriticalRisk ? "#fef2f2" : "#fff7ed") : isPending ? "#fffbeb" : "#fff",
                   borderRadius: "12px",
                   padding: "10px 12px",
                   display: "flex",
@@ -329,6 +397,21 @@ export default function AbsencesPage() {
                 <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>
                   <strong style={{ fontSize: "13px", color: "#0f172a" }}>{request.employee}</strong>
                   <span style={{ fontSize: "10px", fontWeight: 700, padding: "3px 8px", borderRadius: "999px", background: theme.light, color: theme.color }}>{requestType}</span>
+                  {riskBadge ? (
+                    <span
+                      style={{
+                        fontSize: "10px",
+                        fontWeight: 700,
+                        padding: "3px 8px",
+                        borderRadius: "999px",
+                        background: isCriticalRisk ? "#fee2e2" : "#ffedd5",
+                        color: isCriticalRisk ? "#b91c1c" : "#c2410c",
+                        border: `1px solid ${isCriticalRisk ? "#fca5a5" : "#fdba74"}`,
+                      }}
+                    >
+                      {isCriticalRisk ? "Risque critique" : "Demande à risque"} · {riskBadge.riskDays}j
+                    </span>
+                  ) : null}
                   <span style={{ fontSize: "12px", color: "#64748b" }}>
                     {formatDate(request.startDate)} - {formatDate(request.endDate)} ({getDayDiff(request.startDate, request.endDate)}j)
                   </span>

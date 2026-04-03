@@ -135,6 +135,65 @@ function cloneBinomes(binomes: PlanningBinomes): PlanningBinomes {
   return binomes.map((pair) => [pair[0], pair[1]]) as PlanningBinomes;
 }
 
+function normalizePlanningHoraireSegment(segment: string) {
+  const cleaned = String(segment ?? "").trim().toLowerCase().replace(/\s+/g, "");
+  const match = cleaned.match(/^(\d{1,2})(?:h|:)?(?:(\d{2}))?$/);
+  if (!match) return cleaned;
+  const hours = String(Number(match[1]));
+  const minutes = match[2] ?? "00";
+  return minutes === "00" ? `${hours}h` : `${hours}h${minutes}`;
+}
+
+export function normalizePlanningHoraireValue(value: string | null | undefined) {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "";
+  const sanitized = raw.replace(/[–—]/g, "-");
+  const parts = sanitized.split("-").map((part) => part.trim()).filter(Boolean);
+  if (parts.length === 2) {
+    const start = normalizePlanningHoraireSegment(parts[0]);
+    const end = normalizePlanningHoraireSegment(parts[1]);
+    if (start && end) return `${start}-${end}`;
+  }
+  if (parts.length === 1) return normalizePlanningHoraireSegment(parts[0]);
+  return sanitized.replace(/\s+/g, "");
+}
+
+function horaireToSortValue(horaire: string) {
+  const normalized = normalizePlanningHoraireValue(horaire);
+  const start = normalized.split("-")[0] ?? normalized;
+  const match = start.match(/^(\d{1,2})h(?:(\d{2}))?$/);
+  if (!match) return Number.MAX_SAFE_INTEGER;
+  const hours = Number(match[1]);
+  const minutes = Number(match[2] ?? "0");
+  return (hours * 60) + minutes;
+}
+
+function sortPlanningHoraireValues(values: string[]) {
+  return [...values].sort((a, b) => {
+    const diff = horaireToSortValue(a) - horaireToSortValue(b);
+    return diff || a.localeCompare(b, "fr-FR");
+  });
+}
+
+function collectPlanningHorairePresets() {
+  const values = new Set<string>();
+  const pushHoraire = (horaire: string | null | undefined) => {
+    const normalized = normalizePlanningHoraireValue(horaire);
+    if (normalized) values.add(normalized);
+  };
+
+  planningEmployees.forEach((employee) => {
+    pushHoraire(employee.hs);
+    pushHoraire(employee.hm);
+    pushHoraire(employee.hsa);
+  });
+
+  Object.values(defaultPlanningOverridesSnapshot).forEach((entry) => pushHoraire(entry.h));
+  Object.values(planningOverridesSnapshot).forEach((entry) => pushHoraire(entry.h));
+
+  return sortPlanningHoraireValues(Array.from(values));
+}
+
 const defaultPlanningOverridesSnapshot = cloneOverrides(defaultPlanningOverrides);
 let planningOverridesSnapshot = cloneOverrides(defaultPlanningOverrides);
 let planningOverridesSerialized = JSON.stringify(planningOverridesSnapshot);
@@ -548,6 +607,10 @@ export function savePlanningBinomes(binomes: PlanningBinomes) {
   if (!canUseStorage()) return;
   const monthKey = getPlanningMonthKey(new Date());
   if (replacePlanningBinomesSnapshot(monthKey, binomes)) emitPlanningUpdated();
+}
+
+export function loadPlanningHorairePresets() {
+  return collectPlanningHorairePresets();
 }
 
 function normalizeActionError(error: unknown) {

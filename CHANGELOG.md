@@ -21,6 +21,16 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.67 - 2026-04-03
+
+- Exports : ajout du module `Exports & impressions` avec sorties A3 dediees pour `Planning equipe`, `Controle balisage` et `Plan TG/GB`, afin de sortir les impressions hors des ecrans manager.
+- Planning / Ergonomie : suppression des anciens boutons d'impression integres au module `Planning` au profit du menu `Exports`, ajout d'une edition d'horaires plus rapide avec liste de creneaux normalises, bascule automatique en `Present` lorsqu'un horaire est saisi sur une case `Non travaille`, et prise en charge des ouvertures directes depuis l'URL (`view` + `date`).
+- Planning / Lisibilite : ajout de la surbrillance de ligne par collaborateur, de la surbrillance de colonne au survol, et navigation directe depuis le dashboard vers la vue `Jour` du planning.
+- Dashboard / Actions : les cartes `Alertes a lire en premier` et les cartes jour de la tuile `Semaine` sont maintenant cliquables vers le module concerne, avec details des jours sous seuil quand l'alerte planning est presente.
+- Absences / Validation manager : les demandes en attente affichent maintenant une pastille `Demande a risque` ou `Risque critique` directement dans la liste manager, en coherence avec les alertes du dashboard.
+- Balisage / Suivi : l'export `Controle balisage` et la vue equipe affichent desormais les variations `vs mois prec.` par collaborateur, avec indicateurs de progression clairs.
+- Planning / Persistance : les creneaux proposes dans la modale planning ne reposent plus sur un cache local du navigateur ; ils sont reconstruits a partir des horaires RH et des horaires deja enregistres dans le planning.
+
 ## v0.6.66 - 2026-04-02
 
 - Planning / Etudiants : correction de la réinjection d'anciens horaires étudiants (`12h30-20h`, `12h-19h30`) provenant du seed historique du planning, qui pouvaient réapparaître après actualisation.

@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import PlanningApp from "@/components/planning/planning-epiceriebis";
 
 export default function PlanningPage() {
-  return <PlanningApp />;
+  return (
+    <Suspense fallback={null}>
+      <PlanningApp />
+    </Suspense>
+  );
 }

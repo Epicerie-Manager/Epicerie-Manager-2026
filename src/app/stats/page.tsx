@@ -6,6 +6,7 @@ import { Kicker } from "@/components/ui/kicker";
 import { KPI, KPIRow } from "@/components/ui/kpi";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { ModuleHeader } from "@/components/layout/module-header";
+import { getPreviousBalisageMonthId } from "@/components/exports/balisage-print-utils";
 import {
   balisageMonths,
   balisageObjective,
@@ -17,6 +18,10 @@ import { getRhUpdatedEventName, loadRhEmployees, syncRhFromSupabase } from "@/li
 import { moduleThemes } from "@/lib/theme";
 
 type SortBy = "name" | "total" | "alert";
+type BalisageStatsWithDelta = ReturnType<typeof attachRhActivityToBalisageStats>[number] & {
+  previousTotal: number | null;
+  deltaFromPrevious: number | null;
+};
 
 function getProgress(total: number) {
   return Math.min(Math.round((total / balisageObjective) * 100), 100);
@@ -103,6 +108,39 @@ function areBalisageDataEqual(
   return keysA.every((key) => areMonthStatsEqual(a[key] ?? [], b[key] ?? []));
 }
 
+function DeltaIndicator({ delta }: { delta: number | null }) {
+  if (delta === null) {
+    return <span style={{ fontSize: "10px", fontWeight: 700, color: "#94a3b8" }}>— vs mois précédent</span>;
+  }
+
+  const rising = delta > 0;
+  const falling = delta < 0;
+  const tone = rising ? "#16a34a" : falling ? "#dc2626" : "#d97706";
+  const symbol = rising ? "↑" : falling ? "↓" : "=";
+  const label = rising ? `+${delta}` : String(delta);
+
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: "4px",
+        padding: "3px 7px",
+        borderRadius: "999px",
+        background: rising ? "#ecfdf5" : falling ? "#fef2f2" : "#fffbeb",
+        color: tone,
+        fontSize: "10px",
+        fontWeight: 800,
+        lineHeight: 1,
+        whiteSpace: "nowrap",
+      }}
+    >
+      <span style={{ fontSize: "11px" }}>{symbol}</span>
+      <span>{label} vs mois préc.</span>
+    </span>
+  );
+}
+
 export default function StatsPage() {
   const [activeMonthIndex, setActiveMonthIndex] = useState(() => getCurrentBalisageMonthIndex());
   const [sortBy, setSortBy] = useState<SortBy>("name");
@@ -117,10 +155,22 @@ export default function StatsPage() {
   const theme = moduleThemes.balisage;
   const activeMonth = balisageMonths[activeMonthIndex];
   const monthStats = useMemo(() => localData[activeMonth.id] ?? [], [activeMonth.id, localData]);
-  const statsWithRhState = useMemo(
-    () => attachRhActivityToBalisageStats(monthStats, rhEmployees),
-    [monthStats, rhEmployees],
+  const previousMonthId = useMemo(() => getPreviousBalisageMonthId(activeMonth.id), [activeMonth.id]);
+  const previousMonthStats = useMemo(
+    () => (previousMonthId ? localData[previousMonthId] ?? [] : []),
+    [localData, previousMonthId],
   );
+  const statsWithRhState = useMemo<BalisageStatsWithDelta[]>(() => {
+    const previousMap = new Map(previousMonthStats.map((employee) => [employee.name.trim().toUpperCase(), employee.total]));
+    return attachRhActivityToBalisageStats(monthStats, rhEmployees).map((employee) => {
+      const previousTotal = previousMonthId ? (previousMap.get(employee.name.trim().toUpperCase()) ?? 0) : null;
+      return {
+        ...employee,
+        previousTotal,
+        deltaFromPrevious: previousTotal === null ? null : employee.total - previousTotal,
+      };
+    });
+  }, [monthStats, previousMonthId, previousMonthStats, rhEmployees]);
   const activeStats = useMemo(
     () => getActiveBalisageStats(statsWithRhState),
     [statsWithRhState],
@@ -340,7 +390,12 @@ export default function StatsPage() {
                 return (
                   <tr key={employee.name} style={employee.actif ? undefined : { background: "#f8fafc" }}>
                     <td style={{ borderBottom: "1px solid #e2e8f0", padding: "8px 10px", fontSize: "12px", color: employee.actif ? "#0f172a" : "#64748b", fontWeight: 600 }}>{employee.name}</td>
-                    <td style={{ borderBottom: "1px solid #e2e8f0", padding: "8px 10px", fontSize: "12px", color: employee.actif ? "#0f172a" : "#64748b" }}>{employee.total}</td>
+                    <td style={{ borderBottom: "1px solid #e2e8f0", padding: "8px 10px", color: employee.actif ? "#0f172a" : "#64748b" }}>
+                      <div style={{ display: "grid", gap: "4px" }}>
+                        <span style={{ fontSize: "12px", fontWeight: 700 }}>{employee.total}</span>
+                        <DeltaIndicator delta={employee.deltaFromPrevious} />
+                      </div>
+                    </td>
                     <td style={{ borderBottom: "1px solid #e2e8f0", padding: "8px 10px", opacity: employee.actif ? 1 : 0.55 }}>
                       <ProgressBar value={progress} moduleKey="balisage" showPercent noShimmer height={8} style={{ marginTop: 0 }} />
                     </td>

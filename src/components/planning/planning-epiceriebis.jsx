@@ -1,6 +1,7 @@
 "use client";
 
 import { Fragment, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { sheetPlanningBinomes } from "@/lib/planning-sheet-data";
 import {
   getAbsencesUpdatedEventName,
@@ -19,11 +20,13 @@ import {
   defaultPlanningBinomes,
   defaultPlanningTriData,
   formatPlanningDate,
+  loadPlanningHorairePresets,
   getPlanningMonthKey,
   getPlanningUpdatedEventName,
   loadPlanningBinomes,
   loadPlanningOverrides,
   loadPlanningTriData,
+  normalizePlanningHoraireValue,
   savePlanningBinomeToSupabase,
   savePlanningOverridesToSupabase,
   savePlanningTriPairToSupabase,
@@ -461,7 +464,6 @@ const Chev=({dir,onClick})=>(<button onClick={onClick} style={{width:36,height:3
 const CalIcon=<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={V.mc} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>;
 const CartIcon=<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={V.mc} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 002 1.61h9.72a2 2 0 002-1.61L23 6H6"/></svg>;
 const LinkIcon=<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke={V.mc} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>;
-const PrintIcon=<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9V4h12v5"/><rect x="4" y="9" width="16" height="8" rx="2"/><path d="M8 17h8v3H8z"/><circle cx="17" cy="13" r="1"/></svg>;
 const EditIcon=<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>;
 const RoleDot=({emp,size=8,ringColor})=>{
   const roleMeta=getPlanningEmployeeRoleMeta(emp);
@@ -488,11 +490,29 @@ const EditScopeOption=({value,label,desc,scope,setScope})=>(
 /* ═══════════════════════════════════════════════════════════
    EDIT CELL MODAL — statut + horaire ponctuel
    ═══════════════════════════════════════════════════════════ */
-const EditCellModal=({empName,date,currentStatut,currentHoraire,defaultHoraire,monthLabel,onSave,onClose})=>{
+const EditCellModal=({empName,date,currentStatut,currentHoraire,defaultHoraire,monthLabel,horaireOptions,onSave,onClose})=>{
   const [s,setS]=useState(currentStatut);
-  const [h,setH]=useState(currentHoraire||"");
+  const [h,setH]=useState(()=>normalizePlanningHoraireValue(currentHoraire||""));
   const [scope,setScope]=useState("default"); // "default" | "jour" | "mois"
   const dn=date.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"});
+  const normalizedHoraireOptions=useMemo(()=>{
+    const values = new Set();
+    (horaireOptions||[]).forEach((value)=>{
+      const normalized = normalizePlanningHoraireValue(value);
+      if(normalized) values.add(normalized);
+    });
+    [defaultHoraire,currentHoraire].forEach((value)=>{
+      const normalized = normalizePlanningHoraireValue(value);
+      if(normalized) values.add(normalized);
+    });
+    return Array.from(values);
+  },[horaireOptions,defaultHoraire,currentHoraire]);
+  const normalizedSelectedHoraire=normalizePlanningHoraireValue(h);
+  const selectedPresetValue=normalizedHoraireOptions.includes(normalizedSelectedHoraire)?normalizedSelectedHoraire:"";
+  const applyHoraireValue=(value)=>{
+    setH(value);
+    if(normalizePlanningHoraireValue(value)&&s==="X") setS("PRESENT");
+  };
 
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000}} onClick={onClose}>
@@ -534,8 +554,27 @@ const EditCellModal=({empName,date,currentStatut,currentHoraire,defaultHoraire,m
 
             {(scope==="jour"||scope==="mois")&&(
               <div style={{marginTop:10}}>
-                <input value={h} onChange={e=>setH(e.target.value)} placeholder="Ex: 6h-13h30, 5h-12h..."
-                  style={{width:"100%",padding:"10px 14px",borderRadius:10,border:`2px solid ${V.mc}30`,fontSize:14,fontWeight:700,outline:"none",boxSizing:"border-box",background:"#fff"}}/>
+                <div style={{display:"grid",gap:8}}>
+                  <select
+                    value={selectedPresetValue}
+                    onChange={e=>applyHoraireValue(e.target.value)}
+                    style={{width:"100%",padding:"10px 14px",borderRadius:10,border:`2px solid ${V.line}`,fontSize:13,fontWeight:700,outline:"none",boxSizing:"border-box",background:"#fff",color:selectedPresetValue?V.body:V.light}}
+                  >
+                    <option value="">Choisir un créneau déjà utilisé</option>
+                    {normalizedHoraireOptions.map((value)=>(
+                      <option key={value} value={value}>{value}</option>
+                    ))}
+                  </select>
+                  <input
+                    value={h}
+                    onChange={e=>applyHoraireValue(e.target.value)}
+                    placeholder="Saisir un nouveau créneau si besoin"
+                    style={{width:"100%",padding:"10px 14px",borderRadius:10,border:`2px solid ${V.mc}30`,fontSize:14,fontWeight:700,outline:"none",boxSizing:"border-box",background:"#fff"}}
+                  />
+                </div>
+                <div style={{fontSize:10,color:V.light,marginTop:4}}>
+                  Le créneau saisi sera normalisé et réutilisable ensuite dans la liste.
+                </div>
                 <div style={{fontSize:10,color:V.light,marginTop:4}}>
                   {scope==="jour"?"Cet horaire remplacera l'horaire par défaut uniquement pour cette journée."
                     :`Cet horaire sera appliqué à tous les jours de ${monthLabel} où ${empName} est présent.`}
@@ -624,16 +663,27 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenc
   const sections=getPlanningMonthSections(filter);
   const todayS=formatPlanningDate(new Date());
   const totalColumns=dates.length+2;
+  const [selectedEmployeeName,setSelectedEmployeeName]=useState(null);
+  const [hoveredDayIso,setHoveredDayIso]=useState(null);
+
+  const getCellHighlightStyle=(isRowSelected,isColumnHovered)=>({
+    boxShadow:[
+      isRowSelected?"inset 0 0 0 9999px rgba(37,99,235,0.16)":null,
+      isColumnHovered?"inset 0 0 0 9999px rgba(14,116,144,0.10)":null,
+    ].filter(Boolean).join(","),
+  });
 
   return(
-    <div style={{overflowX:"auto"}}>
+    <div style={{overflowX:"auto"}} onMouseLeave={()=>setHoveredDayIso(null)}>
       <table style={{borderCollapse:"collapse",width:"100%",minWidth:1200}}>
         <thead>
           <tr style={{background:"#f8fafc"}}>
             <th style={{padding:"8px 8px",fontSize:11,fontWeight:700,color:V.light,textAlign:"left",borderBottom:`2px solid ${V.line}`,position:"sticky",left:0,background:"#f8fafc",zIndex:3,minWidth:85}}>Employé</th>
             {dates.map(d=>{
-              const dow=d.getDay();const isWeekend=dow===0||dow===6;const isT=formatPlanningDate(d)===todayS;
-              return(<th key={d.getDate()} style={{
+              const dayIso=formatPlanningDate(d);
+              const dow=d.getDay();const isWeekend=dow===0||dow===6;const isT=dayIso===todayS;
+              const isHovered=hoveredDayIso===dayIso;
+              return(<th key={d.getDate()} onMouseEnter={()=>setHoveredDayIso(dayIso)} style={{
                 padding:"6px 2px",
                 fontSize:10,
                 fontWeight:isT?800:700,
@@ -644,7 +694,8 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenc
                 borderRight:isT?"2px solid #16a34a":"none",
                 minWidth:68,
                 color:isT?V.mc:isWeekend?V.mc+"90":V.light,
-                background:"transparent",
+                background:isHovered?"rgba(14,116,144,0.08)":"transparent",
+                boxShadow:isHovered?"inset 0 0 0 1px rgba(14,116,144,0.16)":"none",
               }}>
                 <div style={{fontSize:9,color:isT?V.mc:isWeekend?V.mc+"70":V.light,fontWeight:700}}>{JC_SHORT[dow]}</div>{d.getDate()}
               </th>);
@@ -662,19 +713,22 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenc
               </div>
             </td>
             {dates.map(date=>{
-              const isT=formatPlanningDate(date)===todayS;
+              const dayIso=formatPlanningDate(date);
+              const isT=dayIso===todayS;
+              const isHovered=hoveredDayIso===dayIso;
               const counts=getPlanningDayPresence(date,overrides);
               const dayLevel=getPlanningDayLevel(date,counts,presenceThresholds);
               const morningLevel=getPlanningCountLevel(counts.morningCount,"morning",presenceThresholds);
               const afternoonLevel=getPlanningCountLevel(counts.afternoonCount,"afternoon",presenceThresholds);
-              return(<td key={date.getDate()} style={{
+              return(<td key={date.getDate()} onMouseEnter={()=>setHoveredDayIso(dayIso)} style={{
                 textAlign:"center",
                 padding:"4px 0",
                 borderTop:isT?"2px solid #16a34a":`2px solid ${V.line}`,
                 borderBottom:isT?"2px solid #16a34a":`1px solid ${V.line}`,
                 borderLeft:isT?"2px solid #16a34a":"none",
                 borderRight:isT?"2px solid #16a34a":"none",
-                background:dayLevel==="critical"?"#fef2f2":dayLevel==="warning"?"#fff7ed":"#f8fafc"
+                background:dayLevel==="critical"?"#fef2f2":dayLevel==="warning"?"#fff7ed":"#f8fafc",
+                ...getCellHighlightStyle(false,isHovered),
               }}>
                 <div style={{fontSize:11,fontWeight:800,color:getPlanningLevelColor(morningLevel),lineHeight:1.05}}>{counts.morningCount}</div>
                 <div style={{fontSize:10,fontWeight:800,color:getPlanningLevelColor(afternoonLevel),lineHeight:1.05,marginTop:4}}>{counts.afternoonCount}</div>
@@ -704,6 +758,7 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenc
               </tr>
               {section.employees.map((emp)=>{
                 let presCount=0;
+                const isRowSelected=selectedEmployeeName===emp.n;
                 const isCoordinator=isCoordinatorEmployee(emp);
                 const isCoordinatorSection=section.id==="morningCoordinators"||section.id==="afternoonCoordinators";
                 const normalizedEmployeeName=normalizePlanningEmployeeName(emp.n);
@@ -724,24 +779,35 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenc
                     : section;
                 return(
                   <tr key={emp.n} style={{opacity:emp.actif?1:0.5,background:rowBackground}}>
-                    <td style={{padding:"6px 8px",fontSize:11,fontWeight:700,borderBottom:`1px solid ${rowBorder}`,position:"sticky",left:0,background:stickyBackground,zIndex:2,whiteSpace:"nowrap"}}>
-                      <div style={{
+                    <td style={{padding:"6px 8px",fontSize:11,fontWeight:700,borderBottom:`1px solid ${rowBorder}`,position:"sticky",left:0,background:isRowSelected?"#d8eafe":stickyBackground,zIndex:2,whiteSpace:"nowrap"}}>
+                      <button
+                        type="button"
+                        onClick={()=>setSelectedEmployeeName((current)=>current===emp.n?null:emp.n)}
+                        style={{
                         display:"flex",
                         alignItems:"center",
                         gap:7,
                         padding:isCoordinatorSection||isCoordinator?"4px 8px":"3px 6px",
                         borderRadius:8,
-                        background:highlightedNameMeta.nameBg,
-                        color:highlightedNameMeta.nameText,
-                        border:`1px solid ${(isMorningGreenHighlight||isMorningBlueHighlight)?highlightedNameMeta.border:rowBorder}`,
-                        boxShadow:isMorningBlueHighlight?"0 0 0 1px rgba(255,255,255,0.45) inset":"none",
+                        background:isRowSelected?"linear-gradient(135deg,#93c5fd,#60a5fa)":highlightedNameMeta.nameBg,
+                        color:isRowSelected?"#0b3b75":highlightedNameMeta.nameText,
+                        border:`1px solid ${isRowSelected?V.mc:(isMorningGreenHighlight||isMorningBlueHighlight)?highlightedNameMeta.border:rowBorder}`,
+                        boxShadow:isRowSelected?"0 0 0 3px rgba(29,95,160,0.22), 0 6px 14px rgba(29,95,160,0.12)":isMorningBlueHighlight?"0 0 0 1px rgba(255,255,255,0.45) inset":"none",
+                        width:"100%",
+                        textAlign:"left",
+                        cursor:"pointer",
+                        outline:"none",
+                        fontSize:"inherit",
+                        fontWeight:700,
+                        fontFamily:"inherit",
                       }} title={`Statut RH : ${roleMeta.label}`}>
                         <RoleDot emp={emp} size={7} ringColor={rowBackground}/>
                         {emp.n}
-                      </div>
+                      </button>
                     </td>
                     {dates.map(date=>{
                       const dow=date.getDay();
+                      const dayIso=formatPlanningDate(date);
                       const s=getStatus(emp,date,overrides);
                       const sc=ST[s]||ST.X;
                       const pendingStatus=getPendingAbsenceStatusForDate(emp,date,pendingAbsenceLookup);
@@ -750,15 +816,17 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenc
                       const h=s==="PRESENT"?getHoraire(emp,date,overrides):null;
                       const isCustomH=s==="PRESENT"&&isHoraireOverride(emp,date,overrides);
                       const triC=isTriCaddie(emp.n,dow,triData);
-                      const isT=formatPlanningDate(date)===todayS;
+                      const isT=dayIso===todayS;
+                      const isColumnHovered=hoveredDayIso===dayIso;
                       if(s==="PRESENT") presCount++;
 
                       return(
-                        <td key={date.getDate()} onClick={()=>onEdit(emp,date)} style={{
+                        <td key={date.getDate()} onMouseEnter={()=>setHoveredDayIso(dayIso)} onClick={()=>onEdit(emp,date)} style={{
                           padding:"4px 2px",textAlign:"center",borderBottom:`1px solid ${rowBorder}`,cursor:"pointer",
                           background:rowBackground,position:"relative",
                           borderLeft:isT?"2px solid #16a34a":"none",
                           borderRight:isT?"2px solid #16a34a":"none",
+                          ...getCellHighlightStyle(isRowSelected,isColumnHovered),
                         }}>
                           {hasPendingDisplay?(
                             <div title={`Demande en attente — ${pendingConfig.l}`} style={{
@@ -808,7 +876,7 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenc
                         </td>
                       );
                     })}
-                    <td style={{padding:"4px 4px",fontSize:11,fontWeight:800,textAlign:"center",borderBottom:`1px solid ${rowBorder}`,color:section.count,position:"sticky",right:0,background:stickyBackground,zIndex:2}}>
+                    <td style={{padding:"4px 4px",fontSize:11,fontWeight:800,textAlign:"center",borderBottom:`1px solid ${rowBorder}`,color:section.count,position:"sticky",right:0,background:isRowSelected?"#d8eafe":stickyBackground,zIndex:2}}>
                       {presCount||""}
                     </td>
                   </tr>
@@ -977,234 +1045,15 @@ const VueJour=({date,overrides,triData,binomes,presenceThresholds,onEdit})=>{
   );
 };
 
-function getPlanningFilterLabel(filter){
-  if(filter==="M") return "Équipe matin";
-  if(filter==="S") return "Équipe après-midi";
-  if(filter==="E") return "Étudiants";
-  return "Toute l'équipe";
-}
-
-function getPlanningPrintDates(mode,year,month,weekStart){
-  if(mode==="month"){
-    const totalDays=daysInMonth(year,month);
-    return Array.from({length:totalDays},(_,index)=>new Date(year,month,index+1));
-  }
-  return Array.from({length:14},(_,index)=>{
-    const date=new Date(weekStart);
-    date.setDate(date.getDate()+index);
-    return date;
-  });
-}
-
-function getPlanningPrintPeriodLabel(mode,year,month,weekStart){
-  if(mode==="month") return `${MOIS_FR[month]} ${year}`;
-  const end=new Date(weekStart);
-  end.setDate(end.getDate()+13);
-  return `Du ${weekStart.toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"})} au ${end.toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"})}`;
-}
-
-function getPlanningPrintCell(emp,date,overrides,pendingAbsenceLookup){
-  const status=getStatus(emp,date,overrides);
-  const pendingStatus=getPendingAbsenceStatusForDate(emp,date,pendingAbsenceLookup);
-  const hasPendingDisplay=Boolean(pendingStatus)&&!hasBlockingApprovedAbsence(emp,date,status,overrides);
-  if(hasPendingDisplay){
-    const config=ST[pendingStatus]||ST.ABS;
-    return {
-      primary:config.short,
-      secondary:"att.",
-      color:config.c,
-      background:`repeating-linear-gradient(135deg,rgba(255,255,255,0.9) 0px,rgba(255,255,255,0.9) 6px,rgba(255,255,255,0.3) 6px,rgba(255,255,255,0.3) 12px), ${config.bg}`,
-      border:`1px dashed ${config.c}66`,
-    };
-  }
-  if(status==="PRESENT"){
-    return {
-      primary:getHoraire(emp,date,overrides)||"P",
-      secondary:"",
-      color:V.body,
-      background:"#eff6ff",
-      border:"1px solid #bfdbfe",
-    };
-  }
-  const config=ST[status]||ST.X;
-  return {
-    primary:config.short,
-    secondary:"",
-    color:config.c,
-    background:config.bg,
-    border:`1px solid ${config.c}30`,
-  };
-}
-
-const PrintLegend=()=>(
-  <div style={{display:"flex",gap:10,flexWrap:"wrap",marginTop:10}}>
-    {Object.entries(ST)
-      .filter(([key])=>key!=="X")
-      .map(([key,value])=>(
-        <div key={key} style={{display:"inline-flex",alignItems:"center",gap:5,fontSize:10,color:"#475569"}}>
-          <span style={{width:10,height:10,borderRadius:3,background:value.c,display:"inline-block"}}/>
-          {value.short}
-        </div>
-      ))}
-    <div style={{display:"inline-flex",alignItems:"center",gap:5,fontSize:10,color:"#475569"}}>
-      <span style={{width:12,height:10,borderRadius:3,display:"inline-block",...getPendingCellStyles({c:"#475569",bg:"#f8fafc"})}}/>
-      Attente
-    </div>
-  </div>
-);
-
-const PlanningPrintDocument=({mode,year,month,weekStart,filter,overrides,pendingAbsenceLookup,presenceThresholds})=>{
-  const dates=getPlanningPrintDates(mode,year,month,weekStart);
-  const sections=getPlanningMonthSections(filter);
-  const todayIso=formatPlanningDate(new Date());
-  const totalColumns=dates.length+2;
-  const cellMinWidth=mode==="month"?28:54;
-  const title=mode==="month"?"Planning mensuel":"Planning sur 2 semaines";
-
-  return(
-    <div data-planning-print style={{fontFamily:"'Segoe UI',system-ui,sans-serif",color:"#0f172a",background:"#ffffff",padding:"8mm"}}>
-      <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:16,marginBottom:10}}>
-        <div>
-          <div style={{fontSize:11,fontWeight:800,letterSpacing:"0.12em",textTransform:"uppercase",color:V.mc}}>Epicerie Manager 2026</div>
-          <div style={{fontSize:24,fontWeight:800,marginTop:4,color:V.text}}>{title}</div>
-          <div style={{fontSize:13,fontWeight:600,color:"#475569",marginTop:3}}>{getPlanningPrintPeriodLabel(mode,year,month,weekStart)}</div>
-          <div style={{fontSize:11,color:"#64748b",marginTop:4}}>
-            Filtre : {getPlanningFilterLabel(filter)} · Édité le {new Date().toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"})}
-          </div>
-        </div>
-        <div style={{minWidth:180,padding:"12px 14px",border:"1px solid #dbe3eb",borderRadius:14,background:"#f8fafc"}}>
-          <div style={{fontSize:10,fontWeight:800,letterSpacing:"0.08em",textTransform:"uppercase",color:V.mc}}>Seuils partagés</div>
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8,marginTop:8}}>
-            <div>
-              <div style={{fontSize:10,color:"#64748b"}}>Matin</div>
-              <div style={{fontSize:11,fontWeight:700,color:"#0f172a"}}>Alerte {presenceThresholds.warningMorning} · Critique {presenceThresholds.criticalMorning}</div>
-            </div>
-            <div>
-              <div style={{fontSize:10,color:"#64748b"}}>Après-midi</div>
-              <div style={{fontSize:11,fontWeight:700,color:"#0f172a"}}>Alerte {presenceThresholds.warningAfternoon} · Critique {presenceThresholds.criticalAfternoon}</div>
-            </div>
-          </div>
-          <PrintLegend/>
-        </div>
-      </div>
-
-      <table style={{width:"100%",borderCollapse:"collapse",tableLayout:"fixed"}}>
-        <thead>
-          <tr>
-            <th style={{padding:"6px 6px",fontSize:10,fontWeight:800,textAlign:"left",border:"1px solid #cbd5e1",background:"#eff6ff",width:132}}>Employé</th>
-            {dates.map((date)=>{
-              const isToday=formatPlanningDate(date)===todayIso;
-              return(
-                <th
-                  key={formatPlanningDate(date)}
-                  style={{
-                    padding:"5px 2px",
-                    fontSize:9,
-                    fontWeight:800,
-                    textAlign:"center",
-                    border:`1px solid ${isToday?"#16a34a":"#cbd5e1"}`,
-                    background:isToday?"#ecfdf5":"#f8fafc",
-                    color:isToday?"#166534":"#334155",
-                    minWidth:cellMinWidth,
-                  }}
-                >
-                  <div style={{fontSize:8,fontWeight:800,color:isToday?"#166534":"#64748b"}}>{JC_SHORT[date.getDay()]}</div>
-                  {date.getDate()}
-                </th>
-              );
-            })}
-            <th style={{padding:"6px 4px",fontSize:10,fontWeight:800,textAlign:"center",border:"1px solid #cbd5e1",background:"#eff6ff",width:38}}>Jrs</th>
-          </tr>
-        </thead>
-        <tbody>
-          <tr>
-            <td style={{padding:"6px 6px",fontSize:9,fontWeight:800,color:V.mc,border:"1px solid #cbd5e1",background:"#f8fafc"}}>Effectif</td>
-            {dates.map((date)=>{
-              const counts=getPlanningDayPresence(date,overrides);
-              const morningLevel=getPlanningCountLevel(counts.morningCount,"morning",presenceThresholds);
-              const afternoonLevel=getPlanningCountLevel(counts.afternoonCount,"afternoon",presenceThresholds);
-              return(
-                <td key={`presence-${formatPlanningDate(date)}`} style={{padding:"4px 1px",textAlign:"center",border:"1px solid #cbd5e1",background:"#f8fafc"}}>
-                  <div style={{fontSize:9,fontWeight:800,color:getPlanningLevelColor(morningLevel),lineHeight:1.1}}>{counts.morningCount}</div>
-                  <div style={{fontSize:8,fontWeight:800,color:getPlanningLevelColor(afternoonLevel),lineHeight:1.1,marginTop:2}}>{counts.afternoonCount}</div>
-                </td>
-              );
-            })}
-            <td style={{border:"1px solid #cbd5e1",background:"#f8fafc"}}/>
-          </tr>
-          {sections.map((section)=>(
-            <Fragment key={`print-${section.id}`}>
-              <tr>
-                <td colSpan={totalColumns} style={{padding:"6px 8px",fontSize:9,fontWeight:800,letterSpacing:"0.06em",textTransform:"uppercase",color:section.text,border:`1px solid ${section.border}`,background:section.sticky}}>
-                  {section.label}
-                </td>
-              </tr>
-              {section.employees.map((emp)=>{
-                let presentCount=0;
-                return(
-                  <tr key={`print-row-${emp.n}`}>
-                    <td style={{padding:"5px 6px",fontSize:9,fontWeight:800,color:"#0f172a",border:`1px solid ${section.border}`,background:section.row}}>
-                      {emp.n}
-                    </td>
-                    {dates.map((date)=>{
-                      const cell=getPlanningPrintCell(emp,date,overrides,pendingAbsenceLookup);
-                      if(getStatus(emp,date,overrides)==="PRESENT") presentCount+=1;
-                      return(
-                        <td
-                          key={`${emp.n}-${formatPlanningDate(date)}`}
-                          style={{
-                            padding:"2px 1px",
-                            textAlign:"center",
-                            border:`1px solid ${section.border}`,
-                            background:section.row,
-                          }}
-                        >
-                          <div
-                            style={{
-                              borderRadius:6,
-                              minHeight:mode==="month"?22:28,
-                              display:"flex",
-                              flexDirection:"column",
-                              alignItems:"center",
-                              justifyContent:"center",
-                              padding:"2px 1px",
-                              background:cell.background,
-                              color:cell.color,
-                              border:cell.border,
-                              lineHeight:1.05,
-                            }}
-                          >
-                            <div style={{fontSize:mode==="month"?7:8,fontWeight:800}}>{cell.primary}</div>
-                            {cell.secondary?<div style={{fontSize:6,opacity:0.8,marginTop:1}}>{cell.secondary}</div>:null}
-                          </div>
-                        </td>
-                      );
-                    })}
-                    <td style={{padding:"4px 2px",textAlign:"center",fontSize:9,fontWeight:800,color:section.count,border:`1px solid ${section.border}`,background:section.row}}>
-                      {presentCount||""}
-                    </td>
-                  </tr>
-                );
-              })}
-            </Fragment>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  );
-};
-
 /* ═══════════════════════════════════════════════════════════
    MAIN APP
    ═══════════════════════════════════════════════════════════ */
 export default function PlanningApp(){
+  const searchParams = useSearchParams();
   const [,setRhVersion]=useState(0);
-  const [view,setView]=useState("mois");
-  const [printMode,setPrintMode]=useState(null);
-  const [year,setYear]=useState(null);
+  const [view,setView]=useState("mois");  const [year,setYear]=useState(null);
   const [month,setMonth]=useState(null);
-  const [selectedDate,setSelectedDate]=useState(null);
-  const [filter,setFilter]=useState("ALL");
+  const [selectedDate,setSelectedDate]=useState(null);  const [filter,setFilter]=useState("ALL");
   const [overrides,setOverrides]=useState(()=>cloneOverridesForInit()); // key: "NAME_2026-03-20" → {s:"CP",h:"6h-13h"}
   const [editing,setEditing]=useState(null);
   const [triData,setTriData]=useState(()=>cloneTriDataForInit());
@@ -1226,6 +1075,25 @@ export default function PlanningApp(){
     setMonth(now.getMonth());
     setSelectedDate(now);
   },[]);
+
+  useEffect(()=>{
+    const requestedView = searchParams.get("view");
+    const requestedDate = searchParams.get("date");
+    if(!requestedView && !requestedDate) return;
+
+    if(requestedDate && /^\d{4}-\d{2}-\d{2}$/.test(requestedDate)){
+      const parsedDate = new Date(`${requestedDate}T12:00:00`);
+      if(!Number.isNaN(parsedDate.getTime())){
+        setSelectedDate(parsedDate);
+        setYear(parsedDate.getFullYear());
+        setMonth(parsedDate.getMonth());
+      }
+    }
+
+    if(requestedView==="mois"||requestedView==="semaine"||requestedView==="jour"){
+      setView(requestedView);
+    }
+  },[searchParams]);
 
   useEffect(()=>{
     setOverrides(loadPlanningOverrides());
@@ -1289,21 +1157,6 @@ export default function PlanningApp(){
     return ()=>window.removeEventListener(eventName,refreshPresenceThresholds);
   },[]);
 
-  useEffect(()=>{
-    if(!printMode) return;
-    const timeout=setTimeout(()=>{
-      window.print();
-    },120);
-    const handleAfterPrint=()=>{
-      setPrintMode(null);
-    };
-    window.addEventListener("afterprint",handleAfterPrint);
-    return ()=>{
-      clearTimeout(timeout);
-      window.removeEventListener("afterprint",handleAfterPrint);
-    };
-  },[printMode]);
-
   const weekStart=useMemo(()=>{
     if(!selectedDate) return null;
     const d=new Date(selectedDate);
@@ -1321,10 +1174,6 @@ export default function PlanningApp(){
     else{setSelectedDate(d=>{const n=new Date(d);n.setDate(n.getDate()+dir);return n;});}
   };
 
-  const triggerPrint=(mode)=>{
-    setPrintMode(mode);
-  };
-
   const handleEdit=(emp,date)=>{
     const s=getStatus(emp,date,overrides);
     const h=getHoraire(emp,date,overrides);
@@ -1334,6 +1183,12 @@ export default function PlanningApp(){
 
   const saveEdit=async(s,h,scope)=>{
     if(!editing)return;
+    const normalizedHoraire=scope!=="default"?normalizePlanningHoraireValue(h):null;
+    const effectiveStatus=normalizedHoraire&&s==="X"?"PRESENT":s;
+    if(scope!=="default"&&!normalizedHoraire){
+      setError("Choisissez ou saisissez un horaire valide.");
+      return;
+    }
     setBusy(true);
     setError("");
     const selectedEmployeeName=editing.emp.n;
@@ -1341,7 +1196,7 @@ export default function PlanningApp(){
     try {
       const nextOverrides={...overrides};
       const mutations=[];
-      if(scope==="mois"&&h){
+      if(scope==="mois"&&normalizedHoraire){
         const emp=editing.emp;
         const d=editing.date;
         const y=d.getFullYear();const m=d.getMonth();
@@ -1354,27 +1209,27 @@ export default function PlanningApp(){
           if(curS==="PRESENT"){
             const iso=formatPlanningDate(dt);
             const key=`${emp.n}_${iso}`;
-            nextOverrides[key]={s:"PRESENT",h};
-            mutations.push({employeeName:emp.n,date:iso,status:"PRESENT",horaire:h});
+            nextOverrides[key]={s:"PRESENT",h:normalizedHoraire};
+            mutations.push({employeeName:emp.n,date:iso,status:"PRESENT",horaire:normalizedHoraire});
           }
         }
         const iso=formatPlanningDate(editing.date);
         const key=`${emp.n}_${iso}`;
-        nextOverrides[key]={s,h};
-        mutations.push({employeeName:emp.n,date:iso,status:s,horaire:h});
+        nextOverrides[key]={s:effectiveStatus,h:normalizedHoraire};
+        mutations.push({employeeName:emp.n,date:iso,status:effectiveStatus,horaire:normalizedHoraire});
       } else {
         const iso=formatPlanningDate(editing.date);
         const key=`${editing.emp.n}_${iso}`;
-        nextOverrides[key]={s,h};
-        mutations.push({employeeName:editing.emp.n,date:iso,status:s,horaire:h});
+        nextOverrides[key]={s:effectiveStatus,h:normalizedHoraire};
+        mutations.push({employeeName:editing.emp.n,date:iso,status:effectiveStatus,horaire:normalizedHoraire});
       }
 
       await savePlanningOverridesToSupabase(mutations,nextOverrides);
-      if(isAbsenceStatus(editing.s) || isAbsenceStatus(s)){
+      if(isAbsenceStatus(editing.s) || isAbsenceStatus(effectiveStatus)){
         await syncPlanningStatusToAbsenceInSupabase({
           employeeName:selectedEmployeeName,
           date:selectedDateIso,
-          status:s,
+          status:effectiveStatus,
         });
       }
       setOverrides(loadPlanningOverrides());
@@ -1468,6 +1323,7 @@ export default function PlanningApp(){
     binomes.map((pair,index)=>({pair,index})),
     2,
   );
+  const horaireOptions=loadPlanningHorairePresets();
 
   if(year===null || month===null || !selectedDate || !weekStart){
     return(
@@ -1479,33 +1335,6 @@ export default function PlanningApp(){
 
   return(
     <div data-planning-root style={{fontFamily:"'Segoe UI',system-ui,sans-serif",color:V.body,minHeight:"100vh",background:`radial-gradient(circle at top left,rgba(29,95,160,0.06),transparent 24%),linear-gradient(180deg,#f9fbfd 0%,${V.bg} 100%)`}}>
-      <style>{`
-        @page {
-          size: A3 landscape;
-          margin: 10mm;
-        }
-        @media screen {
-          [data-planning-print] {
-            display: none !important;
-          }
-        }
-        @media print {
-          html, body {
-            background: #ffffff !important;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
-          }
-          [data-planning-root] > :not([data-planning-print]) {
-            display: none !important;
-          }
-          [data-planning-screen] {
-            display: none !important;
-          }
-          [data-planning-print] {
-            display: block !important;
-          }
-        }
-      `}</style>
       <div data-planning-screen style={{maxWidth:1600,margin:"0 auto",padding:18}}>
 
         {/* HEADER */}
@@ -1534,32 +1363,6 @@ export default function PlanningApp(){
                 ))}
               </div>
             )}
-            <div style={{display:"flex",gap:6,marginLeft:6}}>
-              <button
-                type="button"
-                onClick={()=>triggerPrint("2weeks")}
-                style={{
-                  display:"inline-flex",alignItems:"center",gap:6,
-                  padding:"8px 12px",borderRadius:10,border:`1px solid ${V.mc}22`,
-                  background:"#ffffff",color:V.mc,cursor:"pointer",fontSize:12,fontWeight:700,
-                }}
-              >
-                {PrintIcon}
-                2 semaines
-              </button>
-              <button
-                type="button"
-                onClick={()=>triggerPrint("month")}
-                style={{
-                  display:"inline-flex",alignItems:"center",gap:6,
-                  padding:"8px 12px",borderRadius:10,border:`1px solid ${V.mc}22`,
-                  background:"#ffffff",color:V.mc,cursor:"pointer",fontSize:12,fontWeight:700,
-                }}
-              >
-                {PrintIcon}
-                Mois A3
-              </button>
-            </div>
           </div>
         </Card>
         {(error||busy)&&(
@@ -1687,7 +1490,7 @@ export default function PlanningApp(){
       </div>
 
       {/* MODALS */}
-      {editing&&<EditCellModal empName={editing.emp.n} date={editing.date} currentStatut={editing.s} currentHoraire={editing.h} defaultHoraire={editing.dh} monthLabel={`${MOIS_FR[editing.date.getMonth()]} ${editing.date.getFullYear()}`} onSave={saveEdit} onClose={()=>setEditing(null)}/>}
+      {editing&&<EditCellModal empName={editing.emp.n} date={editing.date} currentStatut={editing.s} currentHoraire={editing.h} defaultHoraire={editing.dh} monthLabel={`${MOIS_FR[editing.date.getMonth()]} ${editing.date.getFullYear()}`} horaireOptions={horaireOptions} onSave={saveEdit} onClose={()=>setEditing(null)}/>}
       {editTri!==null&&<EditTriModal dow={editTri} pair={triData[editTri]} allNames={getAllEmpNames()} onSave={async(pair)=>{
         setBusy(true);
         setError("");
@@ -1717,18 +1520,6 @@ export default function PlanningApp(){
           setBusy(false);
         }
       }} onClose={()=>setEditBinome(null)}/>}
-      {printMode&&(
-        <PlanningPrintDocument
-          mode={printMode}
-          year={year}
-          month={month}
-          weekStart={weekStart}
-          filter={filter}
-          overrides={overrides}
-          pendingAbsenceLookup={pendingAbsenceLookup}
-          presenceThresholds={presenceThresholds}
-        />
-      )}
     </div>
   );
 }

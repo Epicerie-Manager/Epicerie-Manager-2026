@@ -81,12 +81,16 @@ export default function AbsencesPage() {
     endDate: string;
     note: string;
   }>({
-    employee: defaultRhEmployees[0]?.n ?? "",
+    employee: "TOUS",
     type: "CP",
     startDate: "",
     endDate: "",
     note: "",
   });
+
+  const managerCreationEmployees = useMemo(() => {
+    return ["TOUS", ...employees.filter((employee) => employee !== "TOUS")];
+  }, [employees]);
 
   const filteredRequests = useMemo(() => {
     return requests
@@ -164,9 +168,9 @@ export default function AbsencesPage() {
       const names = getRhEmployeeNames();
       setEmployees(names);
       setDraft((current) =>
-        names.includes(current.employee)
+        current.employee === "TOUS" || names.includes(current.employee)
           ? current
-          : { ...current, employee: names[0] ?? "" },
+          : { ...current, employee: "TOUS" },
       );
     };
     if (!isInitialized) return;
@@ -199,7 +203,7 @@ export default function AbsencesPage() {
         status: "en_attente",
       });
       setRequests(loadAbsenceRequests());
-      setDraft({ employee: employees[0] ?? "", type: "CP", startDate: "", endDate: "", note: "" });
+      setDraft({ employee: "TOUS", type: "CP", startDate: "", endDate: "", note: "" });
       setShowForm(false);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Impossible de créer la demande.");
@@ -336,8 +340,8 @@ export default function AbsencesPage() {
             <label style={{ display: "grid", gap: "4px", fontSize: "12px", color: "#64748b" }}>
               <span>Employe</span>
               <select value={draft.employee} onChange={(event) => setDraft((current) => ({ ...current, employee: event.target.value }))} style={{ minHeight: "36px", borderRadius: "10px", border: "1px solid #dbe3eb", padding: "0 10px" }}>
-                {employees.map((employee) => (
-                  <option key={employee} value={employee}>{employee}</option>
+                {managerCreationEmployees.map((employee) => (
+                  <option key={employee} value={employee}>{employee === "TOUS" ? "TOUS LES EMPLOYES" : employee}</option>
                 ))}
               </select>
             </label>

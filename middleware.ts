@@ -3,10 +3,21 @@ import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
   const pathname = request.nextUrl.pathname;
+  const host = request.headers.get("host")?.toLowerCase() ?? "";
+  const managerHosts = (process.env.MANAGER_APP_HOSTS ?? "manager-epicerie.vercel.app")
+    .split(",")
+    .map((value) => value.trim().toLowerCase())
+    .filter(Boolean);
+  const isManagerHost = managerHosts.includes(host);
   const isLoginPage = pathname === "/login";
   const isChangePasswordPage = pathname === "/change-password";
   const isCollabRoute = pathname.startsWith("/collab");
   const isCollabPublicRoute = pathname === "/collab" || pathname === "/collab/login" || pathname === "/collab/pin";
+  const isManagerRoute = pathname.startsWith("/manager");
+  const isManagerPublicRoute =
+    pathname === "/manager/login" ||
+    pathname === "/manager/pin" ||
+    pathname.startsWith("/manager/auth");
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -46,6 +57,42 @@ export async function middleware(request: NextRequest) {
       .eq("id", user.id)
       .maybeSingle();
     profile = (data as { role?: string | null; first_login?: boolean | null } | null) ?? null;
+  }
+
+  if (isManagerHost) {
+    if (pathname === "/" || pathname === "/login" || pathname === "/change-password") {
+      const url = request.nextUrl.clone();
+      url.pathname = user ? "/manager" : "/manager/login";
+      return NextResponse.redirect(url);
+    }
+
+    if (!isManagerRoute) {
+      const url = request.nextUrl.clone();
+      url.pathname = user ? "/manager" : "/manager/login";
+      return NextResponse.redirect(url);
+    }
+
+    if (!user && !isManagerPublicRoute) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/manager/login";
+      return NextResponse.redirect(url);
+    }
+
+    if (!user) return response;
+
+    if (profile?.role === "collaborateur") {
+      const url = request.nextUrl.clone();
+      url.pathname = profile.first_login ? "/collab/change-pin" : "/collab/home";
+      return NextResponse.redirect(url);
+    }
+
+    if (isManagerPublicRoute) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/manager";
+      return NextResponse.redirect(url);
+    }
+
+    return response;
   }
 
   if (isCollabRoute) {

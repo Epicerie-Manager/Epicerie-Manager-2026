@@ -251,7 +251,7 @@ export default function ManagerInfosPage() {
             <select
               value={announcementPriority}
               onChange={(event) => setAnnouncementPriority(event.target.value as InfoAnnouncementPriority)}
-              style={{ minHeight: 46, borderRadius: 18, border: "1px solid #d8d1c8", padding: "0 14px", fontSize: 14, background: "#fff" }}
+              style={{ minHeight: 46, minWidth: 0, borderRadius: 18, border: "1px solid #d8d1c8", padding: "0 14px", fontSize: 14, background: "#fff" }}
             >
               <option value="normal">Info</option>
               <option value="important">Important</option>
@@ -260,26 +260,41 @@ export default function ManagerInfosPage() {
             <select
               value={announcementTargeting}
               onChange={(event) => setAnnouncementTargeting(event.target.value as InfoAnnouncementTargeting)}
-              style={{ minHeight: 46, borderRadius: 18, border: "1px solid #d8d1c8", padding: "0 14px", fontSize: 14, background: "#fff" }}
+              style={{ minHeight: 46, minWidth: 0, borderRadius: 18, border: "1px solid #d8d1c8", padding: "0 14px", fontSize: 14, background: "#fff" }}
             >
               <option value="all">Toute l&apos;équipe</option>
               <option value="employees">Collaborateurs ciblés</option>
               <option value="rayons">Rayons ciblés</option>
             </select>
           </div>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
-            <input
-              type="datetime-local"
-              value={announcementPublishAt}
-              onChange={(event) => setAnnouncementPublishAt(event.target.value)}
-              style={{ minHeight: 46, borderRadius: 18, border: "1px solid #d8d1c8", padding: "0 14px", fontSize: 14, background: "#fff" }}
-            />
-            <input
-              type="datetime-local"
-              value={announcementExpireAt}
-              onChange={(event) => setAnnouncementExpireAt(event.target.value)}
-              style={{ minHeight: 46, borderRadius: 18, border: "1px solid #d8d1c8", padding: "0 14px", fontSize: 14, background: "#fff" }}
-            />
+          <div style={{ display: "grid", gap: 8 }}>
+            <div style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.5 }}>
+              Dates de validité de l&apos;annonce : à partir de quand elle devient visible, puis jusqu&apos;à quand elle reste affichée.
+            </div>
+            <div style={{ display: "grid", gap: 10 }}>
+              <label style={{ display: "grid", gap: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  Visible à partir du
+                </span>
+                <input
+                  type="datetime-local"
+                  value={announcementPublishAt}
+                  onChange={(event) => setAnnouncementPublishAt(event.target.value)}
+                  style={{ minHeight: 46, minWidth: 0, borderRadius: 18, border: "1px solid #d8d1c8", padding: "0 14px", fontSize: 14, background: "#fff" }}
+                />
+              </label>
+              <label style={{ display: "grid", gap: 6 }}>
+                <span style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                  Visible jusqu&apos;au
+                </span>
+                <input
+                  type="datetime-local"
+                  value={announcementExpireAt}
+                  onChange={(event) => setAnnouncementExpireAt(event.target.value)}
+                  style={{ minHeight: 46, minWidth: 0, borderRadius: 18, border: "1px solid #d8d1c8", padding: "0 14px", fontSize: 14, background: "#fff" }}
+                />
+              </label>
+            </div>
           </div>
 
           {announcementTargeting === "employees" ? (

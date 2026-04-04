@@ -274,7 +274,11 @@ export async function createAbsenceRequestInSupabase(
   }
 }
 
-export async function updateAbsenceStatusInSupabase(dbId: string, status: AbsenceRequest["status"]) {
+export async function updateAbsenceStatusInSupabase(
+  dbId: string,
+  status: AbsenceRequest["status"],
+  note?: string | null,
+) {
   try {
     const supabase = createClient();
     const employeeIdByName = await getEmployeeIdByName();
@@ -285,7 +289,10 @@ export async function updateAbsenceStatusInSupabase(dbId: string, status: Absenc
 
     const { data, error } = await supabase
       .from("absences")
-      .update({ statut: status })
+      .update({
+        statut: status,
+        ...(typeof note === "string" ? { note: note.trim() || null } : {}),
+      })
       .eq("id", dbId)
       .select("*")
       .single();

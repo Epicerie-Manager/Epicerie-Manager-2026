@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   METRE_A_METRE_SECTIONS,
   computeGlobalScore,
@@ -11,7 +11,7 @@ import {
   type MetreAuditDraft,
 } from "@/lib/metre-a-metre-config";
 import {
-  loadFollowupEmployees,
+  loadFollowupFieldVisitSetup,
   loadManagerDisplayName,
   saveMetreAudit,
   type FollowupEmployeeOption,
@@ -25,6 +25,20 @@ const RATING_LEGEND = [
   { value: 4, label: "Très bon", color: "#166534", background: "#ecfdf5", border: "#86efac" },
   { value: 5, label: "Exemplaire", color: "#155e75", background: "#ecfeff", border: "#a5f3fc" },
 ];
+
+function getSectionChipLabel(label: string) {
+  return label
+    .replace(" & ", " ")
+    .replace("Présentation ", "")
+    .replace("Réserve ", "")
+    .replace("Signalétique", "Sign.")
+    .trim();
+}
+
+function getRatingTone(value: number | undefined) {
+  const legend = RATING_LEGEND.find((entry) => entry.value === value);
+  return legend ?? RATING_LEGEND[0];
+}
 
 function shellCard(): React.CSSProperties {
   return {
@@ -48,21 +62,28 @@ function metricTileStyle(): React.CSSProperties {
 
 export default function ManagerNewTerrainVisitPage() {
   const [employees, setEmployees] = useState<FollowupEmployeeOption[]>([]);
+  const [rayons, setRayons] = useState<string[]>([]);
   const [draft, setDraft] = useState<MetreAuditDraft>(() => createEmptyMetreAuditDraft());
   const [activeSectionIndex, setActiveSectionIndex] = useState(0);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const sectionTopRef = useRef<HTMLDivElement | null>(null);
+  const progressAxesRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     const loadPage = async () => {
       try {
         setLoading(true);
-        const [employeeOptions, managerName] = await Promise.all([loadFollowupEmployees(), loadManagerDisplayName()]);
+        const [{ employees: employeeOptions, rayons: availableRayons }, managerName] = await Promise.all([
+          loadFollowupFieldVisitSetup(),
+          loadManagerDisplayName(),
+        ]);
         if (cancelled) return;
         setEmployees(employeeOptions.filter((employee) => employee.eligibleForFieldVisit));
+        setRayons(availableRayons);
         setDraft((current) => ({ ...current, managerName: current.managerName || managerName }));
       } catch (loadError) {
         if (!cancelled) {
@@ -96,7 +117,7 @@ export default function ManagerNewTerrainVisitPage() {
       ...current,
       employeeId,
       collaboratorName: employee?.name ?? "",
-      rayon: current.rayon || employee?.rayons[0] || "",
+      rayon: employee?.rayons[0] || "",
     }));
   };
 
@@ -140,6 +161,16 @@ export default function ManagerNewTerrainVisitPage() {
     }));
   };
 
+  const scrollToActiveSection = () => {
+    if (!sectionTopRef.current) return;
+    sectionTopRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const scrollToProgressAxes = () => {
+    if (!progressAxesRef.current) return;
+    progressAxesRef.current.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   const handleSave = async () => {
     if (!draft.employeeId) return setError("Choisis d'abord un collaborateur.");
     if (!draft.rayon.trim()) return setError("Précise le rayon du passage.");
@@ -161,19 +192,27 @@ export default function ManagerNewTerrainVisitPage() {
   return (
     <section style={{ display: "grid", gap: 16 }}>
       <div style={shellCard()}>
-        <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "start" }}>
+        <div style={{ display: "grid", gap: 14 }}>
           <div style={{ display: "grid", gap: 8 }}>
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#9f1239" }}>
               Mètre à mètre
             </div>
-            <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.06em", color: "#111827" }}>
+            <div
+              style={{
+                fontSize: 22,
+                fontWeight: 800,
+                letterSpacing: "-0.06em",
+                color: "#111827",
+                whiteSpace: "nowrap",
+              }}
+            >
               Nouvelle visite terrain
             </div>
-            <div style={{ fontSize: 14, color: "#6b7280", lineHeight: 1.6 }}>
+            <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.55 }}>
               Une section à la fois, puis enregistrement direct en base.
             </div>
           </div>
-          <div style={{ display: "grid", gap: 8 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
             <Link href="/manager/terrain" style={{ textDecoration: "none", minHeight: 40, borderRadius: 999, padding: "0 14px", display: "inline-flex", alignItems: "center", justifyContent: "center", background: "#fff", color: "#374151", fontSize: 12, fontWeight: 800, border: "1px solid rgba(216,209,200,1)" }}>
               Retour
             </Link>
@@ -190,7 +229,7 @@ export default function ManagerNewTerrainVisitPage() {
         <div style={metricTileStyle()}><div style={{ fontSize: 11, color: "#6b7280" }}>Section</div><div style={{ marginTop: 6, fontSize: 24, fontWeight: 800, color: "#6d28d9" }}>{activeSectionIndex + 1}</div></div>
       </div>
 
-      <div style={shellCard()}>
+      <div ref={sectionTopRef} style={shellCard()}>
         <div style={{ display: "grid", gap: 12 }}>
           <label style={{ display: "grid", gap: 5 }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>Collaborateur</span>
@@ -206,7 +245,18 @@ export default function ManagerNewTerrainVisitPage() {
             </label>
             <label style={{ display: "grid", gap: 5 }}>
               <span style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>Rayon</span>
-              <input value={draft.rayon} onChange={(event) => setDraftField("rayon", event.target.value)} placeholder="Bio, liquides, épicerie..." style={{ minHeight: 48, borderRadius: 18, border: "1px solid #d8d1c8", padding: "0 14px", fontSize: 14, background: "#fff" }} />
+              <select
+                value={draft.rayon}
+                onChange={(event) => setDraftField("rayon", event.target.value)}
+                style={{ minHeight: 48, width: "100%", borderRadius: 18, border: "1px solid #d8d1c8", padding: "0 14px", fontSize: 14, background: "#fff" }}
+              >
+                <option value="">Sélectionner un rayon</option>
+                {rayons.map((rayon) => (
+                  <option key={rayon} value={rayon}>
+                    {rayon}
+                  </option>
+                ))}
+              </select>
             </label>
           </div>
         </div>
@@ -228,14 +278,36 @@ export default function ManagerNewTerrainVisitPage() {
             {METRE_A_METRE_SECTIONS.map((section, index) => {
               const currentScore = computeSectionScore(section, draft.sections[section.key]);
               const active = index === activeSectionIndex;
-              return <button key={section.key} type="button" onClick={() => setActiveSectionIndex(index)} style={{ minHeight: 36, borderRadius: 999, border: `1px solid ${active ? "#8b5cf6" : "#ded6cd"}`, background: active ? "#f5f3ff" : "#fffdfb", color: active ? "#6d28d9" : "#475569", padding: "0 12px", fontSize: 12, fontWeight: 700 }}>{index + 1}. {Math.round(currentScore)}%</button>;
+              return (
+                <button
+                  key={section.key}
+                  type="button"
+                  onClick={() => setActiveSectionIndex(index)}
+                  style={{
+                    minHeight: 38,
+                    borderRadius: 999,
+                    border: `1px solid ${active ? "#8b5cf6" : "#ded6cd"}`,
+                    background: active ? "#f5f3ff" : "#fffdfb",
+                    color: active ? "#6d28d9" : "#475569",
+                    padding: "0 12px",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    display: "inline-flex",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <span>{getSectionChipLabel(section.label)}</span>
+                  <span style={{ opacity: 0.72 }}>{Math.round(currentScore)}%</span>
+                </button>
+              );
             })}
           </div>
 
           {activeSection.type === "rating" ? (
             <div style={{ display: "grid", gap: 10 }}>
               <div style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.5 }}>Même logique que la fiche initiale. Les couleurs servent juste à se repérer plus vite sur le terrain.</div>
-              <div style={{ display: "grid", gap: 8 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
                 {RATING_LEGEND.map((entry) => <div key={entry.value} style={{ display: "flex", alignItems: "center", gap: 10, borderRadius: 16, border: `1px solid ${entry.border}`, background: entry.background, color: entry.color, padding: "10px 12px", fontSize: 12, fontWeight: 700 }}><span style={{ fontSize: 16 }}>{entry.value === 0 ? "☆" : "★"}</span><span>{entry.value}</span><span>{entry.label}</span></div>)}
               </div>
             </div>
@@ -246,15 +318,77 @@ export default function ManagerNewTerrainVisitPage() {
               <div key={question.key} style={{ display: "grid", gap: 10, borderRadius: 22, border: "1px solid rgba(230,220,212,0.95)", background: "#fffdfb", padding: "14px 14px 16px" }}>
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "start" }}>
                   <div style={{ fontSize: 14, fontWeight: 800, color: "#111827", lineHeight: 1.45 }}>{question.label}</div>
-                  {question.type === "boolean" && question.expectedAnswer ? <span style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", whiteSpace: "nowrap" }}>Attendu {question.expectedAnswer}</span> : null}
                 </div>
                 {question.type === "rating" ? (
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 8 }}>
-                    {RATING_LEGEND.map((entry) => {
-                      const active = activeResponse.ratings[question.key] === entry.value;
-                      return <button key={entry.value} type="button" onClick={() => setRating(question.key, entry.value)} style={{ minHeight: 42, borderRadius: 16, border: `1px solid ${active ? entry.border : "#ded6cd"}`, background: active ? entry.background : "#fff", color: active ? entry.color : "#475569", fontWeight: 800, fontSize: 14 }}>{entry.value}</button>;
-                    })}
-                  </div>
+                  (() => {
+                    const currentRating = activeResponse.ratings[question.key];
+                    const tone = getRatingTone(currentRating ?? undefined);
+                    return (
+                      <div style={{ display: "grid", gap: 10 }}>
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <button
+                            type="button"
+                            onClick={() => setRating(question.key, 0)}
+                            style={{
+                              minWidth: 36,
+                              height: 36,
+                              borderRadius: 999,
+                              border: `1px solid ${currentRating === 0 ? tone.border : "#ded6cd"}`,
+                              background: currentRating === 0 ? tone.background : "#fff",
+                              color: currentRating === 0 ? tone.color : "#64748b",
+                              fontSize: 12,
+                              fontWeight: 800,
+                            }}
+                          >
+                            0
+                          </button>
+                          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap" }}>
+                            {[1, 2, 3, 4, 5].map((value) => {
+                              const selected = typeof currentRating === "number" && currentRating >= value;
+                              return (
+                                <button
+                                  key={value}
+                                  type="button"
+                                  aria-label={`Note ${value}`}
+                                  onClick={() => setRating(question.key, value)}
+                                  style={{
+                                    width: 36,
+                                    height: 36,
+                                    borderRadius: 999,
+                                    border: `1px solid ${selected ? tone.border : "#ded6cd"}`,
+                                    background: selected ? tone.background : "#fff",
+                                    color: selected ? tone.color : "#cbd5e1",
+                                    display: "inline-flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    fontSize: 18,
+                                    lineHeight: 1,
+                                  }}
+                                >
+                                  ★
+                                </button>
+                              );
+                            })}
+                          </div>
+                        </div>
+                        <div
+                          style={{
+                            borderRadius: 14,
+                            padding: "8px 10px",
+                            background: tone.background,
+                            border: `1px solid ${tone.border}`,
+                            color: tone.color,
+                            fontSize: 12,
+                            fontWeight: 700,
+                          }}
+                        >
+                          {typeof currentRating === "number"
+                            ? `${currentRating}/5 · ${tone.label}`
+                            : "Choisis une note"}
+                        </div>
+                      </div>
+                    );
+                  })()
                 ) : (
                   <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
                     {(["OUI", "NON"] as const).map((answer) => {
@@ -274,16 +408,63 @@ export default function ManagerNewTerrainVisitPage() {
           </label>
 
           <div style={{ display: "flex", justifyContent: "space-between", gap: 10 }}>
-            <button type="button" onClick={() => setActiveSectionIndex((current) => Math.max(current - 1, 0))} disabled={activeSectionIndex === 0} style={{ minHeight: 44, flex: 1, borderRadius: 999, border: "1px solid #ded6cd", background: "#fff", color: "#374151", fontSize: 13, fontWeight: 800, opacity: activeSectionIndex === 0 ? 0.5 : 1 }}>Section précédente</button>
-            <button type="button" onClick={() => setActiveSectionIndex((current) => Math.min(current + 1, METRE_A_METRE_SECTIONS.length - 1))} disabled={activeSectionIndex === METRE_A_METRE_SECTIONS.length - 1} style={{ minHeight: 44, flex: 1, borderRadius: 999, border: "1px solid #8b5cf6", background: "#f5f3ff", color: "#6d28d9", fontSize: 13, fontWeight: 800, opacity: activeSectionIndex === METRE_A_METRE_SECTIONS.length - 1 ? 0.5 : 1 }}>Section suivante</button>
+            <button
+              type="button"
+              onClick={() => {
+                setActiveSectionIndex((current) => {
+                  const next = Math.max(current - 1, 0);
+                  requestAnimationFrame(() => scrollToActiveSection());
+                  return next;
+                });
+              }}
+              disabled={activeSectionIndex === 0}
+              style={{ minHeight: 44, flex: 1, borderRadius: 999, border: "1px solid #ded6cd", background: "#fff", color: "#374151", fontSize: 13, fontWeight: 800, opacity: activeSectionIndex === 0 ? 0.5 : 1 }}
+            >
+              Section précédente
+            </button>
+            {activeSectionIndex === METRE_A_METRE_SECTIONS.length - 1 ? (
+              <button
+                type="button"
+                onClick={() => scrollToProgressAxes()}
+                style={{
+                  minHeight: 44,
+                  flex: 1,
+                  borderRadius: 999,
+                  border: "1px solid #f59e0b",
+                  background: "#fff7ed",
+                  color: "#b45309",
+                  fontSize: 13,
+                  fontWeight: 800,
+                }}
+              >
+                Fin de visite - axes de progrès
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={() => {
+                  setActiveSectionIndex((current) => {
+                    const next = Math.min(current + 1, METRE_A_METRE_SECTIONS.length - 1);
+                    requestAnimationFrame(() => scrollToActiveSection());
+                    return next;
+                  });
+                }}
+                style={{ minHeight: 44, flex: 1, borderRadius: 999, border: "1px solid #8b5cf6", background: "#f5f3ff", color: "#6d28d9", fontSize: 13, fontWeight: 800 }}
+              >
+                Section suivante
+              </button>
+            )}
           </div>
         </div>
       </div>
 
-      <div style={shellCard()}>
+      <div ref={progressAxesRef} style={shellCard()}>
         <div style={{ display: "grid", gap: 12 }}>
           <label style={{ display: "grid", gap: 5 }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>Axes de progrès</span>
+            <span style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.5 }}>
+              À compléter une fois toute la visite terminée, pour résumer les points à revoir et le suivi à prévoir.
+            </span>
             <textarea value={draft.progressAxes} onChange={(event) => setDraftField("progressAxes", event.target.value)} rows={4} placeholder="Remarques globales, points à revoir, suivi à prévoir..." style={{ borderRadius: 18, border: "1px solid #d8d1c8", padding: "12px 14px", fontSize: 14, resize: "vertical", background: "#fff" }} />
           </label>
           {error ? <div style={{ fontSize: 13, color: "#b91c1c" }}>{error}</div> : null}

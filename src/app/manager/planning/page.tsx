@@ -131,7 +131,7 @@ function absenceTypeToPlanningStatus(type: AbsenceTypeId) {
 }
 
 export default function ManagerPlanningPage() {
-  const [today, setToday] = useState(() => new Date());
+  const [selectedDate, setSelectedDate] = useState(() => new Date());
   const [weekCursor, setWeekCursor] = useState(() => startOfWeek(new Date()));
   const [view, setView] = useState<PlanningView>("today");
   const [overrides, setOverrides] = useState<PlanningOverrides>({});
@@ -152,7 +152,6 @@ export default function ManagerPlanningPage() {
       setOverrides(loadPlanningOverrides());
       setTriData(loadPlanningTriData(monthKey));
       setHorairePresets(loadPlanningHorairePresets());
-      setToday(new Date());
     };
 
     refresh();
@@ -174,15 +173,15 @@ export default function ManagerPlanningPage() {
     [],
   );
 
-  const dayIso = formatPlanningDate(today);
-  const todayTriPair = getPlanningTriPairForDate(today, triData);
-  const todayCounts = getPlanningPresenceCountsForDate(today, overrides);
+  const dayIso = formatPlanningDate(selectedDate);
+  const todayTriPair = getPlanningTriPairForDate(selectedDate, triData);
+  const todayCounts = getPlanningPresenceCountsForDate(selectedDate, overrides);
 
   const todayRows = useMemo(() => {
     return eligibleEmployees
       .map((employee) => {
-        const status = getPlanningStatus(employee, today, overrides);
-        const horaire = getPlanningHoraireForDate(employee, today, overrides);
+        const status = getPlanningStatus(employee, selectedDate, overrides);
+        const horaire = getPlanningHoraireForDate(employee, selectedDate, overrides);
         const shifts = getPlanningShiftBuckets(horaire);
         const tri = todayTriPair?.includes(employee.n) ?? false;
         return {
@@ -204,12 +203,10 @@ export default function ManagerPlanningPage() {
         const diff = rank(left.status) - rank(right.status);
         return diff || left.employee.n.localeCompare(right.employee.n, "fr");
       });
-  }, [eligibleEmployees, overrides, today, todayTriPair]);
+  }, [eligibleEmployees, overrides, selectedDate, todayTriPair]);
 
   const presentToday = todayRows.filter((row) => row.status === "PRESENT");
   const absentToday = todayRows.filter((row) => row.status !== "PRESENT");
-  const morningToday = presentToday.filter((row) => row.isMorning);
-  const afternoonToday = presentToday.filter((row) => row.isAfternoon);
 
   const weekDays = useMemo(() => Array.from({ length: 6 }, (_, index) => addDays(weekCursor, index)), [weekCursor]);
 
@@ -302,10 +299,10 @@ export default function ManagerPlanningPage() {
             Pilotage quotidien
           </div>
           <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.06em", color: "#111827" }}>
-            Planning manager
+            Vue planning de l&apos;équipe
           </div>
           <div style={{ fontSize: 14, color: "#6b7280", lineHeight: 1.6 }}>
-            Jour et semaine séparés. La semaine devient un vrai tableau compact, sans empiler une carte par personne.
+            Consulte le jour ou la semaine, puis modifie directement un horaire ou une présence en touchant la ligne d&apos;un collaborateur.
           </div>
           {loading ? <div style={{ fontSize: 12, color: "#6b7280" }}>Synchronisation du planning...</div> : null}
         </div>
@@ -329,10 +326,44 @@ export default function ManagerPlanningPage() {
         <>
           <div style={shellCard()}>
             <div style={{ display: "grid", gap: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
                 <div>
-                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#1d4ed8" }}>Aujourd&apos;hui</div>
-                  <div style={{ marginTop: 6, fontSize: 24, fontWeight: 800, letterSpacing: "-0.05em", color: "#111827" }}>{formatDayLabel(today)}</div>
+                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#1d4ed8" }}>Vue du jour</div>
+                  <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDate((current) => addDays(current, -1))}
+                      style={{ minWidth: 34, minHeight: 34, borderRadius: 14, border: "1px solid #d8d1c8", background: "#fff", fontWeight: 800 }}
+                    >
+                      {"<"}
+                    </button>
+                    <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.05em", color: "#111827" }}>{formatDayLabel(selectedDate)}</div>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedDate((current) => addDays(current, 1))}
+                      style={{ minWidth: 34, minHeight: 34, borderRadius: 14, border: "1px solid #d8d1c8", background: "#fff", fontWeight: 800 }}
+                    >
+                      {">"}
+                    </button>
+                    {formatPlanningDate(selectedDate) !== formatPlanningDate(new Date()) ? (
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDate(new Date())}
+                        style={{
+                          minHeight: 34,
+                          borderRadius: 14,
+                          border: "1px solid #d8d1c8",
+                          background: "#fff",
+                          padding: "0 10px",
+                          fontSize: 11,
+                          fontWeight: 800,
+                          color: "#475569",
+                        }}
+                      >
+                        Revenir à aujourd&apos;hui
+                      </button>
+                    ) : null}
+                  </div>
                 </div>
                 {todayTriPair ? <div style={{ fontSize: 12, color: "#6b7280", textAlign: "right" }}>Tri cadie : <strong style={{ color: "#111827" }}>{todayTriPair[0]} + {todayTriPair[1]}</strong></div> : null}
               </div>
@@ -342,7 +373,7 @@ export default function ManagerPlanningPage() {
                   const tone = getStatusTone(row.status);
                   const presenceBadges = row.status === "PRESENT" ? getPresenceBadges(row.horaire) : [];
                   return (
-                    <button key={`${row.employee.n}-${dayIso}`} type="button" onClick={() => openEditor(row.employee, today)} style={{ width: "100%", border: "1px solid rgba(230,220,212,0.92)", background: "#fffdfb", borderRadius: 22, padding: "14px 14px 16px", textAlign: "left" }}>
+                    <button key={`${row.employee.n}-${dayIso}`} type="button" onClick={() => openEditor(row.employee, selectedDate)} style={{ width: "100%", border: "1px solid rgba(230,220,212,0.92)", background: "#fffdfb", borderRadius: 22, padding: "14px 14px 16px", textAlign: "left" }}>
                       <div style={{ display: "grid", gridTemplateColumns: "1fr auto", gap: 10, alignItems: "start" }}>
                         <div style={{ minWidth: 0 }}>
                           <div style={{ fontSize: 14, fontWeight: 800, letterSpacing: "-0.03em", color: "#111827", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{row.employee.n}</div>
@@ -368,13 +399,6 @@ export default function ManagerPlanningPage() {
                   );
                 })}
               </div>
-            </div>
-          </div>
-
-          <div style={shellCard()}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
-              <div style={metricTileStyle()}><div style={{ fontSize: 11, color: "#6b7280" }}>Équipe matin</div><div style={{ marginTop: 6, fontSize: 18, fontWeight: 800, color: "#1d4ed8" }}>{morningToday.map((row) => row.employee.n).join(", ") || "-"}</div></div>
-              <div style={metricTileStyle()}><div style={{ fontSize: 11, color: "#6b7280" }}>Équipe après-midi</div><div style={{ marginTop: 6, fontSize: 18, fontWeight: 800, color: "#c2410c" }}>{afternoonToday.map((row) => row.employee.n).join(", ") || "-"}</div></div>
             </div>
           </div>
         </>

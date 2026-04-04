@@ -7,7 +7,7 @@ import { loadRecentMetreAudits, type MetreAuditListItem } from "@/lib/followup-s
 function shellCard(): React.CSSProperties {
   return {
     borderRadius: 28,
-    padding: "18px 18px 20px",
+    padding: "16px 18px 16px",
     background: "rgba(255,255,255,0.86)",
     border: "1px solid rgba(255,255,255,0.8)",
     boxShadow: "0 16px 40px rgba(17,24,39,0.08)",
@@ -58,18 +58,18 @@ export default function ManagerTerrainLandingPage() {
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#9f1239" }}>
             Terrain
           </div>
-          <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.06em", color: "#111827" }}>
+          <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.06em", color: "#111827" }}>
             Visites terrain
           </div>
-          <div style={{ fontSize: 14, color: "#6b7280", lineHeight: 1.6 }}>
-            Ici on prépare la visite, puis on ouvre la fiche de saisie seulement quand on est prêt à passer sur le terrain.
+          <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.5 }}>
+            Création d&apos;une nouvelle visite terrain et consultation rapide de l&apos;historique.
           </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", gap: 10, flexWrap: "wrap", marginTop: 2 }}>
             <Link
               href="/manager/terrain/nouveau"
               style={{
                 textDecoration: "none",
-                minHeight: 46,
+                minHeight: 44,
                 borderRadius: 999,
                 padding: "0 18px",
                 display: "inline-flex",
@@ -83,25 +83,6 @@ export default function ManagerTerrainLandingPage() {
               }}
             >
               Créer une visite terrain
-            </Link>
-            <Link
-              href="/manager/suivi"
-              style={{
-                textDecoration: "none",
-                minHeight: 46,
-                borderRadius: 999,
-                padding: "0 18px",
-                display: "inline-flex",
-                alignItems: "center",
-                justifyContent: "center",
-                background: "#fff",
-                color: "#374151",
-                fontSize: 13,
-                fontWeight: 800,
-                border: "1px solid rgba(216,209,200,1)",
-              }}
-            >
-              Ouvrir le suivi
             </Link>
           </div>
         </div>

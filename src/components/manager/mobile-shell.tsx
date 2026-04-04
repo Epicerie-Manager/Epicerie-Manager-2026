@@ -105,6 +105,10 @@ function getSectionTitle(pathname: string) {
   return "Accueil manager";
 }
 
+function getManagerFirstName(fullName: string) {
+  return fullName.trim().split(/\s+/)[0] ?? "";
+}
+
 export function ManagerMobileShell({ version, children }: ManagerMobileShellProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -115,7 +119,31 @@ export function ManagerMobileShell({ version, children }: ManagerMobileShellProp
   const sectionTitle = getSectionTitle(pathname);
   const [managerName, setManagerName] = useState("");
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isLandscape, setIsLandscape] = useState(false);
+  const [viewportWidth, setViewportWidth] = useState(0);
   const signingOutRef = useRef(false);
+  const managerFirstName = getManagerFirstName(managerName);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+
+    const media = window.matchMedia("(orientation: landscape)");
+    const syncLandscape = () => {
+      setIsLandscape(media.matches);
+      setViewportWidth(window.innerWidth);
+    };
+
+    syncLandscape();
+    media.addEventListener("change", syncLandscape);
+    window.addEventListener("resize", syncLandscape);
+
+    return () => {
+      media.removeEventListener("change", syncLandscape);
+      window.removeEventListener("resize", syncLandscape);
+    };
+  }, []);
+
+  const isWideLandscape = isLandscape && viewportWidth >= 700;
 
   useEffect(() => {
     if (isManagerAuthRoute) return;
@@ -178,7 +206,7 @@ export function ManagerMobileShell({ version, children }: ManagerMobileShellProp
       >
         <div
           style={{
-            width: "min(100%, 520px)",
+            width: isWideLandscape ? "min(100%, 860px)" : "min(100%, 520px)",
             margin: "0 auto",
             minHeight: "100vh",
             padding: "18px 16px 32px",
@@ -204,23 +232,23 @@ export function ManagerMobileShell({ version, children }: ManagerMobileShellProp
     >
       <div
         style={{
-          width: "min(100%, 520px)",
+          width: isWideLandscape ? "min(100%, 1120px)" : "min(100%, 520px)",
           margin: "0 auto",
           minHeight: "100vh",
-          padding: "18px 16px 108px",
+          padding: isWideLandscape ? "18px 20px 84px" : "18px 16px 108px",
           position: "relative",
         }}
       >
         <header
           style={{
-            paddingTop: 8,
-            marginBottom: 16,
+            paddingTop: 6,
+            marginBottom: 10,
           }}
         >
           <div
             style={{
               borderRadius: 28,
-              padding: "14px 16px",
+              padding: "10px 14px 12px",
               background: "rgba(255,255,255,0.8)",
               backdropFilter: "blur(16px)",
               WebkitBackdropFilter: "blur(16px)",
@@ -241,72 +269,72 @@ export function ManagerMobileShell({ version, children }: ManagerMobileShellProp
                     textTransform: "uppercase",
                     color: "#9f1239",
                   }}
-                >
-                  <span
-                    style={{
-                      width: 10,
-                      height: 10,
+                  >
+                    <span
+                      style={{
+                        width: 10,
+                        height: 10,
                       borderRadius: 999,
                       background: "linear-gradient(135deg, #be123c, #fb7185)",
                       boxShadow: "0 0 0 4px rgba(190,24,93,0.12)",
                     }}
-                  />
+                    />
                   Manager 2026
                 </div>
-                <div style={{ marginTop: 8, fontSize: 26, fontWeight: 800, letterSpacing: "-0.05em", color: "#111827" }}>
-                  {sectionTitle}
+                <div style={{ marginTop: 8, fontSize: 24, fontWeight: 800, letterSpacing: "-0.05em", color: "#111827" }}>
+                  {pathname === "/manager" && managerFirstName ? `Bonjour ${managerFirstName}` : sectionTitle}
                 </div>
-              </div>
-
-              <div style={{ display: "grid", gap: 8, justifyItems: "end" }}>
-                {managerName ? (
+                <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
                   <div
                     style={{
-                      flexShrink: 0,
-                      borderRadius: 999,
-                      padding: "7px 10px",
-                      background: "rgba(255,255,255,0.92)",
-                      border: "1px solid rgba(31,41,55,0.12)",
-                      color: "#111827",
-                      fontSize: 11,
+                      fontSize: 10,
                       fontWeight: 700,
+                      color: "#94a3b8",
+                      letterSpacing: "0.03em",
                     }}
                   >
-                    {managerName}
+                    v{version}
                   </div>
-                ) : null}
-                <div
-                  style={{
-                    flexShrink: 0,
-                    borderRadius: 999,
-                    padding: "6px 9px",
-                    background: "rgba(255,255,255,0.92)",
-                    border: "1px solid rgba(190,24,93,0.16)",
-                    color: "#9f1239",
-                    fontSize: 10,
-                    fontWeight: 700,
-                  }}
-                >
-                  v{version}
+                  <div
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      gap: 6,
+                      fontSize: 11,
+                      fontWeight: 700,
+                      color: "#15803d",
+                    }}
+                  >
+                    <span
+                      style={{
+                        width: 8,
+                        height: 8,
+                        borderRadius: 999,
+                        background: "#22c55e",
+                        boxShadow: "0 0 0 3px rgba(34,197,94,0.12)",
+                      }}
+                    />
+                    Connecté
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => void handleSignOut()}
+                    disabled={isSigningOut}
+                    style={{
+                      borderRadius: 999,
+                      padding: "5px 10px",
+                      background: "rgba(254,242,242,0.96)",
+                      border: "1px solid rgba(248,113,113,0.28)",
+                      color: "#991b1b",
+                      fontSize: 11,
+                      fontWeight: 800,
+                      cursor: isSigningOut ? "not-allowed" : "pointer",
+                      opacity: isSigningOut ? 0.7 : 1,
+                    }}
+                  >
+                    {isSigningOut ? "Déconnexion..." : "Déconnexion"}
+                  </button>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => void handleSignOut()}
-                  disabled={isSigningOut}
-                  style={{
-                    borderRadius: 999,
-                    padding: "6px 10px",
-                    background: "rgba(254,242,242,0.96)",
-                    border: "1px solid rgba(248,113,113,0.28)",
-                    color: "#991b1b",
-                    fontSize: 11,
-                    fontWeight: 800,
-                    cursor: isSigningOut ? "not-allowed" : "pointer",
-                    opacity: isSigningOut ? 0.7 : 1,
-                  }}
-                >
-                  {isSigningOut ? "Déconnexion..." : "Déconnexion"}
-                </button>
               </div>
             </div>
           </div>
@@ -322,7 +350,7 @@ export function ManagerMobileShell({ version, children }: ManagerMobileShellProp
           left: "50%",
           bottom: 12,
           transform: "translateX(-50%)",
-          width: "min(calc(100% - 18px), 500px)",
+          width: isWideLandscape ? "min(calc(100% - 28px), 560px)" : "min(calc(100% - 18px), 500px)",
           zIndex: 30,
         }}
       >
@@ -331,9 +359,9 @@ export function ManagerMobileShell({ version, children }: ManagerMobileShellProp
             display: "grid",
             gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
             gap: 6,
-            padding: "10px",
+            padding: isWideLandscape ? "7px" : "10px",
             borderRadius: 26,
-            background: "rgba(17,24,39,0.92)",
+            background: isWideLandscape ? "rgba(17,24,39,0.76)" : "rgba(17,24,39,0.92)",
             backdropFilter: "blur(18px)",
             WebkitBackdropFilter: "blur(18px)",
             boxShadow: "0 12px 36px rgba(15,23,42,0.24)",
@@ -352,8 +380,8 @@ export function ManagerMobileShell({ version, children }: ManagerMobileShellProp
                 style={{
                   display: "grid",
                   justifyItems: "center",
-                  gap: 6,
-                  padding: "10px 4px",
+                  gap: isWideLandscape ? 3 : 6,
+                  padding: isWideLandscape ? "7px 4px" : "10px 4px",
                   borderRadius: 18,
                   textDecoration: "none",
                   color: active ? "#ffffff" : "rgba(226,232,240,0.78)",
@@ -361,7 +389,7 @@ export function ManagerMobileShell({ version, children }: ManagerMobileShellProp
                 }}
               >
                 <span style={{ display: "inline-flex" }}>{item.icon}</span>
-                <span style={{ fontSize: 10, fontWeight: 700, letterSpacing: "-0.01em" }}>{item.label}</span>
+                <span style={{ fontSize: isWideLandscape ? 8.5 : 10, fontWeight: 700, letterSpacing: "-0.01em" }}>{item.label}</span>
               </Link>
             );
           })}

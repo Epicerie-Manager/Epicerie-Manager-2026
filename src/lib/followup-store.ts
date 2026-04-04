@@ -27,6 +27,11 @@ export type FollowupEmployeeOption = {
   eligibleForBalisage: boolean;
 };
 
+export type FollowupFieldVisitSetup = {
+  employees: FollowupEmployeeOption[];
+  rayons: string[];
+};
+
 type FollowupRow = {
   id: string;
   employee_id: string;
@@ -208,6 +213,32 @@ export async function loadFollowupEmployees(): Promise<FollowupEmployeeOption[]>
       eligibleForBalisage: eligible,
     };
   });
+}
+
+export async function loadFollowupFieldVisitSetup(): Promise<FollowupFieldVisitSetup> {
+  const supabase = createClient();
+  const employees = await loadFollowupEmployees();
+
+  const employeeRayons = employees.flatMap((employee) => employee.rayons);
+  const { data: tgRows } = await supabase
+    .from("plans_tg_entries")
+    .select("rayon")
+    .limit(5000);
+
+  const rayons = Array.from(
+    new Set(
+      [
+        ...employeeRayons,
+        ...((tgRows ?? [])
+          .map((row) =>
+            typeof row === "object" && row && "rayon" in row ? String((row as { rayon?: unknown }).rayon ?? "").trim() : "",
+          )
+          .filter(Boolean)),
+      ].map((rayon) => rayon.trim().toUpperCase()).filter(Boolean),
+    ),
+  ).sort((left, right) => left.localeCompare(right, "fr"));
+
+  return { employees, rayons };
 }
 
 export async function loadManagerDisplayName(): Promise<string> {

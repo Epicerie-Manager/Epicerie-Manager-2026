@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import {
@@ -22,7 +21,7 @@ type ManagerOverviewState = {
 function screenCardStyle(color: string): React.CSSProperties {
   return {
     borderRadius: 28,
-    padding: "18px 18px 20px",
+    padding: "16px 18px 16px",
     background: "rgba(255,255,255,0.84)",
     border: "1px solid rgba(255,255,255,0.78)",
     boxShadow: "0 16px 40px rgba(91,33,63,0.08)",
@@ -39,23 +38,6 @@ function metricTileStyle(tone?: { bg?: string; border?: string; shadow?: string 
     background: tone?.bg ?? "#fffdfb",
     border: `1px solid ${tone?.border ?? "rgba(230,220,212,0.9)"}`,
     boxShadow: tone?.shadow ?? "0 10px 28px rgba(17,24,39,0.06)",
-  };
-}
-
-function chipButtonStyle(accent: string): React.CSSProperties {
-  return {
-    display: "inline-flex",
-    alignItems: "center",
-    justifyContent: "center",
-    textDecoration: "none",
-    minHeight: 42,
-    padding: "0 14px",
-    borderRadius: 999,
-    background: accent,
-    color: "#fff",
-    fontSize: 12,
-    fontWeight: 800,
-    boxShadow: "0 10px 20px rgba(15,23,42,0.08)",
   };
 }
 
@@ -157,28 +139,25 @@ export default function ManagerHomePage() {
             background: "radial-gradient(circle, rgba(190,24,93,0.18) 0%, rgba(190,24,93,0) 70%)",
           }}
         />
-        <div style={{ position: "relative", display: "grid", gap: 14 }}>
+        <div style={{ position: "relative", display: "grid", gap: 10 }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "start" }}>
             <div style={{ fontSize: 12, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#9f1239" }}>
               Application manager
             </div>
           </div>
-          <div style={{ fontSize: 34, fontWeight: 800, letterSpacing: "-0.07em", maxWidth: 360, lineHeight: 1.02 }}>
-            Le jour d&apos;abord.
+          <div
+            style={{
+              fontSize: 22,
+              fontWeight: 800,
+              letterSpacing: "-0.06em",
+              lineHeight: 1.02,
+              whiteSpace: "nowrap",
+            }}
+          >
+            Toute l&apos;équipe en un coup d&apos;œil.
           </div>
-          <div style={{ maxWidth: 360, fontSize: 14, color: "#6b7280", lineHeight: 1.6 }}>
-            Planning du jour, absences à traiter, accès direct aux modules terrain et équipe.
-          </div>
-          <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-            <Link href="/manager/planning" style={chipButtonStyle("linear-gradient(135deg, #2563eb, #38bdf8)")}>
-              Ouvrir le planning
-            </Link>
-            <Link href="/manager/terrain" style={chipButtonStyle("linear-gradient(135deg, #be123c, #ef4444)")}>
-              Terrain
-            </Link>
-            <Link href="/manager/absences" style={chipButtonStyle("linear-gradient(135deg, #0f766e, #14b8a6)")}>
-              Absences
-            </Link>
+          <div style={{ maxWidth: 360, fontSize: 12, color: "#6b7280", lineHeight: 1.45 }}>
+            Présences, tri cadie et validations à traiter, réunis sur une seule vue claire.
           </div>
         </div>
       </div>
@@ -188,13 +167,13 @@ export default function ManagerHomePage() {
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#9ca3af" }}>
             Ligne du jour
           </div>
-          <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+          <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
             {lineTiles.map((tile) => (
               <div
                 key={tile.title}
                 style={{
                   borderRadius: 20,
-                  padding: "14px 14px 15px",
+                  padding: "12px 12px 13px",
                   background: "linear-gradient(180deg, #ffffff 0%, #fffaf5 100%)",
                   border: "1px solid rgba(228,220,214,0.95)",
                   boxShadow: "0 10px 24px rgba(17,24,39,0.04)",
@@ -202,24 +181,53 @@ export default function ManagerHomePage() {
               >
                 <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
                   <div style={{ fontSize: 13, fontWeight: 800, color: "#111827" }}>{tile.title}</div>
-                  <div
-                    style={{
-                      minWidth: 28,
-                      height: 28,
-                      borderRadius: 999,
-                      display: "inline-flex",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      background: tile.title === "Matin" ? "#dbeafe" : tile.title === "Après-midi" ? "#ffedd5" : "#fef2f2",
-                      color: tile.title === "Matin" ? "#1d4ed8" : tile.title === "Après-midi" ? "#c2410c" : "#b91c1c",
-                      fontSize: 11,
-                      fontWeight: 800,
-                    }}
-                  >
-                    {tile.title === "Matin" ? "M" : tile.title === "Après-midi" ? "AM" : "A"}
+                  <div style={{ display: "inline-flex", alignItems: "center", gap: 6 }}>
+                    <div
+                      style={{
+                        minWidth: 24,
+                        height: 24,
+                        borderRadius: 999,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: "rgba(255,255,255,0.92)",
+                        border: "1px solid rgba(203,213,225,0.9)",
+                        color: "#334155",
+                        fontSize: 11,
+                        fontWeight: 800,
+                        boxShadow: "0 4px 10px rgba(15,23,42,0.06)",
+                      }}
+                    >
+                      {tile.names.length}
+                    </div>
+                    <div
+                      style={{
+                        minWidth: 28,
+                        height: 28,
+                        borderRadius: 999,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        background: tile.title === "Matin" ? "#dbeafe" : tile.title === "Après-midi" ? "#ffedd5" : "#fef2f2",
+                        color: tile.title === "Matin" ? "#1d4ed8" : tile.title === "Après-midi" ? "#c2410c" : "#b91c1c",
+                        fontSize: 11,
+                        fontWeight: 800,
+                      }}
+                    >
+                      {tile.title === "Matin" ? "M" : tile.title === "Après-midi" ? "AM" : "A"}
+                    </div>
                   </div>
                 </div>
-                <div style={{ marginTop: 8, fontSize: 13, color: "#475569", lineHeight: 1.6 }}>
+                <div
+                  style={{
+                    marginTop: 7,
+                    fontSize: 12,
+                    fontWeight: 600,
+                    color: "#334155",
+                    lineHeight: 1.52,
+                    letterSpacing: "-0.01em",
+                  }}
+                >
                   {tile.names.length ? tile.names.join(", ") : "Personne"}
                 </div>
               </div>
@@ -232,7 +240,7 @@ export default function ManagerHomePage() {
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#10b981" }}>
               Tri cadie
             </div>
-            <div style={{ marginTop: 10, fontSize: 22, fontWeight: 800, letterSpacing: "-0.05em", color: "#111827", lineHeight: 1.3 }}>
+            <div style={{ marginTop: 8, fontSize: 20, fontWeight: 800, letterSpacing: "-0.05em", color: "#111827", lineHeight: 1.25 }}>
               {summary.triPair ? `${summary.triPair[0]} + ${summary.triPair[1]}` : "Non défini"}
             </div>
             <div style={{ marginTop: 6, fontSize: 12, color: "#6b7280" }}>Binôme du jour</div>
@@ -242,13 +250,11 @@ export default function ManagerHomePage() {
             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#ef4444" }}>
               Absences en attente
             </div>
-            <div style={{ marginTop: 10, fontSize: 30, fontWeight: 800, letterSpacing: "-0.06em", color: "#b91c1c" }}>
+            <div style={{ marginTop: 8, fontSize: 28, fontWeight: 800, letterSpacing: "-0.06em", color: "#b91c1c" }}>
               {state.pendingAbsences}
             </div>
             <div style={{ marginTop: 8 }}>
-              <Link href="/manager/absences" style={{ fontSize: 12, fontWeight: 800, color: "#b91c1c", textDecoration: "none" }}>
-                Ouvrir les validations
-              </Link>
+              <div style={{ fontSize: 12, fontWeight: 800, color: "#b91c1c" }}>Ouvrir les validations</div>
             </div>
           </div>
         </div>

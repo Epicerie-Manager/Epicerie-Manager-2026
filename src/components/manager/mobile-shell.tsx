@@ -4,16 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 import {
-  attachBrowserSessionResponder,
-  broadcastForceSignOut,
   clearBrowserSessionState,
-  createBrowserSessionChannel,
-  getLastBrowserActivityAt,
-  INACTIVITY_CHECK_INTERVAL_MS,
-  INACTIVITY_TIMEOUT_MS,
-  markBrowserSessionActive,
-  recordBrowserActivity,
-  restoreBrowserSessionMarker,
 } from "@/lib/browser-session";
 import { loadManagerDisplayName } from "@/lib/followup-store";
 import { createClient } from "@/lib/supabase";
@@ -152,18 +143,6 @@ export function ManagerMobileShell({ version, children }: ManagerMobileShellProp
         router.replace("/manager/login");
         return;
       }
-
-      const restored = await restoreBrowserSessionMarker();
-      if (!restored) {
-        clearBrowserSessionState();
-        await supabase.auth.signOut();
-        router.replace("/manager/login");
-        router.refresh();
-        return;
-      }
-
-      markBrowserSessionActive();
-      recordBrowserActivity();
       const name = await loadManagerDisplayName().catch(() => "");
       if (!cancelled) setManagerName(name);
     };
@@ -177,71 +156,7 @@ export function ManagerMobileShell({ version, children }: ManagerMobileShellProp
 
   useEffect(() => {
     if (isManagerAuthRoute) return;
-    const supabase = createClient();
-    const channel = createBrowserSessionChannel();
-
-    const signOutNow = async () => {
-      if (signingOutRef.current) return;
-      signingOutRef.current = true;
-      setIsSigningOut(true);
-      try {
-        clearBrowserSessionState();
-        broadcastForceSignOut(channel);
-        await supabase.auth.signOut();
-        router.replace("/manager/login");
-        router.refresh();
-      } finally {
-        signingOutRef.current = false;
-        setIsSigningOut(false);
-      }
-    };
-
-    markBrowserSessionActive();
-    recordBrowserActivity();
-
-    const detachResponder = channel
-      ? attachBrowserSessionResponder(channel, () => {
-          void signOutNow();
-        })
-      : null;
-
-    const activityEvents: Array<keyof WindowEventMap> = [
-      "pointerdown",
-      "keydown",
-      "mousemove",
-      "scroll",
-      "touchstart",
-      "focus",
-    ];
-
-    const handleActivity = () => {
-      recordBrowserActivity();
-    };
-
-    activityEvents.forEach((eventName) => {
-      window.addEventListener(eventName, handleActivity, { passive: true });
-    });
-
-    const interval = window.setInterval(() => {
-      const lastActivityAt = getLastBrowserActivityAt();
-      if (!lastActivityAt) {
-        recordBrowserActivity();
-        return;
-      }
-
-      if (Date.now() - lastActivityAt >= INACTIVITY_TIMEOUT_MS) {
-        void signOutNow();
-      }
-    }, INACTIVITY_CHECK_INTERVAL_MS);
-
-    return () => {
-      window.clearInterval(interval);
-      activityEvents.forEach((eventName) => {
-        window.removeEventListener(eventName, handleActivity);
-      });
-      detachResponder?.();
-      channel?.close();
-    };
+    return;
   }, [isManagerAuthRoute, router]);
 
   const handleSignOut = async () => {

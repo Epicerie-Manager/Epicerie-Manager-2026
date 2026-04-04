@@ -94,18 +94,6 @@ const navItems: NavItem[] = [
       </svg>
     ),
   },
-  {
-    label: "Bureau",
-    href: "/",
-    icon: (
-      <svg viewBox="0 0 24 24" style={iconStyle}>
-        <rect x="3" y="3" width="7" height="7" rx="1.5" />
-        <rect x="14" y="3" width="7" height="7" rx="1.5" />
-        <rect x="3" y="14" width="7" height="7" rx="1.5" />
-        <rect x="14" y="14" width="7" height="7" rx="1.5" />
-      </svg>
-    ),
-  },
 ];
 
 function getSectionTitle(pathname: string) {
@@ -341,7 +329,7 @@ export function ManagerMobileShell({ version, children }: ManagerMobileShellProp
         <div
           style={{
             display: "grid",
-            gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+            gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
             gap: 6,
             padding: "10px",
             borderRadius: 26,

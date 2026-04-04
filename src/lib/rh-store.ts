@@ -18,6 +18,12 @@ export type RhEmployee = {
   rayons?: string[];
 };
 
+export type CreateRhEmployeeResult = {
+  employee: RhEmployee;
+  email: string;
+  initialPin: string;
+};
+
 export type RhCycles = Record<string, string[]>;
 
 const EMPLOYEES_KEY = "epicerie.rh.employees.v1";
@@ -301,47 +307,52 @@ export function renameRhCycleCache(previousName: string, nextName: string) {
 
 export async function createRhEmployeeInSupabase(
   employee: Omit<RhEmployee, "id"> & { cycle?: string[] },
-): Promise<RhEmployee> {
-  const supabase = createClient();
-  const payload = {
-    name: employee.n.trim().toUpperCase(),
-    type: normalizeRhTypeToDb(employee.t),
-    horaire_standard: employee.hs,
-    horaire_mardi: employee.hm,
-    horaire_samedi: employee.hsa,
-    observation: getRhEmployeeRoleLabel(employee.obs, employee.t),
-    actif: employee.actif,
-    tg_rayons: normalizeEmployeeRayons(employee.rayons) ?? [],
-  };
-
+): Promise<CreateRhEmployeeResult> {
   try {
-      const { data: insertedEmployee, error: insertError } = await supabase
-        .from("employees")
-        .insert(payload)
-        .select("id,name,type,horaire_standard,horaire_mardi,horaire_samedi,observation,actif,tg_rayons")
-        .single();
-    if (insertError) throw insertError;
+    const response = await fetch("/api/manager/create-collaborator", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(employee),
+    });
 
-    const cycle = Array.isArray(employee.cycle) ? employee.cycle : [];
-    if (cycle.length) {
-      const cyclePayload = cycle.map((jour, index) => ({
-        employee_id: insertedEmployee.id,
-        semaine_cycle: index + 1,
-        jour_repos: jour,
-      }));
-      const { error: cycleError } = await supabase.from("cycle_repos").insert(cyclePayload);
-      if (cycleError) throw cycleError;
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+      email?: string;
+      initialPin?: string;
+      employee?: {
+        id: string;
+        name: string | null;
+        type: string | null;
+        horaire_standard: string | null;
+        horaire_mardi: string | null;
+        horaire_samedi: string | null;
+        observation: string | null;
+        actif: boolean | null;
+        tg_rayons?: string[] | null;
+      };
+    };
+
+    if (!response.ok || !payload.employee) {
+      throw new Error(payload.error || "Erreur Supabase.");
     }
 
+    const cycle = Array.isArray(employee.cycle) ? employee.cycle : [];
     const nextEmployee = {
-      ...mapEmployeeRowToRhEmployee(insertedEmployee, loadRhEmployees().length, getPhotoLookup(loadRhEmployees())),
+      ...mapEmployeeRowToRhEmployee(payload.employee, loadRhEmployees().length, getPhotoLookup(loadRhEmployees())),
       photo: employee.photo ?? null,
     };
     const employees = [...loadRhEmployees(), nextEmployee];
     const cycles = loadRhCycles();
     if (cycle.length) cycles[nextEmployee.n] = [...cycle];
     writeRhCache(employees, cycles);
-    return nextEmployee;
+
+    return {
+      employee: nextEmployee,
+      email: String(payload.email ?? "").trim(),
+      initialPin: String(payload.initialPin ?? "000000").trim() || "000000",
+    };
   } catch (error) {
     throw new Error(normalizeActionError(error));
   }

@@ -779,17 +779,19 @@ export default function RHModule(){
     setError("");
     setSuccess("");
     try {
-      const nextEmp = await createRhEmployeeInSupabase({
+      const created = await createRhEmployeeInSupabase({
         ...payload,
         n: name,
         cycle: payload.cycle,
       });
+      const nextEmp = created.employee;
       setEmps((current)=>(
         current.some((item)=>item.dbId===nextEmp.dbId)
           ? current.map((item)=>item.dbId===nextEmp.dbId?{...nextEmp,rayons:payload.rayons}:item)
           : [...current,{...nextEmp,rayons:payload.rayons}]
       ));
       setCycles((current)=>({ ...current, [name]: payload.cycle }));
+      setSuccess(`Collaborateur cree. Identifiant : ${created.email}. PIN initial : ${created.initialPin}`);
       refreshFromStores();
       setNewEmpOpen(false);
     } catch (err) {

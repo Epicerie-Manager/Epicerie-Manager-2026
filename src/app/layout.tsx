@@ -15,10 +15,16 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Epicerie Manager",
-  description: "Application de pilotage pour l'equipe epicerie",
+  title: process.env.NEXT_PUBLIC_APP_VARIANT === "manager" ? "Manager 2026" : "Epicerie Manager",
+  description:
+    process.env.NEXT_PUBLIC_APP_VARIANT === "manager"
+      ? "Application manager mobile"
+      : "Application de pilotage pour l'equipe epicerie",
   icons: {
-    icon: "/icons/app-icon.svg",
+    icon:
+      process.env.NEXT_PUBLIC_APP_VARIANT === "manager"
+        ? "/icons/manager-icon.svg"
+        : "/icons/app-icon.svg",
   },
 };
 

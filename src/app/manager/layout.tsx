@@ -5,8 +5,13 @@ import { ManagerMobileShell } from "@/components/manager/mobile-shell";
 export const metadata: Metadata = {
   title: "Manager 2026",
   description: "Application manager mobile",
+  manifest: "/manager/manifest.webmanifest",
   icons: {
-    icon: "/icons/app-icon.svg",
+    icon: [
+      { url: "/icons/manager-icon.svg", type: "image/svg+xml" },
+      { url: "/icons/manager-icon.svg", rel: "shortcut icon", type: "image/svg+xml" },
+    ],
+    apple: [{ url: "/icons/manager-icon.svg" }],
   },
   appleWebApp: {
     capable: true,

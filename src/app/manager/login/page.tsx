@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { NumericKeypad, PinDots } from "@/components/collab/keypad";
 import { loadManagerMobileProfiles, signInManagerMobile, type ManagerMobileProfile } from "@/lib/manager-mobile-auth";
 import { createClient } from "@/lib/supabase";
@@ -23,6 +23,7 @@ function shellCardStyle(): React.CSSProperties {
 
 export default function ManagerMobileLoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [profiles, setProfiles] = useState<ManagerMobileProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -30,18 +31,9 @@ export default function ManagerMobileLoginPage() {
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
   const [pinError, setPinError] = useState("");
-  const [previewMode, setPreviewMode] = useState(false);
-  const [routeReady, setRouteReady] = useState(false);
+  const previewMode = searchParams.get("preview") === "1";
 
   useEffect(() => {
-    const params = new URLSearchParams(window.location.search);
-    setPreviewMode(params.get("preview") === "1");
-    setRouteReady(true);
-  }, []);
-
-  useEffect(() => {
-    if (!routeReady) return;
-
     let cancelled = false;
 
     const load = async () => {
@@ -75,7 +67,7 @@ export default function ManagerMobileLoginPage() {
     return () => {
       cancelled = true;
     };
-  }, [previewMode, routeReady, router]);
+  }, [previewMode, router]);
 
   const selectedProfile = profiles.find((profile) => profile.slug === selectedProfileSlug) ?? null;
 

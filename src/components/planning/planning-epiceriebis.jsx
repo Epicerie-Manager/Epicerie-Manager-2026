@@ -18,9 +18,12 @@ import {
   defaultPlanningOverrides,
   defaultPlanningBinomes,
   defaultPlanningTriData,
+  dismissPlanningUndo,
   formatPlanningDate,
+  getPlanningUndoUpdatedEventName,
   loadPlanningHorairePresets,
   getPlanningMonthKey,
+  loadLatestPlanningUndo,
   getPlanningUpdatedEventName,
   loadPlanningBinomes,
   loadPlanningOverrides,
@@ -30,6 +33,7 @@ import {
   savePlanningOverridesToSupabase,
   savePlanningTriPairToSupabase,
   syncPlanningFromSupabase,
+  undoLastPlanningAction,
 } from "@/lib/planning-store";
 import { getPlanningPresenceCountsForDate, getPlanningShiftBuckets } from "@/lib/planning-presence";
 import {
@@ -653,6 +657,57 @@ const EditBinomeModal=({index,pair,allNames,onSave,onClose})=>{
   );
 };
 
+const UndoToast=({snapshot,busy,onUndo,onDismiss})=>{
+  if(!snapshot) return null;
+  return(
+    <>
+      <div style={{
+        position:"fixed",
+        left:"50%",
+        bottom:24,
+        transform:"translateX(-50%)",
+        zIndex:90,
+        width:"min(520px, calc(100vw - 32px))",
+        borderRadius:18,
+        background:"rgba(15,23,42,0.95)",
+        color:"#fff",
+        boxShadow:"0 18px 42px rgba(15,23,42,0.28)",
+        overflow:"hidden",
+      }}>
+        <div style={{display:"flex",alignItems:"center",gap:14,justifyContent:"space-between",padding:"14px 16px 12px"}}>
+          <div style={{minWidth:0}}>
+            <div style={{fontSize:13,fontWeight:800,color:"#f8fafc"}}>Planning modifié</div>
+            <div style={{marginTop:4,fontSize:12,color:"rgba(226,232,240,0.92)",whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{snapshot.label}</div>
+          </div>
+          <div style={{display:"flex",alignItems:"center",gap:12,flexShrink:0}}>
+            <button type="button" onClick={onUndo} disabled={busy} style={{border:"none",background:"transparent",color:"#f87171",fontSize:13,fontWeight:800,cursor:busy?"default":"pointer",padding:0}}>
+              {busy?"Annulation...":"Annuler"}
+            </button>
+            <button type="button" onClick={onDismiss} style={{border:"none",background:"transparent",color:"rgba(226,232,240,0.7)",fontSize:18,lineHeight:1,cursor:"pointer",padding:0}}>
+              ×
+            </button>
+          </div>
+        </div>
+        <div style={{height:3,background:"rgba(255,255,255,0.08)"}}>
+          <div style={{
+            height:"100%",
+            width:"100%",
+            background:"linear-gradient(90deg,#d40511,#fb7185)",
+            transformOrigin:"left center",
+            animation:"planningUndoCountdown 15s linear forwards",
+          }}/>
+        </div>
+      </div>
+      <style jsx>{`
+        @keyframes planningUndoCountdown {
+          from { transform: scaleX(1); }
+          to { transform: scaleX(0); }
+        }
+      `}</style>
+    </>
+  );
+};
+
 /* ═══════════════════════════════════════════════════════════
    VUE MOIS — with hours displayed
    ═══════════════════════════════════════════════════════════ */
@@ -1061,6 +1116,8 @@ export default function PlanningApp(){
   const [editBinome,setEditBinome]=useState(null); // index
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState("");
+  const [undoToast,setUndoToast]=useState(()=>loadLatestPlanningUndo());
+  const [undoBusy,setUndoBusy]=useState(false);
   const [pendingRequests,setPendingRequests]=useState(()=>loadPendingAbsenceRequests());
   const [presenceThresholds,setPresenceThresholds]=useState(()=>loadPresenceThresholds());
   const activeMonthKey=useMemo(()=>{
@@ -1119,6 +1176,29 @@ export default function PlanningApp(){
     window.addEventListener(eventName,refreshPlanningState);
     return ()=>window.removeEventListener(eventName,refreshPlanningState);
   },[activeMonthKey,year,month]);
+
+  useEffect(()=>{
+    const refreshUndoToast=()=>{
+      setUndoToast(loadLatestPlanningUndo());
+    };
+    refreshUndoToast();
+    const eventName=getPlanningUndoUpdatedEventName();
+    window.addEventListener(eventName,refreshUndoToast);
+    return ()=>window.removeEventListener(eventName,refreshUndoToast);
+  },[]);
+
+  useEffect(()=>{
+    if(!undoToast) return;
+    const remainingMs=Math.max(0,undoToast.expiresAt-Date.now());
+    if(remainingMs===0){
+      dismissPlanningUndo(undoToast.id);
+      return;
+    }
+    const timer=window.setTimeout(()=>{
+      dismissPlanningUndo(undoToast.id);
+    },remainingMs);
+    return ()=>window.clearTimeout(timer);
+  },[undoToast]);
 
   useEffect(()=>{
     if(year===null || month===null) return;
@@ -1243,6 +1323,22 @@ export default function PlanningApp(){
       setBinomes(loadPlanningBinomes(activeMonthKey));
     } finally {
       setBusy(false);
+    }
+  };
+
+  const handleUndo=async()=>{
+    if(!undoToast) return;
+    try{
+      setUndoBusy(true);
+      setError("");
+      await undoLastPlanningAction(undoToast.id);
+      setOverrides(loadPlanningOverrides());
+      setTriData(loadPlanningTriData(activeMonthKey));
+      setBinomes(loadPlanningBinomes(activeMonthKey));
+    }catch(err){
+      setError(err instanceof Error ? err.message : "Impossible d'annuler la modification.");
+    }finally{
+      setUndoBusy(false);
     }
   };
 
@@ -1519,6 +1615,12 @@ export default function PlanningApp(){
           setBusy(false);
         }
       }} onClose={()=>setEditBinome(null)}/>}
+      <UndoToast
+        snapshot={undoToast}
+        busy={undoBusy}
+        onUndo={handleUndo}
+        onDismiss={()=>undoToast&&dismissPlanningUndo(undoToast.id)}
+      />
     </div>
   );
 }

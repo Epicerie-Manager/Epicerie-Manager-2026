@@ -13,6 +13,28 @@ export type PlanningOverrideEntry = {
 export type PlanningOverrides = Record<string, PlanningOverrideEntry>;
 export type PlanningTriData = Record<number, [string, string]>;
 export type PlanningBinomes = [string, string][];
+export type PlanningUndoCell = {
+  employeeName: string;
+  employeeId: string;
+  date: string;
+};
+
+export type PlanningUndoEntryRow = {
+  id: string;
+  date: string;
+  employee_id: string;
+  statut: string | null;
+  horaire_custom: string | null;
+};
+
+export type PlanningUndoSnapshot = {
+  id: string;
+  label: string;
+  timestamp: number;
+  expiresAt: number;
+  affectedCells: PlanningUndoCell[];
+  entries: PlanningUndoEntryRow[];
+};
 
 export type PlanningEmployee = {
   dbId?: string;
@@ -28,6 +50,9 @@ const PLANNING_OVERRIDES_KEY = "epicerie-manager-planning-overrides-v2";
 const PLANNING_TRI_KEY_PREFIX = "epicerie-manager-planning-tri-v1";
 const PLANNING_BINOMES_KEY_PREFIX = "epicerie-manager-planning-binomes-v1";
 const PLANNING_UPDATED_EVENT = "epicerie-manager:planning-updated";
+const PLANNING_UNDO_UPDATED_EVENT = "epicerie-manager:planning-undo-updated";
+const MAX_PLANNING_UNDO = 5;
+const PLANNING_UNDO_DURATION_MS = 15_000;
 
 export let planningEmployees: PlanningEmployee[] = [];
 
@@ -162,6 +187,7 @@ let planningTriSnapshotByMonth: Record<string, PlanningTriData> = {};
 let planningTriSerializedByMonth: Record<string, string> = {};
 let planningBinomesSnapshotByMonth: Record<string, PlanningBinomes> = {};
 let planningBinomesSerializedByMonth: Record<string, string> = {};
+let planningUndoStack: PlanningUndoSnapshot[] = [];
 
 function canUseStorage() {
   return hasBrowserWindow();
@@ -239,6 +265,57 @@ export function getPlanningUpdatedEventName() {
 function emitPlanningUpdated() {
   if (typeof window === "undefined") return;
   window.dispatchEvent(new Event(PLANNING_UPDATED_EVENT));
+}
+
+export function getPlanningUndoUpdatedEventName() {
+  return PLANNING_UNDO_UPDATED_EVENT;
+}
+
+function emitPlanningUndoUpdated() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(PLANNING_UNDO_UPDATED_EVENT));
+}
+
+function replacePlanningUndoStack(nextStack: PlanningUndoSnapshot[]) {
+  const serializedCurrent = JSON.stringify(planningUndoStack);
+  const serializedNext = JSON.stringify(nextStack);
+  if (serializedCurrent === serializedNext) return false;
+  planningUndoStack = nextStack;
+  return true;
+}
+
+function cleanupExpiredPlanningUndo() {
+  const now = Date.now();
+  const nextStack = planningUndoStack.filter((snapshot) => snapshot.expiresAt > now);
+  const changed = replacePlanningUndoStack(nextStack);
+  if (changed) emitPlanningUndoUpdated();
+  return nextStack;
+}
+
+function pushPlanningUndo(label: string, affectedCells: PlanningUndoCell[], entries: PlanningUndoEntryRow[]) {
+  const snapshot: PlanningUndoSnapshot = {
+    id: crypto.randomUUID(),
+    label,
+    timestamp: Date.now(),
+    expiresAt: Date.now() + PLANNING_UNDO_DURATION_MS,
+    affectedCells: affectedCells.map((cell) => ({ ...cell })),
+    entries: entries.map((entry) => ({ ...entry })),
+  };
+  const nextStack = [snapshot, ...planningUndoStack.filter((item) => item.expiresAt > Date.now())].slice(0, MAX_PLANNING_UNDO);
+  if (replacePlanningUndoStack(nextStack)) emitPlanningUndoUpdated();
+  return snapshot;
+}
+
+export function loadLatestPlanningUndo() {
+  cleanupExpiredPlanningUndo();
+  return planningUndoStack.length > 0 ? { ...planningUndoStack[0], affectedCells: planningUndoStack[0].affectedCells.map((cell) => ({ ...cell })), entries: planningUndoStack[0].entries.map((entry) => ({ ...entry })) } : null;
+}
+
+export function dismissPlanningUndo(snapshotId?: string) {
+  cleanupExpiredPlanningUndo();
+  if (!snapshotId) return;
+  const nextStack = planningUndoStack.filter((snapshot) => snapshot.id !== snapshotId);
+  if (replacePlanningUndoStack(nextStack)) emitPlanningUndoUpdated();
 }
 
 function purgePlanningLegacyCache() {
@@ -621,6 +698,86 @@ type PlanningOverrideMutation = {
   horaire: string | null;
 };
 
+type ResolvedPlanningOverrideMutation = PlanningOverrideMutation & {
+  employeeId: string;
+};
+
+function buildPlanningUndoLabel(cells: PlanningUndoCell[]) {
+  const uniqueNames = Array.from(new Set(cells.map((cell) => cell.employeeName)));
+  if (uniqueNames.length === 1) {
+    return `Modification planning ${uniqueNames[0]} - ${cells.length} entr${cells.length > 1 ? "ées" : "ée"}`;
+  }
+  return `Planning modifie - ${cells.length} entr${cells.length > 1 ? "ées" : "ée"}`;
+}
+
+async function fetchPlanningEntriesForCells(supabase: ReturnType<typeof createClient>, affectedCells: PlanningUndoCell[]) {
+  if (!affectedCells.length) return [];
+  const employeeIds = Array.from(new Set(affectedCells.map((cell) => cell.employeeId)));
+  const dates = Array.from(new Set(affectedCells.map((cell) => cell.date)));
+  const { data, error } = await supabase
+    .from("planning_entries")
+    .select("id,date,employee_id,statut,horaire_custom")
+    .in("employee_id", employeeIds)
+    .in("date", dates);
+  if (error) throw error;
+  return Array.isArray(data) ? data : [];
+}
+
+export async function undoLastPlanningAction(snapshotId?: string) {
+  cleanupExpiredPlanningUndo();
+  const targetIndex = snapshotId
+    ? planningUndoStack.findIndex((snapshot) => snapshot.id === snapshotId)
+    : 0;
+  if (targetIndex < 0) return null;
+
+  const snapshot = planningUndoStack[targetIndex];
+  const nextStack = planningUndoStack.filter((item) => item.id !== snapshot.id);
+  replacePlanningUndoStack(nextStack);
+  emitPlanningUndoUpdated();
+
+  const supabase = createClient();
+
+  try {
+    const currentRows = await fetchPlanningEntriesForCells(supabase, snapshot.affectedCells);
+    const currentRowIds = currentRows.map((row) => String(row.id ?? "")).filter(Boolean);
+    if (currentRowIds.length > 0) {
+      const { error: deleteError } = await supabase
+        .from("planning_entries")
+        .delete()
+        .in("id", currentRowIds);
+      if (deleteError) throw deleteError;
+    }
+
+    if (snapshot.entries.length > 0) {
+      const payload = snapshot.entries.map((entry) => ({
+        id: entry.id,
+        date: entry.date,
+        employee_id: entry.employee_id,
+        statut: entry.statut,
+        horaire_custom: entry.horaire_custom,
+      }));
+      const { error: insertError } = await supabase.from("planning_entries").insert(payload);
+      if (insertError) throw insertError;
+    }
+
+    const touchedMonthKeys = Array.from(
+      new Set(
+        snapshot.affectedCells.map((cell) => {
+          const [year, month] = cell.date.split("-");
+          return `${year}-${month}`;
+        }),
+      ),
+    );
+    await Promise.all(touchedMonthKeys.map((monthKey) => syncPlanningFromSupabase(monthKey)));
+    return snapshot.label;
+  } catch (error) {
+    const restoredStack = [snapshot, ...planningUndoStack].slice(0, MAX_PLANNING_UNDO);
+    replacePlanningUndoStack(restoredStack);
+    emitPlanningUndoUpdated();
+    throw new Error(normalizeActionError(error));
+  }
+}
+
 export async function savePlanningOverridesToSupabase(
   mutations: PlanningOverrideMutation[],
   nextOverrides: PlanningOverrides,
@@ -628,17 +785,39 @@ export async function savePlanningOverridesToSupabase(
   const supabase = createClient();
 
   try {
+    const resolvedMutationsMap = new Map<string, ResolvedPlanningOverrideMutation>();
     for (const mutation of mutations) {
       const employeeId = await getEmployeeIdByName(mutation.employeeName);
-      const normalizedStatus = normalizePlanningStatusToDb(mutation.status);
+      resolvedMutationsMap.set(`${employeeId}_${mutation.date}`, {
+        ...mutation,
+        employeeId,
+      });
+    }
 
-      const { data: existingRow, error: existingError } = await supabase
-        .from("planning_entries")
-        .select("id")
-        .eq("date", mutation.date)
-        .eq("employee_id", employeeId)
-        .maybeSingle();
-      if (existingError) throw existingError;
+    const resolvedMutations = Array.from(resolvedMutationsMap.values());
+    const affectedCells = resolvedMutations.map((mutation) => ({
+      employeeName: mutation.employeeName,
+      employeeId: mutation.employeeId,
+      date: mutation.date,
+    }));
+    const existingRows = await fetchPlanningEntriesForCells(supabase, affectedCells);
+    const existingRowsMap = new Map(
+      existingRows.map((row) => [`${String(row.employee_id)}_${String(row.date)}`, row]),
+    );
+
+    if (affectedCells.length > 1) {
+      pushPlanningUndo(buildPlanningUndoLabel(affectedCells), affectedCells, existingRows.map((row) => ({
+        id: String(row.id ?? ""),
+        date: String(row.date ?? ""),
+        employee_id: String(row.employee_id ?? ""),
+        statut: row.statut ?? null,
+        horaire_custom: row.horaire_custom ?? null,
+      })));
+    }
+
+    for (const mutation of resolvedMutations) {
+      const normalizedStatus = normalizePlanningStatusToDb(mutation.status);
+      const existingRow = existingRowsMap.get(`${mutation.employeeId}_${mutation.date}`);
 
       if (isAbsencePlanningStatus(mutation.status)) {
         if (existingRow?.id) {
@@ -667,7 +846,7 @@ export async function savePlanningOverridesToSupabase(
 
       const payload = {
         date: mutation.date,
-        employee_id: employeeId,
+        employee_id: mutation.employeeId,
         statut: normalizedStatus,
         horaire_custom: mutation.horaire,
       };

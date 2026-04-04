@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { NumericKeypad, PinDots } from "@/components/collab/keypad";
 import { loadManagerMobileProfiles, signInManagerMobile, type ManagerMobileProfile } from "@/lib/manager-mobile-auth";
@@ -17,7 +17,7 @@ function shellCardStyle(): React.CSSProperties {
   };
 }
 
-export default function ManagerMobilePinPage() {
+function ManagerMobilePinContent() {
   const router = useRouter();
   const params = useSearchParams();
   const profileSlug = String(params.get("profile") ?? "").trim().toLowerCase();
@@ -113,5 +113,26 @@ export default function ManagerMobilePinPage() {
         <NumericKeypad disabled={busy} onDigit={handleDigit} onBackspace={() => setPin((current) => current.slice(0, -1))} />
       </div>
     </section>
+  );
+}
+
+export default function ManagerMobilePinPage() {
+  return (
+    <Suspense
+      fallback={
+        <section style={{ display: "grid", gap: 16 }}>
+          <div style={shellCardStyle()}>
+            <div style={{ fontSize: 22, fontWeight: 900, letterSpacing: "-0.04em", color: "#111827" }}>
+              Ouverture du code manager...
+            </div>
+            <div style={{ marginTop: 8, fontSize: 13, color: "#64748b" }}>
+              Chargement sécurisé en cours.
+            </div>
+          </div>
+        </section>
+      }
+    >
+      <ManagerMobilePinContent />
+    </Suspense>
   );
 }

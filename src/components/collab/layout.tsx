@@ -84,6 +84,7 @@ export function CollabHeader(props: {
   showRefresh?: boolean;
   onRefresh?: (() => void | Promise<void>) | undefined;
   refreshing?: boolean;
+  lastRefreshAt?: Date | null;
 }) {
   const {
     title,
@@ -94,39 +95,66 @@ export function CollabHeader(props: {
     showRefresh = false,
     onRefresh,
     refreshing = false,
+    lastRefreshAt = null,
   } = props;
 
+  const lastRefreshLabel = lastRefreshAt
+    ? new Intl.DateTimeFormat("fr-FR", {
+        day: "2-digit",
+        month: "2-digit",
+        hour: "2-digit",
+        minute: "2-digit",
+      })
+        .format(lastRefreshAt)
+        .replace(",", " à")
+    : "";
+
   const refreshButton = showRefresh ? (
-    <button
-      type="button"
-      onClick={() => {
-        if (refreshing) return;
-        if (onRefresh) {
-          void onRefresh();
-          return;
-        }
-        if (typeof window !== "undefined") window.location.reload();
-      }}
-      aria-label="Actualiser la page"
+    <div
       style={{
         display: "inline-flex",
         alignItems: "center",
-        gap: 6,
-        border: "1px solid rgba(255,255,255,0.28)",
-        borderRadius: 999,
-        background: "rgba(255,255,255,0.12)",
-        color: "#fff8f1",
-        minHeight: 34,
-        padding: "0 12px",
-        fontSize: 12,
-        fontWeight: 700,
-        cursor: refreshing ? "wait" : "pointer",
-        backdropFilter: "blur(8px)",
+        gap: 8,
+        flexWrap: "wrap",
+        justifyContent: "flex-end",
       }}
     >
-      <RefreshGlyph color="#fff8f1" />
-      {refreshing ? "Mise a jour..." : "Actualiser"}
-    </button>
+      {lastRefreshLabel ? (
+        <span style={{ fontSize: 11, color: "rgba(255,243,233,0.82)" }}>
+          Maj. {lastRefreshLabel}
+        </span>
+      ) : null}
+      <button
+        type="button"
+        onClick={() => {
+          if (refreshing) return;
+          if (onRefresh) {
+            void onRefresh();
+            return;
+          }
+          if (typeof window !== "undefined") window.location.reload();
+        }}
+        aria-label="Actualiser la page"
+        style={{
+          display: "inline-flex",
+          alignItems: "center",
+          gap: 6,
+          border: "1px solid rgba(255,255,255,0.28)",
+          borderRadius: 999,
+          background: "rgba(255,255,255,0.12)",
+          color: "#fff8f1",
+          minHeight: 34,
+          padding: "0 12px",
+          fontSize: 12,
+          fontWeight: 700,
+          cursor: refreshing ? "wait" : "pointer",
+          backdropFilter: "blur(8px)",
+        }}
+      >
+        <RefreshGlyph color="#fff8f1" />
+        {refreshing ? "Mise a jour..." : "Actualiser"}
+      </button>
+    </div>
   ) : null;
 
   return (

@@ -128,6 +128,7 @@ export default function CollabPlanningPage() {
   const [weekRows, setWeekRows] = useState<CollabPlanningEntry[]>([]);
   const [monthRows, setMonthRows] = useState<CollabPlanningEntry[]>([]);
   const [teamRows, setTeamRows] = useState<Array<Record<string, unknown>>>([]);
+  const [lastRefreshAt, setLastRefreshAt] = useState<Date | null>(null);
 
   useEffect(() => {
     void getCollabProfile()
@@ -149,6 +150,7 @@ export default function CollabPlanningPage() {
       ([myWeekResult, teamWeekResult]) => {
         setWeekRows(myWeekResult.status === "fulfilled" ? (myWeekResult.value as CollabPlanningEntry[]) : []);
         setTeamRows(teamWeekResult.status === "fulfilled" ? (teamWeekResult.value as Array<Record<string, unknown>>) : []);
+        setLastRefreshAt(new Date());
       },
     );
   }, [profile, weekCursor]);
@@ -156,7 +158,10 @@ export default function CollabPlanningPage() {
   useEffect(() => {
     if (!profile) return;
     void getMyMonthPlanning(monthCursor.getFullYear(), monthCursor.getMonth() + 1)
-      .then((rows) => setMonthRows(rows as CollabPlanningEntry[]))
+      .then((rows) => {
+        setMonthRows(rows as CollabPlanningEntry[]);
+        setLastRefreshAt(new Date());
+      })
       .catch(() => setMonthRows([]));
   }, [monthCursor, profile]);
 
@@ -250,6 +255,7 @@ export default function CollabPlanningPage() {
           ) : null
         }
         showRefresh
+        lastRefreshAt={lastRefreshAt}
       />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 8, marginBottom: 16 }}>

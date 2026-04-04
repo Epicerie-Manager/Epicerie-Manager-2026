@@ -141,6 +141,7 @@ export default function CollabHomePage() {
   const [announcements, setAnnouncements] = useState<InfoAnnouncement[]>([]);
   const [pendingAbsences, setPendingAbsences] = useState(0);
   const [loadError, setLoadError] = useState("");
+  const [lastRefreshAt, setLastRefreshAt] = useState<Date | null>(null);
 
   useEffect(() => {
     const load = async () => {
@@ -175,6 +176,7 @@ export default function CollabHomePage() {
           (absences as Array<Record<string, unknown>>).filter((row) => String(row.statut ?? "").toLowerCase().includes("attente")).length,
         );
         setLoadError("");
+        setLastRefreshAt(new Date());
       } catch {
         setTodayEntry(null);
         setTomorrowEntry(null);
@@ -232,6 +234,7 @@ export default function CollabHomePage() {
         subtitle={displayDate}
         right={<StatusPill label="Connecté" color="#0c7a45" background="#eefbf4" />}
         showRefresh
+        lastRefreshAt={lastRefreshAt}
       />
 
       <SectionCard style={{ padding: 0, overflow: "hidden" }}>

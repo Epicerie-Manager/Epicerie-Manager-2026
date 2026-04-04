@@ -61,6 +61,7 @@ export default function CollabMorePage() {
   const router = useRouter();
   const [ready, setReady] = useState(false);
   const [announcements, setAnnouncements] = useState<InfoAnnouncement[]>([]);
+  const [lastRefreshAt, setLastRefreshAt] = useState<Date | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -79,6 +80,7 @@ export default function CollabMorePage() {
         }
         if (cancelled) return;
         setAnnouncements(infoPayload.announcements);
+        setLastRefreshAt(new Date());
         setReady(true);
       })
       .catch(() => router.replace("/collab/login"));
@@ -113,7 +115,7 @@ export default function CollabMorePage() {
 
   return (
     <CollabPage>
-      <CollabHeader title="Plus" subtitle="Liens et accès complémentaires." showRefresh />
+      <CollabHeader title="Plus" subtitle="Liens et accès complémentaires." showRefresh lastRefreshAt={lastRefreshAt} />
       <div style={{ display: "grid", gap: 16 }}>
         <SectionCard>
           <SectionTitle>Liens</SectionTitle>

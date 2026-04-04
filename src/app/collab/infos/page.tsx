@@ -53,6 +53,7 @@ export default function CollabInfosPage() {
   const [search, setSearch] = useState("");
   const [openingAnnouncementId, setOpeningAnnouncementId] = useState<string | null>(null);
   const [expandedAnnouncementIds, setExpandedAnnouncementIds] = useState<string[]>([]);
+  const [lastRefreshAt, setLastRefreshAt] = useState<Date | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -65,6 +66,7 @@ export default function CollabInfosPage() {
       if (cancelled) return;
       setCategories(payload.categories);
       setAnnouncements(payload.announcements);
+      setLastRefreshAt(new Date());
       setActiveCategoryId((current) => {
         if (current && payload.categories.some((category) => category.id === current)) return current;
         return payload.categories[0]?.id ?? "proc";
@@ -213,6 +215,7 @@ export default function CollabInfosPage() {
         showRefresh
         onRefresh={handleManualRefresh}
         refreshing={refreshing}
+        lastRefreshAt={lastRefreshAt}
       />
 
       <div style={{ display: "grid", gap: 16 }}>

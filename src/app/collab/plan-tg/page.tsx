@@ -289,6 +289,7 @@ export default function CollabPlanTgPage() {
   const [rayons, setRayons] = useState<TgRayon[]>([]);
   const [assignments, setAssignments] = useState<TgDefaultAssignment[]>([]);
   const [selectedWeekId, setSelectedWeekId] = useState("");
+  const [lastRefreshAt, setLastRefreshAt] = useState<Date | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -298,6 +299,7 @@ export default function CollabPlanTgPage() {
       setPlans(loadTgWeekPlans());
       setRayons(loadTgRayons());
       setAssignments(loadTgDefaultAssignments());
+      setLastRefreshAt(new Date());
     };
 
     const load = async () => {
@@ -383,7 +385,7 @@ export default function CollabPlanTgPage() {
 
   return (
     <CollabPage>
-      <CollabHeader title="Plan TG/GB" subtitle={selectedWeekLabel} showRefresh />
+      <CollabHeader title="Plan TG/GB" subtitle={selectedWeekLabel} showRefresh lastRefreshAt={lastRefreshAt} />
 
       <SectionCard style={{ marginBottom: 16 }}>
         <div style={{ display: "grid", gap: 10 }}>

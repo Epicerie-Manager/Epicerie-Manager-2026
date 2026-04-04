@@ -46,6 +46,7 @@ export default function CollabAbsencesPage() {
   const router = useRouter();
   const [rows, setRows] = useState<Array<Record<string, unknown>>>([]);
   const [loadError, setLoadError] = useState("");
+  const [lastRefreshAt, setLastRefreshAt] = useState<Date | null>(null);
 
   useEffect(() => {
     void getCollabProfile()
@@ -58,6 +59,7 @@ export default function CollabAbsencesPage() {
           .then((data) => {
             setRows(data as Array<Record<string, unknown>>);
             setLoadError("");
+            setLastRefreshAt(new Date());
           })
           .catch(() => {
             setRows([]);
@@ -90,6 +92,7 @@ export default function CollabAbsencesPage() {
           </Link>
         }
         showRefresh
+        lastRefreshAt={lastRefreshAt}
       />
 
       <div style={{ display: "grid", gap: 16 }}>

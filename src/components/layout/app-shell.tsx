@@ -15,6 +15,7 @@ import {
   recordBrowserActivity,
   restoreBrowserSessionMarker,
 } from "@/lib/browser-session";
+import { isManagerProject } from "@/lib/app-variant";
 import { colors, getThemeByPathname, moduleThemes, shadows } from "@/lib/theme";
 import { createClient } from "@/lib/supabase";
 
@@ -147,6 +148,7 @@ function getTimeLabel() {
 export function AppShell({ version, children }: AppShellProps) {
   const pathname  = usePathname();
   const router = useRouter();
+  const isManagerProjectVariant = isManagerProject();
   const isCollabRoute = pathname.startsWith("/collab");
   const isManagerRoute = pathname.startsWith("/manager");
   const isPrintRoute = pathname.startsWith("/exports/") && pathname.endsWith("/print");
@@ -295,7 +297,14 @@ export function AppShell({ version, children }: AppShellProps) {
     }
   };
 
-  if (pathname === "/login" || pathname === "/change-password" || isCollabRoute || isPrintRoute || isManagerRoute) {
+  if (
+    pathname === "/login" ||
+    pathname === "/change-password" ||
+    isCollabRoute ||
+    isPrintRoute ||
+    isManagerRoute ||
+    isManagerProjectVariant
+  ) {
     return <>{children}</>;
   }
 

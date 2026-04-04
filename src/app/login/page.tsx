@@ -8,16 +8,23 @@ import {
   recordBrowserActivity,
   restoreBrowserSessionMarker,
 } from "@/lib/browser-session";
+import { isManagerProject } from "@/lib/app-variant";
 import { createClient } from "@/lib/supabase";
 
 export default function LoginPage() {
   const router = useRouter();
+  const isManagerApp = isManagerProject();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
   useEffect(() => {
+    if (isManagerApp) {
+      router.replace("/manager/login");
+      return;
+    }
+
     const checkSession = async () => {
       const supabase = createClient();
       const {
@@ -40,7 +47,11 @@ export default function LoginPage() {
       router.replace(profile?.password_changed ? "/" : "/change-password");
     };
     void checkSession();
-  }, [router]);
+  }, [isManagerApp, router]);
+
+  if (isManagerApp) {
+    return null;
+  }
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();

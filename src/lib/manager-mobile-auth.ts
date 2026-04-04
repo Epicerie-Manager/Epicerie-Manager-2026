@@ -1,5 +1,7 @@
 "use client";
 
+import { createClient } from "@/lib/supabase";
+
 export type ManagerMobileProfile = {
   slug: string;
   displayName: string;
@@ -32,11 +34,20 @@ export async function signInManagerMobile(slug: string, pin: string) {
     body: JSON.stringify({ slug, pin }),
   });
 
-  const payload = (await response.json()) as { actionLink?: string; error?: string };
+  const payload = (await response.json()) as { tokenHash?: string; email?: string; error?: string };
 
-  if (!response.ok || !payload.actionLink) {
+  if (!response.ok || !payload.tokenHash) {
     throw new Error(payload.error || "Connexion manager impossible.");
   }
 
-  window.location.href = payload.actionLink;
+  const supabase = createClient();
+  const { error } = await supabase.auth.verifyOtp({
+    type: "magiclink",
+    token_hash: payload.tokenHash,
+    email: payload.email,
+  });
+
+  if (error) {
+    throw error;
+  }
 }

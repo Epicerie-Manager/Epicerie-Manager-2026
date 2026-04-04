@@ -65,6 +65,10 @@ function ManagerMobilePinContent() {
 
     setBusy(true);
     void signInManagerMobile(profileSlug, nextPin)
+      .then(() => {
+        router.replace("/manager");
+        router.refresh();
+      })
       .catch((signInError) => {
         setError(signInError instanceof Error ? signInError.message : "Code PIN incorrect.");
         setPin("");

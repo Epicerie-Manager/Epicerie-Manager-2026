@@ -33,15 +33,9 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Code PIN incorrect." }, { status: 401 });
     }
 
-    const origin = request.nextUrl.origin;
-    const redirectTo = `${origin}/manager/auth/callback`;
-
     const { data: linkData, error: linkError } = await supabase.auth.admin.generateLink({
       type: "magiclink",
       email: row.email,
-      options: {
-        redirectTo,
-      },
     });
 
     if (linkError) {
@@ -49,7 +43,8 @@ export async function POST(request: NextRequest) {
     }
 
     return NextResponse.json({
-      actionLink: linkData.properties?.action_link ?? "",
+      tokenHash: linkData.properties?.hashed_token ?? "",
+      email: row.email,
     });
   } catch (error) {
     return NextResponse.json(

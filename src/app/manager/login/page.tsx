@@ -115,7 +115,7 @@ export default function ManagerMobileLoginPage() {
             <button
               key={profile.slug}
               type="button"
-              onClick={() => router.push(`/manager/pin?profile=${encodeURIComponent(profile.slug)}`)}
+              onClick={() => router.push(`/manager/pin/${encodeURIComponent(profile.slug)}`)}
               style={{
                 display: "grid",
                 gridTemplateColumns: "56px 1fr 20px",

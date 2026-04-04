@@ -56,6 +56,7 @@ const IC = {
   clock:(c,s=18)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>,
   refresh:(c,s=18)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 11-2.12-9.36L23 10"/></svg>,
   edit:(c,s=18)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>,
+  key:(c,s=18)=><svg width={s} height={s} viewBox="0 0 24 24" fill="none" stroke={c} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"><circle cx="7.5" cy="15.5" r="5.5"/><path d="M13 15.5h8"/><path d="M18 12.5v6"/><path d="M21 13.5v4"/></svg>,
 };
 
 /* ═══════════════════════════════════════════════════════════
@@ -83,7 +84,7 @@ const RoleBadge=({value,type,size="md"})=>{
 /* ═══════════════════════════════════════════════════════════
    EDIT EMPLOYEE MODAL
    ═══════════════════════════════════════════════════════════ */
-const EditEmpModal=({emp,availableRayons,onSave,onClose})=>{
+const EditEmpModal=({emp,availableRayons,onSave,onClose,onResetPin,busy})=>{
   const [d,setD]=useState({...emp});
   const upd=(k,v)=>setD(p=>({...p,[k]:v}));
   const roleMeta=getRhEmployeeRoleMeta(d.obs,d.t);
@@ -235,8 +236,48 @@ const EditEmpModal=({emp,availableRayons,onSave,onClose})=>{
           </div>
         </div>
         <div style={{padding:"14px 24px",borderTop:`1px solid ${V.line}`,background:"#fff",display:"flex",gap:8,justifyContent:"flex-end",flexShrink:0}}>
-          <button onClick={onClose} style={{padding:"10px 20px",borderRadius:10,border:`1px solid ${V.line}`,background:"#fafafa",color:V.muted,cursor:"pointer",fontSize:13}}>Annuler</button>
-          <button onClick={()=>onSave(d)} style={{padding:"10px 24px",borderRadius:10,border:"none",background:V.mc,color:"#fff",cursor:"pointer",fontSize:13,fontWeight:700}}>Enregistrer</button>
+          <button
+            onClick={()=>onResetPin?.(d)}
+            disabled={busy||!d.dbId}
+            style={{
+              marginRight:"auto",padding:"10px 16px",borderRadius:10,border:`1px solid ${V.line}`,
+              background:"#f8fafc",color:V.body,cursor:busy||!d.dbId?"not-allowed":"pointer",
+              fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:8,opacity:busy||!d.dbId?0.6:1,
+            }}
+          >
+            {IC.key(V.body,14)} Réinitialiser le PIN
+          </button>
+          <button onClick={onClose} disabled={busy} style={{padding:"10px 20px",borderRadius:10,border:`1px solid ${V.line}`,background:"#fafafa",color:V.muted,cursor:busy?"not-allowed":"pointer",fontSize:13,opacity:busy?0.6:1}}>Annuler</button>
+          <button onClick={()=>onSave(d)} disabled={busy} style={{padding:"10px 24px",borderRadius:10,border:"none",background:V.mc,color:"#fff",cursor:busy?"not-allowed":"pointer",fontSize:13,fontWeight:700,opacity:busy?0.7:1}}>Enregistrer</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ResetPinModal=({employee,onCancel,onConfirm,busy})=>{
+  if(!employee) return null;
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,zIndex:1100}} onClick={busy?undefined:onCancel}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:20,width:"min(440px, calc(100vw - 32px))",boxShadow:"0 24px 48px rgba(0,0,0,0.18)",overflow:"hidden"}}>
+        <div style={{padding:"20px 24px",borderBottom:`1px solid ${V.line}`,background:"#fcfffe"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <div style={{width:42,height:42,borderRadius:14,background:V.mM,display:"flex",alignItems:"center",justifyContent:"center"}}>{IC.key(V.mc,18)}</div>
+            <div>
+              <div style={{fontSize:16,fontWeight:700,color:V.text}}>Réinitialiser le PIN</div>
+              <div style={{fontSize:12,color:V.muted,marginTop:2}}>Action manager sécurisée</div>
+            </div>
+          </div>
+        </div>
+        <div style={{padding:"20px 24px",fontSize:14,lineHeight:1.6,color:V.body}}>
+          Réinitialiser le PIN de <strong>{employee.n}</strong> ?
+          <div style={{marginTop:8,color:V.muted}}>
+            Le collaborateur repassera sur le PIN <strong>000000</strong> et devra créer un nouveau PIN à sa prochaine connexion.
+          </div>
+        </div>
+        <div style={{padding:"14px 24px",borderTop:`1px solid ${V.line}`,display:"flex",gap:8,justifyContent:"flex-end"}}>
+          <button onClick={onCancel} disabled={busy} style={{padding:"10px 20px",borderRadius:10,border:`1px solid ${V.line}`,background:"#fafafa",color:V.muted,cursor:busy?"not-allowed":"pointer",fontSize:13,opacity:busy?0.6:1}}>Annuler</button>
+          <button onClick={onConfirm} disabled={busy} style={{padding:"10px 18px",borderRadius:10,border:`1px solid ${V.mc}25`,background:V.mG,color:V.mc,cursor:busy?"not-allowed":"pointer",fontSize:13,fontWeight:700,opacity:busy?0.7:1}}>Réinitialiser le PIN</button>
         </div>
       </div>
     </div>
@@ -617,6 +658,8 @@ export default function RHModule(){
   const [employeeFilter,setEmployeeFilter]=useState("ALL");
   const [busy,setBusy]=useState(false);
   const [error,setError]=useState("");
+  const [success,setSuccess]=useState("");
+  const [resetPinFor,setResetPinFor]=useState(null);
   const availableRayons = useMemo(
     ()=>[...tgRayons]
       .filter((rayon)=>rayon.active)
@@ -680,6 +723,7 @@ export default function RHModule(){
     let previousName = updated.n;
     setBusy(true);
     setError("");
+    setSuccess("");
     try {
       const current = emps.find((item)=>item.id===updated.id);
       previousName = current?.n ?? updated.n;
@@ -716,6 +760,7 @@ export default function RHModule(){
     }
     setBusy(true);
     setError("");
+    setSuccess("");
     try {
       const syncedCycle = await saveRhCycleInSupabase(employee,newCycle);
       setCycles((p)=>({...p,[name]:syncedCycle}));
@@ -732,6 +777,7 @@ export default function RHModule(){
     if(emps.some((item)=>item.n===name))return;
     setBusy(true);
     setError("");
+    setSuccess("");
     try {
       const nextEmp = await createRhEmployeeInSupabase({
         ...payload,
@@ -749,6 +795,37 @@ export default function RHModule(){
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur Supabase.");
     } finally {
+      setBusy(false);
+    }
+  };
+
+  const requestResetPin=(employee)=>{
+    setResetPinFor(employee);
+    setError("");
+    setSuccess("");
+  };
+
+  const confirmResetPin=async()=>{
+    if(!resetPinFor?.dbId || busy) return;
+    setBusy(true);
+    setError("");
+    setSuccess("");
+    try{
+      const response = await fetch("/api/manager/reset-collab-pin",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({employee_id:resetPinFor.dbId}),
+      });
+      const payload = await response.json().catch(()=>({}));
+      if(!response.ok){
+        throw new Error(payload?.error || "Erreur lors de la reinitialisation");
+      }
+      setSuccess(`PIN reinitialise pour ${resetPinFor.n}. Prochaine connexion avec 000000.`);
+      setResetPinFor(null);
+      setEditEmp(null);
+    }catch(err){
+      setError(err instanceof Error ? err.message : "Erreur lors de la reinitialisation");
+    }finally{
       setBusy(false);
     }
   };
@@ -803,6 +880,11 @@ export default function RHModule(){
             {error}
           </div>
         )}
+        {success&&(
+          <div style={{marginBottom:14,padding:"12px 14px",borderRadius:14,border:`1px solid ${V.green}22`,background:"#f0fdf4",color:V.green,fontSize:13,fontWeight:600}}>
+            {success}
+          </div>
+        )}
 
         {/* KPIs */}
         <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}}>
@@ -843,9 +925,10 @@ export default function RHModule(){
       </div>
 
       {/* MODALS */}
-      {editEmp&&<EditEmpModal emp={editEmp} availableRayons={availableRayons} onSave={saveEmp} onClose={()=>setEditEmp(null)}/>}
+      {editEmp&&<EditEmpModal emp={editEmp} availableRayons={availableRayons} onSave={saveEmp} onClose={()=>setEditEmp(null)} onResetPin={requestResetPin} busy={busy}/>}
       {editCycleFor&&<EditCycleModal empName={editCycleFor} cycle={cycles[editCycleFor]||["LUN","LUN","LUN","LUN","LUN"]} onSave={c=>saveCycle(editCycleFor,c)} onClose={()=>setEditCycleFor(null)} busy={busy}/>}
       {newEmpOpen&&<NewEmpModal availableRayons={availableRayons} onSave={createEmp} onClose={()=>setNewEmpOpen(false)}/>}
+      {resetPinFor&&<ResetPinModal employee={resetPinFor} onCancel={()=>setResetPinFor(null)} onConfirm={confirmResetPin} busy={busy}/>}
     </div>
   );
 }

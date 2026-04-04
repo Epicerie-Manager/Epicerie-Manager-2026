@@ -34,7 +34,7 @@ export async function signInManagerMobile(slug: string, pin: string) {
     body: JSON.stringify({ slug, pin }),
   });
 
-  const payload = (await response.json()) as { tokenHash?: string; email?: string; error?: string };
+  const payload = (await response.json()) as { tokenHash?: string; error?: string };
 
   if (!response.ok || !payload.tokenHash) {
     throw new Error(payload.error || "Connexion manager impossible.");
@@ -44,7 +44,6 @@ export async function signInManagerMobile(slug: string, pin: string) {
   const { error } = await supabase.auth.verifyOtp({
     type: "magiclink",
     token_hash: payload.tokenHash,
-    email: payload.email,
   });
 
   if (error) {

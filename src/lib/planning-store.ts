@@ -1,10 +1,4 @@
 import {
-  sheetPlanningBinomes,
-  sheetPlanningCycle,
-  sheetPlanningEmployees,
-  sheetPlanningOverrides,
-} from "@/lib/planning-sheet-data";
-import {
   hasBrowserWindow,
   purgeLegacyCacheByPrefixes,
   purgeLegacyCacheKeys,
@@ -35,20 +29,13 @@ const PLANNING_TRI_KEY_PREFIX = "epicerie-manager-planning-tri-v1";
 const PLANNING_BINOMES_KEY_PREFIX = "epicerie-manager-planning-binomes-v1";
 const PLANNING_UPDATED_EVENT = "epicerie-manager:planning-updated";
 
-export let planningEmployees: PlanningEmployee[] = sheetPlanningEmployees;
+export let planningEmployees: PlanningEmployee[] = [];
 
-let cycle: Record<string, string[]> = sheetPlanningCycle;
+let cycle: Record<string, string[]> = {};
 
-export const defaultPlanningTriData: PlanningTriData = {
-  1: ["CECILE", "WASIM"],
-  2: ["ROSALIE", "JAMAA"],
-  3: ["JEREMY", "KAMEL"],
-  4: ["EL HASSANE", "LIYAKATH"],
-  5: ["KHANH", "FLORIAN"],
-  6: ["MOHCINE", "PASCALE"],
-};
+export const defaultPlanningTriData: PlanningTriData = {};
 
-export const defaultPlanningBinomes: PlanningBinomes = sheetPlanningBinomes;
+export const defaultPlanningBinomes: PlanningBinomes = [];
 
 function isAbsencePlanningStatus(status: string) {
   const upper = String(status ?? "").toUpperCase().trim();
@@ -75,15 +62,6 @@ function getPlanningDefaultStatus(employee: PlanningEmployee, date: Date) {
   return "PRESENT";
 }
 
-function parsePlanningOverrideKey(key: string) {
-  const match = key.match(/^(.*)_(\d{4}-\d{2}-\d{2})$/);
-  if (!match) return null;
-  return {
-    employeeName: match[1],
-    date: match[2],
-  };
-}
-
 function shouldKeepPlanningOverrideEntry(
   employeeName: string,
   dateIso: string,
@@ -106,24 +84,7 @@ function shouldKeepPlanningOverrideEntry(
   return Boolean(customHoraire && customHoraire !== defaultHoraire);
 }
 
-function buildPlanningBaseOverrides(source: PlanningOverrides) {
-  return Object.fromEntries(
-    Object.entries(source)
-      .filter(([key, value]) => {
-        if (isAbsencePlanningStatus(value.s)) return false;
-        const parsed = parsePlanningOverrideKey(key);
-        if (!parsed) return true;
-        const employee = sheetPlanningEmployees.find((item) => item.n === parsed.employeeName);
-        if (employee?.t === "E" && String(value.s ?? "").toUpperCase().trim() === "PRESENT" && value.h) {
-          return false;
-        }
-        return shouldKeepPlanningOverrideEntry(parsed.employeeName, parsed.date, value, sheetPlanningEmployees);
-      })
-      .map(([key, value]) => [key, { ...value }]),
-  ) as PlanningOverrides;
-}
-
-export const defaultPlanningOverrides: PlanningOverrides = buildPlanningBaseOverrides(sheetPlanningOverrides);
+export const defaultPlanningOverrides: PlanningOverrides = {};
 
 function cloneTriData(data: PlanningTriData): PlanningTriData {
   return Object.fromEntries(

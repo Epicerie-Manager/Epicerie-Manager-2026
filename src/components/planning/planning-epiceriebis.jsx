@@ -2,7 +2,6 @@
 
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { sheetPlanningBinomes } from "@/lib/planning-sheet-data";
 import {
   getAbsencesUpdatedEventName,
   loadAbsenceRequests,
@@ -281,7 +280,7 @@ function cloneTriDataForInit(){
 }
 
 function cloneBinomesForInit(){
-  return (sheetPlanningBinomes?.length ? sheetPlanningBinomes : defaultPlanningBinomes).map((pair)=>[pair[0],pair[1]]);
+  return defaultPlanningBinomes.map((pair)=>[pair[0],pair[1]]);
 }
 
 function cloneOverridesForInit(){

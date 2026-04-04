@@ -21,7 +21,7 @@ export const collabTheme = {
   amberBg: "#fff5df",
   redBg: "#fff0f1",
   shadow: "0 2px 8px rgba(80,50,30,0.10)",
-  titleFont: "Georgia, serif",
+  titleFont: "var(--font-fraunces), Georgia, serif",
 };
 
 export function collabCardStyle(extra?: CSSProperties): CSSProperties {

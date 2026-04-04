@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { loadManagerMobileProfiles, type ManagerMobileProfile } from "@/lib/manager-mobile-auth";
+import { createClient } from "@/lib/supabase";
 
 function shellCardStyle(): React.CSSProperties {
   return {
@@ -26,6 +27,16 @@ export default function ManagerMobileLoginPage() {
 
     const load = async () => {
       try {
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (user) {
+          router.replace("/manager");
+          return;
+        }
+
         setLoading(true);
         setError("");
         const nextProfiles = await loadManagerMobileProfiles();
@@ -43,7 +54,7 @@ export default function ManagerMobileLoginPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [router]);
 
   return (
     <section style={{ display: "grid", gap: 16 }}>

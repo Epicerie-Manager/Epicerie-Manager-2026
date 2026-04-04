@@ -14,10 +14,16 @@ export async function middleware(request: NextRequest) {
   const isCollabRoute = pathname.startsWith("/collab");
   const isCollabPublicRoute = pathname === "/collab" || pathname === "/collab/login" || pathname === "/collab/pin";
   const isManagerRoute = pathname.startsWith("/manager");
-  const isManagerPublicRoute =
-    pathname === "/manager/login" ||
-    pathname === "/manager/pin" ||
-    pathname.startsWith("/manager/auth");
+
+  if (isManagerHost) {
+    if (pathname === "/" || pathname === "/login" || pathname === "/change-password" || !isManagerRoute) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/manager/login";
+      return NextResponse.redirect(url);
+    }
+
+    return NextResponse.next();
+  }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -57,42 +63,6 @@ export async function middleware(request: NextRequest) {
       .eq("id", user.id)
       .maybeSingle();
     profile = (data as { role?: string | null; first_login?: boolean | null } | null) ?? null;
-  }
-
-  if (isManagerHost) {
-    if (pathname === "/" || pathname === "/login" || pathname === "/change-password") {
-      const url = request.nextUrl.clone();
-      url.pathname = user ? "/manager" : "/manager/login";
-      return NextResponse.redirect(url);
-    }
-
-    if (!isManagerRoute) {
-      const url = request.nextUrl.clone();
-      url.pathname = user ? "/manager" : "/manager/login";
-      return NextResponse.redirect(url);
-    }
-
-    if (!user && !isManagerPublicRoute) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/manager/login";
-      return NextResponse.redirect(url);
-    }
-
-    if (!user) return response;
-
-    if (profile?.role === "collaborateur") {
-      const url = request.nextUrl.clone();
-      url.pathname = profile.first_login ? "/collab/change-pin" : "/collab/home";
-      return NextResponse.redirect(url);
-    }
-
-    if (isManagerPublicRoute) {
-      const url = request.nextUrl.clone();
-      url.pathname = "/manager";
-      return NextResponse.redirect(url);
-    }
-
-    return response;
   }
 
   if (isCollabRoute) {

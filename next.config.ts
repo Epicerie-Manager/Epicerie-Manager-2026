@@ -9,7 +9,29 @@ const withPWA = nextPwa({
 });
 
 const nextConfig: NextConfig = {
-  /* config options here */
+  async redirects() {
+    if (process.env.NEXT_PUBLIC_APP_VARIANT !== "manager") {
+      return [];
+    }
+
+    return [
+      {
+        source: "/",
+        destination: "/manager/login",
+        permanent: false,
+      },
+      {
+        source: "/login",
+        destination: "/manager/login",
+        permanent: false,
+      },
+      {
+        source: "/change-password",
+        destination: "/manager/login",
+        permanent: false,
+      },
+    ];
+  },
 };
 
 export default withPWA(nextConfig);

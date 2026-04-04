@@ -36,7 +36,6 @@ import {
 import { getPlanningPresenceCountsForDate, isPlanningEmployeeCountedForPresence } from "@/lib/planning-presence";
 import { getRhUpdatedEventName, loadRhEmployees, syncRhFromSupabase } from "@/lib/rh-store";
 import { getPlateauWeekFocusData } from "@/lib/plateau-data";
-import { isManagerProject } from "@/lib/app-variant";
 
 type AlertTone = "yellow" | "red" | "blue";
 type RankStatus = "ok" | "warn" | "alert";
@@ -179,7 +178,6 @@ function StatusBox({ children, tone }: { children: React.ReactNode; tone: "yello
 // ── Page ──────────────────────────────────────────
 export default function DashboardPage() {
   const router = useRouter();
-  const isManagerApp = isManagerProject();
   const dash  = moduleThemes.dashboard;
   const plan  = moduleThemes.planning;
   const bal   = moduleThemes.balisage;
@@ -195,11 +193,6 @@ export default function DashboardPage() {
     return new Date(current.getFullYear(), current.getMonth(), 1);
   });
   const [monthlyIssuePanel, setMonthlyIssuePanel] = useState<"alerts" | "critical" | "pending" | null>(null);
-
-  useEffect(() => {
-    if (!isManagerApp) return;
-    router.replace("/manager/login");
-  }, [isManagerApp, router]);
 
   useEffect(() => {
     const refreshAll = () => {
@@ -496,7 +489,7 @@ export default function DashboardPage() {
       : []),
   ];
 
-  return isManagerApp ? null : (
+  return (
     <div>
       {/* ── HERO ─────────────────────────────────── */}
       <div style={{

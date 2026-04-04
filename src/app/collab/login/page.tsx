@@ -137,11 +137,12 @@ export default function CollabLoginPage() {
           {displayedResults.map((employee) => {
             const name = String(employee.name ?? "");
             const initials = name.slice(0, 2).toUpperCase();
+            const employeeId = String(employee.id ?? "");
             return (
               <button
-                key={String(employee.id)}
+                key={employeeId}
                 type="button"
-                onClick={() => router.push(`/collab/pin?name=${encodeURIComponent(name)}`)}
+                onClick={() => router.push(`/collab/pin?name=${encodeURIComponent(name)}&employee_id=${encodeURIComponent(employeeId)}`)}
                 style={{
                   display: "grid",
                   gridTemplateColumns: "48px 1fr 20px",

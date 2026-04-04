@@ -8,14 +8,14 @@ import { NumericKeypad, PinDots } from "@/components/collab/keypad";
 import { collabTheme } from "@/components/collab/theme";
 import { collabSignIn, getCollabProfile } from "@/lib/collab-auth";
 
-export function CollabPinPageClient({ selectedName }: { selectedName: string }) {
+export function CollabPinPageClient({ selectedName, employeeId }: { selectedName: string; employeeId: string }) {
   const router = useRouter();
   const [pin, setPin] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
-    if (!selectedName) {
+    if (!selectedName || !employeeId) {
       router.replace("/collab/login");
       return;
     }
@@ -25,23 +25,23 @@ export function CollabPinPageClient({ selectedName }: { selectedName: string }) 
         router.replace(profile.first_login ? "/collab/change-pin" : "/collab/home");
       })
       .catch(() => undefined);
-  }, [router, selectedName]);
+  }, [employeeId, router, selectedName]);
 
   const handleDigit = (digit: string) => {
     if (busy) return;
     setError("");
     const nextPin = `${pin}${digit}`.slice(0, 6);
     setPin(nextPin);
-    if (nextPin.length !== 6 || !selectedName) return;
+    if (nextPin.length !== 6 || !selectedName || !employeeId) return;
 
     setBusy(true);
-    void collabSignIn(selectedName, nextPin)
+    void collabSignIn(employeeId, nextPin)
       .then(async () => {
         const profile = await getCollabProfile();
         router.replace(profile?.first_login ? "/collab/change-pin" : "/collab/home");
       })
-      .catch(() => {
-        setError("PIN incorrect");
+      .catch((caughtError: unknown) => {
+        setError(caughtError instanceof Error ? caughtError.message : "PIN incorrect");
         setPin("");
       })
       .finally(() => setBusy(false));

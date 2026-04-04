@@ -55,8 +55,45 @@ export function CollabPinPageClient({ selectedName }: { selectedName: string }) 
         ← Retour
       </Link>
       <div style={{ height: 10 }} />
-      <CollabHeader title="Votre code" subtitle="Entrez votre code personnel à 6 chiffres." />
-      <SectionCard style={{ padding: "22px 18px" }}>
+      <CollabHeader title="Code personnel" subtitle="Entrez votre code à 6 chiffres pour ouvrir votre espace." />
+      <SectionCard style={{ padding: "22px 18px", overflow: "hidden" }}>
+        <div
+          style={{
+            margin: "-22px -18px 18px",
+            padding: "18px 18px 16px",
+            background:
+              "radial-gradient(circle at top right, rgba(29,95,160,0.12) 0%, transparent 34%), linear-gradient(135deg, #f8fbff 0%, #fffdf9 100%)",
+            borderBottom: `1px solid ${collabTheme.line}`,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: 18,
+                background: collabTheme.accent,
+                color: "#fff",
+                display: "grid",
+                placeItems: "center",
+                fontWeight: 900,
+                fontSize: 20,
+                letterSpacing: "0.06em",
+                boxShadow: "0 10px 18px rgba(212,5,17,0.18)",
+              }}
+            >
+              É
+            </div>
+            <div>
+              <div style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: collabTheme.accent, fontWeight: 800 }}>
+                Connexion collaborateur
+              </div>
+              <div style={{ marginTop: 4, fontSize: 22, fontWeight: 700, color: collabTheme.text, fontFamily: collabTheme.titleFont }}>
+                {selectedName}
+              </div>
+            </div>
+          </div>
+        </div>
         <div style={{ display: "grid", justifyItems: "center" }}>
           <div style={{ width: 78, height: 78, borderRadius: 26, display: "grid", placeItems: "center", background: collabTheme.accentSoft, color: collabTheme.accent, fontSize: 28, fontWeight: 700 }}>
             {initials}

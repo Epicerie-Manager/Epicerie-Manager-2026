@@ -49,10 +49,50 @@ export default function CollabLoginPage() {
 
   return (
     <CollabPage>
-      <CollabHeader title="Bonjour." subtitle="Retrouvez votre planning, vos absences et vos informations utiles depuis votre espace collaborateur." />
-      <SectionCard style={{ padding: "22px 18px" }}>
-        <label htmlFor="collab-name" style={{ display: "block", fontSize: 13, color: collabTheme.muted, marginBottom: 8 }}>
-          Entrez les premières lettres de votre prénom
+      <CollabHeader title="Espace collaborateur" subtitle="Planning, absences et infos utiles au même endroit." />
+      <SectionCard style={{ padding: "22px 18px", overflow: "hidden" }}>
+        <div
+          style={{
+            margin: "-22px -18px 18px",
+            padding: "18px 18px 16px",
+            background:
+              "radial-gradient(circle at top right, rgba(212,5,17,0.1) 0%, transparent 34%), linear-gradient(135deg, #fff7f4 0%, #fffdf9 100%)",
+            borderBottom: `1px solid ${collabTheme.line}`,
+          }}
+        >
+          <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+            <div
+              style={{
+                width: 52,
+                height: 52,
+                borderRadius: 18,
+                background: collabTheme.accent,
+                color: "#fff",
+                display: "grid",
+                placeItems: "center",
+                fontWeight: 900,
+                fontSize: 20,
+                letterSpacing: "0.06em",
+                boxShadow: "0 10px 18px rgba(212,5,17,0.18)",
+              }}
+            >
+              É
+            </div>
+            <div>
+              <div style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: collabTheme.accent, fontWeight: 800 }}>
+                Application collaborateur
+              </div>
+              <div style={{ marginTop: 4, fontSize: 22, fontWeight: 700, color: collabTheme.text, fontFamily: collabTheme.titleFont }}>
+                Choisissez votre profil
+              </div>
+            </div>
+          </div>
+          <div style={{ marginTop: 12, fontSize: 13, lineHeight: 1.6, color: collabTheme.muted }}>
+            Commencez à taper votre prénom pour retrouver votre accès, puis entrez votre code personnel.
+          </div>
+        </div>
+        <label htmlFor="collab-name" style={{ display: "block", fontSize: 13, color: collabTheme.muted, marginBottom: 8, fontWeight: 700 }}>
+          Rechercher votre prénom
         </label>
         <input
           id="collab-name"
@@ -71,20 +111,21 @@ export default function CollabLoginPage() {
           autoCorrect="off"
           autoCapitalize="characters"
           spellCheck={false}
-          placeholder=""
+          placeholder="Ex. KAMEL"
           name="collab-search"
           style={{
             width: "100%",
-            border: "none",
-            borderBottom: `2px solid ${collabTheme.accent}`,
-            background: "transparent",
-            padding: "10px 0 12px",
-            fontSize: 26,
+            border: `1px solid ${collabTheme.line}`,
+            borderRadius: 16,
+            background: "#fffdfa",
+            padding: "14px 16px",
+            fontSize: 24,
             fontWeight: 700,
             color: collabTheme.text,
             outline: "none",
             caretColor: collabTheme.accent,
             fontFamily: "Georgia, serif",
+            boxShadow: "inset 0 1px 0 rgba(255,255,255,0.7)",
           }}
         />
         <div style={{ marginTop: 18, display: "grid", gap: 10 }}>

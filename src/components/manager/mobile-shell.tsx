@@ -1,9 +1,22 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { useEffect, useState } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import { useEffect, useRef, useState } from "react";
+import {
+  attachBrowserSessionResponder,
+  broadcastForceSignOut,
+  clearBrowserSessionState,
+  createBrowserSessionChannel,
+  getLastBrowserActivityAt,
+  INACTIVITY_CHECK_INTERVAL_MS,
+  INACTIVITY_TIMEOUT_MS,
+  markBrowserSessionActive,
+  recordBrowserActivity,
+  restoreBrowserSessionMarker,
+} from "@/lib/browser-session";
 import { loadManagerDisplayName } from "@/lib/followup-store";
+import { createClient } from "@/lib/supabase";
 
 type ManagerMobileShellProps = {
   version: string;
@@ -115,24 +128,164 @@ function getSectionTitle(pathname: string) {
 
 export function ManagerMobileShell({ version, children }: ManagerMobileShellProps) {
   const pathname = usePathname();
+  const router = useRouter();
+  const isManagerAuthRoute =
+    pathname.startsWith("/manager/login") ||
+    pathname.startsWith("/manager/pin") ||
+    pathname.startsWith("/manager/auth");
   const sectionTitle = getSectionTitle(pathname);
   const [managerName, setManagerName] = useState("");
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const signingOutRef = useRef(false);
 
   useEffect(() => {
+    if (isManagerAuthRoute) return;
     let cancelled = false;
-    const loadName = async () => {
-      try {
-        const name = await loadManagerDisplayName();
-        if (!cancelled) setManagerName(name);
-      } catch {
-        if (!cancelled) setManagerName("");
+
+    const guardManagerSession = async () => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        router.replace("/manager/login");
+        return;
       }
+
+      const restored = await restoreBrowserSessionMarker();
+      if (!restored) {
+        clearBrowserSessionState();
+        await supabase.auth.signOut();
+        router.replace("/manager/login");
+        router.refresh();
+        return;
+      }
+
+      markBrowserSessionActive();
+      recordBrowserActivity();
+      const name = await loadManagerDisplayName().catch(() => "");
+      if (!cancelled) setManagerName(name);
     };
-    void loadName();
+
+    void guardManagerSession();
+
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [isManagerAuthRoute, router]);
+
+  useEffect(() => {
+    if (isManagerAuthRoute) return;
+    const supabase = createClient();
+    const channel = createBrowserSessionChannel();
+
+    const signOutNow = async () => {
+      if (signingOutRef.current) return;
+      signingOutRef.current = true;
+      setIsSigningOut(true);
+      try {
+        clearBrowserSessionState();
+        broadcastForceSignOut(channel);
+        await supabase.auth.signOut();
+        router.replace("/manager/login");
+        router.refresh();
+      } finally {
+        signingOutRef.current = false;
+        setIsSigningOut(false);
+      }
+    };
+
+    markBrowserSessionActive();
+    recordBrowserActivity();
+
+    const detachResponder = channel
+      ? attachBrowserSessionResponder(channel, () => {
+          void signOutNow();
+        })
+      : null;
+
+    const activityEvents: Array<keyof WindowEventMap> = [
+      "pointerdown",
+      "keydown",
+      "mousemove",
+      "scroll",
+      "touchstart",
+      "focus",
+    ];
+
+    const handleActivity = () => {
+      recordBrowserActivity();
+    };
+
+    activityEvents.forEach((eventName) => {
+      window.addEventListener(eventName, handleActivity, { passive: true });
+    });
+
+    const interval = window.setInterval(() => {
+      const lastActivityAt = getLastBrowserActivityAt();
+      if (!lastActivityAt) {
+        recordBrowserActivity();
+        return;
+      }
+
+      if (Date.now() - lastActivityAt >= INACTIVITY_TIMEOUT_MS) {
+        void signOutNow();
+      }
+    }, INACTIVITY_CHECK_INTERVAL_MS);
+
+    return () => {
+      window.clearInterval(interval);
+      activityEvents.forEach((eventName) => {
+        window.removeEventListener(eventName, handleActivity);
+      });
+      detachResponder?.();
+      channel?.close();
+    };
+  }, [isManagerAuthRoute, router]);
+
+  const handleSignOut = async () => {
+    if (signingOutRef.current || isSigningOut) return;
+    signingOutRef.current = true;
+    setIsSigningOut(true);
+    try {
+      const supabase = createClient();
+      clearBrowserSessionState();
+      await supabase.auth.signOut();
+      router.replace("/manager/login");
+      router.refresh();
+    } finally {
+      signingOutRef.current = false;
+      setIsSigningOut(false);
+    }
+  };
+
+  if (isManagerAuthRoute) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          background:
+            "radial-gradient(circle at top left, rgba(185,28,46,0.16) 0%, transparent 28%), " +
+            "radial-gradient(circle at bottom right, rgba(14,116,144,0.12) 0%, transparent 30%), " +
+            "linear-gradient(180deg, #f8f3ee 0%, #f4efe9 48%, #eee7df 100%)",
+          fontFamily: "'Trebuchet MS', 'Segoe UI', sans-serif",
+          color: "#1f2937",
+        }}
+      >
+        <div
+          style={{
+            width: "min(100%, 520px)",
+            margin: "0 auto",
+            minHeight: "100vh",
+            padding: "18px 16px 32px",
+          }}
+        >
+          {children}
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div
@@ -233,6 +386,24 @@ export function ManagerMobileShell({ version, children }: ManagerMobileShellProp
                 >
                   v{version}
                 </div>
+                <button
+                  type="button"
+                  onClick={() => void handleSignOut()}
+                  disabled={isSigningOut}
+                  style={{
+                    borderRadius: 999,
+                    padding: "6px 10px",
+                    background: "rgba(254,242,242,0.96)",
+                    border: "1px solid rgba(248,113,113,0.28)",
+                    color: "#991b1b",
+                    fontSize: 11,
+                    fontWeight: 800,
+                    cursor: isSigningOut ? "not-allowed" : "pointer",
+                    opacity: isSigningOut ? 0.7 : 1,
+                  }}
+                >
+                  {isSigningOut ? "Déconnexion..." : "Déconnexion"}
+                </button>
               </div>
             </div>
           </div>

@@ -10,25 +10,6 @@ import {
 } from "@/lib/browser-session";
 import { createClient } from "@/lib/supabase";
 
-const PAGE_BG = "#F4F1ED";
-const PANEL_RED = "#D40511";
-const CARD_BG = "#FAFAF8";
-const INPUT_BG = "#F5F2EE";
-const INPUT_BORDER = "#E5E2DD";
-const TEXT = "#1a1410";
-const MUTED = "#999";
-
-function featureStyle() {
-  return {
-    display: "flex",
-    alignItems: "center",
-    gap: 10,
-    fontSize: 13,
-    color: "rgba(255,255,255,0.74)",
-    lineHeight: 1.45,
-  } as React.CSSProperties;
-}
-
 export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -102,229 +83,171 @@ export default function LoginPage() {
         minHeight: "100vh",
         display: "grid",
         placeItems: "center",
-        background: PAGE_BG,
-        padding: "24px",
-        fontFamily: "var(--font-dm-sans), sans-serif",
+        background:
+          "radial-gradient(circle at 15% 10%, rgba(185,28,46,0.1) 0%, transparent 30%), radial-gradient(circle at 85% 80%, rgba(10,79,152,0.08) 0%, transparent 34%), linear-gradient(180deg, #f7f3ee 0%, #edf2f8 100%)",
+        padding: "20px",
       }}
     >
       <div
         style={{
           width: "100%",
-          maxWidth: 980,
+          maxWidth: "468px",
           display: "grid",
-          gridTemplateColumns: "minmax(300px, 0.95fr) minmax(360px, 1.3fr)",
-          background: CARD_BG,
-          borderRadius: 30,
-          overflow: "hidden",
-          border: "1px solid #EDEBE7",
-          boxShadow: "0 24px 60px rgba(60,40,20,0.08)",
+          gap: "16px",
         }}
       >
         <div
           style={{
-            background: PANEL_RED,
-            padding: "34px 30px 28px",
-            color: "#fff",
+            borderRadius: "28px",
+            padding: "22px 24px",
+            background: "rgba(255,255,255,0.86)",
+            border: "1px solid rgba(255,255,255,0.75)",
+            boxShadow: "0 20px 50px rgba(68,39,20,0.1)",
+            backdropFilter: "blur(18px)",
+          }}
+        >
+          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 12 }}>
+            <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
+              <div
+                style={{
+                  width: 56,
+                  height: 56,
+                  borderRadius: 18,
+                  background: "linear-gradient(135deg, #b91c2e, #8f1222)",
+                  color: "#fff",
+                  display: "grid",
+                  placeItems: "center",
+                  boxShadow: "0 10px 24px rgba(185,28,46,0.24)",
+                  fontSize: 22,
+                  fontWeight: 900,
+                  letterSpacing: "0.06em",
+                }}
+              >
+                É
+              </div>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#9f1239" }}>
+                  Application manager
+                </div>
+                <div style={{ marginTop: 4, fontSize: 30, fontWeight: 900, letterSpacing: "-0.05em", color: "#111827" }}>
+                  Connexion
+                </div>
+              </div>
+            </div>
+            <div
+              style={{
+                borderRadius: 999,
+                padding: "7px 10px",
+                background: "#fff",
+                border: "1px solid rgba(185,28,46,0.14)",
+                color: "#9f1239",
+                fontSize: 11,
+                fontWeight: 800,
+              }}
+            >
+              Acces securise
+            </div>
+          </div>
+          <div style={{ marginTop: 14, fontSize: 14, lineHeight: 1.6, color: "#475569" }}>
+            Connecte-toi avec ton compte manager pour accéder au bureau et à l’application mobile.
+          </div>
+        </div>
+
+        <form
+          onSubmit={handleSubmit}
+          style={{
+            background: "rgba(255,255,255,0.92)",
+            backdropFilter: "blur(12px)",
+            border: "1px solid rgba(226,232,240,0.7)",
+            borderRadius: "24px",
+            boxShadow: "0 1px 2px rgba(0,0,0,0.03),0 4px 16px rgba(0,0,0,0.04),0 18px 42px rgba(0,0,0,0.04)",
+            padding: "22px",
             display: "grid",
-            gap: 22,
+            gap: "12px",
           }}
         >
           <div
             style={{
-              width: 52,
-              height: 52,
-              borderRadius: 15,
-              background: "rgba(255,255,255,0.18)",
               display: "grid",
-              placeItems: "center",
-              fontSize: 14,
-              fontWeight: 700,
-              letterSpacing: "0.08em",
+              gap: 4,
+              paddingBottom: 4,
             }}
           >
-            ÉM
+            <div style={{ fontSize: "20px", fontWeight: 800, color: "#0f172a" }}>Bienvenue</div>
+            <div style={{ fontSize: "13px", color: "#64748b" }}>Saisie ton email et ton mot de passe habituels.</div>
           </div>
-          <div>
-            <div
-              style={{
-                fontFamily: "var(--font-fraunces), serif",
-                fontSize: 34,
-                lineHeight: 1.05,
-                fontWeight: 600,
-                color: "#fff",
-              }}
-            >
-              Épicerie
-              <br />
-              Manager
-            </div>
-            <div
-              style={{
-                marginTop: 16,
-                fontSize: 13,
-                color: "rgba(255,255,255,0.68)",
-                lineHeight: 1.65,
-                maxWidth: 280,
-              }}
-            >
-              Pilotage équipe, planning, absences et suivi terrain dans un seul espace.
-            </div>
-          </div>
-          <div style={{ display: "grid", gap: 10 }}>
-            {[
-              "Connexion sécurisée au bureau manager",
-              "Accès au planning et aux validations",
-              "Saisie terrain et suivi collaborateur",
-              "Données synchronisées avec Supabase",
-            ].map((label) => (
-              <div key={label} style={featureStyle()}>
-                <span
-                  style={{
-                    width: 7,
-                    height: 7,
-                    borderRadius: 999,
-                    background: "rgba(255,255,255,0.45)",
-                    flexShrink: 0,
-                  }}
-                />
-                <span>{label}</span>
-              </div>
-            ))}
-          </div>
-          <div style={{ marginTop: "auto", fontSize: 11, color: "rgba(255,255,255,0.38)", letterSpacing: "0.06em" }}>
-            Accès managers uniquement
-          </div>
-        </div>
 
-        <div
-          style={{
-            background: "#FFFFFF",
-            padding: "40px 34px",
-            display: "grid",
-            placeItems: "center",
-          }}
-        >
-          <form
-            onSubmit={handleSubmit}
+          <label style={{ fontSize: "12px", color: "#475569", fontWeight: 700 }}>Email</label>
+          <input
+            type="email"
+            required
+            value={email}
+            onChange={(event) => setEmail(event.target.value)}
+            placeholder="prenom.nom@..."
             style={{
-              width: "100%",
-              maxWidth: 320,
-              display: "grid",
-              gap: 12,
+              minHeight: "46px",
+              borderRadius: "14px",
+              border: "1px solid #dbe3eb",
+              padding: "0 14px",
+              fontSize: "14px",
+              background: "#fbfdff",
             }}
-          >
-            <div style={{ fontSize: 11, fontWeight: 500, letterSpacing: "0.1em", textTransform: "uppercase", color: PANEL_RED }}>
-              Connexion
-            </div>
+          />
+
+          <label style={{ fontSize: "12px", color: "#475569", fontWeight: 700 }}>Mot de passe</label>
+          <input
+            type="password"
+            required
+            value={password}
+            onChange={(event) => setPassword(event.target.value)}
+            placeholder="Mot de passe"
+            style={{
+              minHeight: "46px",
+              borderRadius: "14px",
+              border: "1px solid #dbe3eb",
+              padding: "0 14px",
+              fontSize: "14px",
+              background: "#fbfdff",
+            }}
+          />
+
+          {error ? (
             <div
               style={{
-                fontFamily: "var(--font-fraunces), serif",
-                fontSize: 34,
-                lineHeight: 1.05,
-                fontWeight: 600,
-                color: TEXT,
+                fontSize: "12px",
+                color: "#991b1b",
+                background: "#fef2f2",
+                border: "1px solid #fecaca",
+                borderRadius: "12px",
+                padding: "10px 12px",
+                marginTop: "2px",
               }}
             >
-              Bon retour
+              {error}
             </div>
-            <div style={{ fontSize: 13, color: MUTED, lineHeight: 1.55, marginBottom: 8 }}>
-              Connecte-toi avec ton compte manager.
-            </div>
+          ) : null}
 
-            <label style={{ fontSize: 12, fontWeight: 500, color: "#888" }}>Email</label>
-            <input
-              type="email"
-              required
-              value={email}
-              onChange={(event) => setEmail(event.target.value)}
-              placeholder="prenom.nom@..."
-              style={{
-                minHeight: 46,
-                borderRadius: 10,
-                border: `1px solid ${INPUT_BORDER}`,
-                background: INPUT_BG,
-                padding: "0 14px",
-                fontSize: 14,
-                color: TEXT,
-                colorScheme: "light",
-                outline: "none",
-                fontFamily: "var(--font-dm-sans), sans-serif",
-              }}
-            />
-
-            <label style={{ fontSize: 12, fontWeight: 500, color: "#888", marginTop: 2 }}>Mot de passe</label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="Mot de passe"
-              style={{
-                minHeight: 46,
-                borderRadius: 10,
-                border: `1px solid ${INPUT_BORDER}`,
-                background: INPUT_BG,
-                padding: "0 14px",
-                fontSize: 14,
-                color: TEXT,
-                colorScheme: "light",
-                outline: "none",
-                fontFamily: "var(--font-dm-sans), sans-serif",
-              }}
-            />
-
-            {error ? (
-              <div
-                style={{
-                  marginTop: 2,
-                  fontSize: 12,
-                  color: "#991b1b",
-                  background: "#FEF2F2",
-                  border: "1px solid #FECACA",
-                  borderRadius: 12,
-                  padding: "10px 12px",
-                }}
-              >
-                {error}
-              </div>
-            ) : null}
-
-            <button
-              type="submit"
-              disabled={loading}
-              style={{
-                minHeight: 46,
-                borderRadius: 10,
-                border: "none",
-                background: PANEL_RED,
-                color: "#fff",
-                fontFamily: "var(--font-dm-sans), sans-serif",
-                fontSize: 14,
-                fontWeight: 500,
-                cursor: loading ? "not-allowed" : "pointer",
-                opacity: loading ? 0.7 : 1,
-                marginTop: 6,
-              }}
-            >
-              {loading ? "Connexion..." : "Se connecter"}
-            </button>
-
-            <button
-              type="button"
-              style={{
-                marginTop: 2,
-                border: "none",
-                background: "transparent",
-                color: "#bbb",
-                fontSize: 12,
-                cursor: "default",
-                fontFamily: "var(--font-dm-sans), sans-serif",
-              }}
-            >
-              Mot de passe oublié ?
-            </button>
-          </form>
-        </div>
+          <button
+            type="submit"
+            disabled={loading}
+            style={{
+              marginTop: "8px",
+              minHeight: "46px",
+              borderRadius: "14px",
+              border: "none",
+              cursor: loading ? "not-allowed" : "pointer",
+              background: "linear-gradient(135deg, #b91c2e, #8f1222)",
+              color: "#fff",
+              fontWeight: 800,
+              fontSize: "14px",
+              letterSpacing: "-0.01em",
+              opacity: loading ? 0.7 : 1,
+              boxShadow: "0 12px 24px rgba(185,28,46,0.22)",
+            }}
+          >
+            {loading ? "Connexion..." : "Se connecter"}
+          </button>
+        </form>
       </div>
     </section>
   );

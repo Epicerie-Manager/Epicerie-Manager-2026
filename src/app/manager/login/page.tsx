@@ -1,29 +1,24 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import { NumericKeypad, PinDots } from "@/components/collab/keypad";
 import { loadManagerMobileProfiles, signInManagerMobile, type ManagerMobileProfile } from "@/lib/manager-mobile-auth";
 import { createClient } from "@/lib/supabase";
 
-const RED = "#D40511";
-const PAGE_BG = "#F4F1ED";
-const CARD_BG = "#FAFAF8";
-const CARD_LINE = "#EDEBE7";
-const TEXT = "#1a1410";
-
 function shellCardStyle(): React.CSSProperties {
   return {
-    borderRadius: 24,
-    background: CARD_BG,
-    border: `1px solid ${CARD_LINE}`,
-    boxShadow: "0 18px 44px rgba(60,40,20,0.06)",
+    borderRadius: 28,
+    padding: "18px 18px 20px",
+    background: "rgba(255,255,255,0.84)",
+    border: "1px solid rgba(255,255,255,0.78)",
+    boxShadow: "0 16px 40px rgba(91,33,63,0.08)",
+    overflow: "hidden",
   };
 }
 
 export default function ManagerMobileLoginPage() {
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [profiles, setProfiles] = useState<ManagerMobileProfile[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
@@ -31,23 +26,20 @@ export default function ManagerMobileLoginPage() {
   const [pin, setPin] = useState("");
   const [busy, setBusy] = useState(false);
   const [pinError, setPinError] = useState("");
-  const previewMode = searchParams.get("preview") === "1";
 
   useEffect(() => {
     let cancelled = false;
 
     const load = async () => {
       try {
-        if (!previewMode) {
-          const supabase = createClient();
-          const {
-            data: { user },
-          } = await supabase.auth.getUser();
+        const supabase = createClient();
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
 
-          if (user) {
-            router.replace("/manager");
-            return;
-          }
+        if (user) {
+          router.replace("/manager");
+          return;
         }
 
         setLoading(true);
@@ -67,7 +59,7 @@ export default function ManagerMobileLoginPage() {
     return () => {
       cancelled = true;
     };
-  }, [previewMode, router]);
+  }, [router]);
 
   const selectedProfile = profiles.find((profile) => profile.slug === selectedProfileSlug) ?? null;
 
@@ -99,223 +91,167 @@ export default function ManagerMobileLoginPage() {
   };
 
   return (
-    <section
-      style={{
-        minHeight: "100dvh",
-        background: PAGE_BG,
-        fontFamily: "var(--font-dm-sans), sans-serif",
-        color: TEXT,
-      }}
-    >
-      <div
-        style={{
-          width: "min(100%, 390px)",
-          minHeight: "100dvh",
-          margin: "0 auto",
-          padding: "10px 14px 0",
-          display: "grid",
-          gridTemplateRows: "auto 1fr",
-        }}
-      >
-        <div
-          style={{
-            background: RED,
-            borderRadius: 36,
-            padding: "26px 24px 46px",
-            color: "#fff",
-            boxShadow: "0 20px 44px rgba(212,5,17,0.14)",
-          }}
-        >
-          <div style={{ display: "flex", alignItems: "start", gap: 14 }}>
-            <div
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 14,
-                background: "rgba(255,255,255,0.2)",
-                display: "grid",
-                placeItems: "center",
-                fontSize: 13,
-                fontWeight: 700,
-                color: "#fff",
-                letterSpacing: "0.06em",
-              }}
-            >
-              EM
-            </div>
-            <div>
-              <div style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.72)", fontWeight: 500 }}>
-                Application manager
-              </div>
-              <div style={{ marginTop: 2, fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "rgba(255,255,255,0.58)", fontWeight: 500 }}>
-                Épicerie Villebon 2
-              </div>
-            </div>
-          </div>
+    <section style={{ display: "grid", gap: 16 }}>
+      <div style={shellCardStyle()}>
+        <div style={{ display: "flex", alignItems: "center", gap: 14 }}>
           <div
             style={{
-              marginTop: 20,
-              fontFamily: "var(--font-fraunces), serif",
-              fontSize: 30,
-              lineHeight: 0.96,
-              fontWeight: 650,
+              width: 58,
+              height: 58,
+              borderRadius: 18,
+              background: "linear-gradient(135deg, #b91c2e, #8f1222)",
               color: "#fff",
+              display: "grid",
+              placeItems: "center",
+              boxShadow: "0 10px 22px rgba(185,28,46,0.24)",
+              fontSize: 22,
+              fontWeight: 900,
             }}
           >
-            Choisissez votre
-            <br />
-            profil
+            EM
           </div>
-          <div style={{ marginTop: 12, fontSize: 13, lineHeight: 1.55, fontWeight: 500, color: "rgba(255,255,255,0.84)" }}>
-            Touchez votre pastille puis entrez votre code PIN personnel.
+          <div>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.12em", textTransform: "uppercase", color: "#9f1239" }}>
+              Application manager
+            </div>
+            <div style={{ marginTop: 4, fontSize: 28, fontWeight: 900, letterSpacing: "-0.05em", color: "#111827" }}>
+              Choisissez votre profil
+            </div>
           </div>
         </div>
+        <div style={{ marginTop: 14, fontSize: 14, lineHeight: 1.6, color: "#475569" }}>
+          {selectedProfile
+            ? "Entrez votre code PIN personnel pour ouvrir l'application manager."
+            : "Touchez votre pastille puis entrez votre code PIN personnel pour ouvrir l'application manager."}
+        </div>
+      </div>
 
-        <div style={{ ...shellCardStyle(), marginTop: -28, padding: "22px 18px 20px", position: "relative", zIndex: 1, borderRadius: "28px 28px 30px 30px" }}>
+      <div style={{ ...shellCardStyle(), display: "grid", gap: 12 }}>
+        {loading ? <div style={{ fontSize: 13, color: "#64748b" }}>Chargement des profils manager...</div> : null}
+        {error ? (
           <div
             style={{
-              minHeight: 0,
-              display: "grid",
-              alignContent: "start",
+              fontSize: 12,
+              color: "#991b1b",
+              background: "#fef2f2",
+              border: "1px solid #fecaca",
+              borderRadius: 14,
+              padding: "12px 14px",
             }}
           >
-          {!selectedProfile ? (
-            <div style={{ display: "grid", gap: 14 }}>
-              <div style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", color: "#ccc", fontWeight: 500 }}>
-                Managers actifs
-              </div>
+            {error}
+          </div>
+        ) : null}
+        {!loading && !error && profiles.length === 0 ? (
+          <div style={{ fontSize: 13, color: "#64748b" }}>Aucun accès manager mobile n&apos;est encore configuré.</div>
+        ) : null}
 
-              {loading ? <div style={{ fontSize: 13, color: "#777" }}>Chargement des profils manager...</div> : null}
-              {error ? (
-                <div style={{ fontSize: 12, color: "#991b1b", background: "#FEF2F2", border: "1px solid #FECACA", borderRadius: 14, padding: "12px 14px" }}>
-                  {error}
-                </div>
-              ) : null}
-              {!loading && !error && profiles.length === 0 ? (
-                <div style={{ fontSize: 13, color: "#777" }}>Aucun accès manager mobile n&apos;est encore configuré.</div>
-              ) : null}
+        {selectedProfile ? (
+          <div style={{ display: "grid", gap: 14 }}>
+            <button
+              type="button"
+              onClick={() => {
+                if (busy) return;
+                setSelectedProfileSlug("");
+                setPin("");
+                setPinError("");
+              }}
+              style={{
+                justifySelf: "start",
+                border: "none",
+                background: "transparent",
+                color: "#9f1239",
+                fontSize: 14,
+                fontWeight: 800,
+                cursor: busy ? "not-allowed" : "pointer",
+                padding: 0,
+                opacity: busy ? 0.6 : 1,
+              }}
+            >
+              ← Changer de profil
+            </button>
 
-              <div style={{ display: "grid", gap: 10 }}>
-                {profiles.map((profile) => (
-                  <button
-                    key={profile.slug}
-                    type="button"
-                    onClick={() => handleProfileSelect(profile.slug)}
-                    style={{
-                      display: "grid",
-                      gridTemplateColumns: "44px 1fr 16px",
-                      alignItems: "center",
-                      gap: 12,
-                      padding: "12px",
-                      borderRadius: 14,
-                      border: `0.5px solid ${CARD_LINE}`,
-                      background: "#FFFFFF",
-                      textAlign: "left",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <div
-                      style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 13,
-                        background: "#FEF2F2",
-                        border: "1px solid #FDDADA",
-                        color: RED,
-                        display: "grid",
-                        placeItems: "center",
-                        fontWeight: 700,
-                        fontSize: 15,
-                      }}
-                    >
-                      {profile.initials || "EM"}
-                    </div>
-                    <div>
-                      <div style={{ fontSize: 14, fontWeight: 500, color: TEXT }}>{profile.displayName}</div>
-                      <div style={{ marginTop: 2, fontSize: 12, color: "#bbb" }}>Manager mobile</div>
-                    </div>
-                    <div style={{ color: "#DDD", fontSize: 18, textAlign: "right" }}>›</div>
-                  </button>
-                ))}
-              </div>
-
-              <div style={{ textAlign: "center", fontSize: 12, color: "#ccc", paddingTop: 2 }}>— ou —</div>
-
-              <button
-                type="button"
-                onClick={() => router.push("/login")}
+            <div style={{ display: "grid", justifyItems: "center", gap: 10 }}>
+              <div
                 style={{
-                  minHeight: 44,
-                  borderRadius: 12,
-                  border: `0.5px solid #E8E4DE`,
-                  background: "#fff",
-                  color: "#C7C2BC",
-                  fontSize: 13,
-                  fontWeight: 500,
-                  cursor: "pointer",
+                  width: 82,
+                  height: 82,
+                  borderRadius: 26,
+                  background: "linear-gradient(135deg, #b91c2e, #8f1222)",
+                  color: "#fff",
+                  display: "grid",
+                  placeItems: "center",
+                  boxShadow: "0 12px 26px rgba(185,28,46,0.24)",
+                  fontSize: 28,
+                  fontWeight: 900,
                 }}
               >
-                Connexion par email
-              </button>
+                {selectedProfile.initials || "EM"}
+              </div>
+              <div style={{ fontSize: 24, fontWeight: 900, letterSpacing: "-0.04em", color: "#111827" }}>
+                {selectedProfile.displayName}
+              </div>
             </div>
-          ) : (
-            <div style={{ display: "grid", gap: 14 }}>
+
+            <PinDots value={pin} />
+            {pinError ? (
+              <div style={{ textAlign: "center", color: "#991b1b", fontSize: 13 }}>{pinError}</div>
+            ) : null}
+            <NumericKeypad
+              disabled={busy}
+              onDigit={handlePinDigit}
+              onBackspace={() => {
+                if (busy) return;
+                setPin((current) => current.slice(0, -1));
+              }}
+            />
+          </div>
+        ) : (
+          <div style={{ display: "grid", gap: 10 }}>
+            {profiles.map((profile) => (
               <button
+                key={profile.slug}
                 type="button"
-                onClick={() => {
-                  if (busy) return;
-                  setSelectedProfileSlug("");
-                  setPin("");
-                  setPinError("");
-                }}
+                onClick={() => handleProfileSelect(profile.slug)}
                 style={{
-                  justifySelf: "start",
-                  border: "none",
-                  background: "transparent",
-                  color: "#999",
-                  fontSize: 12,
-                  cursor: busy ? "default" : "pointer",
-                  padding: 0,
+                  display: "grid",
+                  gridTemplateColumns: "56px 1fr 20px",
+                  alignItems: "center",
+                  gap: 12,
+                  padding: "14px 12px",
+                  borderRadius: 20,
+                  border: "1px solid rgba(226,232,240,0.9)",
+                  background: "linear-gradient(180deg, #ffffff 0%, #fff8f6 100%)",
+                  textAlign: "left",
+                  cursor: "pointer",
+                  boxShadow: "0 10px 24px rgba(17,24,39,0.05)",
                 }}
               >
-                ← Retour aux profils
-              </button>
-
-              <div style={{ display: "grid", justifyItems: "center", gap: 10 }}>
                 <div
                   style={{
                     width: 56,
                     height: 56,
                     borderRadius: 18,
-                    background: "#FEF2F2",
-                    border: "1px solid #FDDADA",
-                    color: RED,
+                    background: "linear-gradient(135deg, #b91c2e, #8f1222)",
+                    color: "#fff",
                     display: "grid",
                     placeItems: "center",
-                    fontWeight: 700,
                     fontSize: 20,
+                    fontWeight: 900,
+                    letterSpacing: "0.04em",
                   }}
                 >
-                  {selectedProfile.initials || "EM"}
+                  {profile.initials || "EM"}
                 </div>
-                <div style={{ fontSize: 18, fontWeight: 500, color: TEXT }}>{selectedProfile.displayName}</div>
-                <div style={{ fontSize: 12, color: "#aaa" }}>Entrez votre code PIN à 6 chiffres.</div>
-              </div>
-
-              <PinDots value={pin} />
-              {pinError ? <div style={{ textAlign: "center", color: "#991b1b", fontSize: 13 }}>{pinError}</div> : null}
-              <NumericKeypad
-                disabled={busy}
-                onDigit={handlePinDigit}
-                onBackspace={() => {
-                  if (busy) return;
-                  setPin((current) => current.slice(0, -1));
-                }}
-              />
-            </div>
-          )}
+                <div>
+                  <div style={{ fontSize: 17, fontWeight: 800, color: "#111827" }}>{profile.displayName}</div>
+                  <div style={{ marginTop: 4, fontSize: 12, color: "#64748b" }}>Accès manager mobile</div>
+                </div>
+                <div style={{ color: "#9f1239", fontSize: 20, fontWeight: 700 }}>›</div>
+              </button>
+            ))}
           </div>
-        </div>
+        )}
       </div>
     </section>
   );

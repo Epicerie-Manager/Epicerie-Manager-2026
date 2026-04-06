@@ -300,25 +300,32 @@ export default function DashboardPage() {
     return base;
   }, [today]);
 
+  const todayPresenceCounts = useMemo(
+    () => getPlanningPresenceCountsForDate(today, planningOverrides),
+    [planningOverrides, today],
+  );
   const presenceByType = useMemo(() => {
     return planningEmployees.reduce(
       (acc, employee) => {
         if (!isPlanningEmployeeCountedForPresence(employee)) return acc;
 
         const status = getPlanningStatus(employee, today, planningOverrides);
-        if (status === "PRESENT") {
-          if (employee.t === "M") acc.morning += 1;
-          if (employee.t === "S") acc.afternoon += 1;
-          if (employee.t === "E") acc.students += 1;
+        if (status === "PRESENT" && employee.t === "E") {
+          acc.students += 1;
         }
         if (employee.actif && !["PRESENT", "X"].includes(status) && employee.t !== "E") {
           acc.absentNames.push(employee.n);
         }
         return acc;
       },
-      { morning: 0, afternoon: 0, students: 0, absentNames: [] as string[] },
+      {
+        morning: todayPresenceCounts.morningCount,
+        afternoon: todayPresenceCounts.afternoonCount,
+        students: 0,
+        absentNames: [] as string[],
+      },
     );
-  }, [planningOverrides, today]);
+  }, [planningOverrides, today, todayPresenceCounts]);
   const triPair = useMemo(
     () => getPlanningTriPairForDate(today, planningTriData) ?? [],
     [planningTriData, today],

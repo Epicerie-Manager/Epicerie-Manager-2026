@@ -16,6 +16,7 @@ export type RhEmployee = {
   actif: boolean;
   photo: string | null;
   rayons?: string[];
+  ruptures_rayons?: number[];
 };
 
 export type CreateRhEmployeeResult = {
@@ -114,6 +115,15 @@ function normalizeEmployeeRayons(value: unknown) {
   return Array.from(new Set(rayons)).sort((a, b) => a.localeCompare(b, "fr"));
 }
 
+function normalizeEmployeeRuptureRayons(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return Array.from(new Set(
+    value
+      .map((item) => Number(item))
+      .filter((item) => Number.isFinite(item)),
+  )).sort((a, b) => a - b);
+}
+
 function getPhotoLookup(employees: RhEmployee[]) {
   const byDbId = new Map<string, string | null>();
   const byName = new Map<string, string | null>();
@@ -135,6 +145,7 @@ function mapEmployeeRowToRhEmployee(
     observation: string | null;
     actif: boolean | null;
     tg_rayons?: string[] | null;
+    ruptures_rayons?: number[] | null;
   },
   index: number,
   photos?: { byDbId: Map<string, string | null>; byName: Map<string, string | null> },
@@ -158,6 +169,7 @@ function mapEmployeeRowToRhEmployee(
     actif: Boolean(employee.actif),
     photo,
     rayons: normalizeEmployeeRayons(employee.tg_rayons),
+    ruptures_rayons: normalizeEmployeeRuptureRayons(employee.ruptures_rayons),
   };
 }
 
@@ -248,7 +260,7 @@ export async function syncRhFromSupabase() {
     const photos = getPhotoLookup(cachedEmployees);
     const { data: employeeRows, error: employeeError } = await supabase
       .from("employees")
-      .select("id,name,type,horaire_standard,horaire_mardi,horaire_samedi,observation,actif,tg_rayons")
+      .select("id,name,type,horaire_standard,horaire_mardi,horaire_samedi,observation,actif,tg_rayons,ruptures_rayons")
       .limit(5000);
     if (employeeError) throw employeeError;
     const mappedEmployees: RhEmployee[] = (employeeRows ?? []).map((employee, index) =>
@@ -331,6 +343,7 @@ export async function createRhEmployeeInSupabase(
         observation: string | null;
         actif: boolean | null;
         tg_rayons?: string[] | null;
+        ruptures_rayons?: number[] | null;
       };
     };
 
@@ -370,6 +383,7 @@ export async function updateRhEmployeeInSupabase(employee: RhEmployee): Promise<
     observation: getRhEmployeeRoleLabel(employee.obs, employee.t),
     actif: employee.actif,
     tg_rayons: normalizeEmployeeRayons(employee.rayons) ?? [],
+    ruptures_rayons: normalizeEmployeeRuptureRayons(employee.ruptures_rayons),
   };
 
   try {
@@ -377,7 +391,7 @@ export async function updateRhEmployeeInSupabase(employee: RhEmployee): Promise<
         .from("employees")
         .update(payload)
         .eq("id", employee.dbId)
-        .select("id,name,type,horaire_standard,horaire_mardi,horaire_samedi,observation,actif,tg_rayons")
+        .select("id,name,type,horaire_standard,horaire_mardi,horaire_samedi,observation,actif,tg_rayons,ruptures_rayons")
         .single();
     if (error) throw error;
 

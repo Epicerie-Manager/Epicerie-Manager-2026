@@ -11,6 +11,7 @@ type CreateCollaboratorBody = {
   obs?: string;
   actif?: boolean;
   rayons?: string[];
+  ruptures_rayons?: number[];
   cycle?: string[];
 };
 
@@ -86,6 +87,15 @@ function isDuplicateEmailError(error: unknown) {
     normalized.includes("registered") ||
     normalized.includes("duplicate")
   );
+}
+
+function normalizeEmployeeRuptureRayons(value: unknown) {
+  if (!Array.isArray(value)) return [];
+  return Array.from(new Set(
+    value
+      .map((item) => Number(item))
+      .filter((item) => Number.isFinite(item)),
+  )).sort((a, b) => a - b);
 }
 
 async function createUserWithUniqueEmail(
@@ -168,12 +178,13 @@ export async function POST(request: NextRequest) {
       observation: employeeRole,
       actif: body.actif !== false,
       tg_rayons: normalizeEmployeeRayons(body.rayons),
+      ruptures_rayons: normalizeEmployeeRuptureRayons(body.ruptures_rayons),
     };
 
     const { data: insertedEmployee, error: insertEmployeeError } = await supabaseAdmin
       .from("employees")
       .insert(employeePayload)
-      .select("id,name,type,horaire_standard,horaire_mardi,horaire_samedi,observation,actif,tg_rayons")
+      .select("id,name,type,horaire_standard,horaire_mardi,horaire_samedi,observation,actif,tg_rayons,ruptures_rayons")
       .single();
 
     if (insertEmployeeError || !insertedEmployee?.id) {

@@ -33,6 +33,9 @@ function HeaderIcon({ moduleKey, color }: { moduleKey: ModuleKey; color: string 
   if (moduleKey === "balisage") {
     return <svg viewBox="0 0 24 24" style={style}><path d="M22 11.08V12a10 10 0 11-5.93-9.14" /><polyline points="22 4 12 14.01 9 11.01" /></svg>;
   }
+  if (moduleKey === "ruptures") {
+    return <svg viewBox="0 0 24 24" style={style}><path d="M12 3v10" /><path d="M7 8l5-5 5 5" /><path d="M5 21h14" /><path d="M7 17h10" /></svg>;
+  }
   if (moduleKey === "absences") {
     return <svg viewBox="0 0 24 24" style={style}><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z" /><polyline points="14 2 14 8 20 8" /></svg>;
   }

@@ -22,4 +22,6 @@ yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
 .claude/
+.codex-dev.log
 tmp_planning_*
+tmp_*_preview.png

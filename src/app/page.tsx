@@ -12,7 +12,7 @@ import { moduleThemes } from "@/lib/theme";
 import { absenceTypes } from "@/lib/absences-data";
 import { loadAbsenceRequests, getAbsencesUpdatedEventName, syncAbsencesFromSupabase } from "@/lib/absences-store";
 import { hasBrowserWindow } from "@/lib/browser-cache";
-import { balisageData, balisageMonths, balisageObjective, type BalisageEmployeeStat } from "@/lib/balisage-data";
+import { balisageMonths, balisageObjective, type BalisageEmployeeStat } from "@/lib/balisage-data";
 import { attachRhActivityToBalisageStats, getActiveBalisageStats, getInactiveBalisageStats } from "@/lib/balisage-rh";
 import { formatPresenceThresholdSummary, getPresenceThresholdLevel } from "@/lib/presence-thresholds";
 import {
@@ -23,7 +23,6 @@ import {
 import { loadBalisageData, getBalisageUpdatedEventName, syncBalisageFromSupabase } from "@/lib/balisage-store";
 import {
   planningEmployees,
-  defaultPlanningTriData,
   getPlanningMonthKey,
   loadPlanningOverrides,
   loadPlanningTriData,
@@ -37,6 +36,7 @@ import {
 } from "@/lib/planning-store";
 import { getPlanningPresenceCountsForDate, isPlanningEmployeeCountedForPresence } from "@/lib/planning-presence";
 import { getRhUpdatedEventName, loadRhEmployees, syncRhFromSupabase } from "@/lib/rh-store";
+import { loadLatestRupturesCountForToday } from "@/lib/ruptures-store";
 import { getPlateauWeekFocusData } from "@/lib/plateau-data";
 
 type AlertTone = "yellow" | "red" | "blue";
@@ -225,11 +225,12 @@ export default function DashboardPage() {
   const bal   = moduleThemes.balisage;
   const [now, setNow] = useState(() => new Date());
   const [absences, setAbsences] = useState(() => loadAbsenceRequests());
-  const [planningOverrides, setPlanningOverrides] = useState<PlanningOverrides>({});
-  const [planningTriData, setPlanningTriData] = useState<PlanningTriData>(defaultPlanningTriData);
-  const [balisageDataState, setBalisageDataState] = useState<Record<string, BalisageEmployeeStat[]>>(balisageData);
+  const [planningOverrides, setPlanningOverrides] = useState<PlanningOverrides>(() => loadPlanningOverrides());
+  const [planningTriData, setPlanningTriData] = useState<PlanningTriData>(() => loadPlanningTriData(getPlanningMonthKey(new Date())));
+  const [balisageDataState, setBalisageDataState] = useState<Record<string, BalisageEmployeeStat[]>>(() => loadBalisageData());
   const [rhEmployees, setRhEmployees] = useState(() => loadRhEmployees());
   const [presenceThresholds, setPresenceThresholds] = useState(() => loadPresenceThresholds());
+  const [rupturesTodayCount, setRupturesTodayCount] = useState(0);
   const [presenceWidgetSnapshot, setPresenceWidgetSnapshot] = useState<PresenceWidgetSnapshot | null>(() => loadPresenceWidgetSnapshot());
   const [planningSyncReady, setPlanningSyncReady] = useState(() => planningEmployees.length > 0);
   const [dashboardMonthCursor, setDashboardMonthCursor] = useState(() => {
@@ -248,6 +249,7 @@ export default function DashboardPage() {
       setBalisageDataState(loadBalisageData());
       setRhEmployees(loadRhEmployees());
       setPresenceThresholds(loadPresenceThresholds());
+      void loadLatestRupturesCountForToday().then((count) => setRupturesTodayCount(count)).catch(() => setRupturesTodayCount(0));
     };
 
     const currentDate = new Date();
@@ -643,7 +645,7 @@ export default function DashboardPage() {
           </p>
         </div>
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "flex-end" }}>
-          {[
+          {[ 
             { label: presenceWidgetBusy ? "Synchro planning..." : `${displayedPresence.morning} présents matin`, color: "#065f46", bg: "#ecfdf5", border: "#bbf7d0" },
             { label: `${alerts.length} alertes`, color: dash.color, bg: dash.light, border: dash.medium },
           ].map((p) => (
@@ -699,8 +701,9 @@ export default function DashboardPage() {
             <NavCardGrid>
               <NavCard moduleKey="planning" title="Planning"  description="Horaires et présences" icon={<IconCalendar />}    href="/planning" />
               <NavCard moduleKey="plantg"   title="Plan TG"   description="Mécaniques rayon"       icon={<IconShoppingBag />} href="/plan-tg"  />
-              <NavCard moduleKey="plateau"  title="Plateaux"  description="Implantations terrain"  icon={<IconMap />}         href="/plan-plateau" />
+            <NavCard moduleKey="plateau"  title="Plateaux"  description="Implantations terrain"  icon={<IconMap />}         href="/plan-plateau" />
               <NavCard moduleKey="balisage" title="Balisage"  description="Contrôle étiquetage"    icon={<IconCheck />}       href="/stats" />
+              <NavCard moduleKey="ruptures" title="Ruptures" description={rupturesTodayCount ? `${rupturesTodayCount} rupture(s) équipe aujourd'hui` : "Suivi des ruptures du jour"} icon={<IconAlert />} href="/ruptures" />
               <NavCard moduleKey="absences" title="Absences"  description="Demandes et validation"  icon={<IconFile />}        href="/absences" />
               <NavCard moduleKey="infos"    title="Infos"     description="Base documentaire"       icon={<IconInfo />}        href="/infos"    />
             </NavCardGrid>

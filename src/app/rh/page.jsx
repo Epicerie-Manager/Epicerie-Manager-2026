@@ -47,6 +47,19 @@ function compareEmployeesByName(a,b){
   return String(a?.n||"").localeCompare(String(b?.n||""),"fr");
 }
 
+function parseRupturesRayonsInput(value){
+  return Array.from(new Set(
+    String(value||"")
+      .split(/[^0-9]+/)
+      .map((item)=>Number(item))
+      .filter((item)=>Number.isFinite(item))
+  )).sort((a,b)=>a-b);
+}
+
+function formatRupturesRayonsInput(value){
+  return Array.isArray(value) ? value.join(", ") : "";
+}
+
 /* ═══════════════════════════════════════════════════════════
    ICONS
    ═══════════════════════════════════════════════════════════ */
@@ -188,6 +201,18 @@ const EditEmpModal=({emp,availableRayons,onSave,onClose,onResetPin,busy})=>{
               <div style={{display:"flex",gap:8,marginTop:4}}>
                 <button onClick={()=>upd("actif",true)} style={{flex:1,padding:"8px",borderRadius:8,border:d.actif?`2px solid ${V.green}`:`1px solid ${V.line}`,background:d.actif?"#ecfdf5":"#fafafa",color:d.actif?V.green:V.light,fontSize:12,fontWeight:700,cursor:"pointer"}}>Actif</button>
                 <button onClick={()=>upd("actif",false)} style={{flex:1,padding:"8px",borderRadius:8,border:!d.actif?`2px solid ${V.red}`:`1px solid ${V.line}`,background:!d.actif?"#fef2f2":"#fafafa",color:!d.actif?V.red:V.light,fontSize:12,fontWeight:700,cursor:"pointer"}}>Inactif</button>
+              </div>
+            </div>
+            <div>
+              <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Rayons ruptures</label>
+              <input
+                value={formatRupturesRayonsInput(d.ruptures_rayons)}
+                onChange={e=>upd("ruptures_rayons",parseRupturesRayonsInput(e.target.value))}
+                placeholder="Ex: 130, 631, 633"
+                style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.line}`,fontSize:14,fontWeight:700,outline:"none",boxSizing:"border-box"}}
+              />
+              <div style={{fontSize:10,color:V.light,marginTop:6}}>
+                Numéros de rayons séparés par des virgules. Utilisés pour le module ruptures.
               </div>
             </div>
           </div>
@@ -350,6 +375,7 @@ const NewEmpModal=({availableRayons,onSave,onClose})=>{
     actif:true,
     photo:null,
     rayons:[],
+    ruptures_rayons:[],
   });
   const [cycle,setCycle]=useState(["LUN","LUN","LUN","LUN","LUN"]);
   const upd=(k,v)=>setD(p=>({...p,[k]:v}));
@@ -440,6 +466,18 @@ const NewEmpModal=({availableRayons,onSave,onClose})=>{
               <div style={{display:"flex",gap:8,marginTop:4}}>
                 <button onClick={()=>upd("actif",true)} style={{flex:1,padding:"8px",borderRadius:8,border:d.actif?`2px solid ${V.green}`:`1px solid ${V.line}`,background:d.actif?"#ecfdf5":"#fafafa",color:d.actif?V.green:V.light,fontSize:12,fontWeight:700,cursor:"pointer"}}>Actif</button>
                 <button onClick={()=>upd("actif",false)} style={{flex:1,padding:"8px",borderRadius:8,border:!d.actif?`2px solid ${V.red}`:`1px solid ${V.line}`,background:!d.actif?"#fef2f2":"#fafafa",color:!d.actif?V.red:V.light,fontSize:12,fontWeight:700,cursor:"pointer"}}>Inactif</button>
+              </div>
+            </div>
+            <div>
+              <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Rayons ruptures</label>
+              <input
+                value={formatRupturesRayonsInput(d.ruptures_rayons)}
+                onChange={e=>upd("ruptures_rayons",parseRupturesRayonsInput(e.target.value))}
+                placeholder="Ex: 130, 631, 633"
+                style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.line}`,fontSize:14,fontWeight:700,outline:"none",boxSizing:"border-box"}}
+              />
+              <div style={{fontSize:10,color:V.light,marginTop:6}}>
+                Numéros de rayons séparés par des virgules. Utilisés pour le module ruptures.
               </div>
             </div>
           </div>

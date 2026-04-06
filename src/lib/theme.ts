@@ -5,6 +5,7 @@ export type ModuleKey =
   | "plantg"
   | "plateau"
   | "balisage"
+  | "ruptures"
   | "absences"
   | "infos"
   | "rh"
@@ -122,6 +123,14 @@ export const moduleThemes: Record<ModuleKey, ModuleTheme> = {
     gradient: "linear-gradient(135deg, #e8f9fc 0%, #f3fdff 52%, #fbfeff 100%)",
     iconGradient: "linear-gradient(135deg, #d5f3f8, #ade6f0)",
   },
+  ruptures: {
+    color: "#D40511",
+    light: "#fff1f2",
+    medium: "#ffd5d8",
+    dark: "#9f0711",
+    gradient: "linear-gradient(135deg, #fff1f2 0%, #fff7f8 52%, #fffdfd 100%)",
+    iconGradient: "linear-gradient(135deg, #ffd9dc, #ffb8bf)",
+  },
   absences: {
     color: "#5635b8",
     light: "#efeaff",
@@ -166,6 +175,7 @@ export function getThemeByPathname(pathname: string): ModuleKey {
   if (pathname.startsWith("/stats") || pathname.startsWith("/balisage")) {
     return "balisage";
   }
+  if (pathname.startsWith("/ruptures")) return "ruptures";
   if (pathname.startsWith("/absences")) return "absences";
   if (pathname.startsWith("/infos")) return "infos";
   if (pathname.startsWith("/rh")) return "rh";

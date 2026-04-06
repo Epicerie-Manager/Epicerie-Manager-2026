@@ -24,7 +24,7 @@ type AppShellProps = {
 };
 
 type ModuleNavItem = {
-  id: "dashboard" | "planning" | "exports" | "plantg" | "plateau" | "balisage" | "ruptures" | "absences" | "infos" | "rh" | "suivi";
+  id: "dashboard" | "planning" | "exports" | "plantg" | "plateau" | "balisage" | "ruptures" | "absences" | "infos" | "aide" | "rh" | "suivi";
   label: string;
   desc: string;
   href: string;
@@ -42,6 +42,7 @@ const moduleItems: ModuleNavItem[] = [
   { id: "rh",        label: "RH",         desc: "Fiches employés",        href: "/rh" },
   { id: "suivi",     label: "Suivi",      desc: "Suivi collaborateur",    href: "/suivi" },
   { id: "infos",     label: "Infos",      desc: "Base documentaire",     href: "/infos" },
+  { id: "aide",      label: "Aide",       desc: "Tutoriels & démos",     href: "/aide" },
 ];
 
 const iconStyle = {
@@ -119,6 +120,13 @@ const ICONS: Record<string, React.ReactNode> = {
       <circle cx="12" cy="12" r="10" />
       <line x1="12" y1="16" x2="12"    y2="12" />
       <line x1="12" y1="8"  x2="12.01" y2="8"  />
+    </svg>
+  ),
+  aide: (
+    <svg viewBox="0 0 24 24" style={iconStyle}>
+      <circle cx="12" cy="12" r="10" />
+      <path d="M9.09 9a3 3 0 1 1 5.82 1c0 2-3 2-3 4" />
+      <line x1="12" y1="17" x2="12.01" y2="17" />
     </svg>
   ),
   rh: (

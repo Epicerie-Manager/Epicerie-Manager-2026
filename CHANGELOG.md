@@ -21,6 +21,12 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.6.74 - 2026-04-07
+
+- Supabase / Backup : ajout de l'Edge Function `weekly-backup` pour exporter les tables critiques en CSV, deposer les fichiers dans le bucket Storage `backups`, puis envoyer un email de notification hebdomadaire sans pieces jointes.
+- SQL / Automatisation : ajout du script [docs/sql/2026-04-07-weekly-backup-cron.sql](/D:/Epicerie%20Manager%202026/docs/sql/2026-04-07-weekly-backup-cron.sql) pour planifier l'appel cron Supabase de la fonction `weekly-backup`.
+- Bureau / Aide : ajout d'un module `Aide` dans l'application bureau avec intégration des présentations HTML `collaborateur` et `manager terrain`, consultables dans l'app ou en plein écran par lien direct.
+
 ## v0.6.73 - 2026-04-03
 
 - Exports / Contrôle balisage : suppression de la tuile `Repère du mois` dans l'impression, afin d'alléger la page et de recentrer la feuille sur les KPI d'équipe et le tableau principal.

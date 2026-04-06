@@ -700,12 +700,16 @@ export default function DashboardPage() {
 
             <NavCardGrid>
               <NavCard moduleKey="planning" title="Planning"  description="Horaires et présences" icon={<IconCalendar />}    href="/planning" />
+              <NavCard moduleKey="exports"  title="Exports"   description="Impressions & supports" icon={<IconFile />}        href="/exports" />
               <NavCard moduleKey="plantg"   title="Plan TG"   description="Mécaniques rayon"       icon={<IconShoppingBag />} href="/plan-tg"  />
-            <NavCard moduleKey="plateau"  title="Plateaux"  description="Implantations terrain"  icon={<IconMap />}         href="/plan-plateau" />
+              <NavCard moduleKey="plateau"  title="Plateaux"  description="Implantations terrain"  icon={<IconMap />}         href="/plan-plateau" />
               <NavCard moduleKey="balisage" title="Balisage"  description="Contrôle étiquetage"    icon={<IconCheck />}       href="/stats" />
               <NavCard moduleKey="ruptures" title="Ruptures" description={rupturesTodayCount ? `${rupturesTodayCount} rupture(s) équipe aujourd'hui` : "Suivi des ruptures du jour"} icon={<IconAlert />} href="/ruptures" />
               <NavCard moduleKey="absences" title="Absences"  description="Demandes et validation"  icon={<IconFile />}        href="/absences" />
+              <NavCard moduleKey="rh"       title="RH"        description="Fiches employés"         icon={<IconUsers />}       href="/rh" />
+              <NavCard moduleKey="suivi"    title="Suivi"     description="Suivi collaborateur"     icon={<IconTrend />}       href="/suivi" />
               <NavCard moduleKey="infos"    title="Infos"     description="Base documentaire"       icon={<IconInfo />}        href="/infos"    />
+              <NavCard moduleKey="aide"     title="Aide"      description="Tutoriels & démos"       icon={<IconGrid />}        href="/aide" />
             </NavCardGrid>
           </Card>
 

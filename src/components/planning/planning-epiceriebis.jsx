@@ -45,7 +45,7 @@ import {
   loadPresenceThresholds,
   syncPresenceThresholdsFromSupabase,
 } from "@/lib/presence-thresholds-store";
-import { getRhUpdatedEventName, loadRhCycles, loadRhEmployees } from "@/lib/rh-store";
+import { getRhUpdatedEventName, loadRhCycles, loadRhEmployees, syncRhFromSupabase } from "@/lib/rh-store";
 
 /* ═══════════════════════════════════════════════════════════
    THEME — Planning = Bleu
@@ -1189,6 +1189,7 @@ export default function PlanningApp(){
   const [undoBusy,setUndoBusy]=useState(false);
   const [pendingRequests,setPendingRequests]=useState(()=>loadPendingAbsenceRequests());
   const [presenceThresholds,setPresenceThresholds]=useState(()=>loadPresenceThresholds());
+  const [planningBootReady,setPlanningBootReady]=useState(()=>loadRhEmployees().length>0);
   const activeMonthKey=useMemo(()=>{
     if(year===null || month===null) return getPlanningMonthKey(new Date());
     return getPlanningMonthKey(new Date(year,month,1));
@@ -1239,6 +1240,27 @@ export default function PlanningApp(){
     };
     window.addEventListener(eventName,onRhUpdate);
     return ()=>window.removeEventListener(eventName,onRhUpdate);
+  },[]);
+
+  useEffect(()=>{
+    let cancelled=false;
+    if(loadRhEmployees().length>0){
+      setPlanningBootReady(true);
+      return;
+    }
+    setPlanningBootReady(false);
+    void syncRhFromSupabase().then((synced)=>{
+      if(cancelled) return;
+      if(synced){
+        syncPlanningDataFromRh();
+        setRhVersion((v)=>v+1);
+      }
+      setPlanningBootReady(true);
+    }).catch(()=>{
+      if(cancelled) return;
+      setPlanningBootReady(true);
+    });
+    return ()=>{ cancelled=true; };
   },[]);
 
   useEffect(()=>{
@@ -1497,7 +1519,7 @@ export default function PlanningApp(){
   );
   const horaireOptions=loadPlanningHorairePresets();
 
-  if(year===null || month===null || !selectedDate || !weekStart){
+  if(year===null || month===null || !selectedDate || !weekStart || !planningBootReady){
     return(
       <div style={{padding:"40px",textAlign:"center",color:"#94a3b8",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
         Chargement...

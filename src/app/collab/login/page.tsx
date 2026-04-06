@@ -111,7 +111,7 @@ export default function CollabLoginPage() {
           autoCorrect="off"
           autoCapitalize="characters"
           spellCheck={false}
-          placeholder="Ex. KAMEL"
+          placeholder="Ex. OBI-WAN"
           name="collab-search"
           style={{
             width: "100%",

@@ -11,7 +11,11 @@ import {
 import { createClient } from "@/lib/supabase";
 
 function hasMinLength(value: string) {
-  return value.length >= 8;
+  return value.length >= 12;
+}
+
+function hasLowercase(value: string) {
+  return /[a-z]/.test(value);
 }
 
 function hasUppercase(value: string) {
@@ -28,7 +32,8 @@ function hasSpecialChar(value: string) {
 
 function getPasswordChecks(value: string) {
   return [
-    { label: "8 caractères minimum", valid: hasMinLength(value) },
+    { label: "12 caractères minimum", valid: hasMinLength(value) },
+    { label: "1 minuscule", valid: hasLowercase(value) },
     { label: "1 majuscule", valid: hasUppercase(value) },
     { label: "1 chiffre", valid: hasDigit(value) },
     { label: "1 caractère spécial", valid: hasSpecialChar(value) },

@@ -27,7 +27,7 @@ export default function HelpPage() {
         }}
       >
         <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#0f766e" }}>
-          Centre d'aide
+          Centre d&apos;aide
         </div>
         <h1 style={{ marginTop: 10, fontSize: 34, lineHeight: 1.02, letterSpacing: "-0.06em", color: "#0f172a" }}>
           Tutoriels prêts pour l&apos;aide et la présentation

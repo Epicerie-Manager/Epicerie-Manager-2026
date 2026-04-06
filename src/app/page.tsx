@@ -9,6 +9,7 @@ import { ProgressBar } from "@/components/ui/progress-bar";
 import { NavCard, NavCardGrid } from "@/components/ui/nav-card";
 import AgendaCard from "@/components/dashboard/agenda-card";
 import { moduleThemes } from "@/lib/theme";
+import { isAdminUser } from "@/lib/admin-access";
 import { absenceTypes } from "@/lib/absences-data";
 import { loadAbsenceRequests, getAbsencesUpdatedEventName, syncAbsencesFromSupabase } from "@/lib/absences-store";
 import { hasBrowserWindow } from "@/lib/browser-cache";
@@ -38,6 +39,7 @@ import { getPlanningPresenceCountsForDate, isPlanningEmployeeCountedForPresence 
 import { getRhUpdatedEventName, loadRhEmployees, syncRhFromSupabase } from "@/lib/rh-store";
 import { loadLatestRupturesCountForToday } from "@/lib/ruptures-store";
 import { getPlateauWeekFocusData } from "@/lib/plateau-data";
+import { createClient } from "@/lib/supabase";
 
 type AlertTone = "yellow" | "red" | "blue";
 type RankStatus = "ok" | "warn" | "alert";
@@ -233,11 +235,35 @@ export default function DashboardPage() {
   const [rupturesTodayCount, setRupturesTodayCount] = useState(0);
   const [presenceWidgetSnapshot, setPresenceWidgetSnapshot] = useState<PresenceWidgetSnapshot | null>(() => loadPresenceWidgetSnapshot());
   const [planningSyncReady, setPlanningSyncReady] = useState(() => planningEmployees.length > 0);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [dashboardMonthCursor, setDashboardMonthCursor] = useState(() => {
     const current = new Date();
     return new Date(current.getFullYear(), current.getMonth(), 1);
   });
   const [monthlyIssuePanel, setMonthlyIssuePanel] = useState<"alerts" | "critical" | "pending" | null>(null);
+
+  useEffect(() => {
+    const checkAdmin = async () => {
+      const supabase = createClient();
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (!user) {
+        setIsAdmin(false);
+        return;
+      }
+
+      const { data: profile } = await supabase
+        .from("profiles")
+        .select("role")
+        .eq("id", user.id)
+        .maybeSingle();
+
+      setIsAdmin(isAdminUser(user.email ?? null, String(profile?.role ?? "")));
+    };
+
+    void checkAdmin();
+  }, []);
 
   useEffect(() => {
     const refreshAll = (referenceDate = new Date()) => {
@@ -710,6 +736,7 @@ export default function DashboardPage() {
               <NavCard moduleKey="suivi"    title="Suivi"     description="Suivi collaborateur"     icon={<IconTrend />}       href="/suivi" />
               <NavCard moduleKey="infos"    title="Infos"     description="Base documentaire"       icon={<IconInfo />}        href="/infos"    />
               <NavCard moduleKey="aide"     title="Aide"      description="Tutoriels & démos"       icon={<IconGrid />}        href="/aide" />
+              {isAdmin ? <NavCard moduleKey="admin" title="Admin" description="Messages et maintenance" icon={<IconAlert />} href="/admin" /> : null}
             </NavCardGrid>
           </Card>
 

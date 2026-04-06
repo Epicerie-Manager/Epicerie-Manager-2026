@@ -15,6 +15,7 @@ import {
   recordBrowserActivity,
   restoreBrowserSessionMarker,
 } from "@/lib/browser-session";
+import { isAdminUser } from "@/lib/admin-access";
 import { colors, getThemeByPathname, moduleThemes, shadows } from "@/lib/theme";
 import { createClient } from "@/lib/supabase";
 
@@ -24,7 +25,7 @@ type AppShellProps = {
 };
 
 type ModuleNavItem = {
-  id: "dashboard" | "planning" | "exports" | "plantg" | "plateau" | "balisage" | "ruptures" | "absences" | "infos" | "aide" | "rh" | "suivi";
+  id: "dashboard" | "planning" | "exports" | "plantg" | "plateau" | "balisage" | "ruptures" | "absences" | "infos" | "aide" | "admin" | "rh" | "suivi";
   label: string;
   desc: string;
   href: string;
@@ -43,6 +44,7 @@ const moduleItems: ModuleNavItem[] = [
   { id: "suivi",     label: "Suivi",      desc: "Suivi collaborateur",    href: "/suivi" },
   { id: "infos",     label: "Infos",      desc: "Base documentaire",     href: "/infos" },
   { id: "aide",      label: "Aide",       desc: "Tutoriels & démos",     href: "/aide" },
+  { id: "admin",     label: "Admin",      desc: "Messages & maintenance",href: "/admin" },
 ];
 
 const iconStyle = {
@@ -129,6 +131,13 @@ const ICONS: Record<string, React.ReactNode> = {
       <line x1="12" y1="17" x2="12.01" y2="17" />
     </svg>
   ),
+  admin: (
+    <svg viewBox="0 0 24 24" style={iconStyle}>
+      <path d="M12 2l7 4v6c0 5-3.2 9.3-7 10-3.8-.7-7-5-7-10V6l7-4z" />
+      <path d="M12 8v4" />
+      <path d="M12 16h.01" />
+    </svg>
+  ),
   rh: (
     <svg viewBox="0 0 24 24" style={iconStyle}>
       <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2" />
@@ -173,6 +182,7 @@ export function AppShell({ version, children }: AppShellProps) {
   const [timeLabel, setTimeLabel] = useState("");
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [userLabel, setUserLabel] = useState("");
+  const [isAdmin, setIsAdmin] = useState(false);
   const signingOutRef = useRef(false);
 
   useEffect(() => {
@@ -211,11 +221,12 @@ export function AppShell({ version, children }: AppShellProps) {
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("password_changed,full_name")
+        .select("password_changed,full_name,role")
         .eq("id", user.id)
         .maybeSingle();
 
       setUserLabel(profile?.full_name?.trim() || user.email || "");
+      setIsAdmin(isAdminUser(user.email ?? null, String(profile?.role ?? "")));
 
       const passwordChanged = profile?.password_changed === true;
       if (!passwordChanged && pathname !== "/change-password") {
@@ -303,6 +314,7 @@ export function AppShell({ version, children }: AppShellProps) {
     try {
       const supabase = createClient();
       clearBrowserSessionState();
+      setIsAdmin(false);
       await supabase.auth.signOut();
       router.replace("/login");
       router.refresh();
@@ -321,6 +333,8 @@ export function AppShell({ version, children }: AppShellProps) {
   ) {
     return <>{children}</>;
   }
+
+  const visibleModuleItems = moduleItems.filter((item) => item.id !== "admin" || isAdmin);
 
   return (
     <div
@@ -425,7 +439,7 @@ export function AppShell({ version, children }: AppShellProps) {
             }}
             aria-label="Navigation modules"
           >
-            {moduleItems.map((item) => {
+            {visibleModuleItems.map((item) => {
               const selected = item.id === activeId;
               const theme    = moduleThemes[item.id];
               return (

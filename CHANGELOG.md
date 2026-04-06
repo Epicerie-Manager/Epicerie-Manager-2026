@@ -21,11 +21,17 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
-## v0.6.74 - 2026-04-07
+## v0.9.8 - 2026-04-07
 
-- Supabase / Backup : ajout de l'Edge Function `weekly-backup` pour exporter les tables critiques en CSV, deposer les fichiers dans le bucket Storage `backups`, puis envoyer un email de notification hebdomadaire sans pieces jointes.
-- SQL / Automatisation : ajout du script [docs/sql/2026-04-07-weekly-backup-cron.sql](/D:/Epicerie%20Manager%202026/docs/sql/2026-04-07-weekly-backup-cron.sql) pour planifier l'appel cron Supabase de la fonction `weekly-backup`.
-- Bureau / Aide : ajout d'un module `Aide` dans l'application bureau avec intégration des présentations HTML `collaborateur` et `manager terrain`, consultables dans l'app ou en plein écran par lien direct.
+- Bureau / Admin : ajout d'un module `Admin` privé pour le compte administrateur, avec création de messages ciblés, affichage possible `à la connexion`, relances de synchronisation et journal des dernières livraisons.
+- Collaborateurs / Connexion : les annonces avec validation obligatoire s'ouvrent désormais directement sur l'accueil avec un bouton `OK, j'ai lu`, sans nécessiter de patch Supabase supplémentaire.
+- Dashboard / Navigation : ajout du raccourci `Admin` dans les accès modules pour le compte administrateur.
+
+## v0.9.7 - 2026-04-07
+
+- Versioning : alignement de la version applicative sur `0.9.7` dans `package.json`, `package-lock.json` et le changelog.
+- Manager mobile : ajout de la date visible dans l'en-tete et alignement des compteurs / tuiles de presence entre l'accueil et le planning.
+- Bureau / Aide : ajout d'un module `Aide` avec les tutoriels HTML `collaborateur` et `manager terrain`, consultables dans l'app ou en plein ecran.
 
 ## v0.6.73 - 2026-04-03
 

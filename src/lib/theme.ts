@@ -9,6 +9,7 @@ export type ModuleKey =
   | "absences"
   | "infos"
   | "aide"
+  | "admin"
   | "rh"
   | "suivi";
 
@@ -156,6 +157,14 @@ export const moduleThemes: Record<ModuleKey, ModuleTheme> = {
     gradient: "linear-gradient(135deg, #ecfeff 0%, #f4feff 50%, #fbffff 100%)",
     iconGradient: "linear-gradient(135deg, #cffafe, #a5f3fc)",
   },
+  admin: {
+    color: "#4f46e5",
+    light: "#eef2ff",
+    medium: "#dbe4ff",
+    dark: "#312e81",
+    gradient: "linear-gradient(135deg, #eef2ff 0%, #f6f7ff 50%, #fcfcff 100%)",
+    iconGradient: "linear-gradient(135deg, #e0e7ff, #c7d2fe)",
+  },
   rh: {
     color: "#0f766e",
     light: "#f0fdfa",
@@ -188,6 +197,7 @@ export function getThemeByPathname(pathname: string): ModuleKey {
   if (pathname.startsWith("/absences")) return "absences";
   if (pathname.startsWith("/infos")) return "infos";
   if (pathname.startsWith("/aide")) return "aide";
+  if (pathname.startsWith("/admin")) return "admin";
   if (pathname.startsWith("/rh")) return "rh";
   if (pathname.startsWith("/suivi")) return "suivi";
   return "dashboard";

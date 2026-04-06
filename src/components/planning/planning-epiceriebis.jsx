@@ -457,6 +457,55 @@ function getDayGroups(date, overrides){
   return grouped;
 }
 
+function getDayShiftGroups(date, overrides){
+  const grouped={
+    morning:[],
+    morningStudents:[],
+    afternoon:[],
+    afternoonStudents:[],
+    presentStudents:[],
+    absRH:[],
+    absCP:[],
+    absMAL:[],
+    absOther:[],
+  };
+
+  EMPS.forEach((e)=>{
+    const status=getStatus(e,date,overrides);
+    if(status==="PRESENT"){
+      const horaire=getHoraire(e,date,overrides);
+      const shifts=getPlanningShiftBuckets(horaire);
+      const isStudent=e.t==="E";
+
+      if(isStudent){
+        grouped.presentStudents.push(e);
+      }
+      if(shifts.morning){
+        (isStudent ? grouped.morningStudents : grouped.morning).push(e);
+      }
+      if(shifts.afternoon){
+        (isStudent ? grouped.afternoonStudents : grouped.afternoon).push(e);
+      }
+      return;
+    }
+    if(status==="RH"){ grouped.absRH.push(e); return; }
+    if(status==="CP"){ grouped.absCP.push(e); return; }
+    if(status==="MAL"){ grouped.absMAL.push(e); return; }
+    if(status!=="X") grouped.absOther.push({...e,statut:status});
+  });
+
+  grouped.morning=sortPlanningEmployees(grouped.morning);
+  grouped.morningStudents=sortPlanningEmployees(grouped.morningStudents);
+  grouped.afternoon=sortPlanningEmployees(grouped.afternoon);
+  grouped.afternoonStudents=sortPlanningEmployees(grouped.afternoonStudents);
+  grouped.presentStudents=sortPlanningEmployees(grouped.presentStudents);
+  grouped.absRH=sortPlanningEmployees(grouped.absRH);
+  grouped.absCP=sortPlanningEmployees(grouped.absCP);
+  grouped.absMAL=sortPlanningEmployees(grouped.absMAL);
+  grouped.absOther=sortPlanningEmployees(grouped.absOther);
+  return grouped;
+}
+
 /* ═══════════════════════════════════════════════════════════
    UI PRIMITIVES
    ═══════════════════════════════════════════════════════════ */
@@ -1036,7 +1085,7 @@ const VueSemaine=({weekStart,overrides,triData,presenceThresholds,onEdit})=>{
 const VueJour=({date,overrides,triData,binomes,presenceThresholds,onEdit})=>{
   const dow=date.getDay();const dayLabel=date.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
   const todayS=formatPlanningDate(new Date());const isT=formatPlanningDate(date)===todayS;
-  const grouped=getDayGroups(date,overrides);
+  const grouped=getDayShiftGroups(date,overrides);
   const triPair=triData[dow];
   const counts=getPlanningDayPresence(date,overrides);
   const dayLevel=getPlanningDayLevel(date,counts,presenceThresholds);
@@ -1061,6 +1110,26 @@ const VueJour=({date,overrides,triData,binomes,presenceThresholds,onEdit})=>{
     </div>
   );};
 
+  const renderTeamSection=({label,employees,students,triEnabled=false})=>(
+    <Card style={{marginTop:label==="ÉQUIPE MATIN"?0:14}}>
+      <Kicker label={label} icon={CalIcon}/>
+      <div style={{display:"grid",gap:6,marginTop:12}}>
+        {employees.map(e=><EmpCard key={`${label}-${e.n}`} e={e} horaire={getHoraire(e,date,overrides)} tri={triEnabled&&isTriCaddie(e.n,dow,triData)}/>)}
+        {students.length>0&&(
+          <div style={{marginTop:employees.length?8:0}}>
+            <div style={{fontSize:10,fontWeight:700,color:V.cyan,letterSpacing:"0.05em",marginBottom:6}}>ÉTUDIANTS</div>
+            <div style={{display:"grid",gap:6}}>
+              {students.map(e=><EmpCard key={`${label}-student-${e.n}`} e={e} horaire={getHoraire(e,date,overrides)}/>)}
+            </div>
+          </div>
+        )}
+        {employees.length===0&&students.length===0&&(
+          <div style={{padding:16,textAlign:"center",color:V.light}}>Aucun présent sur ce créneau</div>
+        )}
+      </div>
+    </Card>
+  );
+
   return(
     <div>
       <div style={{display:"flex",alignItems:"center",gap:14,marginBottom:16}}>
@@ -1071,13 +1140,13 @@ const VueJour=({date,overrides,triData,binomes,presenceThresholds,onEdit})=>{
       <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:16}}>
         <KPI value={counts.morningCount} label="Matin" color={getPlanningLevelColor(morningLevel)} gradient={morningLevel==="ok"?V.mG:"linear-gradient(135deg,#fef1f2,#fff8f8)"}/>
         <KPI value={counts.afternoonCount} label="Après-midi" color={getPlanningLevelColor(afternoonLevel)} gradient={afternoonLevel==="ok"?"linear-gradient(135deg,#f5f2fe,#faf8ff)":"linear-gradient(135deg,#fff7ed,#fffaf5)"}/>
-        <KPI value={grouped.etu.length} label="Étudiants" color={grouped.etu.length>0?V.cyan:"#9ca3af"} gradient={grouped.etu.length>0?"linear-gradient(135deg,#effcfd,#f7feff)":"linear-gradient(135deg,#f5f7fa,#fafbfc)"}/>
+        <KPI value={grouped.presentStudents.length} label="Étudiants" color={grouped.presentStudents.length>0?V.cyan:"#9ca3af"} gradient={grouped.presentStudents.length>0?"linear-gradient(135deg,#effcfd,#f7feff)":"linear-gradient(135deg,#f5f7fa,#fafbfc)"}/>
         <KPI value={grouped.absRH.length+grouped.absCP.length+grouped.absMAL.length+grouped.absOther.length} label="Absents" color={V.red} gradient="linear-gradient(135deg,#fef1f2,#fff8f8)"/>
       </div>
       <div style={{display:"grid",gridTemplateColumns:"1.4fr 1fr",gap:14}}>
         <div>
-          <Card><Kicker label="ÉQUIPE MATIN" icon={CalIcon}/><div style={{display:"grid",gap:6,marginTop:12}}>{grouped.matin.map(e=><EmpCard key={e.n} e={e} horaire={getHoraire(e,date,overrides)} tri={isTriCaddie(e.n,dow,triData)}/>)}</div></Card>
-          {(grouped.soir.length>0||grouped.etu.length>0)&&(<Card style={{marginTop:14}}><Kicker label="APRÈS-MIDI & ÉTUDIANTS" icon={CalIcon}/><div style={{display:"grid",gap:6,marginTop:12}}>{[...grouped.soir,...grouped.etu].map(e=><EmpCard key={e.n} e={e} horaire={getHoraire(e,date,overrides)}/>)}</div></Card>)}
+          {renderTeamSection({label:"ÉQUIPE MATIN",employees:grouped.morning,students:grouped.morningStudents,triEnabled:true})}
+          {renderTeamSection({label:"ÉQUIPE APRÈS-MIDI",employees:grouped.afternoon,students:grouped.afternoonStudents})}
         </div>
         <div>
           <Card><Kicker label="ABSENTS DU JOUR" icon={CalIcon}/>

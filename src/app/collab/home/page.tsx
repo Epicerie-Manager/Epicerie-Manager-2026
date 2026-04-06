@@ -13,7 +13,6 @@ import {
 import { collabSerifTitleStyle, collabTheme } from "@/components/collab/theme";
 import { getCollabProfile, type CollabProfile } from "@/lib/collab-auth";
 import {
-  confirmAnnouncementReadingInSupabase,
   formatFrenchLongDate,
   getCurrentTGPlan,
   getEntryDate,
@@ -23,7 +22,7 @@ import {
   getTodayAndTomorrowIso,
   type CollabPlanningEntry,
 } from "@/lib/collab-data";
-import { getCollabInfosFromSupabase } from "@/lib/infos-store";
+import { confirmAnnouncementReadingInSupabase, getCollabInfosFromSupabase } from "@/lib/infos-store";
 import type { InfoAnnouncement } from "@/lib/infos-data";
 
 function AnnouncementBubble({
@@ -237,7 +236,7 @@ export default function CollabHomePage() {
   if (!profile) return null;
 
   async function handleConfirmLoginAnnouncement() {
-    if (!profile.employee_id || !pendingLoginAnnouncement || openingAnnouncementId) return;
+    if (!profile || !profile.employee_id || !pendingLoginAnnouncement || openingAnnouncementId) return;
 
     setOpeningAnnouncementId(pendingLoginAnnouncement.id);
     try {

@@ -205,7 +205,6 @@ export default function ManagerPlanningPage() {
       });
   }, [eligibleEmployees, overrides, selectedDate, todayTriPair]);
 
-  const presentToday = todayRows.filter((row) => row.status === "PRESENT");
   const absentToday = todayRows.filter((row) => row.status !== "PRESENT");
 
   const weekDays = useMemo(() => Array.from({ length: 6 }, (_, index) => addDays(weekCursor, index)), [weekCursor]);
@@ -309,7 +308,7 @@ export default function ManagerPlanningPage() {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
-        <div style={metricTileStyle()}><div style={{ fontSize: 11, color: "#6b7280" }}>Présents</div><div style={{ marginTop: 6, fontSize: 24, fontWeight: 800, color: "#166534" }}>{presentToday.length}</div></div>
+        <div style={metricTileStyle()}><div style={{ fontSize: 11, color: "#6b7280" }}>Présents</div><div style={{ marginTop: 6, fontSize: 24, fontWeight: 800, color: "#166534" }}>{todayCounts.scheduledCount}</div></div>
         <div style={metricTileStyle()}><div style={{ fontSize: 11, color: "#6b7280" }}>Absents / hors poste</div><div style={{ marginTop: 6, fontSize: 24, fontWeight: 800, color: "#b91c1c" }}>{absentToday.length}</div></div>
         <div style={metricTileStyle()}><div style={{ fontSize: 11, color: "#6b7280" }}>Matin</div><div style={{ marginTop: 6, fontSize: 24, fontWeight: 800, color: "#1d4ed8" }}>{todayCounts.morningCount}</div></div>
         <div style={metricTileStyle()}><div style={{ fontSize: 11, color: "#6b7280" }}>Après-midi</div><div style={{ marginTop: 6, fontSize: 24, fontWeight: 800, color: "#c2410c" }}>{todayCounts.afternoonCount}</div></div>

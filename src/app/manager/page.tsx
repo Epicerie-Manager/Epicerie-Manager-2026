@@ -14,7 +14,14 @@ import {
   type PlanningOverrides,
   type PlanningTriData,
 } from "@/lib/planning-store";
-import { getPlanningHoraireForDate, getPlanningShiftBuckets } from "@/lib/planning-presence";
+import {
+  getPlanningHoraireForDate,
+  getPlanningShiftBuckets,
+  isPlanningEmployeeCountedForPresence,
+} from "@/lib/planning-presence";
+
+const MORNING_COORDINATOR_NAMES = new Set(["ABDOU"]);
+const AFTERNOON_COORDINATOR_NAMES = new Set(["MASSIMO"]);
 type ManagerOverviewState = {
   pendingAbsences: number;
 };
@@ -114,13 +121,36 @@ export default function ManagerHomePage() {
 
     return {
       triPair,
-      morning: rows.filter((row) => row.status === "PRESENT" && row.hasMorning).map((row) => row.name),
-      afternoon: rows.filter((row) => row.status === "PRESENT" && row.hasAfternoon).map((row) => row.name),
+      coordinators: rows
+        .filter(
+          (row) =>
+            row.status === "PRESENT" &&
+            ((row.hasMorning && MORNING_COORDINATOR_NAMES.has(row.name)) ||
+              (row.hasAfternoon && AFTERNOON_COORDINATOR_NAMES.has(row.name))),
+        )
+        .map((row) => row.name),
+      morning: rows
+        .filter(
+          (row) =>
+            row.status === "PRESENT" &&
+            row.hasMorning &&
+            !MORNING_COORDINATOR_NAMES.has(row.name),
+        )
+        .map((row) => row.name),
+      afternoon: rows
+        .filter((row) => row.status === "PRESENT" && row.hasAfternoon)
+        .map((row) =>
+          AFTERNOON_COORDINATOR_NAMES.has(row.name) ? `${row.name} · Cordo` : row.name,
+        ),
       absents: rows.filter((row) => row.status !== "PRESENT").map((row) => row.name),
+      presentCount: rows.filter(
+        (row) => row.status === "PRESENT" && isPlanningEmployeeCountedForPresence({ n: row.name }),
+      ).length,
     };
   }, [eligibleEmployees, overrides, today, triData]);
 
   const lineTiles = [
+    { title: "Cordo", names: summary.coordinators },
     { title: "Matin", names: summary.morning },
     { title: "Après-midi", names: summary.afternoon },
     { title: "Absents", names: summary.absents },
@@ -169,6 +199,9 @@ export default function ManagerHomePage() {
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#9ca3af" }}>
             Ligne du jour
           </div>
+          <div style={{ marginTop: 4, fontSize: 12, color: "#6b7280" }}>
+            {summary.presentCount} présent(s) hors Abdou
+          </div>
           <div style={{ marginTop: 10, display: "grid", gap: 8 }}>
             {lineTiles.map((tile) => (
               <div
@@ -210,13 +243,27 @@ export default function ManagerHomePage() {
                         display: "inline-flex",
                         alignItems: "center",
                         justifyContent: "center",
-                        background: tile.title === "Matin" ? "#dbeafe" : tile.title === "Après-midi" ? "#ffedd5" : "#fef2f2",
-                        color: tile.title === "Matin" ? "#1d4ed8" : tile.title === "Après-midi" ? "#c2410c" : "#b91c1c",
+                        background:
+                          tile.title === "Cordo"
+                            ? "#fee2e2"
+                            : tile.title === "Matin"
+                              ? "#dbeafe"
+                              : tile.title === "Après-midi"
+                                ? "#ffedd5"
+                                : "#fef2f2",
+                        color:
+                          tile.title === "Cordo"
+                            ? "#b91c1c"
+                            : tile.title === "Matin"
+                              ? "#1d4ed8"
+                              : tile.title === "Après-midi"
+                                ? "#c2410c"
+                                : "#b91c1c",
                         fontSize: 11,
                         fontWeight: 800,
                       }}
                     >
-                      {tile.title === "Matin" ? "M" : tile.title === "Après-midi" ? "AM" : "A"}
+                      {tile.title === "Cordo" ? "C" : tile.title === "Matin" ? "M" : tile.title === "Après-midi" ? "AM" : "A"}
                     </div>
                   </div>
                 </div>

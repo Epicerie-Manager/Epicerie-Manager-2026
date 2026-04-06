@@ -1152,6 +1152,14 @@ export default function PlanningApp(){
   },[searchParams]);
 
   useEffect(()=>{
+    if(!selectedDate || view==="mois") return;
+    const nextYear=selectedDate.getFullYear();
+    const nextMonth=selectedDate.getMonth();
+    setYear((current)=>current===nextYear?current:nextYear);
+    setMonth((current)=>current===nextMonth?current:nextMonth);
+  },[selectedDate,view]);
+
+  useEffect(()=>{
     setOverrides(loadPlanningOverrides());
     syncPlanningDataFromRh();
     setRhVersion((v)=>v+1);

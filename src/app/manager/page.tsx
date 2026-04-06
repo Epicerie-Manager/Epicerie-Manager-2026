@@ -3,8 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { createClient } from "@/lib/supabase";
 import {
-  formatPlanningDate,
   getPlanningMonthKey,
+  getPlanningStatus,
   getPlanningTriPairForDate,
   loadPlanningOverrides,
   loadPlanningTriData,
@@ -100,8 +100,7 @@ export default function ManagerHomePage() {
     const rows = eligibleEmployees.map((employee) => {
       const horaire = getPlanningHoraireForDate(employee, today, overrides);
       const shifts = getPlanningShiftBuckets(horaire);
-      const key = `${employee.n}_${formatPlanningDate(today)}`;
-      const status = overrides[key]?.s ?? (horaire ? "PRESENT" : "X");
+      const status = getPlanningStatus(employee, today, overrides);
       return {
         name: employee.n,
         status,

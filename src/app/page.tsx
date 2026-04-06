@@ -23,6 +23,7 @@ import { loadBalisageData, getBalisageUpdatedEventName, syncBalisageFromSupabase
 import {
   planningEmployees,
   defaultPlanningTriData,
+  getPlanningMonthKey,
   loadPlanningOverrides,
   loadPlanningTriData,
   formatPlanningDate,
@@ -181,13 +182,14 @@ export default function DashboardPage() {
   const dash  = moduleThemes.dashboard;
   const plan  = moduleThemes.planning;
   const bal   = moduleThemes.balisage;
-  const [now, setNow] = useState(() => new Date("2026-03-22T12:00:00+01:00"));
+  const [now, setNow] = useState(() => new Date());
   const [absences, setAbsences] = useState(() => loadAbsenceRequests());
   const [planningOverrides, setPlanningOverrides] = useState<PlanningOverrides>({});
   const [planningTriData, setPlanningTriData] = useState<PlanningTriData>(defaultPlanningTriData);
   const [balisageDataState, setBalisageDataState] = useState<Record<string, BalisageEmployeeStat[]>>(balisageData);
   const [rhEmployees, setRhEmployees] = useState(() => loadRhEmployees());
   const [presenceThresholds, setPresenceThresholds] = useState(() => loadPresenceThresholds());
+  const [planningSyncReady, setPlanningSyncReady] = useState(() => planningEmployees.length > 0);
   const [dashboardMonthCursor, setDashboardMonthCursor] = useState(() => {
     const current = new Date();
     return new Date(current.getFullYear(), current.getMonth(), 1);
@@ -195,27 +197,31 @@ export default function DashboardPage() {
   const [monthlyIssuePanel, setMonthlyIssuePanel] = useState<"alerts" | "critical" | "pending" | null>(null);
 
   useEffect(() => {
-    const refreshAll = () => {
-      setNow(new Date());
+    const refreshAll = (referenceDate = new Date()) => {
+      const planningMonthKey = getPlanningMonthKey(referenceDate);
+      setNow(referenceDate);
       setAbsences(loadAbsenceRequests());
       setPlanningOverrides(loadPlanningOverrides());
-      setPlanningTriData(loadPlanningTriData());
+      setPlanningTriData(loadPlanningTriData(planningMonthKey));
       setBalisageDataState(loadBalisageData());
       setRhEmployees(loadRhEmployees());
       setPresenceThresholds(loadPresenceThresholds());
     };
 
-    refreshAll();
-    void Promise.all([
-      syncPlanningFromSupabase(),
+    const currentDate = new Date();
+    refreshAll(currentDate);
+    setPlanningSyncReady(false);
+    void Promise.allSettled([
+      syncPlanningFromSupabase(getPlanningMonthKey(currentDate)),
       syncBalisageFromSupabase(),
       syncAbsencesFromSupabase(),
       syncRhFromSupabase(),
       syncPresenceThresholdsFromSupabase(),
     ]).then(() => {
-      refreshAll();
+      refreshAll(new Date());
+      setPlanningSyncReady(true);
     });
-    const minuteTimer = window.setInterval(() => setNow(new Date()), 60000);
+    const minuteTimer = window.setInterval(() => refreshAll(new Date()), 60000);
     const listeners = [
       getAbsencesUpdatedEventName(),
       getPlanningUpdatedEventName(),
@@ -223,11 +229,12 @@ export default function DashboardPage() {
       getRhUpdatedEventName(),
       getPresenceThresholdsUpdatedEventName(),
     ];
-    listeners.forEach((eventName) => window.addEventListener(eventName, refreshAll));
+    const handleRefreshAll = () => refreshAll(new Date());
+    listeners.forEach((eventName) => window.addEventListener(eventName, handleRefreshAll));
 
     return () => {
       window.clearInterval(minuteTimer);
-      listeners.forEach((eventName) => window.removeEventListener(eventName, refreshAll));
+      listeners.forEach((eventName) => window.removeEventListener(eventName, handleRefreshAll));
     };
   }, []);
 
@@ -258,6 +265,7 @@ export default function DashboardPage() {
       { morning: 0, afternoon: 0, students: 0, absentNames: [] as string[] },
     );
   }, [planningOverrides, today]);
+  const presenceWidgetBusy = !planningSyncReady;
 
   const triPair = getPlanningTriPairForDate(today, planningTriData) ?? [];
 
@@ -533,7 +541,7 @@ export default function DashboardPage() {
         </div>
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "flex-end" }}>
           {[
-            { label: `${presenceByType.morning} présents matin`, color: "#065f46", bg: "#ecfdf5", border: "#bbf7d0" },
+            { label: presenceWidgetBusy ? "Synchro planning..." : `${presenceByType.morning} présents matin`, color: "#065f46", bg: "#ecfdf5", border: "#bbf7d0" },
             { label: `${alerts.length} alertes`, color: dash.color, bg: dash.light, border: dash.medium },
           ].map((p) => (
             <span key={p.label} style={{
@@ -566,16 +574,16 @@ export default function DashboardPage() {
             <p style={{ fontSize: "12px", color: "#64748b", marginTop: "3px", marginBottom: "14px" }}>Vision immédiate des effectifs et des points à vérifier.</p>
 
             <KPIRow>
-              <KPI value={presenceByType.morning} label="Matin"      moduleKey="planning" icon={<IconUsers />} />
-              <KPI value={presenceByType.afternoon}  label="Après-midi" moduleKey="planning" icon={<IconUsers />} />
-              <KPI value={presenceByType.students}  label="Étudiants"  moduleKey="balisage" icon={<IconUsers />} size="md" />
+              <KPI value={presenceWidgetBusy ? "..." : presenceByType.morning} label="Matin"      moduleKey="planning" icon={<IconUsers />} />
+              <KPI value={presenceWidgetBusy ? "..." : presenceByType.afternoon}  label="Après-midi" moduleKey="planning" icon={<IconUsers />} />
+              <KPI value={presenceWidgetBusy ? "..." : presenceByType.students}  label="Étudiants"  moduleKey="balisage" icon={<IconUsers />} size="md" />
             </KPIRow>
 
             <StatusBox tone="yellow">
-              <strong>Absents : </strong>{presenceByType.absentNames.length ? presenceByType.absentNames.join(", ") : "Aucun"}
+              <strong>Absents : </strong>{presenceWidgetBusy ? "Synchronisation en cours" : presenceByType.absentNames.length ? presenceByType.absentNames.join(", ") : "Aucun"}
             </StatusBox>
             <StatusBox tone="neutral">
-              <strong>Tri caddie : </strong>{triPair.length ? triPair.join(", ") : "Non défini"}
+              <strong>Tri caddie : </strong>{presenceWidgetBusy ? "Synchronisation en cours" : triPair.length ? triPair.join(", ") : "Non défini"}
             </StatusBox>
           </Card>
 

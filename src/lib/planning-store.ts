@@ -533,8 +533,6 @@ export async function syncPlanningFromSupabase(monthKey = getPlanningMonthKey(ne
       supabase
         .from("planning_entries")
         .select("date,employee_id,statut,horaire_custom")
-        .gte("date", "2026-01-01")
-        .lte("date", "2026-12-31")
         .range(from, to),
     );
     if (Array.isArray(planningRows) && planningRows.length > 0) {

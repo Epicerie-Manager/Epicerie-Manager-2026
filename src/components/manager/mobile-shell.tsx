@@ -109,6 +109,14 @@ function getManagerFirstName(fullName: string) {
   return fullName.trim().split(/\s+/)[0] ?? "";
 }
 
+function formatManagerHeaderDate(date: Date) {
+  return new Intl.DateTimeFormat("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  }).format(date);
+}
+
 export function ManagerMobileShell({ version, children }: ManagerMobileShellProps) {
   const pathname = usePathname();
   const router = useRouter();
@@ -123,6 +131,7 @@ export function ManagerMobileShell({ version, children }: ManagerMobileShellProp
   const [viewportWidth, setViewportWidth] = useState(0);
   const signingOutRef = useRef(false);
   const managerFirstName = getManagerFirstName(managerName);
+  const headerDate = formatManagerHeaderDate(new Date());
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -283,6 +292,9 @@ export function ManagerMobileShell({ version, children }: ManagerMobileShellProp
                 </div>
                 <div style={{ marginTop: 8, fontSize: 24, fontWeight: 800, letterSpacing: "-0.05em", color: "#111827" }}>
                   {pathname === "/manager" && managerFirstName ? `Bonjour ${managerFirstName}` : sectionTitle}
+                </div>
+                <div style={{ marginTop: 4, fontSize: 13, color: "#6b7280", textTransform: "capitalize" }}>
+                  {headerDate}
                 </div>
                 <div style={{ marginTop: 8, display: "flex", flexWrap: "wrap", alignItems: "center", gap: 8 }}>
                   <div

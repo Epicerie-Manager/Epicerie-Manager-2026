@@ -11,6 +11,7 @@ import AgendaCard from "@/components/dashboard/agenda-card";
 import { moduleThemes } from "@/lib/theme";
 import { absenceTypes } from "@/lib/absences-data";
 import { loadAbsenceRequests, getAbsencesUpdatedEventName, syncAbsencesFromSupabase } from "@/lib/absences-store";
+import { hasBrowserWindow } from "@/lib/browser-cache";
 import { balisageData, balisageMonths, balisageObjective, type BalisageEmployeeStat } from "@/lib/balisage-data";
 import { attachRhActivityToBalisageStats, getActiveBalisageStats, getInactiveBalisageStats } from "@/lib/balisage-rh";
 import { formatPresenceThresholdSummary, getPresenceThresholdLevel } from "@/lib/presence-thresholds";
@@ -40,6 +41,14 @@ import { getPlateauWeekFocusData } from "@/lib/plateau-data";
 
 type AlertTone = "yellow" | "red" | "blue";
 type RankStatus = "ok" | "warn" | "alert";
+type PresenceWidgetSnapshot = {
+  dateIso: string;
+  morning: number;
+  afternoon: number;
+  students: number;
+  absentNames: string[];
+  triPair: string[];
+};
 
 // ── Helpers ──────────────────────────────────────
 const alertColors = {
@@ -53,6 +62,9 @@ const statusStyles = {
   warn:  { bg: "#fffbeb", color: "#92400e", dot: "#d97706" },
   alert: { bg: "#fef2f2", color: "#991b1b", dot: "#dc2626" },
 };
+const PLANNING_DASHBOARD_CACHE_KEY = "epicerie-dashboard-presence-v1";
+const PLANNING_DASHBOARD_SYNC_TTL_MS = 30_000;
+let lastPlanningDashboardSyncAt = 0;
 
 const medals = ["🥇", "🥈", "🥉"];
 const WEEK_LABELS = ["LUN", "MAR", "MER", "JEU", "VEN", "SAM"];
@@ -119,6 +131,35 @@ function getBalisageDynamicStatus(total: number, monthId: string, today = new Da
   if (paceRatio <= 1) return "OK";
   if (paceRatio <= 1.1) return "En retard";
   return "Alerte";
+}
+
+function loadPresenceWidgetSnapshot(): PresenceWidgetSnapshot | null {
+  if (!hasBrowserWindow()) return null;
+  try {
+    const raw = window.localStorage.getItem(PLANNING_DASHBOARD_CACHE_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PresenceWidgetSnapshot | null;
+    if (!parsed || typeof parsed !== "object") return null;
+    return {
+      dateIso: String(parsed.dateIso ?? ""),
+      morning: Number(parsed.morning ?? 0),
+      afternoon: Number(parsed.afternoon ?? 0),
+      students: Number(parsed.students ?? 0),
+      absentNames: Array.isArray(parsed.absentNames) ? parsed.absentNames.map((item) => String(item)) : [],
+      triPair: Array.isArray(parsed.triPair) ? parsed.triPair.map((item) => String(item)) : [],
+    };
+  } catch {
+    return null;
+  }
+}
+
+function savePresenceWidgetSnapshot(snapshot: PresenceWidgetSnapshot) {
+  if (!hasBrowserWindow()) return;
+  try {
+    window.localStorage.setItem(PLANNING_DASHBOARD_CACHE_KEY, JSON.stringify(snapshot));
+  } catch {
+    // Best-effort cache only.
+  }
 }
 
 // ── Icônes SVG inline (strokeWidth 1.8) ──────────
@@ -189,6 +230,7 @@ export default function DashboardPage() {
   const [balisageDataState, setBalisageDataState] = useState<Record<string, BalisageEmployeeStat[]>>(balisageData);
   const [rhEmployees, setRhEmployees] = useState(() => loadRhEmployees());
   const [presenceThresholds, setPresenceThresholds] = useState(() => loadPresenceThresholds());
+  const [presenceWidgetSnapshot, setPresenceWidgetSnapshot] = useState<PresenceWidgetSnapshot | null>(() => loadPresenceWidgetSnapshot());
   const [planningSyncReady, setPlanningSyncReady] = useState(() => planningEmployees.length > 0);
   const [dashboardMonthCursor, setDashboardMonthCursor] = useState(() => {
     const current = new Date();
@@ -210,9 +252,21 @@ export default function DashboardPage() {
 
     const currentDate = new Date();
     refreshAll(currentDate);
-    setPlanningSyncReady(false);
+    const cachedSnapshot = loadPresenceWidgetSnapshot();
+    const hasFreshPresenceSnapshot = cachedSnapshot?.dateIso === formatPlanningDate(currentDate);
+    const hasImmediatePlanningData = planningEmployees.length > 0 || hasFreshPresenceSnapshot;
+    const shouldSyncPlanning = (Date.now() - lastPlanningDashboardSyncAt) > PLANNING_DASHBOARD_SYNC_TTL_MS;
+    setPlanningSyncReady(hasImmediatePlanningData);
+    if (shouldSyncPlanning && !hasImmediatePlanningData) {
+      setPlanningSyncReady(false);
+    }
     void Promise.allSettled([
-      syncPlanningFromSupabase(getPlanningMonthKey(currentDate)),
+      shouldSyncPlanning
+        ? syncPlanningFromSupabase(getPlanningMonthKey(currentDate)).then((result) => {
+            lastPlanningDashboardSyncAt = Date.now();
+            return result;
+          })
+        : Promise.resolve(false),
       syncBalisageFromSupabase(),
       syncAbsencesFromSupabase(),
       syncRhFromSupabase(),
@@ -265,9 +319,51 @@ export default function DashboardPage() {
       { morning: 0, afternoon: 0, students: 0, absentNames: [] as string[] },
     );
   }, [planningOverrides, today]);
-  const presenceWidgetBusy = !planningSyncReady;
+  const triPair = useMemo(
+    () => getPlanningTriPairForDate(today, planningTriData) ?? [],
+    [planningTriData, today],
+  );
+  const hasLivePlanningData = planningEmployees.length > 0;
+  const hasFreshPresenceSnapshot = presenceWidgetSnapshot?.dateIso === formatPlanningDate(today);
+  const displayedPresence = !planningSyncReady && hasFreshPresenceSnapshot && presenceWidgetSnapshot
+    ? {
+        morning: presenceWidgetSnapshot.morning,
+        afternoon: presenceWidgetSnapshot.afternoon,
+        students: presenceWidgetSnapshot.students,
+        absentNames: presenceWidgetSnapshot.absentNames,
+      }
+    : presenceByType;
+  const displayedTriPair = !planningSyncReady && hasFreshPresenceSnapshot && presenceWidgetSnapshot
+    ? presenceWidgetSnapshot.triPair
+    : triPair;
+  const presenceWidgetBusy = !planningSyncReady && !hasFreshPresenceSnapshot;
 
-  const triPair = getPlanningTriPairForDate(today, planningTriData) ?? [];
+  useEffect(() => {
+    if (!hasLivePlanningData) return;
+    const nextSnapshot: PresenceWidgetSnapshot = {
+      dateIso: formatPlanningDate(today),
+      morning: presenceByType.morning,
+      afternoon: presenceByType.afternoon,
+      students: presenceByType.students,
+      absentNames: [...presenceByType.absentNames],
+      triPair: [...triPair],
+    };
+    savePresenceWidgetSnapshot(nextSnapshot);
+    setPresenceWidgetSnapshot((current) => {
+      if (
+        current &&
+        current.dateIso === nextSnapshot.dateIso &&
+        current.morning === nextSnapshot.morning &&
+        current.afternoon === nextSnapshot.afternoon &&
+        current.students === nextSnapshot.students &&
+        current.absentNames.join("|") === nextSnapshot.absentNames.join("|") &&
+        current.triPair.join("|") === nextSnapshot.triPair.join("|")
+      ) {
+        return current;
+      }
+      return nextSnapshot;
+    });
+  }, [hasLivePlanningData, presenceByType, today, triPair]);
 
   const weekCards = useMemo(() => {
     const base = new Date(today);
@@ -541,7 +637,7 @@ export default function DashboardPage() {
         </div>
         <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", justifyContent: "flex-end" }}>
           {[
-            { label: presenceWidgetBusy ? "Synchro planning..." : `${presenceByType.morning} présents matin`, color: "#065f46", bg: "#ecfdf5", border: "#bbf7d0" },
+            { label: presenceWidgetBusy ? "Synchro planning..." : `${displayedPresence.morning} présents matin`, color: "#065f46", bg: "#ecfdf5", border: "#bbf7d0" },
             { label: `${alerts.length} alertes`, color: dash.color, bg: dash.light, border: dash.medium },
           ].map((p) => (
             <span key={p.label} style={{
@@ -574,16 +670,16 @@ export default function DashboardPage() {
             <p style={{ fontSize: "12px", color: "#64748b", marginTop: "3px", marginBottom: "14px" }}>Vision immédiate des effectifs et des points à vérifier.</p>
 
             <KPIRow>
-              <KPI value={presenceWidgetBusy ? "..." : presenceByType.morning} label="Matin"      moduleKey="planning" icon={<IconUsers />} />
-              <KPI value={presenceWidgetBusy ? "..." : presenceByType.afternoon}  label="Après-midi" moduleKey="planning" icon={<IconUsers />} />
-              <KPI value={presenceWidgetBusy ? "..." : presenceByType.students}  label="Étudiants"  moduleKey="balisage" icon={<IconUsers />} size="md" />
+              <KPI value={presenceWidgetBusy ? "..." : displayedPresence.morning} label="Matin"      moduleKey="planning" icon={<IconUsers />} />
+              <KPI value={presenceWidgetBusy ? "..." : displayedPresence.afternoon}  label="Après-midi" moduleKey="planning" icon={<IconUsers />} />
+              <KPI value={presenceWidgetBusy ? "..." : displayedPresence.students}  label="Étudiants"  moduleKey="balisage" icon={<IconUsers />} size="md" />
             </KPIRow>
 
             <StatusBox tone="yellow">
-              <strong>Absents : </strong>{presenceWidgetBusy ? "Synchronisation en cours" : presenceByType.absentNames.length ? presenceByType.absentNames.join(", ") : "Aucun"}
+              <strong>Absents : </strong>{presenceWidgetBusy ? "Synchronisation en cours" : displayedPresence.absentNames.length ? displayedPresence.absentNames.join(", ") : "Aucun"}
             </StatusBox>
             <StatusBox tone="neutral">
-              <strong>Tri caddie : </strong>{presenceWidgetBusy ? "Synchronisation en cours" : triPair.length ? triPair.join(", ") : "Non défini"}
+              <strong>Tri caddie : </strong>{presenceWidgetBusy ? "Synchronisation en cours" : displayedTriPair.length ? displayedTriPair.join(", ") : "Non défini"}
             </StatusBox>
           </Card>
 

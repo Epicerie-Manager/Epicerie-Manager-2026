@@ -208,7 +208,7 @@ export default function InfosPage() {
   const [search, setSearch] = useState("");
   const [categories, setCategories] = useState(defaultInfoCategories);
   const [announcements, setAnnouncements] = useState<InfoAnnouncement[]>(defaultInfoAnnouncements);
-  const [audience, setAudience] = useState<InfoAnnouncementAudience>({ employees: [], rayons: [] });
+  const [audience, setAudience] = useState<InfoAnnouncementAudience>({ employees: [], dashboardUsers: [], rayons: [] });
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null);
 
   const [docTitle, setDocTitle] = useState("");
@@ -245,7 +245,7 @@ export default function InfosPage() {
         const nextAudience = await getInfoAnnouncementAudience();
         setAudience(nextAudience);
       } catch {
-        setAudience({ employees: [], rayons: [] });
+        setAudience({ employees: [], dashboardUsers: [], rayons: [] });
       }
     };
 

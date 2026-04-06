@@ -10,6 +10,7 @@ import { NavCard, NavCardGrid } from "@/components/ui/nav-card";
 import AgendaCard from "@/components/dashboard/agenda-card";
 import { moduleThemes } from "@/lib/theme";
 import { isAdminUser } from "@/lib/admin-access";
+import type { InfoAnnouncement } from "@/lib/infos-data";
 import { absenceTypes } from "@/lib/absences-data";
 import { loadAbsenceRequests, getAbsencesUpdatedEventName, syncAbsencesFromSupabase } from "@/lib/absences-store";
 import { hasBrowserWindow } from "@/lib/browser-cache";
@@ -40,6 +41,7 @@ import { getRhUpdatedEventName, loadRhEmployees, syncRhFromSupabase } from "@/li
 import { loadLatestRupturesCountForToday } from "@/lib/ruptures-store";
 import { getPlateauWeekFocusData } from "@/lib/plateau-data";
 import { createClient } from "@/lib/supabase";
+import { getInfosUpdatedEventName, loadInfoAnnouncements, syncInfosFromSupabase } from "@/lib/infos-store";
 
 type AlertTone = "yellow" | "red" | "blue";
 type RankStatus = "ok" | "warn" | "alert";
@@ -67,6 +69,7 @@ const statusStyles = {
 const PLANNING_DASHBOARD_CACHE_KEY = "epicerie-dashboard-presence-v1";
 const PLANNING_DASHBOARD_SYNC_TTL_MS = 30_000;
 let lastPlanningDashboardSyncAt = 0;
+const DASHBOARD_ANNOUNCEMENT_DISMISS_KEY = "epicerie-dashboard-announcements-seen-v1";
 
 const medals = ["🥇", "🥈", "🥉"];
 const WEEK_LABELS = ["LUN", "MAR", "MER", "JEU", "VEN", "SAM"];
@@ -164,6 +167,27 @@ function savePresenceWidgetSnapshot(snapshot: PresenceWidgetSnapshot) {
   }
 }
 
+function loadDashboardAnnouncementDismissals() {
+  if (!hasBrowserWindow()) return {} as Record<string, string>;
+  try {
+    const raw = window.localStorage.getItem(DASHBOARD_ANNOUNCEMENT_DISMISS_KEY);
+    if (!raw) return {};
+    const parsed = JSON.parse(raw) as Record<string, string>;
+    return parsed && typeof parsed === "object" ? parsed : {};
+  } catch {
+    return {};
+  }
+}
+
+function saveDashboardAnnouncementDismissals(nextValue: Record<string, string>) {
+  if (!hasBrowserWindow()) return;
+  try {
+    window.localStorage.setItem(DASHBOARD_ANNOUNCEMENT_DISMISS_KEY, JSON.stringify(nextValue));
+  } catch {
+    // Best-effort browser memory only.
+  }
+}
+
 // ── Icônes SVG inline (strokeWidth 1.8) ──────────
 const svgProps = {
   viewBox: "0 0 24 24",
@@ -236,6 +260,8 @@ export default function DashboardPage() {
   const [presenceWidgetSnapshot, setPresenceWidgetSnapshot] = useState<PresenceWidgetSnapshot | null>(() => loadPresenceWidgetSnapshot());
   const [planningSyncReady, setPlanningSyncReady] = useState(() => planningEmployees.length > 0);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [dashboardProfileId, setDashboardProfileId] = useState("");
+  const [dashboardAnnouncements, setDashboardAnnouncements] = useState<InfoAnnouncement[]>([]);
   const [dashboardMonthCursor, setDashboardMonthCursor] = useState(() => {
     const current = new Date();
     return new Date(current.getFullYear(), current.getMonth(), 1);
@@ -250,6 +276,7 @@ export default function DashboardPage() {
       } = await supabase.auth.getUser();
       if (!user) {
         setIsAdmin(false);
+        setDashboardProfileId("");
         return;
       }
 
@@ -259,10 +286,26 @@ export default function DashboardPage() {
         .eq("id", user.id)
         .maybeSingle();
 
+      setDashboardProfileId(String(user.id ?? ""));
       setIsAdmin(isAdminUser(user.email ?? null, String(profile?.role ?? "")));
     };
 
     void checkAdmin();
+  }, []);
+
+  useEffect(() => {
+    const refreshAnnouncements = () => {
+      setDashboardAnnouncements(loadInfoAnnouncements());
+    };
+
+    refreshAnnouncements();
+    void syncInfosFromSupabase().then((synced) => {
+      if (synced) refreshAnnouncements();
+    });
+
+    const eventName = getInfosUpdatedEventName();
+    window.addEventListener(eventName, refreshAnnouncements);
+    return () => window.removeEventListener(eventName, refreshAnnouncements);
   }, []);
 
   useEffect(() => {
@@ -447,6 +490,20 @@ export default function DashboardPage() {
     });
   }, [planningOverrides, presenceThresholds, startOfToday, today, todayIso]);
 
+  const pendingDashboardAnnouncement = useMemo(() => {
+    if (!dashboardProfileId) return null;
+
+    const dismissals = loadDashboardAnnouncementDismissals();
+    return (
+      dashboardAnnouncements.find((announcement) => {
+        if (!announcement.confirmationRequired) return false;
+        if (!announcement.targetEmployeeIds.includes(dashboardProfileId)) return false;
+        const dismissalKey = `${dashboardProfileId}:${announcement.id}`;
+        return dismissals[dismissalKey] !== "confirmed";
+      }) ?? null
+    );
+  }, [dashboardAnnouncements, dashboardProfileId]);
+
   const monthlyPlanningDays = useMemo(() => {
     const year = dashboardMonthCursor.getFullYear();
     const month = dashboardMonthCursor.getMonth();
@@ -627,6 +684,14 @@ export default function DashboardPage() {
         }]
       : []),
   ];
+
+  function confirmDashboardAnnouncement(announcementId: string) {
+    if (!dashboardProfileId) return;
+    const dismissals = loadDashboardAnnouncementDismissals();
+    dismissals[`${dashboardProfileId}:${announcementId}`] = "confirmed";
+    saveDashboardAnnouncementDismissals(dismissals);
+    setDashboardAnnouncements((current) => [...current]);
+  }
 
   return (
     <div>
@@ -1184,6 +1249,88 @@ export default function DashboardPage() {
 
         </div>
       </div>
+
+      {pendingDashboardAnnouncement ? (
+        <div
+          role="presentation"
+          style={{
+            position: "fixed",
+            inset: 0,
+            background: "rgba(15,23,42,0.38)",
+            backdropFilter: "blur(3px)",
+            display: "grid",
+            placeItems: "center",
+            zIndex: 150,
+            padding: "20px",
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            style={{
+              width: "min(560px, 96vw)",
+              background: "#fffdf9",
+              borderRadius: "20px",
+              border: "1px solid #e8ecf1",
+              boxShadow: "0 24px 60px rgba(15,23,42,0.18)",
+              padding: "18px",
+              display: "grid",
+              gap: "12px",
+            }}
+          >
+            <Kicker moduleKey="admin" label="Message bureau" icon={<IconAlert />} />
+            <h2 style={{ marginTop: "6px", fontSize: "22px", color: "#0f172a" }}>
+              {pendingDashboardAnnouncement.title}
+            </h2>
+            <div style={{ fontSize: "12px", color: "#64748b" }}>
+              {pendingDashboardAnnouncement.date}
+            </div>
+            <div
+              style={{
+                borderRadius: "16px",
+                padding: "14px 16px",
+                background:
+                  pendingDashboardAnnouncement.priority === "urgent"
+                    ? "#fff1f2"
+                    : pendingDashboardAnnouncement.priority === "important"
+                      ? "#fff7ed"
+                      : "#fffbea",
+                border:
+                  pendingDashboardAnnouncement.priority === "urgent"
+                    ? "1px solid #fecdd3"
+                    : pendingDashboardAnnouncement.priority === "important"
+                      ? "1px solid #fed7aa"
+                      : "1px solid #fde68a",
+                color: "#334155",
+                fontSize: "14px",
+                lineHeight: 1.6,
+                whiteSpace: "pre-wrap",
+              }}
+            >
+              {pendingDashboardAnnouncement.content}
+            </div>
+            <div style={{ display: "flex", justifyContent: "flex-end" }}>
+              <button
+                type="button"
+                onClick={() => confirmDashboardAnnouncement(pendingDashboardAnnouncement.id)}
+                style={{
+                  minHeight: "42px",
+                  borderRadius: "999px",
+                  border: "1px solid #4f46e5",
+                  background: "#eef2ff",
+                  color: "#4338ca",
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  padding: "0 16px",
+                  cursor: "pointer",
+                }}
+              >
+                OK, j&apos;ai lu
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {monthlyIssuePanel ? (
         <div

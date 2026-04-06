@@ -21,6 +21,12 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v0.9.9 - 2026-04-07
+
+- Bureau / Admin : ajout d'un ciblage `Dashboard bureau` dans le menu `Admin`, afin d'envoyer un message de connexion aux comptes manager bureau comme celui de Farida, sans les mélanger à la liste des collaborateurs mobiles.
+- Dashboard / Connexion : les messages bureau ciblés s'ouvrent maintenant directement sur le dashboard avec bouton `OK, j&apos;ai lu`, mémorisé localement sur le poste.
+- Infos / Audience : l'audience des annonces distingue désormais les collaborateurs mobiles et les comptes bureau manager, sans nécessiter de patch Supabase pour cette première version.
+
 ## v0.9.8 - 2026-04-07
 
 - Bureau / Admin : ajout d'un module `Admin` privé pour le compte administrateur, avec création de messages ciblés, affichage possible `à la connexion`, relances de synchronisation et journal des dernières livraisons.

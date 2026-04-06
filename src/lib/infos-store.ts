@@ -3,6 +3,7 @@ import {
   infoCategories,
   type InfoAnnouncement,
   type InfoAnnouncementAudience,
+  type InfoAnnouncementAudienceDashboardUser,
   type InfoAnnouncementPriority,
   type InfoAnnouncementRecipient,
   type InfoAnnouncementTargeting,
@@ -10,6 +11,7 @@ import {
   type InfoCategoryId,
   type InfoItem,
 } from "@/lib/infos-data";
+import { isAdminUser } from "@/lib/admin-access";
 import { hasBrowserWindow, purgeLegacyCacheKeys } from "@/lib/browser-cache";
 import { createClient } from "@/lib/supabase";
 import { tgRayons } from "@/lib/tg-data";
@@ -51,6 +53,13 @@ type AnnouncementAudienceEmployeeRow = {
   name: string | null;
   actif: boolean | null;
   tg_rayons?: string[] | null;
+};
+
+type DashboardAudienceProfileRow = {
+  id: string;
+  full_name: string | null;
+  email: string | null;
+  role: string | null;
 };
 
 export type CreateInfoAnnouncementInput = {
@@ -363,9 +372,31 @@ async function fetchAnnouncementAudienceEmployees() {
   }));
 }
 
+async function fetchDashboardAudienceProfiles(): Promise<InfoAnnouncementAudienceDashboardUser[]> {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("profiles")
+    .select("id,full_name,email,role")
+    .eq("role", "manager")
+    .order("full_name");
+  if (error) throw error;
+
+  return ((data ?? []) as DashboardAudienceProfileRow[])
+    .filter((profile) => !isAdminUser(profile.email, profile.role))
+    .map((profile) => ({
+      id: String(profile.id ?? ""),
+      name: String(profile.full_name ?? profile.email ?? "Compte bureau").trim(),
+      email: String(profile.email ?? "").trim(),
+    }))
+    .filter((profile) => profile.id);
+}
+
 export async function getInfoAnnouncementAudience(): Promise<InfoAnnouncementAudience> {
   try {
-    const employees = await fetchAnnouncementAudienceEmployees();
+    const [employees, dashboardUsers] = await Promise.all([
+      fetchAnnouncementAudienceEmployees(),
+      fetchDashboardAudienceProfiles().catch(() => []),
+    ]);
     const rayonSet = new Set(
       tgRayons
         .filter((row) => row.active)
@@ -376,6 +407,7 @@ export async function getInfoAnnouncementAudience(): Promise<InfoAnnouncementAud
     });
     return {
       employees,
+      dashboardUsers,
       rayons: Array.from(rayonSet).sort((left, right) => left.localeCompare(right, "fr")),
     };
   } catch (error) {
@@ -564,9 +596,11 @@ export async function addAnnouncementToSupabase(input: CreateInfoAnnouncementInp
     const targetRayons = Array.from(
       new Set(input.targetRayons.map((rayon) => rayon.trim().toUpperCase()).filter(Boolean)),
     );
+    const audience = await getInfoAnnouncementAudience();
     const recipients = await buildAnnouncementRecipients(input.targeting, targetEmployeeIds, targetRayons);
+    const dashboardRecipients = audience.dashboardUsers.filter((profile) => targetEmployeeIds.includes(profile.id));
 
-    if (input.targeting !== "all" && recipients.length === 0) {
+    if (input.targeting !== "all" && recipients.length === 0 && dashboardRecipients.length === 0) {
       throw new Error("Sélectionnez au moins un destinataire pour cette annonce.");
     }
 

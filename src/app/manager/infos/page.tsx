@@ -73,7 +73,7 @@ function getTargetingLabel(announcement: InfoAnnouncement) {
 export default function ManagerInfosPage() {
   const [categories, setCategories] = useState<InfoCategory[]>([]);
   const [announcements, setAnnouncements] = useState<InfoAnnouncement[]>([]);
-  const [audience, setAudience] = useState<InfoAnnouncementAudience>({ employees: [], rayons: [] });
+  const [audience, setAudience] = useState<InfoAnnouncementAudience>({ employees: [], dashboardUsers: [], rayons: [] });
   const [activeCategoryId, setActiveCategoryId] = useState<InfoCategoryId>("proc");
   const [docTitle, setDocTitle] = useState("");
   const [docDescription, setDocDescription] = useState("");
@@ -102,7 +102,7 @@ export default function ManagerInfosPage() {
       try {
         setAudience(await getInfoAnnouncementAudience());
       } catch {
-        setAudience({ employees: [], rayons: [] });
+        setAudience({ employees: [], dashboardUsers: [], rayons: [] });
       }
     };
 

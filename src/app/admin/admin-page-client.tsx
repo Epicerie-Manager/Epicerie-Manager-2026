@@ -35,6 +35,8 @@ export type AdminJournalEntry = {
   items: string[];
 };
 
+type AdminAudienceTargeting = InfoAnnouncementTargeting | "dashboard";
+
 const PRIORITY_META: Record<InfoAnnouncementPriority, { label: string; bg: string; text: string; border: string }> = {
   urgent: { label: "Urgent", bg: "#fff1f2", text: "#9f1239", border: "#fecdd3" },
   important: { label: "Important", bg: "#fffbeb", text: "#92400e", border: "#fde68a" },
@@ -88,8 +90,15 @@ function formatDateTimeLabel(value: string | null) {
   });
 }
 
-function getTargetingLabel(announcement: InfoAnnouncement) {
+function getTargetingLabel(
+  announcement: InfoAnnouncement,
+  dashboardUsers: InfoAnnouncementAudience["dashboardUsers"],
+) {
+  const dashboardCount = dashboardUsers.filter((profile) => announcement.targetEmployeeIds.includes(profile.id)).length;
   if (announcement.targeting === "employees") {
+    if (dashboardCount) {
+      return `${dashboardCount} compte${dashboardCount > 1 ? "s" : ""} bureau`;
+    }
     return `${announcement.recipients.length} collaborateur${announcement.recipients.length > 1 ? "s" : ""}`;
   }
   if (announcement.targeting === "rayons") {
@@ -115,15 +124,16 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
   const theme = moduleThemes.admin;
   const [isAllowed, setIsAllowed] = useState<boolean | null>(null);
   const [adminLabel, setAdminLabel] = useState("");
-  const [audience, setAudience] = useState<InfoAnnouncementAudience>({ employees: [], rayons: [] });
+  const [audience, setAudience] = useState<InfoAnnouncementAudience>({ employees: [], dashboardUsers: [], rayons: [] });
   const [announcements, setAnnouncements] = useState<InfoAnnouncement[]>([]);
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [priority, setPriority] = useState<InfoAnnouncementPriority>("important");
-  const [targeting, setTargeting] = useState<InfoAnnouncementTargeting>("all");
+  const [targeting, setTargeting] = useState<AdminAudienceTargeting>("all");
   const [publishAt, setPublishAt] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [targetEmployeeIds, setTargetEmployeeIds] = useState<string[]>([]);
+  const [targetDashboardUserIds, setTargetDashboardUserIds] = useState<string[]>([]);
   const [targetRayons, setTargetRayons] = useState<string[]>([]);
   const [showOnLogin, setShowOnLogin] = useState(true);
   const [messageBusy, setMessageBusy] = useState(false);
@@ -176,7 +186,7 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
       try {
         setAudience(await getInfoAnnouncementAudience());
       } catch {
-        setAudience({ employees: [], rayons: [] });
+        setAudience({ employees: [], dashboardUsers: [], rayons: [] });
       }
     };
 
@@ -204,6 +214,11 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
     [audience.employees, targetEmployeeIds],
   );
 
+  const selectedDashboardUsersPreview = useMemo(
+    () => audience.dashboardUsers.filter((profile) => targetDashboardUserIds.includes(profile.id)),
+    [audience.dashboardUsers, targetDashboardUserIds],
+  );
+
   const selectedRayonEmployeesPreview = useMemo(
     () =>
       audience.employees.filter((employee) =>
@@ -215,6 +230,12 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
   function toggleEmployeeSelection(employeeId: string) {
     setTargetEmployeeIds((current) =>
       current.includes(employeeId) ? current.filter((id) => id !== employeeId) : [...current, employeeId],
+    );
+  }
+
+  function toggleDashboardUserSelection(profileId: string) {
+    setTargetDashboardUserIds((current) =>
+      current.includes(profileId) ? current.filter((id) => id !== profileId) : [...current, profileId],
     );
   }
 
@@ -238,6 +259,10 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
       setMessageError("Sélectionne au moins un collaborateur ciblé.");
       return;
     }
+    if (targeting === "dashboard" && targetDashboardUserIds.length === 0) {
+      setMessageError("Sélectionne au moins un destinataire bureau.");
+      return;
+    }
     if (targeting === "rayons" && targetRayons.length === 0) {
       setMessageError("Sélectionne au moins un rayon ciblé.");
       return;
@@ -258,8 +283,8 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
         priority,
         publishAt: nextPublishAt,
         expiresAt: nextExpiresAt,
-        targeting,
-        targetEmployeeIds,
+        targeting: targeting === "dashboard" ? "employees" : targeting,
+        targetEmployeeIds: targeting === "dashboard" ? targetDashboardUserIds : targetEmployeeIds,
         targetRayons,
         confirmationRequired: showOnLogin,
       });
@@ -271,6 +296,7 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
       setPublishAt("");
       setExpiresAt("");
       setTargetEmployeeIds([]);
+      setTargetDashboardUserIds([]);
       setTargetRayons([]);
       setShowOnLogin(true);
       setMessageSuccess(
@@ -478,11 +504,12 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
                 <span>Ciblage</span>
                 <select
                   value={targeting}
-                  onChange={(event) => setTargeting(event.target.value as InfoAnnouncementTargeting)}
+                  onChange={(event) => setTargeting(event.target.value as AdminAudienceTargeting)}
                   style={{ minHeight: 38, borderRadius: 10, border: "1px solid #dbe3eb", padding: "0 10px", fontSize: 13, color: "#0f172a" }}
                 >
                   <option value="all">Toute l&apos;équipe</option>
                   <option value="employees">Collaborateurs ciblés</option>
+                  <option value="dashboard">Dashboard bureau</option>
                   <option value="rayons">Rayons ciblés</option>
                 </select>
               </label>
@@ -549,6 +576,50 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
                   <div style={{ marginTop: 8, fontSize: 11, color: "#64748b" }}>
                     Sélection : {selectedEmployeesPreview.slice(0, 4).map((employee) => employee.name).join(", ")}
                     {selectedEmployeesPreview.length > 4 ? ` +${selectedEmployeesPreview.length - 4}` : ""}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
+
+            {targeting === "dashboard" ? (
+              <div style={{ border: "1px solid #dbe3eb", borderRadius: 12, padding: 10, background: "#f8fafc" }}>
+                <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                  Destinataires bureau
+                </div>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
+                  {audience.dashboardUsers.map((profile) => {
+                    const active = targetDashboardUserIds.includes(profile.id);
+                    return (
+                      <button
+                        key={profile.id}
+                        type="button"
+                        onClick={() => toggleDashboardUserSelection(profile.id)}
+                        style={{
+                          minHeight: 30,
+                          borderRadius: 999,
+                          border: `1px solid ${active ? theme.color : "#dbe3eb"}`,
+                          background: active ? theme.light : "#fff",
+                          color: active ? theme.color : "#334155",
+                          padding: "0 10px",
+                          fontSize: 11,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                        title={profile.email || profile.name}
+                      >
+                        {profile.name}
+                      </button>
+                    );
+                  })}
+                </div>
+                {selectedDashboardUsersPreview.length ? (
+                  <div style={{ marginTop: 8, fontSize: 11, color: "#64748b" }}>
+                    Sélection : {selectedDashboardUsersPreview.map((profile) => profile.name).join(", ")}
+                  </div>
+                ) : null}
+                {!audience.dashboardUsers.length ? (
+                  <div style={{ marginTop: 8, fontSize: 11, color: "#64748b" }}>
+                    Aucun autre compte bureau manager détecté pour l&apos;instant.
                   </div>
                 ) : null}
               </div>
@@ -736,7 +807,7 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
                         </p>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
                           <span style={{ fontSize: 10, fontWeight: 700, color: "#334155", padding: "3px 8px", borderRadius: 999, background: "#fff" }}>
-                            {getTargetingLabel(announcement)}
+                            {getTargetingLabel(announcement, audience.dashboardUsers)}
                           </span>
                           <span style={{ fontSize: 10, fontWeight: 700, color: "#334155", padding: "3px 8px", borderRadius: 999, background: "#fff" }}>
                             {seenCount}/{announcement.recipients.length} vus

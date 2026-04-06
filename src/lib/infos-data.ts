@@ -63,8 +63,15 @@ export type InfoAnnouncementAudienceEmployee = {
   tgRayons: string[];
 };
 
+export type InfoAnnouncementAudienceDashboardUser = {
+  id: string;
+  name: string;
+  email: string;
+};
+
 export type InfoAnnouncementAudience = {
   employees: InfoAnnouncementAudienceEmployee[];
+  dashboardUsers: InfoAnnouncementAudienceDashboardUser[];
   rayons: string[];
 };
 

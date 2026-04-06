@@ -201,15 +201,21 @@ export default function AgendaCard({ events = MOCK_EVENTS, calendarUrl = "https:
     let active = true;
     fetch("/api/calendar/today", { cache: "no-store" })
       .then(async (res) => {
-        if (!res.ok) throw new Error("not connected");
+        if (!res.ok) throw new Error("calendar unavailable");
         const data = await res.json();
         if (!active) return;
-        setApiEvents(Array.isArray(data) ? data : []);
-        setConnected(true);
+        const nextEvents = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.events)
+            ? data.events
+            : [];
+        setApiEvents(nextEvents);
+        setConnected(Boolean(data?.connected));
       })
       .catch(() => {
         if (!active) return;
         setConnected(false);
+        setApiEvents([]);
       })
       .finally(() => {
         if (active) setLoading(false);

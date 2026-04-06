@@ -49,7 +49,7 @@ export async function GET(request: Request) {
   const accessToken = token?.accessToken;
 
   if (!accessToken || typeof accessToken !== "string") {
-    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+    return NextResponse.json({ connected: false, events: [] });
   }
 
   const now = new Date();
@@ -65,7 +65,7 @@ export async function GET(request: Request) {
   );
 
   if (!response.ok) {
-    return NextResponse.json({ error: "Google Calendar API error" }, { status: response.status });
+    return NextResponse.json({ connected: false, events: [] }, { status: response.status === 401 ? 200 : response.status });
   }
 
   const data = (await response.json()) as {
@@ -99,5 +99,5 @@ export async function GET(request: Request) {
     })
     .filter((item): item is CalendarEvent => item !== null);
 
-  return NextResponse.json(events);
+  return NextResponse.json({ connected: true, events });
 }

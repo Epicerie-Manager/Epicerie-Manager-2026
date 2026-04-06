@@ -5,7 +5,7 @@ import { ManagerMobileShell } from "@/components/manager/mobile-shell";
 export const metadata: Metadata = {
   title: "Manager 2026",
   description: "Application manager mobile",
-  manifest: "/manager/manifest.webmanifest",
+  manifest: "/manager-manifest.webmanifest",
   icons: {
     icon: [
       { url: "/icons/manager-icon.svg", type: "image/svg+xml" },

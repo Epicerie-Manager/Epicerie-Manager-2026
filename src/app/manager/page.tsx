@@ -8,6 +8,7 @@ import {
   getPlanningTriPairForDate,
   loadPlanningOverrides,
   loadPlanningTriData,
+  type PlanningEmployee,
   planningEmployees,
   syncPlanningFromSupabase,
   type PlanningOverrides,
@@ -47,6 +48,7 @@ export default function ManagerHomePage() {
   const [error, setError] = useState("");
   const [overrides, setOverrides] = useState<PlanningOverrides>({});
   const [triData, setTriData] = useState<PlanningTriData>({});
+  const [employees, setEmployees] = useState<PlanningEmployee[]>([]);
 
   const today = useMemo(() => new Date(), []);
 
@@ -70,6 +72,7 @@ export default function ManagerHomePage() {
         if (cancelled) return;
 
         setState({ pendingAbsences: pendingAbsences ?? 0 });
+        setEmployees([...planningEmployees]);
         setOverrides(loadPlanningOverrides());
         setTriData(loadPlanningTriData(monthKey));
       } catch (loadError) {
@@ -89,10 +92,10 @@ export default function ManagerHomePage() {
 
   const eligibleEmployees = useMemo(
     () =>
-      planningEmployees
+      employees
         .filter((employee) => employee.actif)
         .sort((left, right) => left.n.localeCompare(right.n, "fr")),
-    [],
+    [employees],
   );
 
   const summary = useMemo(() => {

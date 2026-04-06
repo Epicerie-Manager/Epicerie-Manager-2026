@@ -46,17 +46,28 @@ export type PlanningEmployee = {
   actif: boolean;
 };
 
+export type PlanningSyncState = "idle" | "syncing" | "success" | "error";
+
+export type PlanningSyncStatus = {
+  monthKey: string;
+  state: PlanningSyncState;
+  message: string;
+  updatedAt: number | null;
+};
+
 const PLANNING_OVERRIDES_KEY = "epicerie-manager-planning-overrides-v2";
 const PLANNING_TRI_KEY_PREFIX = "epicerie-manager-planning-tri-v1";
 const PLANNING_BINOMES_KEY_PREFIX = "epicerie-manager-planning-binomes-v1";
 const PLANNING_UPDATED_EVENT = "epicerie-manager:planning-updated";
 const PLANNING_UNDO_UPDATED_EVENT = "epicerie-manager:planning-undo-updated";
+const PLANNING_SYNC_STATUS_EVENT = "epicerie-manager:planning-sync-status";
 const MAX_PLANNING_UNDO = 5;
 const PLANNING_UNDO_DURATION_MS = 15_000;
 
 export let planningEmployees: PlanningEmployee[] = [];
 
 let cycle: Record<string, string[]> = {};
+let planningSyncStatusByMonth: Record<string, PlanningSyncStatus> = {};
 
 export const defaultPlanningTriData: PlanningTriData = {};
 
@@ -267,6 +278,50 @@ function emitPlanningUpdated() {
   window.dispatchEvent(new Event(PLANNING_UPDATED_EVENT));
 }
 
+function emitPlanningSyncStatusUpdated() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(PLANNING_SYNC_STATUS_EVENT));
+}
+
+function setPlanningSyncStatus(monthKey: string, state: PlanningSyncState, message = "") {
+  const nextStatus: PlanningSyncStatus = {
+    monthKey,
+    state,
+    message,
+    updatedAt: Date.now(),
+  };
+  const currentStatus = planningSyncStatusByMonth[monthKey];
+  if (
+    currentStatus &&
+    currentStatus.state === nextStatus.state &&
+    currentStatus.message === nextStatus.message
+  ) {
+    planningSyncStatusByMonth = {
+      ...planningSyncStatusByMonth,
+      [monthKey]: nextStatus,
+    };
+    return;
+  }
+  planningSyncStatusByMonth = {
+    ...planningSyncStatusByMonth,
+    [monthKey]: nextStatus,
+  };
+  emitPlanningSyncStatusUpdated();
+}
+
+export function getPlanningSyncStatusUpdatedEventName() {
+  return PLANNING_SYNC_STATUS_EVENT;
+}
+
+export function loadPlanningSyncStatus(monthKey = getPlanningMonthKey(new Date())): PlanningSyncStatus {
+  return planningSyncStatusByMonth[monthKey] ?? {
+    monthKey,
+    state: "idle",
+    message: "",
+    updatedAt: null,
+  };
+}
+
 export function getPlanningUndoUpdatedEventName() {
   return PLANNING_UNDO_UPDATED_EVENT;
 }
@@ -423,6 +478,7 @@ async function fetchAllRows<T>(
 export async function syncPlanningFromSupabase(monthKey = getPlanningMonthKey(new Date())) {
   if (!canUseStorage()) return false;
   purgePlanningLegacyCache();
+  setPlanningSyncStatus(monthKey, "syncing");
 
   try {
     const supabase = createClient();
@@ -433,7 +489,9 @@ export async function syncPlanningFromSupabase(monthKey = getPlanningMonthKey(ne
       .select("id,name,type,horaire_standard,horaire_mardi,horaire_samedi,actif")
       .limit(5000);
     if (employeeError) throw employeeError;
-    if (!employeeRows || employeeRows.length === 0) return false;
+    if (!employeeRows || employeeRows.length === 0) {
+      throw new Error("Aucune donnée planning employee n'a été reçue depuis Supabase.");
+    }
 
     const mappedEmployees: PlanningEmployee[] = employeeRows.map((employee) => ({
       dbId: String(employee.id),
@@ -593,8 +651,10 @@ export async function syncPlanningFromSupabase(monthKey = getPlanningMonthKey(ne
     didChange = replacePlanningOverridesSnapshot(overrides) || didChange;
 
     if (didChange) emitPlanningUpdated();
+    setPlanningSyncStatus(monthKey, "success");
     return didChange;
-  } catch {
+  } catch (error) {
+    setPlanningSyncStatus(monthKey, "error", normalizeActionError(error));
     return false;
   }
 }

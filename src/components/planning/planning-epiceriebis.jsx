@@ -28,12 +28,14 @@ import {
   loadPlanningBinomes,
   loadPlanningOverrides,
   loadPlanningTriData,
+  loadPlanningSyncStatus,
   normalizePlanningHoraireValue,
   savePlanningBinomeToSupabase,
   savePlanningOverridesToSupabase,
   savePlanningTriPairToSupabase,
   syncPlanningFromSupabase,
   undoLastPlanningAction,
+  getPlanningSyncStatusUpdatedEventName,
 } from "@/lib/planning-store";
 import { getPlanningPresenceCountsForDate, getPlanningShiftBuckets } from "@/lib/planning-presence";
 import {
@@ -1190,6 +1192,7 @@ export default function PlanningApp(){
   const [pendingRequests,setPendingRequests]=useState(()=>loadPendingAbsenceRequests());
   const [presenceThresholds,setPresenceThresholds]=useState(()=>loadPresenceThresholds());
   const [planningBootReady,setPlanningBootReady]=useState(()=>loadRhEmployees().length>0);
+  const [planningSyncStatus,setPlanningSyncStatus]=useState(()=>loadPlanningSyncStatus());
   const activeMonthKey=useMemo(()=>{
     if(year===null || month===null) return getPlanningMonthKey(new Date());
     return getPlanningMonthKey(new Date(year,month,1));
@@ -1269,11 +1272,23 @@ export default function PlanningApp(){
       setOverrides(loadPlanningOverrides());
       setTriData(loadPlanningTriData(activeMonthKey));
       setBinomes(loadPlanningBinomes(activeMonthKey));
+      setPlanningSyncStatus(loadPlanningSyncStatus(activeMonthKey));
     };
     refreshPlanningState();
     const eventName=getPlanningUpdatedEventName();
     window.addEventListener(eventName,refreshPlanningState);
     return ()=>window.removeEventListener(eventName,refreshPlanningState);
+  },[activeMonthKey,year,month]);
+
+  useEffect(()=>{
+    if(year===null || month===null) return;
+    const refreshSyncStatus=()=>{
+      setPlanningSyncStatus(loadPlanningSyncStatus(activeMonthKey));
+    };
+    refreshSyncStatus();
+    const eventName=getPlanningSyncStatusUpdatedEventName();
+    window.addEventListener(eventName,refreshSyncStatus);
+    return ()=>window.removeEventListener(eventName,refreshSyncStatus);
   },[activeMonthKey,year,month]);
 
   useEffect(()=>{
@@ -1302,6 +1317,7 @@ export default function PlanningApp(){
   useEffect(()=>{
     if(year===null || month===null) return;
     void syncPlanningFromSupabase(activeMonthKey).then((synced)=>{
+      setPlanningSyncStatus(loadPlanningSyncStatus(activeMonthKey));
       if(!synced) return;
       setOverrides(loadPlanningOverrides());
       setTriData(loadPlanningTriData(activeMonthKey));
@@ -1518,6 +1534,9 @@ export default function PlanningApp(){
     2,
   );
   const horaireOptions=loadPlanningHorairePresets();
+  const syncErrorMessage=planningSyncStatus.state==="error"
+    ? planningSyncStatus.message||"Synchronisation planning indisponible."
+    : "";
 
   if(year===null || month===null || !selectedDate || !weekStart || !planningBootReady){
     return(
@@ -1559,9 +1578,9 @@ export default function PlanningApp(){
             )}
           </div>
         </Card>
-        {(error||busy)&&(
-          <div style={{marginBottom:14,padding:"12px 14px",borderRadius:14,border:`1px solid ${(error?V.red:V.mc)}22`,background:error?"#fff5f5":"#eff6ff",color:error?V.red:V.mc,fontSize:13,fontWeight:600}}>
-            {error||"Enregistrement en cours..."}
+        {(error||syncErrorMessage||busy)&&(
+          <div style={{marginBottom:14,padding:"12px 14px",borderRadius:14,border:`1px solid ${((error||syncErrorMessage)?V.red:V.mc)}22`,background:(error||syncErrorMessage)?"#fff5f5":"#eff6ff",color:(error||syncErrorMessage)?V.red:V.mc,fontSize:13,fontWeight:600}}>
+            {error||syncErrorMessage||"Enregistrement en cours..."}
           </div>
         )}
 

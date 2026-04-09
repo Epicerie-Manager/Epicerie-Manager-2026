@@ -60,7 +60,10 @@ type DashboardAudienceProfileRow = {
   full_name: string | null;
   email: string | null;
   role: string | null;
+  employee_id: string | null;
 };
+
+type AnnouncementRecipientNameMap = Map<string, string>;
 
 export type CreateInfoAnnouncementInput = {
   title: string;
@@ -183,6 +186,33 @@ function todayIsoDate() {
   return new Date().toISOString().slice(0, 10);
 }
 
+function normalizeAudienceIdentity(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+}
+
+async function fetchAllEmployeeNameMap() {
+  const supabase = createClient();
+  const { data, error } = await supabase
+    .from("employees")
+    .select("id,name")
+    .limit(5000);
+  if (error) throw error;
+
+  return new Map(
+    ((data ?? []) as Array<{ id: string | null; name: string | null }>)
+      .map((employee) => ({
+        id: String(employee.id ?? ""),
+        key: normalizeAudienceIdentity(String(employee.name ?? "")),
+      }))
+      .filter((employee) => employee.id && employee.key)
+      .map((employee) => [employee.key, employee.id] as const),
+  );
+}
+
 function normalizeActionError(error: unknown) {
   const rawMessage = String(
     (error as { message?: string; error_description?: string })?.message ??
@@ -200,6 +230,12 @@ function normalizeActionError(error: unknown) {
     return new Error("La table annonce_recipients existe, mais ses droits Supabase ne permettent pas encore l'écriture/lecture via l'application. Appliquez le patch SQL des policies annonce_recipients.");
   }
   if (
+    (message.includes("annonce_recipients_employee_id_fkey") && message.includes("violates")) ||
+    (message.includes("annonce_recipients") && message.includes("foreign key"))
+  ) {
+    return new Error("Le destinataire bureau n'est pas relie a un collaborateur dans Supabase. Renseignez employee_id sur son profil pour suivre le clic OK.");
+  }
+  if (
     message.includes("could not find the 'publie_a_partir_de' column") ||
     message.includes("could not find the 'expire_le' column") ||
     message.includes("could not find the 'ciblage' column") ||
@@ -207,8 +243,7 @@ function normalizeActionError(error: unknown) {
     message.includes("could not find the 'target_rayons' column") ||
     message.includes("could not find the 'confirmation_requise' column") ||
     message.includes("relation \"annonce_recipients\" does not exist") ||
-    message.includes("relation 'annonce_recipients' does not exist") ||
-    message.includes("annonce_recipients")
+    message.includes("relation 'annonce_recipients' does not exist")
   ) {
     return new Error("Le module d'annonces ciblées nécessite le patch SQL Infos (colonnes annonces + table annonce_recipients).");
   }
@@ -292,17 +327,31 @@ function formatAnnouncementDate(value: string) {
 
 function mapRecipientRows(
   recipients: AnnouncementRecipientRow[],
-  employeeNames: Map<string, string>,
+  recipientNames: AnnouncementRecipientNameMap,
 ): InfoAnnouncementRecipient[] {
   return recipients
     .map((recipient) => ({
       id: String(recipient.id ?? `${recipient.annonce_id}-${recipient.employee_id}`),
       employeeId: String(recipient.employee_id ?? ""),
-      employeeName: employeeNames.get(String(recipient.employee_id ?? "")) ?? "Collaborateur",
+      employeeName: recipientNames.get(String(recipient.employee_id ?? "")) ?? "Destinataire",
       seenAt: recipient.seen_at ? String(recipient.seen_at) : null,
       confirmedAt: recipient.confirmed_at ? String(recipient.confirmed_at) : null,
     }))
     .sort((left, right) => left.employeeName.localeCompare(right.employeeName, "fr"));
+}
+
+async function buildAnnouncementRecipientNameMap(): Promise<AnnouncementRecipientNameMap> {
+  const [employees, dashboardUsers] = await Promise.all([
+    fetchAnnouncementAudienceEmployees().catch(() => []),
+    fetchDashboardAudienceProfiles().catch(() => []),
+  ]);
+
+  return new Map([
+    ...employees.map((employee) => [employee.id, employee.name] as const),
+    ...dashboardUsers
+      .filter((profile) => profile.employeeId)
+      .map((profile) => [String(profile.employeeId), profile.name] as const),
+  ]);
 }
 
 function mapAnnouncementRowToItem(
@@ -374,11 +423,14 @@ async function fetchAnnouncementAudienceEmployees() {
 
 async function fetchDashboardAudienceProfiles(): Promise<InfoAnnouncementAudienceDashboardUser[]> {
   const supabase = createClient();
-  const { data, error } = await supabase
-    .from("profiles")
-    .select("id,full_name,email,role")
-    .eq("role", "manager")
-    .order("full_name");
+  const [{ data, error }, employeeNameMap] = await Promise.all([
+    supabase
+      .from("profiles")
+      .select("id,full_name,email,role,employee_id")
+      .eq("role", "manager")
+      .order("full_name"),
+    fetchAllEmployeeNameMap().catch(() => new Map<string, string>()),
+  ]);
   if (error) throw error;
 
   return ((data ?? []) as DashboardAudienceProfileRow[])
@@ -387,6 +439,14 @@ async function fetchDashboardAudienceProfiles(): Promise<InfoAnnouncementAudienc
       id: String(profile.id ?? ""),
       name: String(profile.full_name ?? profile.email ?? "Compte bureau").trim(),
       email: String(profile.email ?? "").trim(),
+      employeeId:
+        profile.employee_id == null
+          ? employeeNameMap.get(
+              normalizeAudienceIdentity(
+                String(profile.full_name ?? String(profile.email ?? "").split("@")[0] ?? ""),
+              ),
+            ) ?? null
+          : String(profile.employee_id),
     }))
     .filter((profile) => profile.id);
 }
@@ -474,8 +534,7 @@ async function fetchManagerAnnouncementsFromSupabase() {
     recipientRows = [];
   }
 
-  const employees = await fetchAnnouncementAudienceEmployees().catch(() => []);
-  const employeeNames = new Map(employees.map((employee) => [employee.id, employee.name]));
+  const recipientNames = await buildAnnouncementRecipientNameMap();
   const recipientsByAnnouncement = new Map<string, AnnouncementRecipientRow[]>();
   recipientRows.forEach((row) => {
     const key = String(row.annonce_id ?? "");
@@ -485,7 +544,7 @@ async function fetchManagerAnnouncementsFromSupabase() {
 
   return ((announcementRows ?? []) as DbRow[]).map((row) => {
     const announcementId = String(row.id ?? "");
-    const recipients = mapRecipientRows(recipientsByAnnouncement.get(announcementId) ?? [], employeeNames);
+    const recipients = mapRecipientRows(recipientsByAnnouncement.get(announcementId) ?? [], recipientNames);
     return mapAnnouncementRowToItem(row, recipients, null);
   });
 }
@@ -598,7 +657,9 @@ export async function addAnnouncementToSupabase(input: CreateInfoAnnouncementInp
     );
     const audience = await getInfoAnnouncementAudience();
     const recipients = await buildAnnouncementRecipients(input.targeting, targetEmployeeIds, targetRayons);
-    const dashboardRecipients = audience.dashboardUsers.filter((profile) => targetEmployeeIds.includes(profile.id));
+    const dashboardRecipients = audience.dashboardUsers.filter(
+      (profile) => targetEmployeeIds.includes(profile.id) && profile.employeeId,
+    );
 
     if (input.targeting !== "all" && recipients.length === 0 && dashboardRecipients.length === 0) {
       throw new Error("Sélectionnez au moins un destinataire pour cette annonce.");
@@ -623,15 +684,22 @@ export async function addAnnouncementToSupabase(input: CreateInfoAnnouncementInp
     if (error) throw error;
     createdAnnouncementId = String((data as DbRow).id ?? "");
 
-    if (recipients.length) {
+    const persistedRecipients = Array.from(
+      new Map(
+        [...recipients, ...dashboardRecipients].map((recipient) => [
+          "employeeId" in recipient ? String(recipient.employeeId) : String(recipient.id),
+          {
+            annonce_id: createdAnnouncementId,
+            employee_id: "employeeId" in recipient ? String(recipient.employeeId) : String(recipient.id),
+          },
+        ]),
+      ).values(),
+    );
+
+    if (persistedRecipients.length) {
       const { error: recipientError } = await supabase
         .from("annonce_recipients")
-        .insert(
-          recipients.map((recipient) => ({
-            annonce_id: createdAnnouncementId,
-            employee_id: recipient.id,
-          })),
-        );
+        .insert(persistedRecipients);
       if (recipientError) throw recipientError;
     }
 

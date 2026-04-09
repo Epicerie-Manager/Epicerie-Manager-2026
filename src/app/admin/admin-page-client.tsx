@@ -263,6 +263,13 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
       setMessageError("Sélectionne au moins un destinataire bureau.");
       return;
     }
+    if (
+      targeting === "dashboard" &&
+      selectedDashboardUsersPreview.some((profile) => !profile.employeeId)
+    ) {
+      setMessageError("Chaque destinataire bureau doit etre relie a un collaborateur pour tracer le clic OK.");
+      return;
+    }
     if (targeting === "rayons" && targetRayons.length === 0) {
       setMessageError("Sélectionne au moins un rayon ciblé.");
       return;
@@ -468,10 +475,9 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
         <Card style={shellCardStyle()}>
           <Kicker moduleKey="admin" label="Messages" />
           <h2 style={{ marginTop: 6, fontSize: 18, color: "#0f172a" }}>Messages à la connexion</h2>
-          <p style={{ marginTop: 6, fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
-            Coche l&apos;option de validation obligatoire pour afficher un message dès l&apos;arrivée de ta femme ou d&apos;un collaborateur,
-            avec bouton OK.
-          </p>
+            <p style={{ marginTop: 6, fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
+            Ici seulement, tu peux choisir entre un message classique dans le fil d&apos;infos ou un message affiché directement à l&apos;ouverture avec bouton OK.
+            </p>
 
           <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
             <input
@@ -539,7 +545,7 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
                 checked={showOnLogin}
                 onChange={(event) => setShowOnLogin(event.target.checked)}
               />
-              Afficher à la connexion avec clic OK obligatoire
+              Message d&apos;ouverture avec clic OK obligatoire
             </label>
 
             {targeting === "employees" ? (

@@ -225,7 +225,6 @@ export default function InfosPage() {
   const [announcementExpireAt, setAnnouncementExpireAt] = useState("");
   const [announcementEmployeeIds, setAnnouncementEmployeeIds] = useState<string[]>([]);
   const [announcementRayons, setAnnouncementRayons] = useState<string[]>([]);
-  const [announcementConfirmationRequired, setAnnouncementConfirmationRequired] = useState(true);
   const [announcementBusy, setAnnouncementBusy] = useState(false);
   const [announcementError, setAnnouncementError] = useState("");
   const [expandedAnnouncementId, setExpandedAnnouncementId] = useState<string | null>(null);
@@ -406,7 +405,7 @@ export default function InfosPage() {
         targeting: announcementTargeting,
         targetEmployeeIds: announcementEmployeeIds,
         targetRayons: announcementRayons,
-        confirmationRequired: announcementConfirmationRequired,
+        confirmationRequired: false,
       });
       setAnnouncements(loadInfoAnnouncements());
       setAnnouncementTitle("");
@@ -417,7 +416,6 @@ export default function InfosPage() {
       setAnnouncementExpireAt("");
       setAnnouncementEmployeeIds([]);
       setAnnouncementRayons([]);
-      setAnnouncementConfirmationRequired(true);
     } catch (error) {
       setAnnouncementError(error instanceof Error ? error.message : "Impossible de publier l'annonce.");
     } finally {
@@ -738,6 +736,19 @@ export default function InfosPage() {
 
           <div style={{ marginTop: "10px", border: "1px solid #dbe3eb", borderRadius: "12px", padding: "10px", display: "grid", gap: "8px" }}>
             <strong style={{ fontSize: "13px", color: "#0f172a" }}>Nouvelle annonce</strong>
+            <div
+              style={{
+                borderRadius: "10px",
+                border: "1px solid #dbeafe",
+                background: "#eff6ff",
+                color: "#1e40af",
+                fontSize: "12px",
+                lineHeight: 1.5,
+                padding: "10px 12px",
+              }}
+            >
+              Les annonces publiées ici restent dans le fil d&apos;infos. Le message affiché directement à l&apos;ouverture est réservé au menu admin.
+            </div>
             <input
               value={announcementTitle}
               onChange={(event) => setAnnouncementTitle(event.target.value)}
@@ -792,14 +803,6 @@ export default function InfosPage() {
                 />
               </label>
             </div>
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: "12px", color: "#334155" }}>
-              <input
-                type="checkbox"
-                checked={announcementConfirmationRequired}
-                onChange={(event) => setAnnouncementConfirmationRequired(event.target.checked)}
-              />
-              Ouverture obligatoire avant lecture côté collaborateur
-            </label>
             {announcementTargeting === "employees" ? (
               <div style={{ border: "1px solid #dbe3eb", borderRadius: "10px", padding: "10px", background: "#f8fafc" }}>
                 <div style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em" }}>

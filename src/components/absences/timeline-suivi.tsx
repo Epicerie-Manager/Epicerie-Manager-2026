@@ -107,6 +107,7 @@ function getCurrentTimelineDefaults() {
 
 function typeColor(type: AbsenceTypeId) {
   if (type === "CP") return "#16a34a";
+  if (type === "CONGE_SANS_SOLDE") return "#ea580c";
   if (type === "MAL") return "#dc2626";
   if (type === "CONGE_MAT") return "#ec4899";
   if (type === "FORM") return "#2563eb";
@@ -527,6 +528,7 @@ export function TimelineSuivi({ absences, employees }: TimelineSuiviProps) {
   const legendTypeCounts = useMemo(() => {
     const counters: Record<AbsenceTypeId, number> = {
       CP: 0,
+      CONGE_SANS_SOLDE: 0,
       RTT: 0,
       DEPLACEMENT_RH: 0,
       MAL: 0,
@@ -1496,6 +1498,7 @@ function VueResume({
     const mine = filtered.filter((absence) => absence.employee === employee);
   const byType: Record<AbsenceTypeId, number> = {
     CP: 0,
+    CONGE_SANS_SOLDE: 0,
     RTT: 0,
     DEPLACEMENT_RH: 0,
     MAL: 0,

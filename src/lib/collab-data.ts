@@ -104,6 +104,7 @@ function buildBasePlanningEntries(profile: CollabProfile, startDate: string, end
 function getPlanningStatusFromAbsenceType(type: unknown) {
   const upper = String(type ?? "").toUpperCase();
   if (upper === "CP") return "CP";
+  if (upper === "SANS_SOLDE" || upper === "CONGE_SANS_SOLDE") return "ABS";
   if (upper === "MAL") return "MAL";
   if (upper === "CONGE_MAT") return "CONGE_MAT";
   if (upper === "FORM") return "FORM";

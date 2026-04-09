@@ -126,6 +126,17 @@ export default function ExportsPage() {
           href="/exports/planning"
         />
         <ExportCard
+          emoji="🏖️"
+          title="Planning CP"
+          description="Préparer une frise hebdomadaire des congés payés approuvés sur une période libre."
+          chips={["Période libre", "Semaines ISO", "A3 paysage"]}
+          badgeLabel="Disponible"
+          badgeBg="#dcfce7"
+          badgeColor="#15803d"
+          iconBg="#fff7ed"
+          href="/exports/cp"
+        />
+        <ExportCard
           emoji="🏷️"
           title="Contrôle balisage"
           description="Préparer une synthèse mensuelle équipe pour le suivi balisage."

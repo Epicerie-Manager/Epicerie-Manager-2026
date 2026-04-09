@@ -18,10 +18,12 @@ import {
   loadEmployeeAbsenceYearStats,
   loadEmployeeBalisageYearStats,
   loadFollowupEmployees,
+  loadMetreAuditDraft,
   loadManagerDisplayName,
   loadMetreAuditDetail,
   loadRecentMetreAudits,
   saveMetreAudit,
+  updateMetreAudit,
   type EmployeeBalisageYearStats,
   type EmployeeAbsenceYearStats,
   type FollowupEmployeeOption,
@@ -395,6 +397,7 @@ export default function SuiviPage() {
   const [audits, setAudits] = useState<MetreAuditListItem[]>([]);
   const [selectedAuditId, setSelectedAuditId] = useState<string | null>(null);
   const [selectedAuditDetail, setSelectedAuditDetail] = useState<MetreAuditDetail | null>(null);
+  const [editingAuditId, setEditingAuditId] = useState<string | null>(null);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [expandedFormSections, setExpandedFormSections] = useState<Record<string, boolean>>(() =>
     Object.fromEntries(METRE_A_METRE_SECTIONS.map((section, index) => [section.key, index === 0])),
@@ -859,6 +862,15 @@ export default function SuiviPage() {
     }));
   };
 
+  const resetDraftToCreateMode = () => {
+    setEditingAuditId(null);
+    setDraft((current) => ({
+      ...createEmptyMetreAuditDraft(),
+      managerName: current.managerName,
+    }));
+    setExpandedFormSections(Object.fromEntries(METRE_A_METRE_SECTIONS.map((section, index) => [section.key, index === 0])));
+  };
+
   const handleSave = async () => {
     setError("");
     setSuccess("");
@@ -870,20 +882,33 @@ export default function SuiviPage() {
 
     setSaving(true);
     try {
-      const result = await saveMetreAudit(draft);
+      const result = editingAuditId
+        ? await updateMetreAudit(editingAuditId, draft)
+        : await saveMetreAudit(draft);
       const recentAudits = await loadRecentMetreAudits(200);
+      const refreshedDetail = await loadMetreAuditDetail(result.id);
       setAudits(recentAudits);
-      setSelectedAuditId(null);
+      setSelectedAuditId(result.id);
+      setSelectedAuditDetail(refreshedDetail);
+      setExpandedAuditSections(
+        Object.fromEntries((refreshedDetail?.sections ?? []).map((section, index) => [section.id, index === 0])),
+      );
       setSelectedEmployeeId(draft.employeeId);
       setView("team");
-      setSuccess(`Audit enregistré avec succès. Score global : ${result.globalScore.toFixed(0)}%.`);
-      setDraft((current) => ({
-        ...createEmptyMetreAuditDraft(),
-        managerName: current.managerName,
-      }));
-      setExpandedFormSections(Object.fromEntries(METRE_A_METRE_SECTIONS.map((section, index) => [section.key, index === 0])));
+      setSuccess(
+        editingAuditId
+          ? `Audit modifié avec succès. Score global : ${result.globalScore.toFixed(0)}%.`
+          : `Audit enregistré avec succès. Score global : ${result.globalScore.toFixed(0)}%.`,
+      );
+      resetDraftToCreateMode();
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Impossible d'enregistrer l'audit.");
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : editingAuditId
+            ? "Impossible de modifier l'audit."
+            : "Impossible d'enregistrer l'audit.",
+      );
     } finally {
       setSaving(false);
     }
@@ -921,6 +946,32 @@ export default function SuiviPage() {
     }
   };
 
+  const handleEditAudit = async () => {
+    if (!selectedAuditDetail) return;
+
+    setError("");
+    setSuccess("");
+    setSaving(true);
+
+    try {
+      const existingDraft = await loadMetreAuditDraft(selectedAuditDetail.id);
+      if (!existingDraft) {
+        setError("Impossible de retrouver cet audit pour modification.");
+        return;
+      }
+
+      setEditingAuditId(selectedAuditDetail.id);
+      setDraft(existingDraft);
+      setSelectedEmployeeId(existingDraft.employeeId);
+      setView("form");
+      setExpandedFormSections(Object.fromEntries(METRE_A_METRE_SECTIONS.map((section, index) => [section.key, index === 0])));
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Impossible de charger l'audit à modifier.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <section style={{ display: "grid", gap: 16, marginTop: 20 }}>
       <ModuleHeader
@@ -949,8 +1000,15 @@ export default function SuiviPage() {
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
             <CompactPill active={view === "team"} onClick={() => setView("team")}>Suivi équipe</CompactPill>
-            <CompactPill active={false} onClick={() => window.location.assign("/manager")}>Appli manager</CompactPill>
-            <CompactPill active={view === "form"} onClick={() => setView("form")}>Saisir un audit</CompactPill>
+            <CompactPill
+              active={view === "form"}
+              onClick={() => {
+                resetDraftToCreateMode();
+                setView("form");
+              }}
+            >
+              {editingAuditId ? "Nouvel audit" : "Saisir un audit"}
+            </CompactPill>
           </div>
         </div>
       </Card>
@@ -959,10 +1017,53 @@ export default function SuiviPage() {
         <div style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1.4fr) minmax(300px, 0.8fr)", alignItems: "start" }}>
           <Card style={{ border: "1px solid #e8ecf1", boxShadow: "0 1px 2px rgba(0,0,0,0.03), 0 8px 22px rgba(0,0,0,0.05)", background: "rgba(255,255,255,0.96)" }}>
             <Kicker moduleKey="suivi">Mètre à mètre</Kicker>
-            <h2 style={{ marginTop: 6, fontSize: 18, color: "#0f172a" }}>Saisie terrain</h2>
+            <h2 style={{ marginTop: 6, fontSize: 18, color: "#0f172a" }}>
+              {editingAuditId ? "Modification de l'audit" : "Saisie terrain"}
+            </h2>
             <p style={{ marginTop: 6, fontSize: 12, color: "#64748b" }}>
-              Même contenu métier que la fiche d&apos;origine, avec des sections repliables pour un usage plus propre.
+              {editingAuditId
+                ? "La visite existante est rechargée ici avec ses notes et ses commentaires pour corriger directement depuis le dashboard."
+                : "Même contenu métier que la fiche d&apos;origine, avec des sections repliables pour un usage plus propre."}
             </p>
+
+            {editingAuditId ? (
+              <div
+                style={{
+                  marginTop: 12,
+                  display: "flex",
+                  justifyContent: "space-between",
+                  gap: 10,
+                  alignItems: "center",
+                  flexWrap: "wrap",
+                  borderRadius: 12,
+                  border: "1px solid #ddd6fe",
+                  background: "#f5f3ff",
+                  padding: "10px 12px",
+                }}
+              >
+                <div style={{ fontSize: 12, color: "#5b21b6" }}>
+                  Tu modifies l&apos;audit de <strong>{draft.collaboratorName || "ce collaborateur"}</strong> du{" "}
+                  <strong>{formatAuditDate(draft.auditDate)}</strong>.
+                </div>
+                <button
+                  type="button"
+                  onClick={() => resetDraftToCreateMode()}
+                  style={{
+                    minHeight: 34,
+                    borderRadius: 999,
+                    border: "1px solid #c4b5fd",
+                    background: "#fff",
+                    color: "#6d28d9",
+                    padding: "0 12px",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  Quitter la modification
+                </button>
+              </div>
+            ) : null}
 
             <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", marginTop: 12 }}>
               <label style={{ display: "grid", gap: 4, fontSize: 11, color: "#64748b" }}>
@@ -1218,8 +1319,8 @@ export default function SuiviPage() {
                   opacity: saving || loading ? 0.7 : 1,
                 }}
               >
-                {saving ? "Enregistrement..." : "Enregistrer l'audit"}
-              </button>
+                  {saving ? (editingAuditId ? "Modification..." : "Enregistrement...") : (editingAuditId ? "Enregistrer les modifications" : "Enregistrer l'audit")}
+                </button>
             </div>
           </Card>
 
@@ -1800,25 +1901,44 @@ export default function SuiviPage() {
                             >
                               {auditTone.label}
                             </div>
-                            <button
-                              type="button"
-                              onClick={handleDeleteAudit}
-                              disabled={deleting}
-                              style={{
-                                minHeight: 34,
-                                borderRadius: 999,
-                                border: "1px solid #fca5a5",
-                                background: "#fff5f5",
-                                color: "#b91c1c",
-                                padding: "0 12px",
-                                fontSize: 11,
-                                fontWeight: 700,
-                                cursor: deleting ? "not-allowed" : "pointer",
-                                opacity: deleting ? 0.7 : 1,
-                              }}
-                            >
-                              {deleting ? "Suppression..." : "Supprimer l'audit"}
-                            </button>
+                            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", justifyContent: "end" }}>
+                              <button
+                                type="button"
+                                onClick={handleEditAudit}
+                                style={{
+                                  minHeight: 34,
+                                  borderRadius: 999,
+                                  border: "1px solid #c4b5fd",
+                                  background: "#f5f3ff",
+                                  color: "#6d28d9",
+                                  padding: "0 12px",
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  cursor: "pointer",
+                                }}
+                              >
+                                Modifier l&apos;audit
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleDeleteAudit}
+                                disabled={deleting}
+                                style={{
+                                  minHeight: 34,
+                                  borderRadius: 999,
+                                  border: "1px solid #fca5a5",
+                                  background: "#fff5f5",
+                                  color: "#b91c1c",
+                                  padding: "0 12px",
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  cursor: deleting ? "not-allowed" : "pointer",
+                                  opacity: deleting ? 0.7 : 1,
+                                }}
+                              >
+                                {deleting ? "Suppression..." : "Supprimer l&apos;audit"}
+                              </button>
+                            </div>
                           </div>
                         </div>
 

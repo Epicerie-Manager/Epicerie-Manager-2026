@@ -102,6 +102,21 @@ function normalizeAbsenceStatus(value: unknown): AbsenceRequest["status"] {
   return "approuve";
 }
 
+function normalizeAbsenceType(value: unknown): AbsenceRequest["type"] {
+  const upper = String(value ?? "").toUpperCase().trim();
+  if (upper === "SANS_SOLDE" || upper === "CONGE_SANS_SOLDE" || upper === "CONGE SANS SOLDE") {
+    return "CONGE_SANS_SOLDE";
+  }
+  if (upper === "RTT") return "RTT";
+  if (upper === "CP") return "CP";
+  if (upper === "DEPLACEMENT_RH") return "DEPLACEMENT_RH";
+  if (upper === "MAL") return "MAL";
+  if (upper === "CONGE_MAT") return "CONGE_MAT";
+  if (upper === "FORM") return "FORM";
+  if (upper === "FERIE") return "FERIE";
+  return "AUTRE";
+}
+
 function normalizeActionError(error: unknown) {
   const rawMessage = String(
     (error as { message?: string; error_description?: string })?.message ??
@@ -140,6 +155,9 @@ function getPlanningMonthKeyForDate(date: string) {
 function getAbsenceTypeFromPlanningStatus(status: string): AbsenceRequest["type"] | null {
   const upper = String(status ?? "").toUpperCase().trim();
   if (upper === "CP") return "CP";
+  if (upper === "CONGE_SANS_SOLDE" || upper === "SANS_SOLDE" || upper === "CONGE SANS SOLDE") {
+    return "CONGE_SANS_SOLDE";
+  }
   if (upper === "DEPLACEMENT_RH") return "DEPLACEMENT_RH";
   if (upper === "MAL") return "MAL";
   if (upper === "CONGE_MAT") return "CONGE_MAT";
@@ -214,7 +232,7 @@ function mapRowToAbsenceRequest(
       row,
       [
         employee,
-        String(row.type ?? row.absence_type ?? "AUTRE"),
+        normalizeAbsenceType(row.type ?? row.absence_type ?? "AUTRE"),
         startDate,
         endDate,
         normalizeAbsenceStatus(row.statut ?? row.status),
@@ -224,7 +242,7 @@ function mapRowToAbsenceRequest(
     ),
     dbId,
     employee,
-    type: String(row.type ?? row.absence_type ?? "AUTRE") as AbsenceRequest["type"],
+    type: normalizeAbsenceType(row.type ?? row.absence_type ?? "AUTRE"),
     startDate,
     endDate,
     status: normalizeAbsenceStatus(row.statut ?? row.status),

@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useRef, useState } from "react";
 import {
   METRE_A_METRE_SECTIONS,
   computeGlobalScore,
@@ -12,8 +13,10 @@ import {
 } from "@/lib/metre-a-metre-config";
 import {
   loadFollowupFieldVisitSetup,
+  loadMetreAuditDraft,
   loadManagerDisplayName,
   saveMetreAudit,
+  updateMetreAudit,
   type FollowupEmployeeOption,
 } from "@/lib/followup-store";
 
@@ -60,7 +63,9 @@ function metricTileStyle(): React.CSSProperties {
   };
 }
 
-export default function ManagerNewTerrainVisitPage() {
+function ManagerNewTerrainVisitPageContent() {
+  const searchParams = useSearchParams();
+  const auditId = searchParams.get("auditId");
   const [employees, setEmployees] = useState<FollowupEmployeeOption[]>([]);
   const [rayons, setRayons] = useState<string[]>([]);
   const [draft, setDraft] = useState<MetreAuditDraft>(() => createEmptyMetreAuditDraft());
@@ -71,23 +76,58 @@ export default function ManagerNewTerrainVisitPage() {
   const [success, setSuccess] = useState("");
   const sectionTopRef = useRef<HTMLDivElement | null>(null);
   const progressAxesRef = useRef<HTMLDivElement | null>(null);
+  const isEditMode = Boolean(auditId);
+  const backHref = isEditMode ? "/suivi" : "/manager/terrain";
 
   useEffect(() => {
     let cancelled = false;
     const loadPage = async () => {
       try {
         setLoading(true);
-        const [{ employees: employeeOptions, rayons: availableRayons }, managerName] = await Promise.all([
+        setError("");
+        const [{ employees: employeeOptions, rayons: availableRayons }, managerName, existingDraft] = await Promise.all([
           loadFollowupFieldVisitSetup(),
           loadManagerDisplayName(),
+          auditId ? loadMetreAuditDraft(auditId) : Promise.resolve(null),
         ]);
         if (cancelled) return;
-        setEmployees(employeeOptions.filter((employee) => employee.eligibleForFieldVisit));
+        const eligibleEmployees = employeeOptions.filter((employee) => employee.eligibleForFieldVisit);
+        const effectiveEmployees =
+          existingDraft &&
+          existingDraft.employeeId &&
+          !eligibleEmployees.some((employee) => employee.id === existingDraft.employeeId)
+            ? [
+                {
+                  id: existingDraft.employeeId,
+                  name: existingDraft.collaboratorName.trim().toUpperCase(),
+                  rayons: existingDraft.rayon ? [existingDraft.rayon] : [],
+                  role: "COLLABORATEUR",
+                  eligibleForFieldVisit: true,
+                  eligibleForBalisage: true,
+                },
+                ...eligibleEmployees,
+              ]
+            : eligibleEmployees;
+
+        setEmployees(effectiveEmployees);
         setRayons(availableRayons);
-        setDraft((current) => ({ ...current, managerName: current.managerName || managerName }));
+        if (existingDraft) {
+          setDraft({
+            ...existingDraft,
+            managerName: existingDraft.managerName || managerName,
+          });
+        } else {
+          setDraft((current) => ({ ...current, managerName: current.managerName || managerName }));
+        }
       } catch (loadError) {
         if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Impossible de charger la saisie terrain.");
+          setError(
+            loadError instanceof Error
+              ? loadError.message
+              : isEditMode
+                ? "Impossible de charger l'audit à modifier."
+                : "Impossible de charger la saisie terrain.",
+          );
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -97,7 +137,7 @@ export default function ManagerNewTerrainVisitPage() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [auditId, isEditMode]);
 
   const activeSection = METRE_A_METRE_SECTIONS[activeSectionIndex];
   const globalScore = computeGlobalScore(draft);
@@ -178,12 +218,26 @@ export default function ManagerNewTerrainVisitPage() {
       setSaving(true);
       setError("");
       setSuccess("");
-      await saveMetreAudit(draft);
-      setSuccess(`Audit enregistré avec succès, score global ${Math.round(computeGlobalScore(draft))}%.`);
-      setDraft((current) => ({ ...createEmptyMetreAuditDraft(), managerName: current.managerName }));
-      setActiveSectionIndex(0);
+      const result = isEditMode && auditId
+        ? await updateMetreAudit(auditId, draft)
+        : await saveMetreAudit(draft);
+      setSuccess(
+        isEditMode
+          ? `Audit mis à jour avec succès, score global ${Math.round(result.globalScore)}%.`
+          : `Audit enregistré avec succès, score global ${Math.round(result.globalScore)}%.`,
+      );
+      if (!isEditMode) {
+        setDraft((current) => ({ ...createEmptyMetreAuditDraft(), managerName: current.managerName }));
+        setActiveSectionIndex(0);
+      }
     } catch (saveError) {
-      setError(saveError instanceof Error ? saveError.message : "Impossible d'enregistrer l'audit.");
+      setError(
+        saveError instanceof Error
+          ? saveError.message
+          : isEditMode
+            ? "Impossible de modifier l'audit."
+            : "Impossible d'enregistrer l'audit.",
+      );
     } finally {
       setSaving(false);
     }
@@ -206,17 +260,19 @@ export default function ManagerNewTerrainVisitPage() {
                 whiteSpace: "nowrap",
               }}
             >
-              Nouvelle visite terrain
+              {isEditMode ? "Modifier une visite terrain" : "Nouvelle visite terrain"}
             </div>
             <div style={{ fontSize: 13, color: "#6b7280", lineHeight: 1.55 }}>
-              Une section à la fois, puis enregistrement direct en base.
+              {isEditMode
+                ? "Retouche l'audit existant section par section, puis enregistre la mise à jour."
+                : "Une section à la fois, puis enregistrement direct en base."}
             </div>
           </div>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
-            <Link href="/manager/terrain" style={{ textDecoration: "none", minHeight: 40, borderRadius: 999, padding: "0 14px", display: "inline-flex", alignItems: "center", justifyContent: "center", background: "#fff", color: "#374151", fontSize: 12, fontWeight: 800, border: "1px solid rgba(216,209,200,1)" }}>
+            <Link href={backHref} style={{ textDecoration: "none", minHeight: 40, borderRadius: 999, padding: "0 14px", display: "inline-flex", alignItems: "center", justifyContent: "center", background: "#fff", color: "#374151", fontSize: 12, fontWeight: 800, border: "1px solid rgba(216,209,200,1)" }}>
               Retour
             </Link>
-            <Link href="/manager/terrain" style={{ textDecoration: "none", minHeight: 40, borderRadius: 999, padding: "0 14px", display: "inline-flex", alignItems: "center", justifyContent: "center", background: "#fff7ed", color: "#c2410c", fontSize: 12, fontWeight: 800, border: "1px solid #fdba74" }}>
+            <Link href={backHref} style={{ textDecoration: "none", minHeight: 40, borderRadius: 999, padding: "0 14px", display: "inline-flex", alignItems: "center", justifyContent: "center", background: "#fff7ed", color: "#c2410c", fontSize: 12, fontWeight: 800, border: "1px solid #fdba74" }}>
               Annuler
             </Link>
           </div>
@@ -471,11 +527,19 @@ export default function ManagerNewTerrainVisitPage() {
           {success ? <div style={{ fontSize: 13, color: "#166534" }}>{success}</div> : null}
           {loading ? <div style={{ fontSize: 13, color: "#6b7280" }}>Chargement des références terrain...</div> : null}
           <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
-            <Link href="/manager/terrain" style={{ textDecoration: "none", minHeight: 52, borderRadius: 999, border: "1px solid #d8d1c8", background: "#fff", color: "#374151", fontSize: 14, fontWeight: 800, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>Annuler</Link>
-            <button type="button" onClick={handleSave} disabled={saving || loading} style={{ minHeight: 52, borderRadius: 999, border: "none", background: "linear-gradient(135deg, #be123c, #ef4444)", color: "#fff", fontSize: 15, fontWeight: 800, boxShadow: "0 14px 28px rgba(190,24,93,0.24)", opacity: saving || loading ? 0.7 : 1 }}>{saving ? "Enregistrement..." : "Enregistrer l'audit"}</button>
+            <Link href={backHref} style={{ textDecoration: "none", minHeight: 52, borderRadius: 999, border: "1px solid #d8d1c8", background: "#fff", color: "#374151", fontSize: 14, fontWeight: 800, display: "inline-flex", alignItems: "center", justifyContent: "center" }}>Annuler</Link>
+            <button type="button" onClick={handleSave} disabled={saving || loading} style={{ minHeight: 52, borderRadius: 999, border: "none", background: "linear-gradient(135deg, #be123c, #ef4444)", color: "#fff", fontSize: 15, fontWeight: 800, boxShadow: "0 14px 28px rgba(190,24,93,0.24)", opacity: saving || loading ? 0.7 : 1 }}>{saving ? (isEditMode ? "Mise à jour..." : "Enregistrement...") : (isEditMode ? "Modifier l'audit" : "Enregistrer l'audit")}</button>
           </div>
         </div>
       </div>
     </section>
+  );
+}
+
+export default function ManagerNewTerrainVisitPage() {
+  return (
+    <Suspense fallback={<section style={{ display: "grid", gap: 16, fontSize: 13, color: "#6b7280" }}>Chargement de la saisie terrain...</section>}>
+      <ManagerNewTerrainVisitPageContent />
+    </Suspense>
   );
 }

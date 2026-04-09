@@ -25,7 +25,7 @@ export const METRE_A_METRE_SECTIONS: MetreSection[] = [
   {
     key: "presentation_rayon",
     label: "Presentation Rayon",
-    coefficient: 20,
+    coefficient: 25,
     type: "rating",
     questions: [
       { key: "fill_rate", label: "Taux de remplissage", type: "rating" },
@@ -39,7 +39,7 @@ export const METRE_A_METRE_SECTIONS: MetreSection[] = [
   {
     key: "balisage_signaletique",
     label: "Balisage & Signalétique",
-    coefficient: 15,
+    coefficient: 20,
     type: "boolean",
     questions: [
       { key: "promo_signage_10x10", label: "Balisage promo 10x10", type: "boolean", expectedAnswer: "OUI" },
@@ -64,7 +64,7 @@ export const METRE_A_METRE_SECTIONS: MetreSection[] = [
   {
     key: "reserve_logistique",
     label: "Réserve & Logistique",
-    coefficient: 20,
+    coefficient: 10,
     type: "boolean",
     questions: [
       { key: "pallets_wrapped", label: "Palettes filmées", type: "boolean", expectedAnswer: "OUI" },
@@ -78,7 +78,7 @@ export const METRE_A_METRE_SECTIONS: MetreSection[] = [
   {
     key: "epi",
     label: "EPI",
-    coefficient: 20,
+    coefficient: 15,
     type: "boolean",
     questions: [
       { key: "auchan_vest_worn", label: "Gilet Auchan", type: "boolean", expectedAnswer: "OUI" },
@@ -156,10 +156,12 @@ export function computeSectionScore(section: MetreSection, response: MetreSectio
 }
 
 export function computeGlobalScore(draft: MetreAuditDraft) {
+  const totalCoefficient = METRE_A_METRE_SECTIONS.reduce((sum, section) => sum + section.coefficient, 0);
   const weighted = METRE_A_METRE_SECTIONS.reduce((sum, section) => {
     const sectionResponse = draft.sections[section.key];
     const sectionScore = computeSectionScore(section, sectionResponse);
-    return sum + (sectionScore * section.coefficient) / 100;
+    return sum + sectionScore * section.coefficient;
   }, 0);
-  return Number(weighted.toFixed(2));
+  if (!totalCoefficient) return 0;
+  return Number((weighted / totalCoefficient).toFixed(2));
 }

@@ -22,7 +22,7 @@ import {
   updateAbsenceStatusInSupabase,
 } from "@/lib/absences-store";
 import { TimelineSuivi } from "@/components/absences/timeline-suivi";
-import { defaultRhEmployees, getRhEmployeeNames, getRhUpdatedEventName } from "@/lib/rh-store";
+import { defaultRhEmployees, getRhEmployeeNames, getRhUpdatedEventName, syncRhFromSupabase } from "@/lib/rh-store";
 import {
   getPlanningUpdatedEventName,
   loadPlanningOverrides,
@@ -62,6 +62,7 @@ function getDayDiff(startDate: string, endDate: string) {
 export default function AbsencesPage() {
   const theme = moduleThemes.absences;
   const [isInitialized, setIsInitialized] = useState(false);
+  const [isEmployeesLoading, setIsEmployeesLoading] = useState(true);
   const [requests, setRequests] = useState<AbsenceRequest[]>(() => loadAbsenceRequests());
   const [planningOverrides, setPlanningOverrides] = useState<PlanningOverrides>(() => loadPlanningOverrides());
   const [presenceThresholds, setPresenceThresholds] = useState(() => loadPresenceThresholds());
@@ -80,7 +81,7 @@ export default function AbsencesPage() {
     endDate: string;
     note: string;
   }>({
-    employee: "TOUS",
+    employee: "",
     type: "CP",
     startDate: "",
     endDate: "",
@@ -88,7 +89,7 @@ export default function AbsencesPage() {
   });
 
   const managerCreationEmployees = useMemo(() => {
-    return ["TOUS", ...employees.filter((employee) => employee !== "TOUS")];
+    return employees.filter((employee) => employee !== "TOUS" && employee !== "TOUS LES EMPLOYES");
   }, [employees]);
 
   const filteredRequests = useMemo(() => {
@@ -147,11 +148,13 @@ export default function AbsencesPage() {
     refresh();
     setIsInitialized(true);
     void Promise.all([
+      syncRhFromSupabase(),
       syncAbsencesFromSupabase(),
       syncPlanningFromSupabase(),
       syncPresenceThresholdsFromSupabase(),
     ]).then(() => {
       refresh();
+      setIsEmployeesLoading(false);
     });
     const listeners = [
       getAbsencesUpdatedEventName(),
@@ -165,12 +168,16 @@ export default function AbsencesPage() {
   useEffect(() => {
     const refreshEmployees = () => {
       const names = getRhEmployeeNames();
+      const nextCreationEmployees = names.filter(
+        (employee) => employee !== "TOUS" && employee !== "TOUS LES EMPLOYES",
+      );
       setEmployees(names);
       setDraft((current) =>
-        current.employee === "TOUS" || names.includes(current.employee)
+        !current.employee || nextCreationEmployees.includes(current.employee) || names.includes(current.employee)
           ? current
-          : { ...current, employee: "TOUS" },
+          : { ...current, employee: "" },
       );
+      setIsEmployeesLoading(false);
     };
     if (!isInitialized) return;
     refreshEmployees();
@@ -178,6 +185,14 @@ export default function AbsencesPage() {
     window.addEventListener(eventName, refreshEmployees);
     return () => window.removeEventListener(eventName, refreshEmployees);
   }, [isInitialized]);
+
+  useEffect(() => {
+    if (managerCreationEmployees.length > 0) return;
+    setIsEmployeesLoading(true);
+    void syncRhFromSupabase().finally(() => {
+      setIsEmployeesLoading(false);
+    });
+  }, [managerCreationEmployees.length]);
 
   const pendingCount = requests.filter((request) => request.status === "en_attente").length;
   const approvedCount = requests.filter((request) => request.status === "approuve").length;
@@ -202,7 +217,7 @@ export default function AbsencesPage() {
         status: "en_attente",
       });
       setRequests(loadAbsenceRequests());
-      setDraft({ employee: "TOUS", type: "CP", startDate: "", endDate: "", note: "" });
+      setDraft({ employee: "", type: "CP", startDate: "", endDate: "", note: "" });
       setShowForm(false);
     } catch (nextError) {
       setError(nextError instanceof Error ? nextError.message : "Impossible de créer la demande.");
@@ -338,10 +353,22 @@ export default function AbsencesPage() {
           <div style={{ display: "grid", gap: "10px", gridTemplateColumns: "repeat(4, minmax(0, 1fr))", marginTop: "10px" }}>
             <label style={{ display: "grid", gap: "4px", fontSize: "12px", color: "#64748b" }}>
               <span>Employe</span>
-              <select value={draft.employee} onChange={(event) => setDraft((current) => ({ ...current, employee: event.target.value }))} style={{ minHeight: "36px", borderRadius: "10px", border: "1px solid #dbe3eb", padding: "0 10px" }}>
-                {managerCreationEmployees.map((employee) => (
-                  <option key={employee} value={employee}>{employee === "TOUS" ? "TOUS LES EMPLOYES" : employee}</option>
-                ))}
+              <select
+                value={draft.employee}
+                onChange={(event) => setDraft((current) => ({ ...current, employee: event.target.value }))}
+                disabled={isEmployeesLoading || managerCreationEmployees.length === 0}
+                style={{ minHeight: "36px", borderRadius: "10px", border: "1px solid #dbe3eb", padding: "0 10px" }}
+              >
+                {isEmployeesLoading || managerCreationEmployees.length === 0 ? (
+                  <option value="">Chargement des collaborateurs...</option>
+                ) : (
+                  <>
+                    <option value="">Choisir un collaborateur</option>
+                    {managerCreationEmployees.map((employee) => (
+                      <option key={employee} value={employee}>{employee}</option>
+                    ))}
+                  </>
+                )}
               </select>
             </label>
             <label style={{ display: "grid", gap: "4px", fontSize: "12px", color: "#64748b" }}>

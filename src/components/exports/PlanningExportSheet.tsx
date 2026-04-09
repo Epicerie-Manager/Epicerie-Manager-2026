@@ -14,15 +14,14 @@ import { type PlanningBinomes, type PlanningOverrides, type PlanningTriData, for
 import { getPlanningPresenceCountsForDate } from "@/lib/planning-presence";
 import { getPresenceCountLevel, type PresenceThresholds } from "@/lib/presence-thresholds";
 import { type RhCycles, type RhEmployee } from "@/lib/rh-store";
-import { colors, shadows } from "@/lib/theme";
+import { shadows } from "@/lib/theme";
 
 const LEGENDS = [
-  { label: "Horaire", color: "#15803d", bg: "#dcfce7" },
-  { label: "RH", color: "#94a3b8", bg: "#f1f5f9" },
-  { label: "CP", color: "#1e40af", bg: "#dbeafe" },
-  { label: "Férié", color: "#854d0e", bg: "#fef9c3" },
-  { label: "ABS", color: "#9a3412", bg: "#fed7aa" },
-  { label: "C.M", color: "#9d174d", bg: "#fce7f3" },
+  { label: "Horaire", color: "#166534", bg: "#ffffff" },
+  { label: "RH", color: "#92400e", bg: "#fffbeb" },
+  { label: "Férié/CP", color: "#991b1b", bg: "#fff7f7" },
+  { label: "C.M", color: "#831843", bg: "#fdf2f8" },
+  { label: "Dimanche", color: "#9ca3af", bg: "#f9fafb" },
 ];
 
 type PlanningExportSheetProps = {
@@ -112,11 +111,10 @@ export default function PlanningExportSheet({
       className="print-sheet"
       style={{
         background: "#ffffff",
-        border: "2px solid #dbeafe",
+        border: "1px solid #e5e7eb",
         borderRadius: 24,
         boxShadow: elevated ? shadows.card : "none",
         padding: 14,
-        backgroundImage: "linear-gradient(180deg,#ffffff 0%,#fbfdff 100%)",
       }}
     >
       <PrintHeader
@@ -135,9 +133,12 @@ export default function PlanningExportSheet({
                   textAlign: "left",
                   fontSize: 8,
                   fontWeight: 800,
-                  color: colors.textStrong,
-                background: "#f8fafc",
-                border: "1px solid #dbe3eb",
+                  color: "#111827",
+                  background: "#f8fafc",
+                  borderTop: "1px solid #dbe3eb",
+                  borderRight: "1px solid #dbe3eb",
+                  borderBottom: "1px solid #dbe3eb",
+                  borderLeft: "3px solid #334155",
               }}
             >
               Employé
@@ -145,7 +146,6 @@ export default function PlanningExportSheet({
             {dates.map((date, index) => {
               const iso = formatPlanningDate(date);
               const isToday = iso === todayIso;
-              const isWeekend = date.getDay() === 0 || date.getDay() === 6;
               const isSplit = format === "2s" && index === 7;
               return (
                 <th
@@ -155,15 +155,15 @@ export default function PlanningExportSheet({
                     textAlign: "center",
                     fontSize: 7.5,
                     fontWeight: 800,
-                    color: isToday ? "#ffffff" : isWeekend ? "#94a3b8" : "#1e293b",
-                    background: isToday ? "#d40511" : "#ffffff",
-                    borderTop: "1px solid #dbe3eb",
-                    borderRight: "1px solid #dbe3eb",
-                    borderBottom: "1px solid #dbe3eb",
-                    borderLeft: isSplit ? "3px solid #334155" : "1px solid #dbe3eb",
+                    color: isToday ? "#d40511" : "#ffffff",
+                    background: isToday ? "#ffffff" : "#d40511",
+                    borderTop: "1px solid #b8040f",
+                    borderRight: "1px solid #b8040f",
+                    borderBottom: "1px solid #b8040f",
+                    borderLeft: isSplit ? "3px solid #334155" : "1px solid #b8040f",
                   }}
                 >
-                  <div style={{ fontSize: 6.5, fontWeight: 800, color: isToday ? "#fee2e2" : "#94a3b8" }}>
+                  <div style={{ fontSize: 6.5, fontWeight: 800, color: isToday ? "#d40511" : "#ffffff" }}>
                     {EXPORT_JOUR_SHORT[date.getDay()]}
                   </div>
                   <div style={{ fontSize: 12, fontWeight: 800 }}>{date.getDate()}</div>
@@ -177,9 +177,12 @@ export default function PlanningExportSheet({
                 textAlign: "center",
                 fontSize: 7.5,
                 fontWeight: 800,
-                color: "#1e293b",
+                color: "#111827",
                 background: "#f8fafc",
-                border: "1px solid #dbe3eb",
+                borderTop: "1px solid #dbe3eb",
+                borderRight: "1px solid #dbe3eb",
+                borderBottom: "1px solid #dbe3eb",
+                borderLeft: "3px solid #334155",
               }}
             >
               Jrs
@@ -192,10 +195,13 @@ export default function PlanningExportSheet({
               style={{
                 padding: "4px 7px",
                 background: "#f8fafc",
-                border: "1px solid #dbe3eb",
+                borderTop: "1px solid #dbe3eb",
+                borderRight: "1px solid #dbe3eb",
+                borderBottom: "1px solid #dbe3eb",
+                borderLeft: "3px solid #334155",
                 fontSize: 7.5,
                 fontWeight: 800,
-                color: "#1e40af",
+                color: "#111827",
               }}
             >
               Effectif M / AM
@@ -231,7 +237,10 @@ export default function PlanningExportSheet({
                 padding: "2px 1px",
                 textAlign: "center",
                 background: "#ffffff",
-                border: "1px solid #dbe3eb",
+                borderTop: "1px solid #dbe3eb",
+                borderRight: "1px solid #dbe3eb",
+                borderBottom: "1px solid #dbe3eb",
+                borderLeft: "3px solid #334155",
               }}
             />
           </tr>
@@ -244,10 +253,22 @@ export default function PlanningExportSheet({
                     padding: "5px 8px",
                     background: section.bandBg,
                     color: section.bandColor,
-                    border: "1px solid #dbe3eb",
-                    fontSize: 7.5,
+                    borderTop: "1px solid #dbe3eb",
+                    borderRight: "1px solid #dbe3eb",
+                    borderBottom: "1px solid #dbe3eb",
+                    borderLeft:
+                      section.id === "morningCoordinators"
+                        ? "4px solid #15803d"
+                        : section.id === "morningTeam"
+                          ? "4px solid #2563eb"
+                          : section.id === "afternoonCoordinators"
+                            ? "4px solid #ea580c"
+                            : section.id === "afternoonTeam"
+                              ? "4px solid #ca8a04"
+                              : "4px solid #7c3aed",
+                    fontSize: 9,
                     fontWeight: 800,
-                    letterSpacing: "0.08em",
+                    letterSpacing: "0.1em",
                     textTransform: "uppercase",
                   }}
                 >
@@ -260,10 +281,13 @@ export default function PlanningExportSheet({
                     style={{
                       padding: "4px 7px",
                       background: section.nameBg,
-                      border: "1px solid #dbe3eb",
+                      borderTop: "1px solid #dbe3eb",
+                      borderRight: "1px solid #dbe3eb",
+                      borderBottom: "1px solid #dbe3eb",
+                      borderLeft: "3px solid #334155",
                       fontSize: 7.5,
-                      fontWeight: 800,
-                      color: colors.textStrong,
+                      fontWeight: 600,
+                      color: "#111827",
                     }}
                   >
                       <div style={{ display: "flex", alignItems: "center", gap: 4, flexWrap: "wrap" }}>
@@ -288,7 +312,6 @@ export default function PlanningExportSheet({
                   {dates.map((date, index) => {
                     const iso = formatPlanningDate(date);
                     const cell = getCellStatus(employee, date, overrides, cycles);
-                    const isWeekend = date.getDay() === 0 || date.getDay() === 6;
                     const isSplit = format === "2s" && index === 7;
                     const value = format === "1m" ? cell.shortText : cell.text;
                     return (
@@ -300,21 +323,22 @@ export default function PlanningExportSheet({
                           borderRight: "1px solid #dbe3eb",
                           borderBottom: "1px solid #dbe3eb",
                           borderLeft: isSplit ? "3px solid #334155" : "1px solid #dbe3eb",
-                          background: isWeekend ? "#f8fafc" : "#ffffff",
+                          background: "#ffffff",
                         }}
                       >
                         <div
                           style={{
                             minHeight: format === "1m" ? 16 : 20,
-                            borderRadius: 5,
+                            borderRadius: 0,
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
-                            background: cell.status === "X" ? section.cellBg : cell.style.bg,
+                            background: cell.style.bg,
                             color: cell.style.color,
                             border: `1px solid ${cell.style.borderColor}`,
+                            borderLeft: cell.style.accentColor ? `3px solid ${cell.style.accentColor}` : "1px solid transparent",
                             fontSize: format === "1m" ? 6.8 : 7.5,
-                            fontWeight: 800,
+                            fontWeight: cell.status === "X" ? 400 : 700,
                             padding: "1px",
                             whiteSpace: "nowrap",
                             overflow: "hidden",

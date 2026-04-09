@@ -4,9 +4,10 @@ type PrintHeaderProps = {
   title: string;
   dates: string;
   printedAt?: string;
+  subtitle?: string;
 };
 
-export default function PrintHeader({ title, dates, printedAt }: PrintHeaderProps) {
+export default function PrintHeader({ title, dates, printedAt, subtitle = "Auchan — Planning équipe" }: PrintHeaderProps) {
   const printedLabel =
     printedAt ||
     new Date().toLocaleDateString("fr-FR", {
@@ -19,7 +20,7 @@ export default function PrintHeader({ title, dates, printedAt }: PrintHeaderProp
     <div
       style={{
         display: "grid",
-        gridTemplateColumns: "auto 1fr auto",
+        gridTemplateColumns: "auto auto 1fr auto",
         gap: 12,
         alignItems: "center",
         paddingBottom: 8,
@@ -46,10 +47,19 @@ export default function PrintHeader({ title, dates, printedAt }: PrintHeaderProp
         </div>
       <div>
         <div style={{ fontSize: 13, fontWeight: 800, color: "#0f172a" }}>Épicerie Villebon 2</div>
-        <div style={{ fontSize: 10, color: "#64748b" }}>Auchan — Planning équipe</div>
+        <div style={{ fontSize: 10, color: "#64748b" }}>{subtitle}</div>
       </div>
-      <div style={{ textAlign: "right" }}>
-        <div style={{ fontSize: 15, fontWeight: 800, color: "#d40511" }}>{title}</div>
+      <div
+        style={{
+          textAlign: "center",
+          justifySelf: "center",
+          width: "100%",
+          minWidth: 0,
+        }}
+      >
+        <div style={{ fontSize: 20, fontWeight: 900, color: "#d40511", lineHeight: 1 }}>{title}</div>
+      </div>
+      <div style={{ textAlign: "right", justifySelf: "end" }}>
         <div style={{ fontSize: 10, fontWeight: 700, color: "#334155", marginTop: 1 }}>{dates}</div>
         <div style={{ fontSize: 9, color: "#64748b", marginTop: 1 }}>Imprimé le {printedLabel}</div>
       </div>

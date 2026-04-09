@@ -82,7 +82,7 @@ function formatDayLabel(date: Date) {
 }
 
 function isAbsenceLikeStatus(status: string) {
-  return ["CP", "MAL", "FORM", "FERIE", "CONGE_MAT", "DEPLACEMENT_RH", "ABS", "X"].includes(String(status).toUpperCase());
+  return ["CP", "MAL", "FORM", "FERIE", "CONGE_MAT", "DEPLACEMENT_RH", "CONGE_SANS_SOLDE", "ABS", "X"].includes(String(status).toUpperCase());
 }
 
 function getStatusTone(status: string) {
@@ -91,6 +91,7 @@ function getStatusTone(status: string) {
   if (normalized === "RH") return { bg: "#ede9fe", color: "#6d28d9", label: "RH" };
   if (normalized === "X") return { bg: "#f3f4f6", color: "#6b7280", label: "X" };
   if (normalized === "CP") return { bg: "#fffbeb", color: "#92400e", label: "CP" };
+  if (normalized === "CONGE_SANS_SOLDE") return { bg: "#fff7ed", color: "#c2410c", label: "CSS" };
   if (normalized === "DEPLACEMENT_RH") return { bg: "#eef2ff", color: "#4338ca", label: "DEP" };
   if (normalized === "MAL") return { bg: "#fef2f2", color: "#b91c1c", label: "MAL" };
   if (normalized === "CONGE_MAT") return { bg: "#fff7ed", color: "#c2410c", label: "MAT" };
@@ -117,6 +118,7 @@ function getPresenceBadges(horaire: string | null) {
 function planningStatusToAbsenceType(status: string): AbsenceTypeId {
   const upper = String(status).toUpperCase();
   if (upper === "CP") return "CP";
+  if (upper === "CONGE_SANS_SOLDE" || upper === "SANS_SOLDE" || upper === "ABS") return "CONGE_SANS_SOLDE";
   if (upper === "DEPLACEMENT_RH") return "DEPLACEMENT_RH";
   if (upper === "MAL") return "MAL";
   if (upper === "CONGE_MAT") return "CONGE_MAT";

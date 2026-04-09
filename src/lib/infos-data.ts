@@ -67,6 +67,7 @@ export type InfoAnnouncementAudienceDashboardUser = {
   id: string;
   name: string;
   email: string;
+  employeeId: string | null;
 };
 
 export type InfoAnnouncementAudience = {

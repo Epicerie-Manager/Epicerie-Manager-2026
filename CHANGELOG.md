@@ -21,6 +21,32 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v1.0.0 - 2026-04-10
+
+- Exports / Planning : nouvelle trame d'impression equipe plus lisible, avec contrastes renforces, en-tetes rouge Auchan et footer de version harmonise.
+- Exports / Planning CP : ajout d'un export A3 complet avec historique, titre libre, ligne manuelle Farida, details collaborateurs compactes et impression optimisee sur une page.
+- Suivi / Audits : modification directe d'un audit depuis le dashboard manager, avec mise a jour Supabase de la visite existante et nouveaux coefficients de notation.
+- Absences / Manager : correction du select collaborateurs, ajout du type `Conge sans solde` et alignement du mapping Supabase associe.
+- Infos / Admin : distinction nette entre message classique et message d'ouverture reserve au menu admin, sans popup automatique depuis les ecrans manager.
+
+## v0.9.12 - 2026-04-09
+
+- Exports / Planning CP : ajout d'un champ libre de titre pour personnaliser le document imprime (`Planning CP ete`, `Periode de Noel`, etc.).
+- Absences / Manager : ajout du type `Conge sans solde` dans la creation de nouvelles absences, avec prise en charge comme absence dans le planning.
+- Exports / Planning CP : verification de coherence avec le fichier Excel ete 2026, qui confirme l'alignement des semaines pour la majorite des collaborateurs et isole les cas specifiques restants.
+
+## v0.9.11 - 2026-04-09
+
+- Exports / Impression : ajout d'un nouvel export `Planning CP` pour imprimer une frise A3 paysage des congés payés approuvés sur une période libre.
+- Exports / Planning CP : chaque colonne correspond maintenant à une semaine ISO avec son numéro et sa plage de dates, afin de mieux relier la vue murale aux vraies dates calendrier.
+- Exports / Planning CP : un rappel en bas de page liste, pour chaque collaborateur concerné, les dates exactes de congés comprises dans la période sélectionnée.
+
+## v0.9.10 - 2026-04-09
+
+- Exports / Planning : nouvelle trame d'impression `Planning equipe` en theme papier plus lisible, avec en-tete jours rouge Auchan, fond blanc dominant et bordures gauches colorees selon le type de case.
+- Exports / Planning : les statuts imprimes utilisent maintenant des contrastes renforces (`Horaire`, `RH`, `Ferie/CP`, `ABS`, `C.M`, `Dimanche`) pour eviter les textes ton sur ton a l'impression.
+- Exports / Planning : la legende papier et les regles `@media print` ont ete mises a jour pour mieux conserver les couleurs sur imprimante.
+
 ## v0.9.9 - 2026-04-07
 
 - Bureau / Admin : ajout d'un ciblage `Dashboard bureau` dans le menu `Admin`, afin d'envoyer un message de connexion aux comptes manager bureau comme celui de Farida, sans les mélanger à la liste des collaborateurs mobiles.

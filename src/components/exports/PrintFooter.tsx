@@ -37,7 +37,8 @@ export default function PrintFooter({ version, legends = [] }: PrintFooterProps)
               borderRadius: 999,
               background: legend.bg,
               color: legend.color,
-              border: `1px solid ${legend.color}22`,
+              border: "1px solid #e5e7eb",
+              borderLeft: `3px solid ${legend.color}`,
               fontSize: 8,
               fontWeight: 700,
             }}

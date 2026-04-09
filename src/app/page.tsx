@@ -41,7 +41,12 @@ import { getRhUpdatedEventName, loadRhEmployees, syncRhFromSupabase } from "@/li
 import { loadLatestRupturesCountForToday } from "@/lib/ruptures-store";
 import { getPlateauWeekFocusData } from "@/lib/plateau-data";
 import { createClient } from "@/lib/supabase";
-import { getInfosUpdatedEventName, loadInfoAnnouncements, syncInfosFromSupabase } from "@/lib/infos-store";
+import {
+  confirmAnnouncementReadingInSupabase,
+  getInfosUpdatedEventName,
+  loadInfoAnnouncements,
+  syncInfosFromSupabase,
+} from "@/lib/infos-store";
 
 type AlertTone = "yellow" | "red" | "blue";
 type RankStatus = "ok" | "warn" | "alert";
@@ -87,6 +92,14 @@ const MONTH_TO_BALISAGE: Record<number, string> = {
   10: "NOV_2026",
   11: "DEC_2026",
 };
+
+function normalizeDashboardIdentity(value: string) {
+  return value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "");
+}
 
 function parseMonthFromId(monthId: string) {
   const [rawMonth, rawYear] = monthId.split("_");
@@ -261,6 +274,7 @@ export default function DashboardPage() {
   const [planningSyncReady, setPlanningSyncReady] = useState(() => planningEmployees.length > 0);
   const [isAdmin, setIsAdmin] = useState(false);
   const [dashboardProfileId, setDashboardProfileId] = useState("");
+  const [dashboardEmployeeId, setDashboardEmployeeId] = useState("");
   const [dashboardAnnouncements, setDashboardAnnouncements] = useState<InfoAnnouncement[]>([]);
   const [dashboardMonthCursor, setDashboardMonthCursor] = useState(() => {
     const current = new Date();
@@ -277,16 +291,38 @@ export default function DashboardPage() {
       if (!user) {
         setIsAdmin(false);
         setDashboardProfileId("");
+        setDashboardEmployeeId("");
         return;
       }
 
       const { data: profile } = await supabase
         .from("profiles")
-        .select("role")
+        .select("role,employee_id,full_name")
         .eq("id", user.id)
         .maybeSingle();
 
+      let resolvedEmployeeId = String(profile?.employee_id ?? "");
+      if (!resolvedEmployeeId) {
+        const identityCandidates = [
+          normalizeDashboardIdentity(String(profile?.full_name ?? "")),
+          normalizeDashboardIdentity(String((user.email ?? "").split("@")[0] ?? "")),
+        ].filter(Boolean);
+
+        if (identityCandidates.length) {
+          const { data: employees } = await supabase
+            .from("employees")
+            .select("id,name")
+            .limit(5000);
+
+          const matchedEmployee = ((employees ?? []) as Array<{ id: string | null; name: string | null }>).find(
+            (employee) => identityCandidates.includes(normalizeDashboardIdentity(String(employee.name ?? ""))),
+          );
+          resolvedEmployeeId = String(matchedEmployee?.id ?? "");
+        }
+      }
+
       setDashboardProfileId(String(user.id ?? ""));
+      setDashboardEmployeeId(resolvedEmployeeId);
       setIsAdmin(isAdminUser(user.email ?? null, String(profile?.role ?? "")));
     };
 
@@ -685,11 +721,23 @@ export default function DashboardPage() {
       : []),
   ];
 
-  function confirmDashboardAnnouncement(announcementId: string) {
+  async function confirmDashboardAnnouncement(announcementId: string) {
     if (!dashboardProfileId) return;
     const dismissals = loadDashboardAnnouncementDismissals();
     dismissals[`${dashboardProfileId}:${announcementId}`] = "confirmed";
     saveDashboardAnnouncementDismissals(dismissals);
+    try {
+      if (dashboardEmployeeId) {
+        await confirmAnnouncementReadingInSupabase(dashboardEmployeeId, announcementId);
+        const synced = await syncInfosFromSupabase();
+        if (synced) {
+          setDashboardAnnouncements(loadInfoAnnouncements());
+          return;
+        }
+      }
+    } catch (error) {
+      console.error("Impossible de confirmer le message bureau dans Supabase", error);
+    }
     setDashboardAnnouncements((current) => [...current]);
   }
 

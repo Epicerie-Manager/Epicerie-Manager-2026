@@ -32,6 +32,7 @@ type ExportStatusCell = {
   bg: string;
   color: string;
   borderColor: string;
+  accentColor?: string;
 };
 
 const SECTION_META: Record<
@@ -41,42 +42,42 @@ const SECTION_META: Record<
   morningCoordinators: {
     id: "morningCoordinators",
     label: "Coordo matin",
-    bandBg: "#d1fae5",
-    bandColor: "#064e3b",
-    nameBg: "#d1fae5",
-    cellBg: "#ecfdf5",
+    bandBg: "#f0fdf4",
+    bandColor: "#166534",
+    nameBg: "#f8fafc",
+    cellBg: "#ffffff",
   },
   morningTeam: {
     id: "morningTeam",
     label: "Equipe matin",
-    bandBg: "#dbeafe",
-    bandColor: "#1d4ed8",
-    nameBg: "#eff6ff",
-    cellBg: "#f8fbff",
+    bandBg: "#eff6ff",
+    bandColor: "#1e40af",
+    nameBg: "#f8fafc",
+    cellBg: "#ffffff",
   },
   afternoonCoordinators: {
     id: "afternoonCoordinators",
     label: "Coordo apres-midi",
-    bandBg: "#fed7aa",
-    bandColor: "#c2410c",
-    nameBg: "#fff1e6",
-    cellBg: "#fff7ed",
+    bandBg: "#fff7ed",
+    bandColor: "#9a3412",
+    nameBg: "#f8fafc",
+    cellBg: "#ffffff",
   },
   afternoonTeam: {
     id: "afternoonTeam",
     label: "Equipe apres-midi",
-    bandBg: "#fdba74",
-    bandColor: "#c2410c",
-    nameBg: "#fff1e6",
-    cellBg: "#fff7ed",
+    bandBg: "#fef9c3",
+    bandColor: "#854d0e",
+    nameBg: "#f8fafc",
+    cellBg: "#ffffff",
   },
   students: {
     id: "students",
     label: "Etudiants",
-    bandBg: "#e5e7eb",
-    bandColor: "#374151",
-    nameBg: "#f3f4f6",
-    cellBg: "#f9fafb",
+    bandBg: "#f5f3ff",
+    bandColor: "#5b21b6",
+    nameBg: "#f8fafc",
+    cellBg: "#ffffff",
   },
 };
 
@@ -89,15 +90,15 @@ const SECTION_ORDER: ExportPlanningSectionId[] = [
 ];
 
 const STATUS_STYLE: Record<string, ExportStatusCell> = {
-  PRESENT: { text: "", bg: "#dcfce7", color: "#15803d", borderColor: "#86efac" },
-  RH: { text: "RH", bg: "#f1f5f9", color: "#94a3b8", borderColor: "#cbd5e1" },
-  CP: { text: "CP", bg: "#dbeafe", color: "#1e40af", borderColor: "#93c5fd" },
-  FERIE: { text: "FER", bg: "#fef9c3", color: "#854d0e", borderColor: "#fde68a" },
-  X: { text: "—", bg: "#f8fafc", color: "#d1d5db", borderColor: "#e5e7eb" },
-  ABS: { text: "ABS", bg: "#fed7aa", color: "#9a3412", borderColor: "#fdba74" },
-  MAL: { text: "MAL", bg: "#fee2e2", color: "#b91c1c", borderColor: "#fca5a5" },
-  CONGE_MAT: { text: "C.M", bg: "#fce7f3", color: "#9d174d", borderColor: "#f9a8d4" },
-  FORM: { text: "FOR", bg: "#e0f2fe", color: "#0369a1", borderColor: "#7dd3fc" },
+  PRESENT: { text: "", bg: "#ffffff", color: "#166534", borderColor: "#e5e7eb", accentColor: "#16a34a" },
+  RH: { text: "RH", bg: "#fffbeb", color: "#92400e", borderColor: "#e5e7eb", accentColor: "#d97706" },
+  CP: { text: "CP", bg: "#fff7f7", color: "#991b1b", borderColor: "#e5e7eb", accentColor: "#dc2626" },
+  FERIE: { text: "FER", bg: "#fff7f7", color: "#991b1b", borderColor: "#e5e7eb", accentColor: "#dc2626" },
+  X: { text: "—", bg: "#f9fafb", color: "#9ca3af", borderColor: "#f3f4f6" },
+  ABS: { text: "ABS", bg: "#fff7f7", color: "#991b1b", borderColor: "#e5e7eb", accentColor: "#dc2626" },
+  MAL: { text: "MAL", bg: "#fff7f7", color: "#991b1b", borderColor: "#e5e7eb", accentColor: "#dc2626" },
+  CONGE_MAT: { text: "C.M", bg: "#fdf2f8", color: "#831843", borderColor: "#e5e7eb", accentColor: "#db2777" },
+  FORM: { text: "FOR", bg: "#fff7f7", color: "#991b1b", borderColor: "#e5e7eb", accentColor: "#dc2626" },
 };
 
 export function getMondayOfWeek(date: Date) {

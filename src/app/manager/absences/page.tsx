@@ -15,7 +15,7 @@ import {
   updateAbsenceStatusInSupabase,
 } from "@/lib/absences-store";
 import { countDaysExcludingSundays } from "@/lib/absence-days";
-import { loadRhEmployees, syncRhFromSupabase } from "@/lib/rh-store";
+import { getRhUpdatedEventName, loadRhEmployees, syncRhFromSupabase } from "@/lib/rh-store";
 
 function shellCard(): React.CSSProperties {
   return {
@@ -82,10 +82,22 @@ export default function ManagerAbsencesPage() {
       setLoading(false);
     });
 
-    const eventName = getAbsencesUpdatedEventName();
-    window.addEventListener(eventName, refresh);
-    return () => window.removeEventListener(eventName, refresh);
+    const absenceEventName = getAbsencesUpdatedEventName();
+    const rhEventName = getRhUpdatedEventName();
+    window.addEventListener(absenceEventName, refresh);
+    window.addEventListener(rhEventName, refresh);
+    return () => {
+      window.removeEventListener(absenceEventName, refresh);
+      window.removeEventListener(rhEventName, refresh);
+    };
   }, []);
+
+  useEffect(() => {
+    if (employeeOptions.length > 0) return;
+    void syncRhFromSupabase().finally(() => {
+      setLoading(false);
+    });
+  }, [employeeOptions.length]);
 
   const filteredRequests = useMemo(() => {
     return requests
@@ -271,14 +283,21 @@ export default function ManagerAbsencesPage() {
               <select
                 value={createEmployee}
                 onChange={(event) => setCreateEmployee(event.target.value)}
+                disabled={employeeOptions.length === 0}
                 style={{ minHeight: 44, borderRadius: 18, border: "1px solid #d8d1c8", padding: "0 14px", fontSize: 14, background: "#fff" }}
               >
-                <option value="">Choisir un collaborateur</option>
-                {employeeOptions.map((employee) => (
-                  <option key={employee} value={employee}>
-                    {employee}
-                  </option>
-                ))}
+                {employeeOptions.length === 0 ? (
+                  <option value="">Chargement des collaborateurs...</option>
+                ) : (
+                  <>
+                    <option value="">Choisir un collaborateur</option>
+                    {employeeOptions.map((employee) => (
+                      <option key={employee} value={employee}>
+                        {employee}
+                      </option>
+                    ))}
+                  </>
+                )}
               </select>
               <select
                 value={createType}

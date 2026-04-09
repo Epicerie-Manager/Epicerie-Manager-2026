@@ -163,7 +163,7 @@ export default function ManagerInfosPage() {
         targeting: announcementTargeting,
         targetEmployeeIds: announcementEmployeeIds,
         targetRayons: announcementRayons,
-        confirmationRequired: true,
+        confirmationRequired: false,
       });
       setAnnouncementTitle("");
       setAnnouncementContent("");
@@ -206,7 +206,7 @@ export default function ManagerInfosPage() {
             Infos & documents
           </div>
           <div style={{ fontSize: 14, color: "#6b7280", lineHeight: 1.6 }}>
-            Publier une annonce, ajouter un document utile et suivre ce qui est actuellement en ligne.
+            Publier une annonce dans le fil d&apos;infos, ajouter un document utile et suivre ce qui est actuellement en ligne.
           </div>
         </div>
       </div>
@@ -230,13 +230,26 @@ export default function ManagerInfosPage() {
       {success ? <div style={{ ...shellCard(), color: "#166534", fontSize: 13 }}>{success}</div> : null}
 
       <div style={shellCard()}>
-        <div style={{ display: "grid", gap: 12 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#a16207" }}>
-            Nouvelle annonce
-          </div>
-          <input
-            value={announcementTitle}
-            onChange={(event) => setAnnouncementTitle(event.target.value)}
+          <div style={{ display: "grid", gap: 12 }}>
+            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#a16207" }}>
+              Nouvelle annonce
+            </div>
+            <div
+              style={{
+                borderRadius: 16,
+                border: "1px solid #dbeafe",
+                background: "#eff6ff",
+                padding: "10px 12px",
+                fontSize: 12,
+                color: "#1e40af",
+                lineHeight: 1.5,
+              }}
+            >
+              Les annonces créées depuis cet écran restent dans le fil d&apos;infos. Le message d&apos;ouverture avec bouton OK est réservé au menu admin.
+            </div>
+            <input
+              value={announcementTitle}
+              onChange={(event) => setAnnouncementTitle(event.target.value)}
             placeholder="Titre annonce"
             style={{ minHeight: 48, borderRadius: 18, border: "1px solid #d8d1c8", padding: "0 14px", fontSize: 14, background: "#fff" }}
           />

@@ -6,6 +6,7 @@ import {
   METRE_A_METRE_SECTIONS,
   computeGlobalScore,
   computeSectionScore,
+  createEmptyMetreAuditDraft,
   type MetreAuditDraft,
 } from "@/lib/metre-a-metre-config";
 
@@ -165,14 +166,111 @@ function computeStoredAuditGlobalScore(
   fallbackScore: number,
 ) {
   if (!sections.length) return fallbackScore;
+  const totalCoefficient = METRE_A_METRE_SECTIONS.reduce((sum, section) => sum + section.coefficient, 0);
+  if (!totalCoefficient) return fallbackScore;
 
   const weighted = sections.reduce((sum, section) => {
     const config = sectionConfigByKey.get(section.key);
     if (!config) return sum;
-    return sum + (section.score * config.coefficient) / 100;
+    return sum + section.score * config.coefficient;
   }, 0);
 
-  return Number(weighted.toFixed(2));
+  return Number((weighted / totalCoefficient).toFixed(2));
+}
+
+function buildSectionRowsForAudit(followupId: string, draft: MetreAuditDraft) {
+  return METRE_A_METRE_SECTIONS.map((section, sectionIndex) => ({
+    followup_id: followupId,
+    section_key: section.key,
+    section_label: section.label,
+    section_type: section.type,
+    coefficient: section.coefficient,
+    score: computeSectionScore(section, draft.sections[section.key]),
+    comment: draft.sections[section.key].comment.trim(),
+    sort_order: sectionIndex,
+  }));
+}
+
+function buildItemRowsForAudit(
+  sectionIdsByKey: Map<string, string>,
+  draft: MetreAuditDraft,
+) {
+  return METRE_A_METRE_SECTIONS.flatMap((section) => {
+    const sectionId = sectionIdsByKey.get(section.key);
+    if (!sectionId) return [];
+    const response = draft.sections[section.key];
+    return section.questions.map((question, index) => {
+      const ratingValue = question.type === "rating" ? response.ratings[question.key] : null;
+      const booleanAnswer = question.type === "boolean" ? response.booleans[question.key] : null;
+      const scoreValue =
+        question.type === "rating"
+          ? typeof ratingValue === "number"
+            ? Number(((ratingValue / 5) * 100).toFixed(2))
+            : 0
+          : booleanAnswer && booleanAnswer === question.expectedAnswer
+            ? 100
+            : 0;
+
+      return {
+        section_id: sectionId,
+        item_key: question.key,
+        item_label: question.label,
+        item_type: question.type,
+        expected_answer: question.expectedAnswer ?? null,
+        boolean_answer: booleanAnswer,
+        rating_value: ratingValue,
+        score_value: scoreValue,
+        sort_order: index,
+      };
+    });
+  });
+}
+
+async function replaceAuditSectionsAndItems(followupId: string, draft: MetreAuditDraft) {
+  const supabase = createClient();
+  const { data: existingSections, error: existingSectionsError } = await supabase
+    .from("employee_followup_sections")
+    .select("id")
+    .eq("followup_id", followupId);
+
+  if (existingSectionsError) throw existingSectionsError;
+
+  const existingSectionIds = (existingSections ?? []).map((section) => String(section.id));
+
+  if (existingSectionIds.length) {
+    const { error: itemDeleteError } = await supabase
+      .from("employee_followup_items")
+      .delete()
+      .in("section_id", existingSectionIds);
+
+    if (itemDeleteError) throw itemDeleteError;
+
+    const { error: sectionDeleteError } = await supabase
+      .from("employee_followup_sections")
+      .delete()
+      .eq("followup_id", followupId);
+
+    if (sectionDeleteError) throw sectionDeleteError;
+  }
+
+  const sectionRows = buildSectionRowsForAudit(followupId, draft);
+  const { data: insertedSections, error: sectionError } = await supabase
+    .from("employee_followup_sections")
+    .insert(sectionRows)
+    .select("id,section_key");
+
+  if (sectionError) throw sectionError;
+
+  const sectionIdsByKey = new Map(
+    (insertedSections ?? []).map((section) => [String(section.section_key), String(section.id)]),
+  );
+
+  const itemRows = buildItemRowsForAudit(sectionIdsByKey, draft);
+  const { error: itemError } = await supabase
+    .from("employee_followup_items")
+    .insert(itemRows);
+
+  if (itemError) throw itemError;
 }
 
 function getTrackedBalisageMonthsForYear(today = new Date()) {
@@ -287,69 +385,43 @@ export async function saveMetreAudit(draft: MetreAuditDraft) {
   const followupId = String(followup.id);
 
   try {
-    const sectionRows = METRE_A_METRE_SECTIONS.map((section, sectionIndex) => ({
-      followup_id: followupId,
-      section_key: section.key,
-      section_label: section.label,
-      section_type: section.type,
-      coefficient: section.coefficient,
-      score: computeSectionScore(section, draft.sections[section.key]),
-      comment: draft.sections[section.key].comment.trim(),
-      sort_order: sectionIndex,
-    }));
-
-    const { data: insertedSections, error: sectionError } = await supabase
-      .from("employee_followup_sections")
-      .insert(sectionRows)
-      .select("id,section_key");
-
-    if (sectionError) throw sectionError;
-
-    const sectionIdByKey = new Map(
-      (insertedSections ?? []).map((section) => [String(section.section_key), String(section.id)]),
-    );
-
-    const itemRows = METRE_A_METRE_SECTIONS.flatMap((section) => {
-      const sectionId = sectionIdByKey.get(section.key);
-      if (!sectionId) return [];
-      const response = draft.sections[section.key];
-      return section.questions.map((question, index) => {
-        const ratingValue = question.type === "rating" ? response.ratings[question.key] : null;
-        const booleanAnswer = question.type === "boolean" ? response.booleans[question.key] : null;
-        const scoreValue =
-          question.type === "rating"
-            ? typeof ratingValue === "number"
-              ? Number(((ratingValue / 5) * 100).toFixed(2))
-              : 0
-            : booleanAnswer && booleanAnswer === question.expectedAnswer
-              ? 100
-              : 0;
-
-        return {
-          section_id: sectionId,
-          item_key: question.key,
-          item_label: question.label,
-          item_type: question.type,
-          expected_answer: question.expectedAnswer ?? null,
-          boolean_answer: booleanAnswer,
-          rating_value: ratingValue,
-          score_value: scoreValue,
-          sort_order: index,
-        };
-      });
-    });
-
-    const { error: itemError } = await supabase
-      .from("employee_followup_items")
-      .insert(itemRows);
-
-    if (itemError) throw itemError;
+    await replaceAuditSectionsAndItems(followupId, draft);
 
     return { id: followupId, globalScore };
   } catch (error) {
     await supabase.from("employee_followups").delete().eq("id", followupId);
     throw error;
   }
+}
+
+export async function updateMetreAudit(auditId: string, draft: MetreAuditDraft) {
+  const supabase = createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const globalScore = computeGlobalScore(draft);
+
+  const { error: updateError } = await supabase
+    .from("employee_followups")
+    .update({
+      employee_id: draft.employeeId,
+      manager_user_id: user?.id ?? null,
+      audit_date: draft.auditDate,
+      rayon: draft.rayon.trim(),
+      manager_name: draft.managerName.trim(),
+      collaborator_name: draft.collaboratorName.trim(),
+      global_score: globalScore,
+      progress_axes: draft.progressAxes.trim(),
+    })
+    .eq("id", auditId)
+    .eq("followup_type", "metre_a_metre");
+
+  if (updateError) throw updateError;
+
+  await replaceAuditSectionsAndItems(auditId, draft);
+
+  return { id: auditId, globalScore };
 }
 
 export async function loadRecentMetreAudits(limit = 20): Promise<MetreAuditListItem[]> {
@@ -645,4 +717,33 @@ export async function loadMetreAuditDetail(auditId: string): Promise<MetreAuditD
     createdAt: String(row.created_at ?? ""),
     sections: normalizedSections,
   };
+}
+
+export async function loadMetreAuditDraft(auditId: string): Promise<MetreAuditDraft | null> {
+  const detail = await loadMetreAuditDetail(auditId);
+  if (!detail) return null;
+
+  const draft = createEmptyMetreAuditDraft();
+  draft.auditDate = detail.auditDate;
+  draft.rayon = detail.rayon;
+  draft.managerName = detail.managerName;
+  draft.collaboratorName = detail.collaboratorName;
+  draft.employeeId = detail.employeeId;
+  draft.progressAxes = detail.progressAxes;
+
+  detail.sections.forEach((section) => {
+    const draftSection = draft.sections[section.key];
+    if (!draftSection) return;
+
+    draftSection.comment = section.comment;
+    section.items.forEach((item) => {
+      if (item.type === "rating") {
+        draftSection.ratings[item.key] = item.ratingValue;
+      } else {
+        draftSection.booleans[item.key] = item.booleanAnswer;
+      }
+    });
+  });
+
+  return draft;
 }

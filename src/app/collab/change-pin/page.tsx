@@ -7,6 +7,71 @@ import { NumericKeypad, PinDots } from "@/components/collab/keypad";
 import { collabTheme } from "@/components/collab/theme";
 import { changeCollabPin, getCollabProfile } from "@/lib/collab-auth";
 
+function translatePinError(message: string): string {
+  const msg = message.toLowerCase();
+
+  if (
+    msg.includes("different from the old") ||
+    msg.includes("same as the old") ||
+    msg.includes("same password")
+  ) {
+    return "Votre nouveau code doit être différent de l'ancien.";
+  }
+
+  if (
+    msg.includes("at least") ||
+    msg.includes("minimum") ||
+    msg.includes("too short") ||
+    msg.includes("characters")
+  ) {
+    return "Ce code n'est pas accepté. Choisissez un autre code à 6 chiffres.";
+  }
+
+  if (
+    msg.includes("weak") ||
+    msg.includes("easy to guess") ||
+    msg.includes("common") ||
+    msg.includes("known")
+  ) {
+    return "Ce code est trop simple. Choisissez une combinaison différente.";
+  }
+
+  if (
+    msg.includes("invalid") ||
+    msg.includes("incorrect") ||
+    msg.includes("wrong")
+  ) {
+    return "Code incorrect. Veuillez réessayer.";
+  }
+
+  if (
+    msg.includes("session expired") ||
+    msg.includes("expired session") ||
+    msg.includes("jwt expired") ||
+    msg.includes("refresh token") ||
+    msg.includes("session has expired")
+  ) {
+    return "Votre session a expiré. Veuillez vous reconnecter puis réessayer.";
+  }
+
+  if (
+    msg.includes("network") ||
+    msg.includes("fetch") ||
+    msg.includes("connection")
+  ) {
+    return "Problème de connexion. Vérifiez votre réseau et réessayez.";
+  }
+
+  if (
+    msg.includes("internal server error") ||
+    msg.includes("server error")
+  ) {
+    return "Une erreur est survenue, veuillez réessayer dans quelques instants. Si cela se produit plusieurs fois, merci de contacter votre manager.";
+  }
+
+  return "Impossible d'enregistrer ce code, veuillez essayer un autre code ou contacter votre manager.";
+}
+
 export default function CollabChangePinPage() {
   const router = useRouter();
   const [profileReady, setProfileReady] = useState(false);
@@ -68,7 +133,8 @@ export default function CollabChangePinPage() {
       await changeCollabPin(firstPin);
       router.replace("/collab/home");
     } catch (submitError) {
-      setError(submitError instanceof Error ? submitError.message : "Impossible d'enregistrer ce code.");
+      const rawMessage = submitError instanceof Error ? submitError.message : "";
+      setError(translatePinError(rawMessage));
     } finally {
       setBusy(false);
     }

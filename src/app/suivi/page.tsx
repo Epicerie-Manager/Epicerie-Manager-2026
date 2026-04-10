@@ -461,7 +461,11 @@ export default function SuiviPage() {
         const detail = await loadMetreAuditDetail(selectedAuditId);
         if (cancelled) return;
         setSelectedAuditDetail(detail);
-        if (detail?.employeeId && detail.employeeId !== ALL_EMPLOYEES_OPTION) {
+        if (
+          detail?.employeeId &&
+          detail.employeeId !== ALL_EMPLOYEES_OPTION &&
+          selectedEmployeeId !== ALL_EMPLOYEES_OPTION
+        ) {
           setSelectedEmployeeId(detail.employeeId);
         }
         setExpandedAuditSections(
@@ -476,7 +480,7 @@ export default function SuiviPage() {
     return () => {
       cancelled = true;
     };
-  }, [selectedAuditId]);
+  }, [selectedAuditId, selectedEmployeeId]);
 
   const selectedEmployee = useMemo(
     () => employees.find((employee) => employee.id === draft.employeeId) ?? null,
@@ -780,7 +784,6 @@ export default function SuiviPage() {
   useEffect(() => {
     if (!selectedEmployeeSnapshot) return;
     if (selectedEmployeeSnapshot.employeeId === ALL_EMPLOYEES_OPTION) {
-      if (selectedAuditId !== null) setSelectedAuditId(null);
       return;
     }
     const belongsToEmployee = selectedEmployeeSnapshot.audits.some((audit) => audit.id === selectedAuditId);

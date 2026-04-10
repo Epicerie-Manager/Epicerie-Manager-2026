@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Epicerie Manager 2026 · Tableau de bord tests</title>
+    <style>
+      :root{--bg:#efe7db;--paper:rgba(255,250,243,.9);--paper-strong:rgba(255,255,255,.95);--line:#dfd1bf;--ink:#1f2a37;--muted:#6b7280;--accent:#b9372b;--ok:#157347;--ok-bg:#e7f7ee;--ko:#b42318;--ko-bg:#fdecea;--partial:#a16207;--partial-bg:#fff5d6;--idle:#64748b;--idle-bg:#edf2f8;--shadow:0 20px 50px rgba(94,70,45,.14)}
+      *{box-sizing:border-box} body{margin:0;min-height:100vh;color:var(--ink);font-family:"Segoe UI","Trebuchet MS",sans-serif;background:radial-gradient(circle at top left,rgba(185,55,43,.16),transparent 28%),radial-gradient(circle at top right,rgba(217,119,6,.12),transparent 24%),linear-gradient(180deg,#f6f0e7 0%,#eee4d6 100%)}
+      .page{width:min(1240px,calc(100% - 28px));margin:18px auto 42px}.hero{display:grid;grid-template-columns:1.25fr .75fr;gap:18px}.card{background:var(--paper);border:1px solid var(--line);border-radius:26px;box-shadow:var(--shadow);backdrop-filter:blur(12px)}
+      .hero-main{padding:28px;position:relative;overflow:hidden}.hero-main::before{content:"";position:absolute;top:-20px;right:-30px;width:230px;height:230px;border-radius:50%;background:radial-gradient(circle,rgba(185,55,43,.2),transparent 62%);pointer-events:none}
+      .eyebrow{display:inline-flex;padding:7px 11px;border-radius:999px;font-size:11px;font-weight:800;letter-spacing:.08em;text-transform:uppercase;background:rgba(185,55,43,.08);color:var(--accent)} h1{margin:14px 0 10px;font-size:clamp(38px,5vw,58px);line-height:.94}.lead{max-width:58ch;color:var(--muted);font-size:16px;line-height:1.6}
+      .controls{margin-top:24px;display:grid;gap:16px}.selector-grid{display:grid;gap:16px;grid-template-columns:1fr 1fr}.selector-box{padding:16px;border-radius:20px;border:1px solid var(--line);background:rgba(255,255,255,.64)} .selector-box h2{margin:0 0 8px;font-size:15px}.selector-box p{margin:0 0 12px;color:var(--muted);font-size:13px;line-height:1.45}
+      .tag-grid,.stats,.hero-actions{display:flex;flex-wrap:wrap;gap:10px}.tag{border:1px solid var(--line);background:rgba(255,255,255,.92);color:var(--ink);padding:10px 12px;border-radius:14px;font-size:13px;font-weight:600;cursor:pointer;transition:transform .15s ease,background .15s ease,border-color .15s ease}.tag:hover,.action:hover{transform:translateY(-1px)} .tag.active{background:linear-gradient(135deg,rgba(185,55,43,.14),rgba(217,119,6,.14));border-color:#d39c6a}
+      .action{border:0;border-radius:999px;padding:14px 18px;font:inherit;cursor:pointer;transition:transform .18s ease,box-shadow .18s ease,opacity .18s ease}.action:disabled{opacity:.72;cursor:wait;transform:none}.primary{color:#fff;background:linear-gradient(135deg,var(--accent) 0%,#e1563b 100%);box-shadow:0 16px 28px rgba(185,55,43,.26)}.secondary{background:#fff;border:1px solid var(--line);color:var(--ink)}
+      .hero-side{display:grid;gap:14px;padding:18px}.status-strip{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:16px;border:1px solid var(--line);border-radius:20px;background:rgba(255,255,255,.7)} .status-strip strong{display:block;font-size:14px}.status-strip span{display:block;margin-top:4px;color:var(--muted);font-size:13px}
+      .pill{display:inline-flex;min-width:92px;align-items:center;justify-content:center;border-radius:999px;padding:8px 12px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.06em}.pill.ok{background:var(--ok-bg);color:var(--ok)}.pill.ko{background:var(--ko-bg);color:var(--ko)}.pill.partial{background:var(--partial-bg);color:var(--partial)}.pill.not_run{background:var(--idle-bg);color:var(--idle)}.pill.running{background:#fee2e2;color:var(--accent)}
+      .summary-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin-top:18px}.summary-card{padding:18px;background:var(--paper-strong)}.summary-card small{display:block;color:var(--muted);font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase}.summary-card strong{display:block;margin-top:10px;font-size:32px}.summary-card .meta,.meta{margin-top:6px;color:var(--muted);font-size:14px;line-height:1.5}
+      .section{margin-top:20px;display:grid;gap:16px}.panel{padding:22px}.section-head h2,.row h3{margin:0}.section-head p{margin:6px 0 0;color:var(--muted)}.family-list,.suite-list,.history-list,.test-list{display:grid;gap:14px}
+      .family-card,.suite-card,.history-card{padding:18px;border:1px solid var(--line);border-radius:20px;background:rgba(255,255,255,.76)}.row{display:flex;justify-content:space-between;gap:16px;align-items:flex-start}.chip{padding:8px 10px;border-radius:12px;background:#f8f3ec;border:1px solid var(--line);font-size:13px}
+      .test-item{padding:12px 14px;border-radius:16px;border:1px solid var(--line);background:#fffdfa}.test-item strong{display:block;font-size:14px}.failure{margin-top:10px;padding:10px 12px;border-radius:12px;background:#fff4f4;color:#7f1d1d;font-family:Consolas,"Courier New",monospace;font-size:12px;white-space:pre-wrap}
+      pre{margin:0;padding:18px;border-radius:18px;background:#1f1a18;color:#faf2e6;overflow:auto;font-family:Consolas,"Courier New",monospace;font-size:12px;line-height:1.5}.empty{padding:24px;border-radius:18px;border:1px dashed var(--line);color:var(--muted);text-align:center}
+      @media (max-width:980px){.hero,.selector-grid,.summary-grid{grid-template-columns:1fr}}
+    </style>
+  </head>
+  <body>
+    <main class="page">
+      <section class="hero">
+        <article class="card hero-main">
+          <div class="eyebrow">Local uniquement · Controle qualite</div>
+          <h1>Tableau de bord des tests</h1>
+          <p class="lead">Lance seulement les zones qui t'interessent, garde un historique local des derniers controles et repere plus vite les zones a revoir apres une grosse modification.</p>
+          <div class="controls">
+            <div class="selector-grid">
+              <section class="selector-box">
+                <h2>Categories</h2>
+                <p>Selectionne une ou plusieurs zones. Si rien n'est selectionne, on lance tout.</p>
+                <div id="family-tags" class="tag-grid"></div>
+              </section>
+              <section class="selector-box">
+                <h2>Suites detaillees</h2>
+                <p>Pratique si tu veux cibler juste un controle precis sans relancer tout le lot.</p>
+                <div id="suite-tags" class="tag-grid"></div>
+              </section>
+            </div>
+            <div class="hero-actions">
+              <button id="run-button" class="action primary">Lancer la verification</button>
+              <button id="refresh-button" class="action secondary">Actualiser</button>
+              <button id="clear-selection-button" class="action secondary">Tout relancer</button>
+            </div>
+          </div>
+          <div class="summary-grid" id="summary-grid"></div>
+        </article>
+        <aside class="card hero-side">
+          <div class="status-strip"><div><strong>Etat global</strong><span id="last-run-label">Aucune verification enregistree</span></div><div id="overall-pill" class="pill not_run">Non lance</div></div>
+          <div class="status-strip"><div><strong>Perimetre</strong><span id="selection-label">Toutes les categories</span></div><div id="family-count" class="pill not_run">0 zone</div></div>
+          <div class="status-strip"><div><strong>Derniere action</strong><span id="run-state-label">En attente</span></div><div id="run-state-pill" class="pill not_run">Pret</div></div>
+        </aside>
+      </section>
+
+      <section class="section">
+        <article class="card panel"><div class="section-head"><h2>Vue par categorie</h2><p>Un coup d'oeil rapide pour savoir quelle zone est rassurante et laquelle merite une verification.</p></div><div id="family-list" class="family-list"></div></article>
+        <article class="card panel"><div class="section-head"><h2>Historique local</h2><p>Les derniers lancements restent sur cette machine seulement, dans le dossier local ignore par Git.</p></div><div id="history-list" class="history-list"></div></article>
+        <article class="card panel"><div class="section-head"><h2>Detail de chaque suite</h2><p>Le detail permet de retrouver plus vite quelle regle ou quel parcours a casse.</p></div><div id="suite-list" class="suite-list"></div></article>
+        <article class="card panel"><div class="section-head"><h2>Journal brut</h2><p>Ce bloc servira quand un test echoue: il contient le texte brut reutilisable pour investiguer plus vite.</p></div><pre id="logs-output">Pas encore de journal disponible.</pre></article>
+      </section>
+    </main>
+
+    <script>
+      const state={families:[],suites:[],selectedFamilies:new Set(),selectedSuites:new Set()};
+      const runButton=document.getElementById("run-button"),refreshButton=document.getElementById("refresh-button"),clearSelectionButton=document.getElementById("clear-selection-button"),familyTags=document.getElementById("family-tags"),suiteTags=document.getElementById("suite-tags"),summaryGrid=document.getElementById("summary-grid"),overallPill=document.getElementById("overall-pill"),familyCount=document.getElementById("family-count"),runStatePill=document.getElementById("run-state-pill"),runStateLabel=document.getElementById("run-state-label"),lastRunLabel=document.getElementById("last-run-label"),selectionLabel=document.getElementById("selection-label"),familyList=document.getElementById("family-list"),historyList=document.getElementById("history-list"),suiteList=document.getElementById("suite-list"),logsOutput=document.getElementById("logs-output");
+      const formatStatus=(status)=>status==="ok"?"OK":status==="ko"?"KO":status==="partial"?"Partiel":status==="running"?"En cours":"Non lance";
+      const setPill=(node,status,label)=>{node.className="pill "+status;node.textContent=label||formatStatus(status);};
+      function formatDateTime(value){if(!value)return"Jamais";const date=new Date(value);if(Number.isNaN(date.getTime()))return"Jamais";return date.toLocaleString("fr-FR",{day:"2-digit",month:"2-digit",year:"numeric",hour:"2-digit",minute:"2-digit",second:"2-digit"});}
+      const currentSelectionPayload=()=>({families:Array.from(state.selectedFamilies),suiteIds:Array.from(state.selectedSuites)});
+      function updateSelectionLabel(){const families=Array.from(state.selectedFamilies),suites=Array.from(state.selectedSuites);if(!families.length&&!suites.length){selectionLabel.textContent="Toutes les categories";return;}const parts=[];if(families.length)parts.push(`${families.length} categorie(s)`);if(suites.length)parts.push(`${suites.length} suite(s) ciblee(s)`);selectionLabel.textContent=parts.join(" + ");}
+      function renderTagButtons(container,items,activeSet,onToggle){container.innerHTML=items.map((item)=>{const label=typeof item==="string"?item:item.label;const id=typeof item==="string"?item:item.id;const active=activeSet.has(id)?"active":"";return `<button class="tag ${active}" data-id="${id}" type="button">${label}</button>`;}).join("");container.querySelectorAll(".tag").forEach((node)=>node.addEventListener("click",()=>onToggle(node.dataset.id)));}
+      function syncTagUIs(){renderTagButtons(familyTags,state.families,state.selectedFamilies,(id)=>{if(!id)return;state.selectedFamilies.has(id)?state.selectedFamilies.delete(id):state.selectedFamilies.add(id);syncTagUIs();});renderTagButtons(suiteTags,state.suites,state.selectedSuites,(id)=>{if(!id)return;state.selectedSuites.has(id)?state.selectedSuites.delete(id):state.selectedSuites.add(id);syncTagUIs();});updateSelectionLabel();}
+      function renderSummary(run){const summary=run?.summary??{totalTests:0,passedTests:0,failedTests:0,pendingTests:0};summaryGrid.innerHTML=[{label:"Tests lances",value:summary.totalTests,hint:"Nombre total de controles executes"},{label:"Tests OK",value:summary.passedTests,hint:"Ceux qui passent sans alerte"},{label:"Tests KO",value:summary.failedTests,hint:"Ceux qui demandent une correction"},{label:"Partiels / attente",value:summary.pendingTests,hint:"Ceux qui ne sont pas complets"}].map((item)=>`<article class="card summary-card"><small>${item.label}</small><strong>${item.value}</strong><div class="meta">${item.hint}</div></article>`).join("");}
+      function renderFamilies(run){const families=run?.families??[];if(!families.length){familyList.innerHTML="<div class=\"empty\">Aucune categorie testee pour l'instant.</div>";return;}familyList.innerHTML=families.map((family)=>`<article class="family-card"><div class="row"><div><h3>${family.label}</h3><div class="meta">${family.suites.length} suite(s) rattachee(s) a cette zone.</div></div><div class="pill ${family.status}">${formatStatus(family.status)}</div></div><div class="stats"><div class="chip">${family.total} test(s)</div><div class="chip">${family.passed} OK</div><div class="chip">${family.failed} KO</div><div class="chip">${family.pending} partiel / attente</div></div></article>`).join("");}
+      function renderHistory(history){if(!history?.length){historyList.innerHTML="<div class=\"empty\">Aucun historique local pour l'instant.</div>";return;}historyList.innerHTML=history.map((entry)=>{const scope=entry.selection?.suiteIds?.length||entry.selection?.families?.length?`${entry.selection?.families?.length??0} categorie(s) · ${entry.selection?.suiteIds?.length??0} suite(s)`:"Lancement complet";const failing=entry.failingSuites?.length?`<div class="meta">Suites a revoir: ${entry.failingSuites.map((suite)=>suite.label).join(", ")}</div>`:'<div class="meta">Aucune alerte sur ce lancement.</div>';return `<article class="history-card"><div class="row"><div><h3>${formatDateTime(entry.generatedAt)}</h3><div class="meta">${scope}</div></div><div class="pill ${entry.overallStatus}">${formatStatus(entry.overallStatus)}</div></div><div class="stats"><div class="chip">${entry.summary?.totalTests??0} test(s)</div><div class="chip">${entry.summary?.passedTests??0} OK</div><div class="chip">${entry.summary?.failedTests??0} KO</div></div>${failing}</article>`;}).join("");}
+      function renderSuites(run){const suites=run?.suites??[];if(!suites.length){suiteList.innerHTML="<div class=\"empty\">Aucun detail a afficher tant qu'une verification n'a pas ete lancee.</div>";return;}suiteList.innerHTML=suites.map((suite)=>{const testsHtml=suite.tests.map((test)=>`<div class="test-item"><div class="row"><div><strong>${test.title}</strong><div class="meta">${test.durationMs} ms</div></div><div class="pill ${test.status}">${formatStatus(test.status)}</div></div>${test.failureMessages.length?`<div class="failure">${test.failureMessages.join("\\n\\n")}</div>`:""}</div>`).join("");return `<article class="suite-card"><div class="row"><div><h3>${suite.label}</h3><div class="meta">${suite.description}</div><div class="meta">${suite.file}</div></div><div class="pill ${suite.status}">${formatStatus(suite.status)}</div></div><div class="stats"><div class="chip">${suite.total} test(s)</div><div class="chip">${suite.passed} OK</div><div class="chip">${suite.failed} KO</div><div class="chip">${suite.pending} partiel / attente</div><div class="chip">${suite.durationMs} ms</div></div><div class="test-list">${testsHtml}</div></article>`;}).join("");}
+      function renderLogs(run){const stdout=run?.logs?.stdout?.trim(),stderr=run?.logs?.stderr?.trim();logsOutput.textContent=[stdout,stderr].filter(Boolean).join("\\n\\n--- STDERR ---\\n\\n")||"Pas encore de journal disponible.";}
+      function renderState(payload){state.families=payload?.families??[];state.suites=payload?.suites??[];syncTagUIs();const run=payload?.latestRun??null,history=payload?.history??[],isRunning=Boolean(payload?.isRunning);setPill(overallPill,isRunning?"running":run?.overallStatus??"not_run");setPill(runStatePill,isRunning?"running":"not_run",isRunning?"En cours":"Pret");runStateLabel.textContent=isRunning?"Verification en cours, merci de patienter...":run?"Derniere verification terminee":"Aucune verification lancee";lastRunLabel.textContent=run?`Dernier rapport: ${formatDateTime(run.generatedAt)}`:"Aucune verification enregistree";familyCount.textContent=`${run?.families?.length??0} zone${(run?.families?.length??0)>1?"s":""}`;renderSummary(run);renderFamilies(run);renderHistory(history);renderSuites(run);renderLogs(run);}
+      async function refreshState(){renderState(await (await fetch("/api/results")).json());}
+      async function runTests(){runButton.disabled=true;refreshButton.disabled=true;clearSelectionButton.disabled=true;setPill(runStatePill,"running","En cours");runStateLabel.textContent="Lancement des tests prioritaires...";try{renderState(await (await fetch("/api/run",{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(currentSelectionPayload())})).json());}catch(error){setPill(overallPill,"ko","KO");setPill(runStatePill,"ko","Erreur");runStateLabel.textContent=error instanceof Error?error.message:"Impossible de lancer les tests.";}finally{runButton.disabled=false;refreshButton.disabled=false;clearSelectionButton.disabled=false;}}
+      runButton.addEventListener("click",runTests);refreshButton.addEventListener("click",refreshState);clearSelectionButton.addEventListener("click",()=>{state.selectedFamilies.clear();state.selectedSuites.clear();syncTagUIs();});refreshState();
+    </script>
+  </body>
+  </html>

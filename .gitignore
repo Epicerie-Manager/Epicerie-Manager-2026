@@ -23,5 +23,6 @@ yarn-error.log*
 pnpm-debug.log*
 .claude/
 .codex-dev.log
+.test-dashboard/
 tmp_planning_*
 tmp_*_preview.png

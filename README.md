@@ -5,6 +5,8 @@ This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-
 - Visible and functional releases are tracked in [`CHANGELOG.md`](./CHANGELOG.md).
 - At the end of each working session, the changelog should be updated with the delivered changes.
 - When the app version changes in `package.json`, the matching changelog entry should be added or completed.
+- For every large functional or risky change, add or update at least one automated test tied to that change.
+- Local test dashboard data and run history live in `.test-dashboard/` and stay local to the machine.
 
 ## Getting Started
 

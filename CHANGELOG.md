@@ -21,6 +21,12 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v1.0.1 - 2026-04-10
+
+- Suivi / Audits : ajout d'un bouton direct `Ouvrir le compte rendu` sur chaque visite, y compris en vue `Toute l'equipe`, pour ouvrir la fiche sans dependre du panneau detail.
+- Suivi / Audits : clarification de l'action de carte (`Détails`) pour mieux distinguer l'ouverture inline et l'acces a la fiche complete.
+- Terrain / Visites : enregistrement mètre-à-mètre durci avec validations explicites (`rayon` obligatoire) et fallback de nom collaborateur/manager pour eviter les blocages de sauvegarde.
+
 ## v1.0.0 - 2026-04-10
 
 - Exports / Planning : nouvelle trame d'impression equipe plus lisible, avec contrastes renforces, en-tetes rouge Auchan et footer de version harmonise.
@@ -767,7 +773,6 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 - Etat de depart constate au debut de cette phase de travail.
 - Version visible dans l'interface avant les ajustements effectues pendant cette session.
 - Historique detaille anterieur a confirmer avec les anciennes conversations ou les commits git.
-
 
 
 

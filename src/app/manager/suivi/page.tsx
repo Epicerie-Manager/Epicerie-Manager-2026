@@ -329,10 +329,31 @@ export default function ManagerSuiviPage() {
                         {Math.round(audit.globalScore)}%
                       </div>
                       <span style={{ fontSize: 11, fontWeight: 700, color: "#6d28d9" }}>
-                        {opened ? "Réduire" : "Ouvrir"}
+                        {opened ? "Réduire" : "Détails"}
                       </span>
                     </div>
                   </button>
+                  <div style={{ display: "flex", justifyContent: "flex-end", padding: "0 14px 12px" }}>
+                    <Link
+                      href={`/manager/terrain/nouveau?auditId=${audit.id}`}
+                      style={{
+                        textDecoration: "none",
+                        minHeight: 30,
+                        borderRadius: 999,
+                        border: "1px solid #c4b5fd",
+                        background: "#f5f3ff",
+                        color: "#6d28d9",
+                        padding: "0 10px",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                      }}
+                    >
+                      Ouvrir le compte rendu
+                    </Link>
+                  </div>
 
                   {opened ? (
                     <div style={{ borderTop: "1px solid rgba(216,180,254,0.5)", padding: "0 14px 16px", display: "grid", gap: 12 }}>
@@ -340,27 +361,6 @@ export default function ManagerSuiviPage() {
                         <div style={{ fontSize: 13, color: "#6b7280", paddingTop: 12 }}>Chargement de la fiche...</div>
                       ) : openAuditDetail?.id === audit.id ? (
                         <>
-                          <div style={{ display: "flex", justifyContent: "flex-end", paddingTop: 12 }}>
-                            <Link
-                              href={`/manager/terrain/nouveau?auditId=${audit.id}`}
-                              style={{
-                                textDecoration: "none",
-                                minHeight: 34,
-                                borderRadius: 999,
-                                border: "1px solid #c4b5fd",
-                                background: "#f5f3ff",
-                                color: "#6d28d9",
-                                padding: "0 12px",
-                                fontSize: 11,
-                                fontWeight: 700,
-                                display: "inline-flex",
-                                alignItems: "center",
-                                justifyContent: "center",
-                              }}
-                            >
-                              Modifier l&apos;audit
-                            </Link>
-                          </div>
                           <div style={{ display: "grid", gap: 10, paddingTop: 12 }}>
                             {openAuditDetail.sections.map((section) => (
                               <div

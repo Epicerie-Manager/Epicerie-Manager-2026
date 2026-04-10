@@ -214,13 +214,17 @@ function ManagerNewTerrainVisitPageContent() {
   const handleSave = async () => {
     if (!draft.employeeId) return setError("Choisis d'abord un collaborateur.");
     if (!draft.rayon.trim()) return setError("Précise le rayon du passage.");
+    const selectedEmployee = employees.find((entry) => entry.id === draft.employeeId);
+    const collaboratorName = draft.collaboratorName.trim() || selectedEmployee?.name || "";
+    if (!collaboratorName) return setError("Impossible d'identifier le collaborateur de la visite.");
     try {
       setSaving(true);
       setError("");
       setSuccess("");
+      const payload = { ...draft, collaboratorName };
       const result = isEditMode && auditId
-        ? await updateMetreAudit(auditId, draft)
-        : await saveMetreAudit(draft);
+        ? await updateMetreAudit(auditId, payload)
+        : await saveMetreAudit(payload);
       setSuccess(
         isEditMode
           ? `Audit mis à jour avec succès, score global ${Math.round(result.globalScore)}%.`

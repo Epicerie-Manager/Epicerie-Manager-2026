@@ -363,6 +363,13 @@ export async function saveMetreAudit(draft: MetreAuditDraft) {
   } = await supabase.auth.getUser();
 
   const globalScore = computeGlobalScore(draft);
+  const managerName = draft.managerName.trim() || String(user?.email ?? "").trim() || "Manager";
+  const collaboratorName = draft.collaboratorName.trim() || "Collaborateur";
+  const rayon = draft.rayon.trim();
+
+  if (!rayon) {
+    throw new Error("Le rayon est obligatoire pour enregistrer la visite.");
+  }
 
   const { data: followup, error: followupError } = await supabase
     .from("employee_followups")
@@ -371,9 +378,9 @@ export async function saveMetreAudit(draft: MetreAuditDraft) {
       manager_user_id: user?.id ?? null,
       followup_type: "metre_a_metre",
       audit_date: draft.auditDate,
-      rayon: draft.rayon.trim(),
-      manager_name: draft.managerName.trim(),
-      collaborator_name: draft.collaboratorName.trim(),
+      rayon,
+      manager_name: managerName,
+      collaborator_name: collaboratorName,
       global_score: globalScore,
       progress_axes: draft.progressAxes.trim(),
     })
@@ -401,6 +408,13 @@ export async function updateMetreAudit(auditId: string, draft: MetreAuditDraft) 
   } = await supabase.auth.getUser();
 
   const globalScore = computeGlobalScore(draft);
+  const managerName = draft.managerName.trim() || String(user?.email ?? "").trim() || "Manager";
+  const collaboratorName = draft.collaboratorName.trim() || "Collaborateur";
+  const rayon = draft.rayon.trim();
+
+  if (!rayon) {
+    throw new Error("Le rayon est obligatoire pour modifier la visite.");
+  }
 
   const { error: updateError } = await supabase
     .from("employee_followups")
@@ -408,9 +422,9 @@ export async function updateMetreAudit(auditId: string, draft: MetreAuditDraft) 
       employee_id: draft.employeeId,
       manager_user_id: user?.id ?? null,
       audit_date: draft.auditDate,
-      rayon: draft.rayon.trim(),
-      manager_name: draft.managerName.trim(),
-      collaborator_name: draft.collaboratorName.trim(),
+      rayon,
+      manager_name: managerName,
+      collaborator_name: collaboratorName,
       global_score: globalScore,
       progress_axes: draft.progressAxes.trim(),
     })

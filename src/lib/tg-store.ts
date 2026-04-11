@@ -660,7 +660,13 @@ export async function syncTgFromSupabase() {
             if (left.orderHint !== right.orderHint) return left.orderHint - right.orderHint;
             return left.rayon.localeCompare(right.rayon, "fr");
           })
-          .map(({ orderHint: _orderHint, ...row }) => row),
+          .map((row) => ({
+            rayon: row.rayon,
+            family: row.family,
+            order: row.order,
+            active: row.active,
+            startWeekId: row.startWeekId,
+          })),
       );
 
     const nextAssignments = [
@@ -679,5 +685,93 @@ export async function syncTgFromSupabase() {
     return plansChanged || rayonsChanged || assignmentsChanged || mechanicsChanged;
   } catch {
     return false;
+  }
+}
+
+/**
+ * Persiste une ligne TG/GB pour un rayon donne sur une semaine donnee.
+ * Pattern : cherche la ligne existante par (plan_id, rayon),
+ * met a jour si elle existe, insere sinon.
+ */
+export async function saveTgEntryToSupabase(row: TgWeekPlanRow): Promise<void> {
+  try {
+    const supabase = createClient();
+
+    const { data: plansRows, error: plansError } = await supabase
+      .from("plans_tg")
+      .select("id, label, semaine_de")
+      .limit(200);
+    if (plansError) throw plansError;
+
+    let planId: string | null = null;
+    for (const plan of plansRows ?? []) {
+      const weekId = getWeekIdFromDbLabel(
+        String(plan.label ?? ""),
+        (plan.semaine_de as string | null | undefined) ?? null,
+      );
+      if (weekId === row.weekId) {
+        planId = String(plan.id ?? "").trim();
+        break;
+      }
+    }
+
+    if (!planId) {
+      const payload = buildPlanPayload(row.weekId);
+      const { data: insertedPlan, error: insertPlanError } = await supabase
+        .from("plans_tg")
+        .insert(payload)
+        .select("id")
+        .single();
+      if (insertPlanError) throw insertPlanError;
+      planId = String((insertedPlan as Record<string, unknown> | null)?.id ?? "").trim();
+    }
+
+    if (!planId) {
+      throw new Error(`Impossible de retrouver ou creer le plan TG pour ${row.weekId}.`);
+    }
+
+    const { data: existing, error: fetchError } = await supabase
+      .from("plans_tg_entries")
+      .select("id")
+      .eq("plan_id", planId)
+      .eq("rayon", row.rayon)
+      .maybeSingle();
+    if (fetchError) throw fetchError;
+
+    const famille = row.family === "Sucre" ? "SUCRE" : "SALE";
+    const payload = {
+      plan_id: planId,
+      rayon: row.rayon,
+      famille,
+      gb_produits: row.gbProduct || null,
+      tg_responsable: row.tgResponsible || null,
+      tg_produit: row.tgProduct || null,
+      tg_quantite: row.tgQuantity || null,
+      tg_mecanique: row.tgMechanic || null,
+    };
+
+    if (existing && typeof existing === "object" && "id" in existing && existing.id) {
+      const { error: updateError } = await supabase
+        .from("plans_tg_entries")
+        .update(payload)
+        .eq("id", String(existing.id));
+      if (updateError) throw updateError;
+    } else {
+      const { error: insertError } = await supabase
+        .from("plans_tg_entries")
+        .insert(payload);
+      if (insertError) throw insertError;
+    }
+
+    const changed = replaceTgWeekPlansSnapshot(
+      tgWeekPlansSnapshot.map((currentRow) =>
+        currentRow.weekId === row.weekId && currentRow.rayon === row.rayon
+          ? { ...currentRow, ...row }
+          : currentRow,
+      ),
+    );
+    if (changed) emitTgUpdated();
+  } catch (err) {
+    throw err instanceof Error ? err : new Error(String(err));
   }
 }

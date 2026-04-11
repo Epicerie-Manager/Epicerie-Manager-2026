@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Kicker } from "@/components/ui/kicker";
 import { KPI, KPIRow } from "@/components/ui/kpi";
@@ -23,9 +23,9 @@ import {
   saveTgCustomMechanics,
   saveTgDefaultAssignments,
   saveTgConfigToSupabase,
+  saveTgEntryToSupabase,
   saveTgRayons,
   saveTgWeekPlans,
-  saveTgWeekPlansToSupabase,
   syncTgFromSupabase,
 } from "@/lib/tg-store";
 import { moduleThemes } from "@/lib/theme";
@@ -203,8 +203,8 @@ export default function PlanTgPage(){
   const [newRayonPositionMode,setNewRayonPositionMode]=useState<PositionMode>("end");
   const [newRayonStartWeekId,setNewRayonStartWeekId]=useState(initialWeekId);
   const [remoteSaveEnabled,setRemoteSaveEnabled]=useState(false);
+  const [tgSaveError,setTgSaveError]=useState<string | null>(null);
   const saveTimeoutRef = useRef<number | null>(null);
-  const latestPayloadRef = useRef<TgWeekPlanRow[]>([]);
   const latestRayonsRef = useRef<TgRayon[]>([]);
   const latestAssignmentsRef = useRef<TgDefaultAssignment[]>([]);
   const latestMechanicsRef = useRef<string[]>([]);
@@ -233,10 +233,18 @@ export default function PlanTgPage(){
   useEffect(()=>{saveTgRayons(orderedRayons);},[orderedRayons]);
   useEffect(()=>{saveTgDefaultAssignments(assignments);},[assignments]);
   useEffect(()=>{saveTgWeekPlans(normalizePlans(plans,orderedRayons,assignmentMap));},[assignmentMap,orderedRayons,plans]);
+
+  const persistRow = useCallback(async (row:TgWeekPlanRow) => {
+    try{
+      setTgSaveError(null);
+      await saveTgEntryToSupabase(row);
+    } catch (err) {
+      setTgSaveError(err instanceof Error ? err.message : "Erreur d'enregistrement TG");
+    }
+  },[]);
+
   useEffect(()=>{
     if(!remoteSaveEnabled) return;
-    const normalizedPlans = normalizePlans(plans,orderedRayons,assignmentMap);
-    latestPayloadRef.current = normalizedPlans;
     latestRayonsRef.current = orderedRayons;
     latestAssignmentsRef.current = assignments;
     latestMechanicsRef.current = customMechanics;
@@ -253,8 +261,7 @@ export default function PlanTgPage(){
           latestAssignmentsRef.current,
           latestMechanicsRef.current,
         );
-        const plansSaved = await saveTgWeekPlansToSupabase(latestPayloadRef.current);
-        return configSaved && plansSaved;
+        return configSaved;
       })().finally(()=>{
         inFlightSaveRef.current = null;
       });
@@ -296,7 +303,7 @@ export default function PlanTgPage(){
       window.removeEventListener("beforeunload", handleBeforeUnload);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  },[assignmentMap,assignments,customMechanics,orderedRayons,plans,remoteSaveEnabled]);
+  },[assignments,customMechanics,orderedRayons,remoteSaveEnabled]);
   useEffect(()=>{
     const refresh=()=>{
       const nextRayons = assignSequentialRayonOrders(sortRayonsByOrder(loadTgRayons()));
@@ -325,13 +332,18 @@ export default function PlanTgPage(){
     };
   },[]);
 
-  const updateSelectedRow=(patch:Partial<TgWeekPlanRow>)=>{
+  const updateSelectedRow=useCallback((patch:Partial<TgWeekPlanRow>)=>{
     if(!selectedRow) return;
-    setPlans((current)=>current.map((row)=>{
-      if(row.weekId!==activeWeek.id||row.rayon!==selectedRow.rayon) return row;
-      return withOperationState({...row,...patch});
-    }));
-  };
+    setPlans((current)=>{
+      const next=current.map((row)=>{
+        if(row.weekId!==activeWeek.id||row.rayon!==selectedRow.rayon) return row;
+        return withOperationState({...row,...patch});
+      });
+      const updatedRow=next.find((row)=>row.weekId===activeWeek.id&&row.rayon===selectedRow.rayon);
+      if(updatedRow) void persistRow(updatedRow);
+      return next;
+    });
+  },[activeWeek.id,persistRow,selectedRow]);
 
   const addCustomMechanic=()=>{
     const value=mecaCustomInput.trim().toUpperCase();
@@ -356,19 +368,30 @@ export default function PlanTgPage(){
     const to=weekOrder.get(rangeEndWeekId)??from;
     const [start,end]=from<=to?[from,to]:[to,from];
 
-    setPlans((current)=>current.map((row)=>{
-      const rowIndex=weekOrder.get(row.weekId)??-1;
-      if(row.rayon!==selectedRow.rayon||rowIndex<start||rowIndex>end) return row;
+    setPlans((current)=>{
+      const next=current.map((row)=>{
+        const rowIndex=weekOrder.get(row.weekId)??-1;
+        if(row.rayon!==selectedRow.rayon||rowIndex<start||rowIndex>end) return row;
 
-      return withOperationState({
-        ...row,
-        gbProduct:selectedRow.gbProduct,
-        tgResponsible:selectedRow.tgResponsible,
-        tgProduct:selectedRow.tgProduct,
-        tgQuantity:selectedRow.tgQuantity,
-        tgMechanic:selectedRow.tgMechanic,
+        return withOperationState({
+          ...row,
+          gbProduct:selectedRow.gbProduct,
+          tgResponsible:selectedRow.tgResponsible,
+          tgProduct:selectedRow.tgProduct,
+          tgQuantity:selectedRow.tgQuantity,
+          tgMechanic:selectedRow.tgMechanic,
+        });
       });
-    }));
+
+      next
+        .filter((row)=>{
+          const rowIndex=weekOrder.get(row.weekId)??-1;
+          return row.rayon===selectedRow.rayon&&rowIndex>=start&&rowIndex<=end;
+        })
+        .forEach((row)=>{ void persistRow(row); });
+
+      return next;
+    });
   };
 
   const copyPreviousWeek=()=>{
@@ -381,21 +404,29 @@ export default function PlanTgPage(){
         .map((row)=>[row.rayon,row]),
     );
 
-    setPlans((current)=>current.map((row)=>{
-      if(row.weekId!==activeWeek.id) return row;
-      const previousRow=previousRowsByRayon.get(row.rayon);
-      if(!previousRow) return row;
+    setPlans((current)=>{
+      const next=current.map((row)=>{
+        if(row.weekId!==activeWeek.id) return row;
+        const previousRow=previousRowsByRayon.get(row.rayon);
+        if(!previousRow) return row;
 
-      return {
-        ...row,
-        gbProduct:previousRow.gbProduct,
-        tgResponsible:previousRow.tgResponsible,
-        tgProduct:previousRow.tgProduct,
-        tgQuantity:previousRow.tgQuantity,
-        tgMechanic:previousRow.tgMechanic,
-        hasOperation:previousRow.hasOperation,
-      };
-    }));
+        return {
+          ...row,
+          gbProduct:previousRow.gbProduct,
+          tgResponsible:previousRow.tgResponsible,
+          tgProduct:previousRow.tgProduct,
+          tgQuantity:previousRow.tgQuantity,
+          tgMechanic:previousRow.tgMechanic,
+          hasOperation:previousRow.hasOperation,
+        };
+      });
+
+      next
+        .filter((row)=>row.weekId===activeWeek.id)
+        .forEach((row)=>{ void persistRow(row); });
+
+      return next;
+    });
   };
 
   const clearSelectedRow=()=>updateSelectedRow({gbProduct:"",tgProduct:"",tgQuantity:"",tgMechanic:"",tgResponsible:selectedRow?.defaultResponsible??""});
@@ -502,6 +533,7 @@ export default function PlanTgPage(){
         </div>
         <div style={{display:"grid",gap:"8px",gridTemplateColumns:"1fr auto"}}><label style={{display:"grid",gap:"4px",fontSize:"12px",color:"#64748b"}}><span>Appliquer jusqu’à la semaine</span><select value={rangeEndWeekId} onChange={(e)=>setRangeEndWeekId(e.target.value)} style={{minHeight:"34px",borderRadius:"10px",border:"1px solid #dbe3eb",padding:"0 10px",fontSize:"12px"}}>{tgWeeks.map((w)=><option key={w.id} value={w.id}>{formatWeekLabel(w.id)}</option>)}</select></label><button type="button" style={chipStyle(false,theme.color,theme.medium)} onClick={applyRangeForSelectedRayon}>Appliquer la plage</button></div>
         <div style={{display:"flex",justifyContent:"flex-end",gap:"8px"}}><button type="button" style={chipStyle(false,theme.color,theme.medium)} onClick={clearSelectedRow}>Vider le rayon</button><button type="button" style={{...chipStyle(false,"#b91c1c","#fee2e2"),borderColor:"#fecaca",color:"#b91c1c"}} onClick={deleteSelectedRayon}>Supprimer le rayon</button></div>
+        {tgSaveError ? <div style={{marginTop:8,fontSize:12,color:"#b91c1c",background:"#fef2f2",border:"1px solid #fecaca",borderRadius:8,padding:"6px 10px"}}>⚠ {tgSaveError}</div> : null}
       </div>:<p style={{marginTop:"10px",color:"#64748b",fontSize:"12px"}}>Sélectionne un rayon pour éditer son plan TG/GB.</p>}</Card>
     </div>
 

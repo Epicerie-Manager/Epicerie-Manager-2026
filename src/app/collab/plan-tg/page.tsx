@@ -239,9 +239,6 @@ function TgCard({ row, highlight }: { row: CollabTgRow; highlight: boolean }) {
       <div style={{ display: "flex", alignItems: "start", justifyContent: "space-between", gap: 12 }}>
         <div>
           <div style={{ ...collabSerifTitleStyle({ fontSize: 21 }) }}>{row.rayon}</div>
-          <div style={{ marginTop: 4, fontSize: 12, color: collabTheme.muted }}>
-            Resp. base : <strong style={{ color: collabTheme.text }}>{row.responsable || "Non attribué"}</strong>
-          </div>
         </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "end" }}>
           <span

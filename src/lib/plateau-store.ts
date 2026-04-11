@@ -14,7 +14,10 @@ export type PlateauAsset = {
   filePath: string;
   publicUrl: string;
   sourcePdfName: string;
+  sourceType: "pdf" | "excel";
   pageNumber: number | null;
+  implantationDate: string | null;
+  desimplantationDate: string | null;
   uploadedBy: string | null;
   importedAt: string;
   updatedAt: string;
@@ -29,10 +32,32 @@ export type PlateauAssetUpload = {
   sourcePdfName?: string;
 };
 
+export type PlateauExcelSource = {
+  id: string;
+  weekNumber: number;
+  implantationDate: string;
+  desimplantationDate: string;
+  filePath: string;
+  publicUrl: string;
+  sourceName: string;
+  importedAt: string;
+  updatedAt: string;
+};
+
+export type PlateauExcelUpload = {
+  weekNumber: number;
+  implantationDate: string;
+  desimplantationDate: string;
+  file: Blob;
+  sourceName: string;
+};
+
 type DbRow = Record<string, unknown>;
 
 let plateauAssetsSnapshot: PlateauAsset[] = [];
 let plateauAssetsSerialized = "[]";
+let plateauExcelSourcesSnapshot: PlateauExcelSource[] = [];
+let plateauExcelSourcesSerialized = "[]";
 let plateauNotesSnapshot: Record<string, string> = {};
 let plateauNotesSerialized = JSON.stringify(plateauNotesSnapshot);
 
@@ -49,12 +74,25 @@ function cloneAssets(assets: PlateauAsset[]) {
   return assets.map((asset) => ({ ...asset }));
 }
 
+function cloneExcelSources(sources: PlateauExcelSource[]) {
+  return sources.map((source) => ({ ...source }));
+}
+
 function replacePlateauAssetsSnapshot(assets: PlateauAsset[]) {
   const nextAssets = cloneAssets(assets);
   const serialized = JSON.stringify(nextAssets);
   if (serialized === plateauAssetsSerialized) return false;
   plateauAssetsSnapshot = nextAssets;
   plateauAssetsSerialized = serialized;
+  return true;
+}
+
+function replacePlateauExcelSourcesSnapshot(sources: PlateauExcelSource[]) {
+  const nextSources = cloneExcelSources(sources);
+  const serialized = JSON.stringify(nextSources);
+  if (serialized === plateauExcelSourcesSerialized) return false;
+  plateauExcelSourcesSnapshot = nextSources;
+  plateauExcelSourcesSerialized = serialized;
   return true;
 }
 
@@ -105,6 +143,9 @@ function normalizeActionError(error: unknown) {
   if (message.includes("plateau_operation_notes")) {
     return new Error("La table Supabase des annotations plateau est absente. Appliquez `supabase/patch_plateau_operation_notes.sql`.");
   }
+  if (message.includes("plateau_excel_sources")) {
+    return new Error("La table Supabase des sources Excel plateau est absente. Appliquez `docs/sql/2026-04-11-plateau-assets-excel.sql`.");
+  }
   if (rawMessage.trim()) {
     return new Error(rawMessage);
   }
@@ -119,8 +160,25 @@ function mapPlateauAssetRow(row: DbRow): PlateauAsset {
     filePath: String(row.file_path ?? ""),
     publicUrl: String(row.public_url ?? ""),
     sourcePdfName: String(row.source_pdf_name ?? ""),
+    sourceType: String(row.source_type ?? "pdf").toLowerCase() === "excel" ? "excel" : "pdf",
     pageNumber: row.page_number == null ? null : Number(row.page_number),
+    implantationDate: row.implantation_date == null ? null : String(row.implantation_date),
+    desimplantationDate: row.desimplantation_date == null ? null : String(row.desimplantation_date),
     uploadedBy: row.uploaded_by == null ? null : String(row.uploaded_by),
+    importedAt: String(row.imported_at ?? new Date().toISOString()),
+    updatedAt: String(row.updated_at ?? row.imported_at ?? new Date().toISOString()),
+  };
+}
+
+function mapPlateauExcelRow(row: DbRow): PlateauExcelSource {
+  return {
+    id: String(row.id ?? ""),
+    weekNumber: Number(row.week_number ?? 0),
+    implantationDate: String(row.implantation_date ?? ""),
+    desimplantationDate: String(row.desimplantation_date ?? ""),
+    filePath: String(row.file_path ?? ""),
+    publicUrl: String(row.public_url ?? ""),
+    sourceName: String(row.source_name ?? ""),
     importedAt: String(row.imported_at ?? new Date().toISOString()),
     updatedAt: String(row.updated_at ?? row.imported_at ?? new Date().toISOString()),
   };
@@ -130,9 +188,18 @@ function buildStoragePath(weekNumber: number, plateauKey: PlateauAssetKey) {
   return `weeks/semaine-${String(weekNumber).padStart(2, "0")}/plateau-${plateauKey.toLowerCase()}`;
 }
 
+function buildExcelStoragePath(weekNumber: number) {
+  return `weeks/semaine-${String(weekNumber).padStart(2, "0")}/source.xlsx`;
+}
+
 export function loadPlateauAssets(): PlateauAsset[] {
   if (!canUseStorage()) return [];
   return cloneAssets(plateauAssetsSnapshot);
+}
+
+export function loadPlateauExcelSources(): PlateauExcelSource[] {
+  if (!canUseStorage()) return [];
+  return cloneExcelSources(plateauExcelSourcesSnapshot);
 }
 
 export function loadPlateauNotes() {
@@ -167,6 +234,27 @@ export async function syncPlateauAssetsFromSupabase() {
 
     const nextAssets = Array.isArray(data) ? data.map((row) => mapPlateauAssetRow(row as DbRow)) : [];
     const changed = replacePlateauAssetsSnapshot(nextAssets);
+    if (changed) emitUpdated();
+    return changed;
+  } catch {
+    return false;
+  }
+}
+
+export async function syncPlateauExcelSourcesFromSupabase() {
+  if (!canUseStorage()) return false;
+
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase
+      .from("plateau_excel_sources")
+      .select("*")
+      .order("implantation_date", { ascending: true })
+      .limit(5000);
+    if (error) throw error;
+
+    const nextSources = Array.isArray(data) ? data.map((row) => mapPlateauExcelRow(row as DbRow)) : [];
+    const changed = replacePlateauExcelSourcesSnapshot(nextSources);
     if (changed) emitUpdated();
     return changed;
   } catch {
@@ -251,6 +339,7 @@ export async function savePlateauAssetsToSupabase(
         file_path: filePath,
         public_url: data.publicUrl,
         source_pdf_name: sanitizeFileName(entry.sourcePdfName || "plateau"),
+        source_type: "pdf",
         page_number: entry.pageNumber ?? null,
         uploaded_by: user?.id ?? null,
       });
@@ -296,6 +385,74 @@ export async function savePlateauAssetsToSupabase(
     await syncPlateauAssetsFromSupabase();
     emitUpdated();
     return Array.isArray(savedRows) ? savedRows.map((row) => mapPlateauAssetRow(row as DbRow)) : [];
+  } catch (error) {
+    throw normalizeActionError(error);
+  }
+}
+
+export async function savePlateauExcelToSupabase(upload: PlateauExcelUpload): Promise<PlateauExcelSource> {
+  try {
+    const supabase = createClient();
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    const filePath = buildExcelStoragePath(upload.weekNumber);
+    const { error: uploadError } = await supabase.storage
+      .from(PLATEAU_STORAGE_BUCKET)
+      .upload(filePath, upload.file, {
+        cacheControl: "3600",
+        upsert: true,
+        contentType: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      });
+    if (uploadError) throw uploadError;
+
+    const { data: urlData } = supabase.storage
+      .from(PLATEAU_STORAGE_BUCKET)
+      .getPublicUrl(filePath);
+
+    const row = {
+      week_number: upload.weekNumber,
+      implantation_date: upload.implantationDate,
+      desimplantation_date: upload.desimplantationDate,
+      file_path: filePath,
+      public_url: urlData.publicUrl,
+      source_name: sanitizeFileName(upload.sourceName || "source.xlsx"),
+      uploaded_by: user?.id ?? null,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data, error } = await supabase
+      .from("plateau_excel_sources")
+      .upsert(row, { onConflict: "week_number" })
+      .select("*")
+      .single();
+    if (error) throw error;
+
+    await syncPlateauExcelSourcesFromSupabase();
+    emitUpdated();
+    return mapPlateauExcelRow(data as DbRow);
+  } catch (error) {
+    throw normalizeActionError(error);
+  }
+}
+
+export async function removePlateauExcelFromSupabase(weekNumber: number) {
+  try {
+    const supabase = createClient();
+    const filePath = buildExcelStoragePath(weekNumber);
+
+    const { error: storageError } = await supabase.storage.from(PLATEAU_STORAGE_BUCKET).remove([filePath]);
+    if (storageError) throw storageError;
+
+    const { error } = await supabase
+      .from("plateau_excel_sources")
+      .delete()
+      .eq("week_number", weekNumber);
+    if (error) throw error;
+
+    await syncPlateauExcelSourcesFromSupabase();
+    emitUpdated();
   } catch (error) {
     throw normalizeActionError(error);
   }
@@ -422,4 +579,21 @@ export function getPlateauOperationStartWeekById() {
     byId.set(operation.id, operation.sFrom);
   });
   return byId;
+}
+
+export function getActiveExcelSource(
+  sources: PlateauExcelSource[],
+  today: Date = new Date(),
+) {
+  const todayStr = today.toISOString().slice(0, 10);
+  return sources.find(
+    (source) => source.implantationDate <= todayStr && source.desimplantationDate >= todayStr,
+  ) ?? null;
+}
+
+export function getExcelSourceForWeek(
+  sources: PlateauExcelSource[],
+  weekNumber: number,
+) {
+  return sources.find((source) => source.weekNumber === weekNumber) ?? null;
 }

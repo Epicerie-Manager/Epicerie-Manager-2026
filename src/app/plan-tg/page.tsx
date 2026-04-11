@@ -210,6 +210,9 @@ export default function PlanTgPage(){
   const latestMechanicsRef = useRef<string[]>([]);
   const inFlightSaveRef = useRef<Promise<boolean> | null>(null);
   const hasPendingRemoteSaveRef = useRef(false);
+  const pendingRowSavesRef = useRef(new Map<string, TgWeekPlanRow>());
+  const rowSaveTimersRef = useRef(new Map<string, number>());
+  const rowSaveInFlightRef = useRef(new Set<string>());
 
   const employees=tgEmployees.filter((e)=>e.active).map((e)=>e.name);
   const assignmentMap=useMemo(()=>buildAssignmentMap(assignments),[assignments]);
@@ -234,14 +237,48 @@ export default function PlanTgPage(){
   useEffect(()=>{saveTgDefaultAssignments(assignments);},[assignments]);
   useEffect(()=>{saveTgWeekPlans(normalizePlans(plans,orderedRayons,assignmentMap));},[assignmentMap,orderedRayons,plans]);
 
-  const persistRow = useCallback(async (row:TgWeekPlanRow) => {
+  const flushPersistRow = useCallback(async (key:string) => {
+    if (rowSaveInFlightRef.current.has(key)) return;
+    const row = pendingRowSavesRef.current.get(key);
+    if (!row) return;
+
+    rowSaveInFlightRef.current.add(key);
+    pendingRowSavesRef.current.delete(key);
+
     try{
       setTgSaveError(null);
       await saveTgEntryToSupabase(row);
     } catch (err) {
       setTgSaveError(err instanceof Error ? err.message : "Erreur d'enregistrement TG");
+    } finally {
+      rowSaveInFlightRef.current.delete(key);
+      if (pendingRowSavesRef.current.has(key)) {
+        void flushPersistRow(key);
+      }
     }
   },[]);
+
+  const persistRow = useCallback((row:TgWeekPlanRow, options?: { immediate?: boolean }) => {
+    const key = `${row.weekId}__${row.rayon}`;
+    pendingRowSavesRef.current.set(key, row);
+
+    const existingTimer = rowSaveTimersRef.current.get(key);
+    if (existingTimer) {
+      window.clearTimeout(existingTimer);
+      rowSaveTimersRef.current.delete(key);
+    }
+
+    if (options?.immediate) {
+      void flushPersistRow(key);
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      rowSaveTimersRef.current.delete(key);
+      void flushPersistRow(key);
+    }, 250);
+    rowSaveTimersRef.current.set(key, timer);
+  },[flushPersistRow]);
 
   useEffect(()=>{
     if(!remoteSaveEnabled) return;
@@ -332,6 +369,18 @@ export default function PlanTgPage(){
     };
   },[]);
 
+  useEffect(() => {
+    const rowSaveTimers = rowSaveTimersRef.current;
+    const pendingRowSaves = pendingRowSavesRef.current;
+    const rowSaveInFlight = rowSaveInFlightRef.current;
+    return () => {
+      rowSaveTimers.forEach((timer) => window.clearTimeout(timer));
+      rowSaveTimers.clear();
+      pendingRowSaves.clear();
+      rowSaveInFlight.clear();
+    };
+  }, []);
+
   const updateSelectedRow=useCallback((patch:Partial<TgWeekPlanRow>)=>{
     if(!selectedRow) return;
     setPlans((current)=>{
@@ -340,7 +389,7 @@ export default function PlanTgPage(){
         return withOperationState({...row,...patch});
       });
       const updatedRow=next.find((row)=>row.weekId===activeWeek.id&&row.rayon===selectedRow.rayon);
-      if(updatedRow) void persistRow(updatedRow);
+      if(updatedRow) persistRow(updatedRow);
       return next;
     });
   },[activeWeek.id,persistRow,selectedRow]);
@@ -388,7 +437,7 @@ export default function PlanTgPage(){
           const rowIndex=weekOrder.get(row.weekId)??-1;
           return row.rayon===selectedRow.rayon&&rowIndex>=start&&rowIndex<=end;
         })
-        .forEach((row)=>{ void persistRow(row); });
+        .forEach((row)=>{ persistRow(row, { immediate: true }); });
 
       return next;
     });
@@ -423,7 +472,7 @@ export default function PlanTgPage(){
 
       next
         .filter((row)=>row.weekId===activeWeek.id)
-        .forEach((row)=>{ void persistRow(row); });
+        .forEach((row)=>{ persistRow(row, { immediate: true }); });
 
       return next;
     });

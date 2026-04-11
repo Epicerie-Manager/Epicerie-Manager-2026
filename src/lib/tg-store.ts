@@ -763,14 +763,6 @@ export async function saveTgEntryToSupabase(row: TgWeekPlanRow): Promise<void> {
       if (insertError) throw insertError;
     }
 
-    const changed = replaceTgWeekPlansSnapshot(
-      tgWeekPlansSnapshot.map((currentRow) =>
-        currentRow.weekId === row.weekId && currentRow.rayon === row.rayon
-          ? { ...currentRow, ...row }
-          : currentRow,
-      ),
-    );
-    if (changed) emitTgUpdated();
   } catch (err) {
     throw err instanceof Error ? err : new Error(String(err));
   }

@@ -122,6 +122,7 @@ export default function CollabMorePage() {
           <div style={{ display: "grid", gap: 12 }}>
             {[
               { title: "Plan TG/GB", subtitle: "Voir vos rayons et la vue d’ensemble magasin.", tone: collabTheme.green, href: "/collab/plan-tg" },
+              { title: "Plans Plateau", subtitle: "Consulter le fichier Excel plateau partagé de la semaine.", tone: collabTheme.blue, href: "/collab/plateau" },
               { title: "Infos & annonces", subtitle: "Voir les annonces et documents utiles.", tone: collabTheme.gold, href: "/collab/infos" },
             ].map((link) => (
               <Link

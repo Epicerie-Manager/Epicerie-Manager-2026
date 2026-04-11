@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from "react";
 import { createPortal } from "react-dom";
+import { parsePlateauExcelMeta } from "@/lib/plateau-excel-parser";
+import PlateauExcelViewer from "@/components/plateau/plateau-excel-viewer";
 import {
   getCurrentPlateauWeek,
   PLATEAU_WEEK_MAX as S_MAX,
@@ -11,15 +13,20 @@ import {
 } from "@/lib/plateau-data";
 import {
   buildPlateauNoteKey,
+  getActiveExcelSource,
   getBestPlateauAssetForWeek,
+  getExcelSourceForWeek,
   getPlateauAssetLookup,
   getPlateauAssetsUpdatedEventName,
   loadPlateauAssets,
+  loadPlateauExcelSources,
   loadPlateauNotes,
   removePlateauAssetFromSupabase,
   savePlateauAssetsToSupabase,
+  savePlateauExcelToSupabase,
   savePlateauNoteToSupabase,
   syncPlateauAssetsFromSupabase,
+  syncPlateauExcelSourcesFromSupabase,
   syncPlateauNotesFromSupabase,
 } from "@/lib/plateau-store";
 
@@ -96,6 +103,19 @@ const normalizeText = (value = "") =>
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
+
+const formatIsoDate = (value) => {
+  if (!value) return "";
+  return new Date(`${value}T12:00:00`).toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "short",
+  });
+};
+
+const formatExcelSourceLabel = (source) => {
+  if (!source) return "";
+  return `S${source.weekNumber} · ${formatIsoDate(source.implantationDate)} au ${formatIsoDate(source.desimplantationDate)}`;
+};
 
 const normalizeMonth = (rawMonth = "") => {
   const cleaned = normalizeText(rawMonth).replace(/[^a-z]/g, "");
@@ -360,12 +380,15 @@ export default function PlateauApp(){
   const [selectedOp,setSelectedOp]=useState("a3");
   const [focusWeek,setFocusWeek]=useState(12);
   const [plateauAssets,setPlateauAssets]=useState(() => loadPlateauAssets());
+  const [excelSources,setExcelSources]=useState(() => loadPlateauExcelSources());
   const [notes,setNotes]=useState(() => loadPlateauNotes());
+  const [selectedSheetName,setSelectedSheetName]=useState("PLATEAU A");
 
   const op=OPS.find(o=>o.id===selectedOp);
   const sameWeekOps=op?OPS.filter(o=>o.id!==selectedOp&&o.sFrom<=op.sTo&&o.sTo>=op.sFrom):[];
 
   const [showImport,setShowImport]=useState(false);
+  const [importKind,setImportKind]=useState("excel");
   const [importProgress,setImportProgress]=useState(null); // null | 0-100
   const [importMessage,setImportMessage]=useState("");
   const [importError,setImportError]=useState("");
@@ -373,6 +396,7 @@ export default function PlateauApp(){
   const [assetActionBusy,setAssetActionBusy]=useState(false);
 
   const assetLookup = getPlateauAssetLookup(plateauAssets);
+  const focusedExcelSource = getExcelSourceForWeek(excelSources, focusWeek) || getActiveExcelSource(excelSources);
 
   const lastImport = plateauAssets.length > 0
     ? new Date(
@@ -381,15 +405,24 @@ export default function PlateauApp(){
         ), plateauAssets[0]).importedAt,
       ).toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"})
     : "Aucun import";
+  const lastExcelImport = excelSources.length > 0
+    ? new Date(
+        excelSources.reduce((latest, source) => (
+          new Date(source.importedAt) > new Date(latest.importedAt) ? source : latest
+        ), excelSources[0]).importedAt,
+      ).toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"})
+    : "Aucun import";
 
   useEffect(() => {
     const refreshAssets = () => {
       setPlateauAssets(loadPlateauAssets());
+      setExcelSources(loadPlateauExcelSources());
       setNotes(loadPlateauNotes());
     };
     refreshAssets();
     void Promise.all([
       syncPlateauAssetsFromSupabase(),
+      syncPlateauExcelSourcesFromSupabase(),
       syncPlateauNotesFromSupabase(),
     ]).then(refreshAssets);
 
@@ -397,6 +430,12 @@ export default function PlateauApp(){
     window.addEventListener(eventName, refreshAssets);
     return () => window.removeEventListener(eventName, refreshAssets);
   }, []);
+
+  useEffect(() => {
+    if (!op) return;
+    const nextSheet = op.pl === "B" ? "PLATEAU B" : op.pl === "C" ? "PLATEAU C" : "PLATEAU A";
+    setSelectedSheetName(nextSheet);
+  }, [op]);
 
   const handlePdfImport=async(e)=>{
     const input=e.target;
@@ -545,6 +584,51 @@ export default function PlateauApp(){
     }
   };
 
+  const handleExcelImport = async(e) => {
+    const input = e.target;
+    const files = Array.from(input.files || []);
+    if (!files.length) return;
+
+    setImportError("");
+    setImportMessage(`Analyse de ${files.length} fichier(s) Excel...`);
+    setImportProgress(5);
+
+    try {
+      for (let index = 0; index < files.length; index += 1) {
+        const file = files[index];
+        setImportMessage(`Traitement de ${file.name} (${index + 1}/${files.length})...`);
+        setImportProgress(Math.round(10 + (index / files.length) * 70));
+
+        const meta = await parsePlateauExcelMeta(file);
+        await savePlateauExcelToSupabase({
+          weekNumber: meta.weekNumber,
+          implantationDate: meta.implantationDate,
+          desimplantationDate: meta.desimplantationDate,
+          file,
+          sourceName: file.name,
+        });
+      }
+
+      setImportProgress(95);
+      await syncPlateauExcelSourcesFromSupabase();
+      setExcelSources(loadPlateauExcelSources());
+      setImportProgress(100);
+      setImportMessage(`${files.length} fichier(s) Excel importé(s) avec succès.`);
+
+      setTimeout(() => {
+        setImportProgress(null);
+        setImportMessage("");
+        setShowImport(false);
+      }, 900);
+    } catch (error) {
+      setImportProgress(null);
+      setImportMessage("");
+      setImportError(`Import Excel impossible: ${error?.message || "erreur inconnue"}`);
+    } finally {
+      input.value = "";
+    }
+  };
+
   // Ops active for focused week
   const weekOps=OPS.filter(o=>o.sFrom<=focusWeek&&o.sTo>=focusWeek);
   const weekOpsA=weekOps.filter(o=>o.pl==="A");
@@ -652,10 +736,25 @@ export default function PlateauApp(){
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             <div style={{fontSize:11,color:V.light,textAlign:"right",marginRight:4}}>
+              <div>Dernier import Excel</div>
+              <div style={{fontWeight:700,color:V.muted}}>{lastExcelImport}</div>
+            </div>
+            <button onClick={()=>{setImportKind("excel");setImportError("");setImportMessage("");setShowImport(true);}} style={{
+              display:"flex",alignItems:"center",gap:8,padding:"10px 18px",borderRadius:12,
+              border:"none",background:V.green,color:"#fff",cursor:"pointer",fontSize:13,fontWeight:700,
+              boxShadow:`0 2px 8px ${V.green}30`,
+            }}>
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
+                <path d="M8 9h8M8 13h8M8 17h5"/>
+              </svg>
+              Importer Excel semaine
+            </button>
+            <div style={{fontSize:11,color:V.light,textAlign:"right",marginRight:4}}>
               <div>Dernier import PDF</div>
               <div style={{fontWeight:700,color:V.muted}}>{lastImport}</div>
             </div>
-            <button onClick={()=>{setImportError("");setImportMessage("");setShowImport(true);}} style={{
+            <button onClick={()=>{setImportKind("pdf");setImportError("");setImportMessage("");setShowImport(true);}} style={{
               display:"flex",alignItems:"center",gap:8,padding:"10px 18px",borderRadius:12,
               border:"none",background:V.mc,color:"#fff",cursor:"pointer",fontSize:13,fontWeight:700,
               boxShadow:`0 2px 8px ${V.mc}30`,
@@ -670,13 +769,19 @@ export default function PlateauApp(){
           </div>
         </Card>
 
-        {/* PDF IMPORT MODAL */}
+        {/* IMPORT MODAL */}
         {showImport&&(
           <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.4)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000}} onClick={()=>{if(importProgress===null){setImportError("");setImportMessage("");setShowImport(false);}}}>
             <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:20,width:520,boxShadow:"0 24px 48px rgba(0,0,0,0.2)",overflow:"hidden"}}>
               <div style={{background:V.mc,padding:"18px 24px",color:"#fff"}}>
-                <div style={{fontSize:18,fontWeight:700}}>Importer le PDF des plans plateau</div>
-                <div style={{fontSize:13,opacity:0.8}}>Le système va extraire tous les plans et opérations automatiquement</div>
+                <div style={{fontSize:18,fontWeight:700}}>
+                  {importKind==="excel" ? "Importer les fichiers Excel plateau" : "Importer le PDF des plans plateau"}
+                </div>
+                <div style={{fontSize:13,opacity:0.8}}>
+                  {importKind==="excel"
+                    ? "Chaque fichier hebdomadaire sera stocké dans Supabase et relu tel quel."
+                    : "Le système va extraire tous les plans et opérations automatiquement"}
+                </div>
               </div>
               <div style={{padding:24}}>
                 {importError&&(
@@ -701,22 +806,39 @@ export default function PlateauApp(){
                           <line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/>
                         </svg>
                       </div>
-                      <div style={{fontSize:15,fontWeight:700,color:V.body}}>Glisser-déposer le PDF ici</div>
+                      <div style={{fontSize:15,fontWeight:700,color:V.body}}>
+                        {importKind==="excel" ? "Déposer les fichiers Excel ici" : "Glisser-déposer le PDF ici"}
+                      </div>
                       <div style={{fontSize:12,color:V.muted}}>ou cliquer pour sélectionner le fichier</div>
-                      <div style={{fontSize:11,color:V.light}}>Fichier PDF uniquement — max 50 Mo</div>
-                      <input type="file" accept="application/pdf" onChange={handlePdfImport} style={{display:"none"}}/>
+                      <div style={{fontSize:11,color:V.light}}>
+                        {importKind==="excel" ? "Fichiers Excel (.xlsx) — sélection multiple autorisée" : "Fichier PDF uniquement — max 50 Mo"}
+                      </div>
+                      <input
+                        type="file"
+                        accept={importKind==="excel" ? ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : "application/pdf"}
+                        multiple={importKind==="excel"}
+                        onChange={importKind==="excel" ? handleExcelImport : handlePdfImport}
+                        style={{display:"none"}}
+                      />
                     </label>
 
                     {/* What will happen */}
                     <div style={{marginTop:18,padding:"14px 16px",borderRadius:14,background:"#f8fafc",border:`1px solid ${V.border}`}}>
                       <div style={{fontSize:12,fontWeight:700,color:V.muted,marginBottom:8}}>Ce qui va se passer :</div>
                       <div style={{display:"grid",gap:6}}>
-                        {[
-                          {n:"1",t:"Extraction des pages",d:"Chaque page du PDF est convertie en image"},
-                          {n:"2",t:"Détection des opérations",d:"Les noms, dates et plateaux sont identifiés automatiquement"},
-                          {n:"3",t:"Stockage Supabase",d:"Les plans sont envoyés dans le bucket partagé `plateau-plans`"},
-                          {n:"4",t:"Mise à jour",d:"Les semaines importées sont remplacées proprement et restent disponibles après déconnexion"},
-                        ].map(s=>(
+                        {(importKind==="excel"
+                          ? [
+                              {n:"1",t:"Lecture des dates",d:"Les dates d'implantation et désimplantation sont lues dans PLATEAU A"},
+                              {n:"2",t:"Détection de la semaine",d:"Le numéro de semaine ISO est calculé automatiquement"},
+                              {n:"3",t:"Stockage Supabase",d:"Le fichier .xlsx est stocké dans le bucket partagé `plateau-plans`"},
+                              {n:"4",t:"Affichage partagé",d:"Le même plan est ensuite visible côté manager et collaborateur"},
+                            ]
+                          : [
+                              {n:"1",t:"Extraction des pages",d:"Chaque page du PDF est convertie en image"},
+                              {n:"2",t:"Détection des opérations",d:"Les noms, dates et plateaux sont identifiés automatiquement"},
+                              {n:"3",t:"Stockage Supabase",d:"Les plans sont envoyés dans le bucket partagé `plateau-plans`"},
+                              {n:"4",t:"Mise à jour",d:"Les semaines importées sont remplacées proprement et restent disponibles après déconnexion"},
+                            ]).map(s=>(
                           <div key={s.n} style={{display:"flex",alignItems:"flex-start",gap:10}}>
                             <div style={{width:22,height:22,borderRadius:7,background:V.mIG,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,color:V.mc,flexShrink:0}}>{s.n}</div>
                             <div>
@@ -893,7 +1015,61 @@ export default function PlateauApp(){
                 </div>
               )}
 
-              {/* Plan image */}
+              <div style={{marginBottom:16,padding:"14px 16px",borderRadius:16,background:"#fffaf4",border:`1px solid ${V.border}`}}>
+                <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap",marginBottom:10}}>
+                  <div>
+                    <div style={{fontSize:11,fontWeight:700,color:V.light,letterSpacing:"0.04em"}}>PLAN EXCEL HEBDOMADAIRE</div>
+                    <div style={{fontSize:14,fontWeight:700,color:V.body}}>
+                      {focusedExcelSource ? formatExcelSourceLabel(focusedExcelSource) : `S${focusWeek}`}
+                    </div>
+                  </div>
+                  {focusedExcelSource ? (
+                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
+                      {["PLATEAU A","PLATEAU B","PLATEAU C"].map((sheet)=>(
+                        <button
+                          key={sheet}
+                          type="button"
+                          onClick={()=>setSelectedSheetName(sheet)}
+                          style={{
+                            padding:"6px 10px",
+                            borderRadius:10,
+                            border:`1px solid ${selectedSheetName===sheet?V.mc:V.line}`,
+                            background:selectedSheetName===sheet?V.mc:"#fff",
+                            color:selectedSheetName===sheet?"#fff":V.muted,
+                            fontSize:11,
+                            fontWeight:700,
+                            cursor:"pointer",
+                          }}
+                        >
+                          {sheet}
+                        </button>
+                      ))}
+                    </div>
+                  ) : null}
+                </div>
+
+                {focusedExcelSource ? (
+                  <PlateauExcelViewer
+                    publicUrl={focusedExcelSource.publicUrl}
+                    sheetName={selectedSheetName}
+                    weekLabel={formatExcelSourceLabel(focusedExcelSource)}
+                  />
+                ) : (
+                  <div style={{
+                    padding:"18px 16px",
+                    borderRadius:12,
+                    border:`1px dashed ${V.line}`,
+                    textAlign:"center",
+                    fontSize:12,
+                    color:V.light,
+                    background:"#fff",
+                  }}>
+                    Aucun fichier Excel partagé pour la semaine {focusWeek}.
+                  </div>
+                )}
+              </div>
+
+              <div style={{fontSize:11,fontWeight:700,color:V.light,letterSpacing:"0.04em",marginBottom:8}}>PLAN IMAGE / ARCHIVE PDF</div>
               <ImageViewer
                 image={selectedOpImage}
                 opName={op.nom}

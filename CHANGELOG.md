@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v1.0.3 - 2026-04-12
+
+- Ruptures / Stats historiques : ajout, pour chaque collaborateur, du nombre total de ruptures collab sur la periode, du nombre traite et du nombre non traite, en plus du nombre de jours actifs et de la moyenne.
+- Ruptures / Lecture manager : les cartes historiques donnent maintenant une vision cumulee plus concrete, meme quand le volume de donnees est encore faible sur quelques jours seulement.
+
 ## v1.0.2 - 2026-04-11
 
 - Plan TG / Persistance : les saisies `TG` et `GB` sont maintenant enregistrees immediatement ligne par ligne dans `Supabase`, au lieu de rester d'abord dans un snapshot local en memoire.

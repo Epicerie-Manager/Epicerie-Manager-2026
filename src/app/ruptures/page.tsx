@@ -773,6 +773,47 @@ function HistoricalView({
                   <div style={{ marginTop: "7px", fontSize: "12px", color: "#334155", fontWeight: 600 }}>
                     {row.dayCount} jour(s) avec ruptures collab sur la période
                   </div>
+                  <div style={{ marginTop: "8px", display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                    <span
+                      style={{
+                        borderRadius: "999px",
+                        padding: "5px 9px",
+                        background: "#ffffff",
+                        border: "1px solid rgba(148,163,184,0.18)",
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        color: "#1e293b",
+                      }}
+                    >
+                      {row.totalAssigned} rupture(s) au total
+                    </span>
+                    <span
+                      style={{
+                        borderRadius: "999px",
+                        padding: "5px 9px",
+                        background: "#f0fdf4",
+                        border: "1px solid #bbf7d0",
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        color: "#166534",
+                      }}
+                    >
+                      {row.totalTreated} traitée(s)
+                    </span>
+                    <span
+                      style={{
+                        borderRadius: "999px",
+                        padding: "5px 9px",
+                        background: "#fff7ed",
+                        border: "1px solid #fed7aa",
+                        fontSize: "11px",
+                        fontWeight: 700,
+                        color: "#9a3412",
+                      }}
+                    >
+                      {row.totalUntreated} non traitée(s)
+                    </span>
+                  </div>
                   <div style={{ marginTop: "5px", fontSize: "10px", color: cardTone.subtle, fontWeight: 700 }}>
                     Moyenne calculée sur les journées actives seulement
                   </div>

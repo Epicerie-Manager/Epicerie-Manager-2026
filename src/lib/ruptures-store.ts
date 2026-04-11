@@ -83,6 +83,9 @@ export type RuptureHistoryRow = {
   employeeName: string;
   dayCount: number;
   averagePct: number | null;
+  totalAssigned: number;
+  totalTreated: number;
+  totalUntreated: number;
 };
 
 export type RuptureRayonRow = ParsedRuptureRow & {
@@ -450,6 +453,7 @@ function buildHistoryRows(
   employees: RuptureEmployee[],
   imports: RuptureImportRow[],
   rowsByImportId: Map<string, ParsedRuptureRow[]>,
+  detailRowsByImportId: Map<string, RuptureDetailRow[]>,
   selectedDate: string,
   range: RuptureHistoryRange,
 ) {
@@ -462,18 +466,46 @@ function buildHistoryRows(
     importsByDate.set(item.dateKey, current);
   });
 
-  const dailyStatsByEmployee = new Map<string, number[]>();
+  const dailyStatsByEmployee = new Map<
+    string,
+    {
+      pctValues: number[];
+      totalAssigned: number;
+      totalTreated: number;
+      totalUntreated: number;
+    }
+  >();
 
   importsByDate.forEach((bundle) => {
-    if (!bundle.matin || !bundle.fin_matinee) return;
+    if (!bundle.matin) return;
     const morningRows = rowsByImportId.get(bundle.matin.id) ?? [];
-    const finRows = rowsByImportId.get(bundle.fin_matinee.id) ?? [];
-    const collaboratorRows = aggregateCollaboratorRows(employees, morningRows, finRows, finRows);
+    const finRows = bundle.fin_matinee ? rowsByImportId.get(bundle.fin_matinee.id) ?? [] : [];
+    const morningDetailRows = detailRowsByImportId.get(bundle.matin.id) ?? [];
+    const finDetailRows = bundle.fin_matinee ? detailRowsByImportId.get(bundle.fin_matinee.id) ?? [] : [];
+    const latestRows = finRows.length ? finRows : morningRows;
+    const latestDetailRows = finDetailRows.length ? finDetailRows : morningDetailRows;
+    const collaboratorRows = aggregateCollaboratorRows(
+      employees,
+      morningRows,
+      finRows,
+      latestRows,
+      morningDetailRows,
+      finDetailRows,
+      latestDetailRows,
+    );
 
     collaboratorRows.forEach((row) => {
-      if (row.morningCollab <= 0 || row.pct === null) return;
-      const current = dailyStatsByEmployee.get(row.employeeId) ?? [];
-      current.push(row.pct);
+      if (row.morningCollab <= 0) return;
+      const current = dailyStatsByEmployee.get(row.employeeId) ?? {
+        pctValues: [],
+        totalAssigned: 0,
+        totalTreated: 0,
+        totalUntreated: 0,
+      };
+      if (row.pct !== null) current.pctValues.push(row.pct);
+      current.totalAssigned += row.morningCollab;
+      current.totalTreated += row.treated ?? 0;
+      current.totalUntreated += row.finCollab ?? row.morningCollab;
       dailyStatsByEmployee.set(row.employeeId, current);
     });
   });
@@ -481,14 +513,22 @@ function buildHistoryRows(
   return employees
     .filter((employee) => employee.actif && employee.rupturesRayons.length > 0)
     .map((employee) => {
-      const stats = dailyStatsByEmployee.get(employee.id) ?? [];
+      const stats = dailyStatsByEmployee.get(employee.id) ?? {
+        pctValues: [],
+        totalAssigned: 0,
+        totalTreated: 0,
+        totalUntreated: 0,
+      };
       return {
         employeeId: employee.id,
         employeeName: employee.name,
-        dayCount: stats.length,
-        averagePct: stats.length
-          ? Math.round(stats.reduce((sum, value) => sum + value, 0) / stats.length)
+        dayCount: stats.pctValues.length,
+        averagePct: stats.pctValues.length
+          ? Math.round(stats.pctValues.reduce((sum, value) => sum + value, 0) / stats.pctValues.length)
           : null,
+        totalAssigned: stats.totalAssigned,
+        totalTreated: stats.totalTreated,
+        totalUntreated: stats.totalUntreated,
       } satisfies RuptureHistoryRow;
     })
     .sort((left, right) => {
@@ -976,6 +1016,9 @@ export async function loadRupturesDashboard(selectedDate?: string, historyRange:
   const historyRowsByImportId = historyImportIds.length
     ? await loadSyntheseRowsByImportIds(historyImportIds)
     : new Map<string, ParsedRuptureRow[]>();
+  const historyDetailBundle = historyImportIds.length
+    ? await loadDetailRowsByImportIds(historyImportIds)
+    : { detailEnabled: false, rowsByImportId: new Map<string, RuptureDetailRow[]>() };
 
   return {
     employees,
@@ -986,7 +1029,14 @@ export async function loadRupturesDashboard(selectedDate?: string, historyRange:
     fin: buildTeamSnapshot(finImport, finRows),
     latest: buildTeamSnapshot(latestImport, latestRows),
     collaboratorRows,
-    historyRows: buildHistoryRows(employees, recentImports, historyRowsByImportId, effectiveDate, historyRange),
+    historyRows: buildHistoryRows(
+      employees,
+      recentImports,
+      historyRowsByImportId,
+      historyDetailBundle.rowsByImportId,
+      effectiveDate,
+      historyRange,
+    ),
     rayonRows,
     detailRows: latestDetailRows,
     detailEnabled: detailBundle.detailEnabled,

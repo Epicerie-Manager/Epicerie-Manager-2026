@@ -6,6 +6,9 @@ const createClientMock = vi.fn();
 
 vi.mock("@/lib/browser-cache", () => ({
   hasBrowserWindow: () => true,
+  purgeLegacyCacheKeys: (keys: string[]) => {
+    keys.forEach((key) => storage.delete(key));
+  },
 }));
 
 vi.mock("@/lib/rh-store", () => ({
@@ -44,19 +47,31 @@ function createWindowMock() {
 function createSupabaseMock({
   plansRows = [],
   entriesRows = [],
+  configRows = [],
+  mechanicsRows = [],
   insertedPlanId = "plan-new",
   onUpdatePlan,
   onDeleteEntries,
   onInsertEntries,
   onInsertPlan,
+  onUpsertConfig,
+  onDeleteConfig,
+  onUpsertMechanics,
+  onDeleteMechanics,
 }: {
   plansRows?: Array<Record<string, unknown>>;
   entriesRows?: Array<Record<string, unknown>>;
+  configRows?: Array<Record<string, unknown>>;
+  mechanicsRows?: Array<Record<string, unknown>>;
   insertedPlanId?: string;
   onUpdatePlan?: (payload: Record<string, unknown>, id: string) => void;
   onDeleteEntries?: (planIds: string[]) => void;
   onInsertEntries?: (rows: Array<Record<string, unknown>>) => void;
   onInsertPlan?: (payload: Record<string, unknown>) => void;
+  onUpsertConfig?: (rows: Array<Record<string, unknown>>) => void;
+  onDeleteConfig?: (rayons: string[]) => void;
+  onUpsertMechanics?: (rows: Array<Record<string, unknown>>) => void;
+  onDeleteMechanics?: (names: string[]) => void;
 }) {
   return {
     from(table: string) {
@@ -114,6 +129,60 @@ function createSupabaseMock({
         };
       }
 
+      if (table === "tg_rayons_config") {
+        return {
+          select() {
+            return {
+              order() {
+                return {
+                  limit: async () => ({ data: configRows, error: null }),
+                };
+              },
+              limit: async () => ({ data: configRows, error: null }),
+            };
+          },
+          upsert(rows: Array<Record<string, unknown>>) {
+            onUpsertConfig?.(rows);
+            return Promise.resolve({ error: null });
+          },
+          delete() {
+            return {
+              in: async (_column: string, rayons: string[]) => {
+                onDeleteConfig?.(rayons);
+                return { error: null };
+              },
+            };
+          },
+        };
+      }
+
+      if (table === "tg_custom_mechanics") {
+        return {
+          select() {
+            return {
+              order() {
+                return {
+                  limit: async () => ({ data: mechanicsRows, error: null }),
+                };
+              },
+              limit: async () => ({ data: mechanicsRows, error: null }),
+            };
+          },
+          upsert(rows: Array<Record<string, unknown>>) {
+            onUpsertMechanics?.(rows);
+            return Promise.resolve({ error: null });
+          },
+          delete() {
+            return {
+              in: async (_column: string, names: string[]) => {
+                onDeleteMechanics?.(names);
+                return { error: null };
+              },
+            };
+          },
+        };
+      }
+
       throw new Error(`Unexpected table: ${table}`);
     },
   };
@@ -133,25 +202,14 @@ describe("tg-store", () => {
     });
   });
 
-  it("persists week plans in localStorage across module reloads", async () => {
+  it("purges legacy TG localStorage keys instead of relying on browser cache", async () => {
+    storage.set("epicerie-manager-tg-week-plans-v1", JSON.stringify([{ tgProduct: "LEGACY" }]));
+    storage.set("epicerie-manager-tg-rayons-v1", JSON.stringify([{ rayon: "LEGACY" }]));
     const store = await import("@/lib/tg-store");
-    const plans = store.loadTgWeekPlans();
-    const updatedPlans = plans.map((row, index) =>
-      index === 0 ? { ...row, tgProduct: "TEST PERSISTENCE", hasOperation: true } : row,
-    );
-
-    store.saveTgWeekPlans(updatedPlans);
-    expect(storage.get("epicerie-manager-tg-week-plans-v1")).toContain("TEST PERSISTENCE");
-
-    vi.resetModules();
-    Object.defineProperty(globalThis, "window", {
-      value: createWindowMock(),
-      configurable: true,
-      writable: true,
-    });
-
-    const reloadedStore = await import("@/lib/tg-store");
-    expect(reloadedStore.loadTgWeekPlans()[0]?.tgProduct).toBe("TEST PERSISTENCE");
+    store.loadTgWeekPlans();
+    store.loadTgRayons();
+    expect(storage.has("epicerie-manager-tg-week-plans-v1")).toBe(false);
+    expect(storage.has("epicerie-manager-tg-rayons-v1")).toBe(false);
   });
 
   it("saves TG plans to Supabase by recreating entries for the touched weeks", async () => {
@@ -204,9 +262,75 @@ describe("tg-store", () => {
     expect(insertedEntries[0]?.tg_produit).toBe("TG 1");
   });
 
+  it("saves TG rayon configuration and custom mechanics to Supabase", async () => {
+    const upsertedConfig: Array<Record<string, unknown>> = [];
+    const upsertedMechanics: Array<Record<string, unknown>> = [];
+    const deletedConfig: string[][] = [];
+    const deletedMechanics: string[][] = [];
+
+    createClientMock.mockReturnValue(
+      createSupabaseMock({
+        configRows: [{ rayon: "STALE RAYON" }],
+        mechanicsRows: [{ name: "STALE MECA" }],
+        onUpsertConfig: (rows) => upsertedConfig.push(...rows),
+        onDeleteConfig: (rayons) => deletedConfig.push(rayons),
+        onUpsertMechanics: (rows) => upsertedMechanics.push(...rows),
+        onDeleteMechanics: (names) => deletedMechanics.push(names),
+      }),
+    );
+
+    const store = await import("@/lib/tg-store");
+    const saved = await store.saveTgConfigToSupabase(
+      [
+        {
+          rayon: "TEST RAYON",
+          family: "Sucre",
+          order: "30",
+          active: true,
+          startWeekId: "17 Avril 26",
+        },
+      ],
+      [{ rayon: "TEST RAYON", employee: "CECILE" }],
+      ["OFFRE TEST"],
+    );
+
+    expect(saved).toBe(true);
+    expect(upsertedConfig).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          rayon: "TEST RAYON",
+          family: "SUCRE",
+          order_index: 30,
+          default_responsible: "CECILE",
+        }),
+      ]),
+    );
+    expect(upsertedMechanics).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({
+          name: "OFFRE TEST",
+          order_index: 10,
+        }),
+      ]),
+    );
+    expect(deletedConfig.flat()).toContain("STALE RAYON");
+    expect(deletedMechanics.flat()).toContain("STALE MECA");
+  });
+
   it("rebuilds rayons, assignments and mechanics from Supabase sync", async () => {
     createClientMock.mockReturnValue(
       createSupabaseMock({
+        configRows: [
+          {
+            rayon: "BIO 1",
+            family: "SALE",
+            order_index: 10,
+            active: true,
+            start_week_id: null,
+            default_responsible: "KAMEL",
+          },
+        ],
+        mechanicsRows: [{ name: "OFFRE TEST", order_index: 10 }],
         plansRows: [
           {
             id: "plan-1",
@@ -258,5 +382,87 @@ describe("tg-store", () => {
         }),
       ]),
     );
+  });
+
+  it("keeps the canonical rayon order when syncing partial Supabase data", async () => {
+    createClientMock.mockReturnValue(
+      createSupabaseMock({
+        configRows: [
+          {
+            rayon: "BIO 1",
+            family: "SALE",
+            order_index: 10,
+            active: true,
+            start_week_id: null,
+            default_responsible: "KAMEL",
+          },
+          {
+            rayon: "BIO 2",
+            family: "SALE",
+            order_index: 20,
+            active: true,
+            start_week_id: null,
+            default_responsible: "KAMEL",
+          },
+          {
+            rayon: "CHIPS",
+            family: "SALE",
+            order_index: 30,
+            active: true,
+            start_week_id: null,
+            default_responsible: "MOHAMED",
+          },
+          {
+            rayon: "PATISSERIE",
+            family: "SUCRE",
+            order_index: 120,
+            active: true,
+            start_week_id: null,
+            default_responsible: "EL HASSANE",
+          },
+        ],
+        plansRows: [
+          {
+            id: "plan-17",
+            label: "S17 - 17 Avril 26",
+            semaine_de: "S17",
+          },
+        ],
+        entriesRows: [
+          {
+            id: 501,
+            plan_id: "plan-17",
+            rayon: "PATISSERIE",
+            famille: "SUCRE",
+            gb_produits: null,
+            tg_responsable: "EL HASSANE",
+            tg_produit: "TEST PATISSERIE",
+            tg_quantite: "1 BOX",
+            tg_mecanique: "2EME 50%",
+          },
+          {
+            id: 502,
+            plan_id: "plan-17",
+            rayon: "CHIPS",
+            famille: "SALE",
+            gb_produits: null,
+            tg_responsable: "MOHAMED",
+            tg_produit: "TEST CHIPS",
+            tg_quantite: "2 BOX",
+            tg_mecanique: "2EME 60%",
+          },
+        ],
+      }),
+    );
+
+    const store = await import("@/lib/tg-store");
+    const synced = await store.syncTgFromSupabase();
+    const rayons = store.loadTgRayons();
+
+    expect(synced).toBe(true);
+    expect(rayons[0]?.rayon).toBe("BIO 1");
+    expect(rayons[1]?.rayon).toBe("BIO 2");
+    expect(rayons[2]?.rayon).toBe("CHIPS");
+    expect(rayons.find((row) => row.rayon === "PATISSERIE")?.order).toBe("120");
   });
 });

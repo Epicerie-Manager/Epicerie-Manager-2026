@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Card } from "@/components/ui/card";
 import { Kicker } from "@/components/ui/kicker";
 import { KPI, KPIRow } from "@/components/ui/kpi";
@@ -22,6 +22,7 @@ import {
   loadTgWeekPlans,
   saveTgCustomMechanics,
   saveTgDefaultAssignments,
+  saveTgConfigToSupabase,
   saveTgRayons,
   saveTgWeekPlans,
   saveTgWeekPlansToSupabase,
@@ -202,6 +203,13 @@ export default function PlanTgPage(){
   const [newRayonPositionMode,setNewRayonPositionMode]=useState<PositionMode>("end");
   const [newRayonStartWeekId,setNewRayonStartWeekId]=useState(initialWeekId);
   const [remoteSaveEnabled,setRemoteSaveEnabled]=useState(false);
+  const saveTimeoutRef = useRef<number | null>(null);
+  const latestPayloadRef = useRef<TgWeekPlanRow[]>([]);
+  const latestRayonsRef = useRef<TgRayon[]>([]);
+  const latestAssignmentsRef = useRef<TgDefaultAssignment[]>([]);
+  const latestMechanicsRef = useRef<string[]>([]);
+  const inFlightSaveRef = useRef<Promise<boolean> | null>(null);
+  const hasPendingRemoteSaveRef = useRef(false);
 
   const employees=tgEmployees.filter((e)=>e.active).map((e)=>e.name);
   const assignmentMap=useMemo(()=>buildAssignmentMap(assignments),[assignments]);
@@ -228,11 +236,67 @@ export default function PlanTgPage(){
   useEffect(()=>{
     if(!remoteSaveEnabled) return;
     const normalizedPlans = normalizePlans(plans,orderedRayons,assignmentMap);
-    const timeout = window.setTimeout(()=>{
-      void saveTgWeekPlansToSupabase(normalizedPlans);
-    },800);
-    return ()=>window.clearTimeout(timeout);
-  },[assignmentMap,orderedRayons,plans,remoteSaveEnabled]);
+    latestPayloadRef.current = normalizedPlans;
+    latestRayonsRef.current = orderedRayons;
+    latestAssignmentsRef.current = assignments;
+    latestMechanicsRef.current = customMechanics;
+    hasPendingRemoteSaveRef.current = true;
+
+    const flushRemoteSave = async () => {
+      if(inFlightSaveRef.current){
+        await inFlightSaveRef.current;
+        if(!hasPendingRemoteSaveRef.current) return true;
+      }
+      const savePromise = (async ()=>{
+        const configSaved = await saveTgConfigToSupabase(
+          latestRayonsRef.current,
+          latestAssignmentsRef.current,
+          latestMechanicsRef.current,
+        );
+        const plansSaved = await saveTgWeekPlansToSupabase(latestPayloadRef.current);
+        return configSaved && plansSaved;
+      })().finally(()=>{
+        inFlightSaveRef.current = null;
+      });
+      inFlightSaveRef.current = savePromise;
+      const saved = await savePromise;
+      if(saved){
+        hasPendingRemoteSaveRef.current = false;
+      }
+      return saved;
+    };
+
+    if(saveTimeoutRef.current){
+      window.clearTimeout(saveTimeoutRef.current);
+    }
+    saveTimeoutRef.current = window.setTimeout(()=>{
+      void flushRemoteSave();
+    },250);
+
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if(!hasPendingRemoteSaveRef.current && !inFlightSaveRef.current) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+
+    const handleVisibilityChange = () => {
+      if(document.visibilityState === "hidden" && hasPendingRemoteSaveRef.current){
+        void flushRemoteSave();
+      }
+    };
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return ()=>{
+      if(saveTimeoutRef.current){
+        window.clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  },[assignmentMap,assignments,customMechanics,orderedRayons,plans,remoteSaveEnabled]);
   useEffect(()=>{
     const refresh=()=>{
       const nextRayons = assignSequentialRayonOrders(sortRayonsByOrder(loadTgRayons()));

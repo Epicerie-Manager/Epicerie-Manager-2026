@@ -19,6 +19,8 @@ alter table if exists public.binomes_repos enable row level security;
 alter table if exists public.tri_caddie enable row level security;
 alter table if exists public.plans_tg enable row level security;
 alter table if exists public.plans_tg_entries enable row level security;
+alter table if exists public.tg_rayons_config enable row level security;
+alter table if exists public.tg_custom_mechanics enable row level security;
 alter table if exists public.balisage_mensuel enable row level security;
 alter table if exists public.absences enable row level security;
 alter table if exists public.documents enable row level security;
@@ -70,6 +72,20 @@ using (true);
 drop policy if exists "read_plans_tg_entries_public" on public.plans_tg_entries;
 create policy "read_plans_tg_entries_public"
 on public.plans_tg_entries
+for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "read_tg_rayons_config_public" on public.tg_rayons_config;
+create policy "read_tg_rayons_config_public"
+on public.tg_rayons_config
+for select
+to anon, authenticated
+using (true);
+
+drop policy if exists "read_tg_custom_mechanics_public" on public.tg_custom_mechanics;
+create policy "read_tg_custom_mechanics_public"
+on public.tg_custom_mechanics
 for select
 to anon, authenticated
 using (true);
@@ -166,6 +182,24 @@ to authenticated
 using (public.is_manager())
 with check (public.is_manager());
 
+-- tg_rayons_config
+drop policy if exists "write_tg_rayons_config_manager" on public.tg_rayons_config;
+create policy "write_tg_rayons_config_manager"
+on public.tg_rayons_config
+for all
+to authenticated
+using (public.is_manager())
+with check (public.is_manager());
+
+-- tg_custom_mechanics
+drop policy if exists "write_tg_custom_mechanics_manager" on public.tg_custom_mechanics;
+create policy "write_tg_custom_mechanics_manager"
+on public.tg_custom_mechanics
+for all
+to authenticated
+using (public.is_manager())
+with check (public.is_manager());
+
 -- balisage_mensuel
 drop policy if exists "write_balisage_manager" on public.balisage_mensuel;
 create policy "write_balisage_manager"
@@ -212,6 +246,8 @@ grant select on table
   public.tri_caddie,
   public.plans_tg,
   public.plans_tg_entries,
+  public.tg_rayons_config,
+  public.tg_custom_mechanics,
   public.balisage_mensuel,
   public.absences,
   public.documents,
@@ -226,6 +262,8 @@ grant all on table
   public.tri_caddie,
   public.plans_tg,
   public.plans_tg_entries,
+  public.tg_rayons_config,
+  public.tg_custom_mechanics,
   public.balisage_mensuel,
   public.absences,
   public.documents,

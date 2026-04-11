@@ -16,6 +16,7 @@ const eslintConfig = defineConfig([
     "public/workbox-*.js",
     // Local tooling/worktree artifacts should not affect app linting.
     ".claude/**",
+    "test-results/**",
     "scripts/**/*.cjs",
     "*.tsbuildinfo",
   ]),

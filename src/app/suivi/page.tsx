@@ -182,6 +182,40 @@ function CompactPill({
   );
 }
 
+function StatBox({
+  label,
+  value,
+  color,
+  background = "#f8fafc",
+  border = "#e2e8f0",
+  caption,
+}: {
+  label: string;
+  value: string | number;
+  color?: string;
+  background?: string;
+  border?: string;
+  caption?: string;
+}) {
+  return (
+    <div
+      style={{
+        borderRadius: 12,
+        background,
+        border: `1px solid ${border}`,
+        padding: "10px 12px",
+        minHeight: 82,
+      }}
+    >
+      <div style={{ fontSize: 11, color: "#64748b" }}>{label}</div>
+      <div style={{ fontSize: 20, fontWeight: 800, color: color ?? "#0f172a", marginTop: 4 }}>{value}</div>
+      {caption ? (
+        <div style={{ fontSize: 11, color: color ?? "#64748b", marginTop: 4, lineHeight: 1.4 }}>{caption}</div>
+      ) : null}
+    </div>
+  );
+}
+
 function StarRatingInput({
   value,
   onChange,
@@ -403,6 +437,8 @@ export default function SuiviPage() {
     Object.fromEntries(METRE_A_METRE_SECTIONS.map((section, index) => [section.key, index === 0])),
   );
   const [expandedAuditSections, setExpandedAuditSections] = useState<Record<string, boolean>>({});
+  const [showAllBalisageMonths, setShowAllBalisageMonths] = useState(false);
+  const [showFullAuditHistory, setShowFullAuditHistory] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -590,7 +626,10 @@ export default function SuiviPage() {
     [audits, averageAuditScore, employeeSnapshots, selectedEmployeeId],
   );
 
-  const selectedEmployeeAudits = selectedEmployeeSnapshot?.audits ?? [];
+  const selectedEmployeeAudits = useMemo(
+    () => selectedEmployeeSnapshot?.audits ?? [],
+    [selectedEmployeeSnapshot],
+  );
 
   const teamBalisageSeries = useMemo<TeamSeriesPoint[]>(() => {
     const monthMap = new Map<string, number>();
@@ -774,12 +813,34 @@ export default function SuiviPage() {
     return { strengths, watchpoints };
   }, [averageAuditScore, selectedBalisageReferenceObjective, selectedEmployeeAbsence, selectedEmployeeBalisage, selectedEmployeeSnapshot, teamBalisageAveragePerMonth, visitProgressToDate.visitsBehind]);
 
+  const visibleBalisageMonths = useMemo(() => {
+    const months = selectedEmployeeBalisage?.months ?? [];
+    if (showAllBalisageMonths) return months;
+    return months.slice(Math.max(months.length - 3, 0));
+  }, [selectedEmployeeBalisage, showAllBalisageMonths]);
+
+  const visibleAuditHistory = useMemo(() => {
+    if (showFullAuditHistory) return selectedEmployeeAudits;
+    const limit = selectedEmployeeSnapshot?.employeeId === ALL_EMPLOYEES_OPTION ? 2 : 3;
+    return selectedEmployeeAudits.slice(0, limit);
+  }, [selectedEmployeeAudits, selectedEmployeeSnapshot, showFullAuditHistory]);
+
+  const activeAuditSection =
+    selectedAuditDetail?.sections.find((section) => expandedAuditSections[section.id]) ??
+    selectedAuditDetail?.sections[0] ??
+    null;
+
   useEffect(() => {
     if (!selectedEmployeeSnapshot) return;
     if (selectedEmployeeId !== selectedEmployeeSnapshot.employeeId) {
       setSelectedEmployeeId(selectedEmployeeSnapshot.employeeId);
     }
   }, [selectedEmployeeId, selectedEmployeeSnapshot]);
+
+  useEffect(() => {
+    setShowAllBalisageMonths(false);
+    setShowFullAuditHistory(false);
+  }, [selectedEmployeeId]);
 
   useEffect(() => {
     if (!selectedEmployeeSnapshot) return;
@@ -859,10 +920,7 @@ export default function SuiviPage() {
   };
 
   const toggleAuditSection = (sectionId: string) => {
-    setExpandedAuditSections((current) => ({
-      ...current,
-      [sectionId]: !current[sectionId],
-    }));
+    setExpandedAuditSections({ [sectionId]: true });
   };
 
   const resetDraftToCreateMode = () => {
@@ -1548,155 +1606,201 @@ export default function SuiviPage() {
           </div>
           ) : (
           <div style={{ display: "grid", gap: 14, marginTop: 14, alignItems: "start" }}>
-            <div style={{ display: "grid", gap: 12, gridTemplateColumns: "minmax(260px, 0.82fr) minmax(0, 1.18fr)", alignSelf: "start" }}>
-              <div style={{ ...innerTileStyle, background: "#fbfcfe", padding: "12px 14px" }}>
-                <div style={{ fontSize: 12, fontWeight: 800, color: "#0f172a" }}>Collaborateur</div>
-                <select
-                  value={selectedEmployeeSnapshot?.employeeId ?? ""}
-                  onChange={(event) => {
-                    const employeeId = event.target.value;
-                    setSelectedEmployeeId(employeeId || null);
-                    if (employeeId === ALL_EMPLOYEES_OPTION) {
-                      setSelectedAuditId(null);
-                      return;
-                    }
-                    setSelectedAuditId(null);
-                  }}
-                  disabled={historyLoading || loading}
-                  style={{
-                    width: "100%",
-                    minHeight: 40,
-                    marginTop: 10,
-                    borderRadius: 10,
-                    border: "1px solid #dbe3eb",
-                    padding: "0 12px",
-                    fontSize: 12,
-                    color: "#0f172a",
-                    background: "#fff",
-                  }}
-                >
-                  <option value={ALL_EMPLOYEES_OPTION}>Toute l&apos;équipe</option>
-                  {employeeSnapshots.map((employee) => (
-                    <option key={employee.employeeId} value={employee.employeeId}>
-                      {employee.name}
-                    </option>
-                  ))}
-                </select>
-                <div style={{ fontSize: 11, color: "#64748b", marginTop: 8 }}>
-                  {selectedEmployeeSnapshot?.rayons.join(", ") || "Rayon non renseigné"}
-                </div>
-              </div>
+            <div
+              style={{
+                ...innerTileStyle,
+                padding: "10px 14px",
+                display: "flex",
+                alignItems: "center",
+                gap: 12,
+                flexWrap: "wrap",
+              }}
+            >
+              <span style={{ fontSize: 11, fontWeight: 800, color: "#64748b", letterSpacing: "0.08em", textTransform: "uppercase" }}>
+                Collaborateur
+              </span>
+              <select
+                value={selectedEmployeeSnapshot?.employeeId ?? ""}
+                onChange={(event) => {
+                  const employeeId = event.target.value;
+                  setSelectedEmployeeId(employeeId || null);
+                  setSelectedAuditId(null);
+                }}
+                disabled={historyLoading || loading}
+                style={{
+                  flex: "1 1 260px",
+                  minHeight: 40,
+                  borderRadius: 10,
+                  border: "1px solid #dbe3eb",
+                  padding: "0 12px",
+                  fontSize: 13,
+                  fontWeight: 700,
+                  color: "#0f172a",
+                  background: "#f8fafc",
+                }}
+              >
+                <option value={ALL_EMPLOYEES_OPTION}>Toute l&apos;équipe</option>
+                {employeeSnapshots.map((employee) => (
+                  <option key={employee.employeeId} value={employee.employeeId}>
+                    {employee.name}
+                  </option>
+                ))}
+              </select>
+              <span style={{ fontSize: 12, color: "#64748b", flex: "1 1 220px" }}>
+                {selectedEmployeeSnapshot?.rayons.join(", ") || "Rayon non renseigné"}
+              </span>
+              <span
+                style={{
+                  fontSize: 12,
+                  fontWeight: 800,
+                  padding: "6px 10px",
+                  borderRadius: 999,
+                  background: "#eeedfe",
+                  color: "#3c3489",
+                }}
+              >
+                {selectedEmployeeSnapshot?.auditCount ? `${selectedEmployeeSnapshot.averageScore}% moyenne` : "Aucun audit"}
+              </span>
+              {selectedEmployeeSnapshot?.lastAuditDate ? (
+                <span style={{ fontSize: 11, color: "#64748b" }}>Dernier audit {compactDate(selectedEmployeeSnapshot.lastAuditDate)}</span>
+              ) : null}
+            </div>
 
-              <div style={{ display: "grid", gap: 12, gridTemplateColumns: "1.1fr 1fr" }}>
-                <div style={innerTileStyle}>
-                  <div style={{ fontSize: 12, fontWeight: 800, color: "#0f172a" }}>Absences depuis janvier</div>
-                  <div style={{ fontSize: 11, color: "#64748b", marginTop: 3 }}>
-                    Lecture directe de la table absences pour la sélection en cours
+            <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
+              <div style={{ ...innerTileStyle, display: "grid", gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#64748b" }}>
+                    Audits
                   </div>
-
-                  <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(2, minmax(0, 1fr))", marginTop: 12 }}>
-                    <div style={{ borderRadius: 12, background: "#f8fafc", border: "1px solid #e2e8f0", padding: "10px 12px" }}>
-                      <div style={{ fontSize: 11, color: "#64748b" }}>Demandes</div>
-                      <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", marginTop: 4 }}>{selectedEmployeeAbsence?.totalRequests ?? 0}</div>
-                    </div>
-                    <div style={{ borderRadius: 12, background: "#eff6ff", border: "1px solid #bfdbfe", padding: "10px 12px" }}>
-                      <div style={{ fontSize: 11, color: "#64748b" }}>Jours approuvés</div>
-                      <div style={{ fontSize: 18, fontWeight: 800, color: "#1d4ed8", marginTop: 4 }}>{selectedEmployeeAbsence?.approvedDays ?? 0}</div>
-                    </div>
-                    <div style={{ borderRadius: 12, background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "10px 12px" }}>
-                      <div style={{ fontSize: 11, color: "#64748b" }}>Approuvées</div>
-                      <div style={{ fontSize: 18, fontWeight: 800, color: "#166534", marginTop: 4 }}>{selectedEmployeeAbsence?.approvedRequests ?? 0}</div>
-                    </div>
-                    <div style={{ borderRadius: 12, background: "#fff7ed", border: "1px solid #fdba74", padding: "10px 12px" }}>
-                      <div style={{ fontSize: 11, color: "#64748b" }}>En attente</div>
-                      <div style={{ fontSize: 18, fontWeight: 800, color: "#c2410c", marginTop: 4 }}>{selectedEmployeeAbsence?.pendingRequests ?? 0}</div>
-                    </div>
-                  </div>
-                </div>
-
-                <div style={{ display: "grid", gap: 12 }}>
-                  <div style={{ borderRadius: 16, border: "1px solid #bbf7d0", background: "#f0fdf4", padding: "14px 16px", boxShadow: innerTileStyle.boxShadow }}>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: "#166534" }}>Points forts</div>
-                    <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-                      {collaboratorInsights.strengths.length ? collaboratorInsights.strengths.slice(0, 2).map((item) => (
-                        <div key={item} style={{ fontSize: 12, color: "#166534", lineHeight: 1.6 }}>
-                          • {item}
-                        </div>
-                      )) : (
-                        <div style={{ fontSize: 12, color: "#166534", lineHeight: 1.6 }}>
-                          Aucun point fort majeur ne remonte encore.
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div style={{ borderRadius: 16, border: "1px solid #fecaca", background: "#fef2f2", padding: "14px 16px", boxShadow: innerTileStyle.boxShadow }}>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: "#b91c1c" }}>Points de vigilance</div>
-                    <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-                      {collaboratorInsights.watchpoints.length ? collaboratorInsights.watchpoints.slice(0, 2).map((item) => (
-                        <div key={item} style={{ fontSize: 12, color: "#991b1b", lineHeight: 1.6 }}>
-                          • {item}
-                        </div>
-                      )) : (
-                        <div style={{ fontSize: 12, color: "#991b1b", lineHeight: 1.6 }}>
-                          Aucun signal d&apos;alerte majeur ne remonte pour l&apos;instant.
-                        </div>
-                      )}
-                    </div>
+                  <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
+                    {selectedEmployeeSnapshot?.employeeId === ALL_EMPLOYEES_OPTION
+                      ? `${selectedEmployeeAudits.length} audit(s) visibles pour l'équipe`
+                      : "Historique compact avec ouverture en popup"}
                   </div>
                 </div>
-              </div>
 
-              <div style={{ ...innerTileStyle, gridColumn: "1 / -1" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "start", flexWrap: "wrap" }}>
-                    <div>
-                      <div style={{ fontSize: 11, fontWeight: 800, color: "#8b5cf6", letterSpacing: "0.08em", textTransform: "uppercase" }}>
-                      Vue collaborateur
+                <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
+                  <StatBox label="Audits" value={selectedEmployeeSnapshot?.auditCount ?? 0} background="#faf7ff" border="#e9ddff" />
+                  <StatBox
+                    label="Moyenne"
+                    value={selectedEmployeeSnapshot?.auditCount ? `${selectedEmployeeSnapshot.averageScore}%` : "-"}
+                    color="#185fa5"
+                    background="#eff6ff"
+                    border="#bfdbfe"
+                  />
+                  <StatBox
+                    label="Meilleur"
+                    value={selectedEmployeeSnapshot?.bestScore != null ? `${selectedEmployeeSnapshot.bestScore.toFixed(0)}%` : "-"}
+                    color="#166534"
+                    background="#f0fdf4"
+                    border="#bbf7d0"
+                  />
+                  <StatBox
+                    label="Scores < 60%"
+                    value={selectedEmployeeSnapshot?.needsAttentionCount ?? 0}
+                    color="#b91c1c"
+                    background="#fef2f2"
+                    border="#fecaca"
+                  />
+                </div>
+
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#94a3b8" }}>
+                    Historique
+                  </div>
+                  <div style={{ display: "grid", gap: 0, marginTop: 8, maxHeight: showFullAuditHistory ? 220 : "none", overflowY: showFullAuditHistory ? "auto" : "visible", paddingRight: showFullAuditHistory ? 4 : 0 }}>
+                    {visibleAuditHistory.length ? (
+                      visibleAuditHistory.map((audit) => {
+                        const scoreTone =
+                          audit.globalScore >= 80
+                            ? { bg: "#eaf3de", color: "#27500a" }
+                            : audit.globalScore >= 60
+                              ? { bg: "#faeeda", color: "#633806" }
+                              : { bg: "#fcebeb", color: "#791f1f" };
+
+                        return (
+                          <button
+                            key={audit.id}
+                            type="button"
+                            onClick={() => setSelectedAuditId(audit.id)}
+                            style={{
+                              display: "flex",
+                              alignItems: "center",
+                              justifyContent: "space-between",
+                              gap: 10,
+                              width: "100%",
+                              padding: "9px 0",
+                              border: "none",
+                              borderBottom: "1px solid #f1f5f9",
+                              background: "transparent",
+                              textAlign: "left",
+                              cursor: "pointer",
+                            }}
+                          >
+                            <div style={{ minWidth: 0 }}>
+                              <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}>
+                                {audit.collaboratorName} · {formatAuditDate(audit.auditDate)}
+                              </div>
+                              <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 3 }}>
+                                {audit.rayon} · {audit.managerName || "Manager non renseigné"}
+                              </div>
+                            </div>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                  padding: "4px 8px",
+                                  borderRadius: 999,
+                                  background: scoreTone.bg,
+                                  color: scoreTone.color,
+                                }}
+                              >
+                                {audit.globalScore.toFixed(0)}%
+                              </span>
+                              <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b" }}>Ouvrir</span>
+                            </div>
+                          </button>
+                        );
+                      })
+                    ) : (
+                      <div style={{ borderRadius: 12, border: "1px dashed #dbe3eb", background: "#fbfcfe", padding: "14px 16px", fontSize: 12, color: "#64748b" }}>
+                        Aucun audit enregistré pour cette sélection.
                       </div>
-                    <div style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", marginTop: 4 }}>
-                      {selectedEmployeeSnapshot?.name || "Aucun collaborateur"}
-                    </div>
-                    <div style={{ fontSize: 12, color: "#64748b", marginTop: 6 }}>
-                      {selectedEmployeeSnapshot?.rayons.join(", ") || "Rayon à préciser"}
-                    </div>
+                    )}
                   </div>
-
-                  {selectedEmployeeSnapshot?.lastScore != null ? (
-                    <SectionScoreBadge score={selectedEmployeeSnapshot.lastScore} />
+                  {selectedEmployeeAudits.length > visibleAuditHistory.length ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowFullAuditHistory((current) => !current)}
+                      style={{
+                        marginTop: 8,
+                        minHeight: 32,
+                        borderRadius: 999,
+                        border: "1px solid #dbe3eb",
+                        background: "#fff",
+                        color: "#475569",
+                        padding: "0 12px",
+                        fontSize: 11,
+                        fontWeight: 700,
+                        cursor: "pointer",
+                        justifySelf: "start",
+                      }}
+                    >
+                      {showFullAuditHistory ? "Réduire l'historique" : `Voir l'historique (${selectedEmployeeAudits.length})`}
+                    </button>
                   ) : null}
                 </div>
-
-                <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", marginTop: 14 }}>
-                  <div style={{ borderRadius: 12, background: "#faf7ff", border: "1px solid #e9ddff", padding: "10px 12px" }}>
-                    <div style={{ fontSize: 11, color: "#64748b" }}>Audits</div>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", marginTop: 4 }}>{selectedEmployeeSnapshot?.auditCount ?? 0}</div>
-                  </div>
-                  <div style={{ borderRadius: 12, background: "#f8fafc", border: "1px solid #e2e8f0", padding: "10px 12px" }}>
-                    <div style={{ fontSize: 11, color: "#64748b" }}>Moyenne</div>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", marginTop: 4 }}>
-                      {selectedEmployeeSnapshot?.auditCount ? `${selectedEmployeeSnapshot.averageScore}%` : "-"}
-                    </div>
-                  </div>
-                  <div style={{ borderRadius: 12, background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "10px 12px" }}>
-                    <div style={{ fontSize: 11, color: "#64748b" }}>Meilleur score</div>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: "#166534", marginTop: 4 }}>
-                      {selectedEmployeeSnapshot?.bestScore != null ? `${selectedEmployeeSnapshot.bestScore.toFixed(0)}%` : "-"}
-                    </div>
-                  </div>
-                  <div style={{ borderRadius: 12, background: "#fef2f2", border: "1px solid #fecaca", padding: "10px 12px" }}>
-                    <div style={{ fontSize: 11, color: "#64748b" }}>Scores &lt; 60%</div>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: "#b91c1c", marginTop: 4 }}>
-                      {selectedEmployeeSnapshot?.needsAttentionCount ?? 0}
-                  </div>
-                </div>
               </div>
 
-              <div style={{ ...innerTileStyle, gridColumn: "1 / -1" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+              <div style={{ ...innerTileStyle, display: "grid", gap: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "start", flexWrap: "wrap" }}>
                   <div>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: "#0f172a" }}>Balisage depuis janvier</div>
-                    <div style={{ fontSize: 11, color: "#64748b", marginTop: 3 }}>
-                      Lecture directe depuis les controles mensuels en base
+                    <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#64748b" }}>
+                      Balisage depuis janvier
+                    </div>
+                    <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
+                      Lecture compacte des 3 derniers mois, puis ouverture du détail complet si besoin
                     </div>
                   </div>
                   {selectedEmployeeBalisage ? (
@@ -1706,9 +1810,9 @@ export default function SuiviPage() {
                         fontWeight: 800,
                         borderRadius: 999,
                         padding: "4px 10px",
-                        background: "#ecfeff",
-                        color: "#0b7285",
-                        border: "1px solid #a5f3fc",
+                        background: "#eeedfe",
+                        color: "#3c3489",
+                        border: "1px solid #d8ccff",
                       }}
                     >
                       {selectedEmployeeBalisage.progressPercent}% objectif
@@ -1716,152 +1820,191 @@ export default function SuiviPage() {
                   ) : null}
                 </div>
 
-                <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", marginTop: 14 }}>
-                  <div style={{ borderRadius: 12, background: "#ecfeff", border: "1px solid #a5f3fc", padding: "10px 12px" }}>
-                    <div style={{ fontSize: 11, color: "#64748b" }}>Total depuis janvier</div>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", marginTop: 4 }}>
-                      {selectedEmployeeBalisage?.totalControls ?? 0}
-                    </div>
-                  </div>
-                  <div style={{ borderRadius: 12, background: "#f8fafc", border: "1px solid #e2e8f0", padding: "10px 12px" }}>
-                    <div style={{ fontSize: 11, color: "#64748b" }}>Moyenne / mois</div>
-                    <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", marginTop: 4 }}>
-                      {selectedEmployeeBalisage ? selectedEmployeeBalisage.averagePerMonth : 0}
-                    </div>
-                  </div>
-                  <div style={{ borderRadius: 12, background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "10px 12px" }}>
-                    <div style={{ fontSize: 11, color: "#64748b" }}>Meilleur mois</div>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: "#166534", marginTop: 4 }}>
-                      {selectedEmployeeBalisage?.bestMonthLabel ?? "-"}
-                    </div>
-                    <div style={{ fontSize: 11, color: "#166534", marginTop: 4 }}>
-                      {selectedEmployeeBalisage?.bestMonthTotal ?? 0} controles
-                    </div>
-                  </div>
-                  <div style={{ borderRadius: 12, background: "#eff6ff", border: "1px solid #bfdbfe", padding: "10px 12px" }}>
-                    <div style={{ fontSize: 11, color: "#64748b" }}>Mois en cours</div>
-                    <div style={{ fontSize: 16, fontWeight: 800, color: "#1d4ed8", marginTop: 4 }}>
-                      {selectedEmployeeBalisage?.currentMonthLabel ?? "-"}
-                    </div>
-                    <div style={{ fontSize: 11, color: "#1d4ed8", marginTop: 4 }}>
-                      {selectedEmployeeBalisage?.currentMonthTotal ?? 0} controles
-                    </div>
-                  </div>
+                <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
+                  <StatBox
+                    label="Total janv."
+                    value={selectedEmployeeBalisage?.totalControls ?? 0}
+                    color="#0f766e"
+                    background="#ecfeff"
+                    border="#a5f3fc"
+                  />
+                  <StatBox label="Moyenne / mois" value={selectedEmployeeBalisage?.averagePerMonth ?? 0} />
+                  <StatBox
+                    label="Meilleur mois"
+                    value={selectedEmployeeBalisage?.bestMonthLabel ?? "-"}
+                    color="#166534"
+                    background="#f0fdf4"
+                    border="#bbf7d0"
+                    caption={`${selectedEmployeeBalisage?.bestMonthTotal ?? 0} contrôles`}
+                  />
+                  <StatBox
+                    label="Mois en cours"
+                    value={selectedEmployeeBalisage?.currentMonthLabel ?? "-"}
+                    color={(selectedEmployeeBalisage?.currentMonthTotal ?? 0) === 0 ? "#b91c1c" : "#1d4ed8"}
+                    background="#eff6ff"
+                    border="#bfdbfe"
+                    caption={`${selectedEmployeeBalisage?.currentMonthTotal ?? 0} contrôles`}
+                  />
                 </div>
 
-                <div style={{ display: "grid", gap: 8, marginTop: 14 }}>
-                  {(selectedEmployeeBalisage?.months ?? []).map((month) => (
-                    <div
-                      key={month.monthId}
-                      style={{
-                        display: "grid",
-                        gridTemplateColumns: "minmax(0, 1fr) auto auto",
-                        gap: 10,
-                        alignItems: "center",
-                        borderRadius: 12,
-                        border: "1px solid #e8ecf1",
-                        background: "#fbfcfe",
-                        padding: "10px 12px",
-                      }}
-                    >
-                      <div style={{ minWidth: 0 }}>
-                        <div style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}>{month.label}</div>
-                        <div style={{ fontSize: 11, color: "#64748b", marginTop: 3 }}>
-                          {month.errorRate == null ? "Taux d'erreur non saisi" : `Taux d'erreur ${month.errorRate}%`}
-                        </div>
-                      </div>
-                      <div style={{ fontSize: 12, fontWeight: 800, color: "#0f172a" }}>{month.total}</div>
-                      <div
-                        style={{
-                          width: 96,
-                          height: 8,
-                          borderRadius: 999,
-                          background: "#e2e8f0",
-                          overflow: "hidden",
-                        }}
-                      >
+                <div style={{ display: "grid", gap: 8 }}>
+                  {visibleBalisageMonths.map((month) => (
+                    <div key={month.monthId} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ width: 38, flexShrink: 0, fontSize: 11, color: "#64748b" }}>{month.label.slice(0, 3)}</span>
+                      <div style={{ flex: 1, height: 7, background: "#e2e8f0", borderRadius: 999, overflow: "hidden" }}>
                         <div
                           style={{
                             width: `${Math.min(Math.round((month.total / Math.max(selectedBalisageReferenceObjective, 1)) * 100), 100)}%`,
                             height: "100%",
                             borderRadius: 999,
-                            background: month.total >= selectedBalisageReferenceObjective ? "#16a34a" : month.total >= selectedBalisageReferenceObjective / 2 ? "#d97706" : "#94a3b8",
+                            background:
+                              month.total >= selectedBalisageReferenceObjective
+                                ? "#16a34a"
+                                : month.total >= selectedBalisageReferenceObjective / 2
+                                  ? "#0ea5e9"
+                                  : "#94a3b8",
                           }}
                         />
                       </div>
+                      <span style={{ minWidth: 32, textAlign: "right", fontSize: 11, fontWeight: 800, color: month.total > 0 ? "#0f172a" : "#94a3b8" }}>
+                        {month.total}
+                      </span>
                     </div>
                   ))}
                 </div>
-              </div>
-            </div>
 
-              <div style={{ ...innerTileStyle, gridColumn: "1 / -1" }}>
-                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-                  <div>
-                    <div style={{ fontSize: 12, fontWeight: 800, color: "#0f172a" }}>
-                      {selectedEmployeeSnapshot?.employeeId === ALL_EMPLOYEES_OPTION ? "Audits réalisés" : "Historique des audits"}
+                {(selectedEmployeeBalisage?.months?.length ?? 0) > 3 ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowAllBalisageMonths((current) => !current)}
+                    style={{
+                      minHeight: 32,
+                      borderRadius: 999,
+                      border: "1px solid #dbe3eb",
+                      background: "#fff",
+                      color: "#475569",
+                      padding: "0 12px",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      cursor: "pointer",
+                      justifySelf: "start",
+                    }}
+                  >
+                    {showAllBalisageMonths ? "Masquer les autres mois" : "Voir tout le balisage"}
+                  </button>
+                ) : null}
+              </div>
+
+              <div style={{ ...innerTileStyle, display: "grid", gap: 12 }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#64748b" }}>
+                    Absences depuis janvier
+                  </div>
+                  <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
+                    Lecture directe de la table absences pour la sélection en cours
+                  </div>
+                </div>
+                <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
+                  <StatBox label="Demandes" value={selectedEmployeeAbsence?.totalRequests ?? 0} />
+                  <StatBox
+                    label="Jours approuvés"
+                    value={selectedEmployeeAbsence?.approvedDays ?? 0}
+                    color="#1d4ed8"
+                    background="#eff6ff"
+                    border="#bfdbfe"
+                  />
+                  <StatBox
+                    label="Approuvées"
+                    value={selectedEmployeeAbsence?.approvedRequests ?? 0}
+                    color="#166534"
+                    background="#f0fdf4"
+                    border="#bbf7d0"
+                  />
+                  <StatBox
+                    label="En attente"
+                    value={selectedEmployeeAbsence?.pendingRequests ?? 0}
+                    color={(selectedEmployeeAbsence?.pendingRequests ?? 0) > 0 ? "#c2410c" : "#0f172a"}
+                    background="#fff7ed"
+                    border="#fdba74"
+                  />
+                </div>
+              </div>
+
+              <div style={{ ...innerTileStyle, display: "grid", gap: 12 }}>
+                <div style={{ display: "grid", gap: 12 }}>
+                  <div style={{ borderRadius: 14, border: "1px solid #bbf7d0", background: "#f0fdf4", padding: "12px 14px" }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: "#166534" }}>
+                      Points forts
                     </div>
-                    <div style={{ fontSize: 11, color: "#64748b", marginTop: 3 }}>
-                      {selectedEmployeeSnapshot?.employeeId === ALL_EMPLOYEES_OPTION
-                        ? `${audits.length} audit(s) enregistré(s) pour l'équipe`
-                        : "Clique sur une fiche pour ouvrir le détail complet tout en bas"}
+                    <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+                      {collaboratorInsights.strengths.length ? collaboratorInsights.strengths.slice(0, 3).map((item) => (
+                        <div key={item} style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12, color: "#166534", lineHeight: 1.55 }}>
+                          <span style={{ width: 7, height: 7, borderRadius: 999, background: "#16a34a", marginTop: 5, flexShrink: 0 }} />
+                          <span>{item}</span>
+                        </div>
+                      )) : (
+                        <div style={{ fontSize: 12, color: "#166534", lineHeight: 1.55 }}>Aucun point fort majeur ne remonte encore.</div>
+                      )}
                     </div>
                   </div>
-                  {selectedEmployeeSnapshot?.lastAuditDate ? (
-                    <span style={{ fontSize: 11, color: "#64748b" }}>Dernier audit : {compactDate(selectedEmployeeSnapshot.lastAuditDate)}</span>
-                  ) : null}
-                </div>
 
-                <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
-                  {selectedEmployeeAudits.length ? (
-                    selectedEmployeeAudits.map((audit) => {
-                      const active = audit.id === selectedAuditId;
-                      return (
-                        <button
-                          key={audit.id}
-                          type="button"
-                          onClick={() => setSelectedAuditId((current) => (current === audit.id ? null : audit.id))}
-                          style={{
-                            textAlign: "left",
-                            borderRadius: 14,
-                            border: `1px solid ${active ? theme.color : "#dbe3eb"}`,
-                            background: active ? "#faf7ff" : "#fff",
-                            padding: "12px 14px",
-                            cursor: "pointer",
-                          }}
-                        >
-                          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "start" }}>
-                            <div style={{ minWidth: 0 }}>
-                              <strong style={{ fontSize: 13, color: "#0f172a" }}>
-                                {audit.collaboratorName} · {formatAuditDate(audit.auditDate)}
-                              </strong>
-                              <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
-                                Rayon {audit.rayon} · Manager {audit.managerName || "Non renseigné"}
-                              </div>
-                            </div>
-                            <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
-                              <SectionScoreBadge score={audit.globalScore} />
-                              <span style={{ fontSize: 11, color: active ? theme.color : "#64748b", fontWeight: 700 }}>
-                                {active ? "Réduire" : "Ouvrir"}
-                              </span>
-                            </div>
-                          </div>
-                        </button>
-                      );
-                    })
-                  ) : (
-                    <div style={{ borderRadius: 14, border: "1px dashed #dbe3eb", background: "#fbfcfe", padding: "14px 16px", fontSize: 12, color: "#64748b" }}>
-                      Aucun audit enregistré pour ce collaborateur pour l&apos;instant.
+                  <div style={{ borderRadius: 14, border: "1px solid #fecaca", background: "#fef2f2", padding: "12px 14px" }}>
+                    <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.04em", textTransform: "uppercase", color: "#b91c1c" }}>
+                      Points de vigilance
                     </div>
-                  )}
+                    <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
+                      {collaboratorInsights.watchpoints.length ? collaboratorInsights.watchpoints.slice(0, 3).map((item) => (
+                        <div key={item} style={{ display: "flex", gap: 8, alignItems: "flex-start", fontSize: 12, color: "#991b1b", lineHeight: 1.55 }}>
+                          <span style={{ width: 7, height: 7, borderRadius: 999, background: "#ef4444", marginTop: 5, flexShrink: 0 }} />
+                          <span>{item}</span>
+                        </div>
+                      )) : (
+                        <div style={{ fontSize: 12, color: "#991b1b", lineHeight: 1.55 }}>Aucun signal d&apos;alerte majeur ne remonte pour l&apos;instant.</div>
+                      )}
+                    </div>
+                  </div>
                 </div>
               </div>
 
             </div>
 
-            <div style={{ border: "1px solid #dbe3eb", borderRadius: 16, background: "#fff", padding: "14px 16px" }}>
-              {selectedAuditDetail ? (
-                <div style={{ display: "grid", gap: 14 }}>
+            {selectedAuditDetail ? (
+              <div
+                role="presentation"
+                onClick={() => setSelectedAuditId(null)}
+                style={{
+                  position: "fixed",
+                  inset: 0,
+                  zIndex: 90,
+                  background: "rgba(15,23,42,0.44)",
+                  backdropFilter: "blur(10px)",
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  overflowY: "auto",
+                  padding: "28px 24px",
+                }}
+              >
+                <div
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Détail audit collaborateur"
+                  onClick={(event) => event.stopPropagation()}
+                  style={{
+                    width: "min(1120px, calc(100vw - 96px))",
+                    height: "min(680px, calc(100vh - 112px))",
+                    overflow: "hidden",
+                    margin: "auto",
+                    borderRadius: 24,
+                    border: "1px solid #dbe3eb",
+                    background: "#fff",
+                    boxShadow: "0 28px 80px rgba(15,23,42,0.28)",
+                    padding: "16px 16px",
+                    display: "grid",
+                    gridTemplateRows: "auto 1fr auto",
+                    gap: 12,
+                  }}
+                >
                   {(() => {
                     const auditTone = globalAuditTone(selectedAuditDetail.globalScore);
                     return (
@@ -1870,24 +2013,41 @@ export default function SuiviPage() {
                           borderRadius: 18,
                           border: `1px solid ${auditTone.border}`,
                           background: auditTone.background,
-                          padding: "16px 18px",
+                          padding: "14px 16px",
                         }}
                       >
-                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "start", flexWrap: "wrap" }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) auto", gap: 14, alignItems: "start" }}>
                           <div>
                             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: auditTone.accent }}>
                               Fiche de visite
                             </div>
-                            <h3 style={{ margin: "6px 0 0", fontSize: 22, color: "#0f172a" }}>{selectedAuditDetail.collaboratorName}</h3>
-                            <div style={{ fontSize: 12, color: "#475569", marginTop: 6 }}>
-                              Date : {formatAuditDate(selectedAuditDetail.auditDate)} | Rayon : {selectedAuditDetail.rayon}
+                            <h3 style={{ margin: "4px 0 0", fontSize: 20, lineHeight: 1.05, color: "#0f172a" }}>{selectedAuditDetail.collaboratorName}</h3>
+                            <div style={{ fontSize: 11, color: "#475569", marginTop: 6 }}>
+                              Date : {formatAuditDate(selectedAuditDetail.auditDate)} · Rayon : {selectedAuditDetail.rayon}
                             </div>
-                            <div style={{ fontSize: 12, color: "#475569", marginTop: 2 }}>
+                            <div style={{ fontSize: 11, color: "#475569", marginTop: 4 }}>
                               Manager : {selectedAuditDetail.managerName || "Non renseigné"}
                             </div>
                           </div>
 
-                          <div style={{ display: "grid", gap: 8, justifyItems: "end" }}>
+                          <div style={{ display: "grid", gap: 8, justifyItems: "end", minWidth: 200 }}>
+                            <button
+                              type="button"
+                              onClick={() => setSelectedAuditId(null)}
+                              style={{
+                                minHeight: 34,
+                                borderRadius: 999,
+                                border: "1px solid #dbe3eb",
+                                background: "#fff",
+                                color: "#475569",
+                                padding: "0 12px",
+                                fontSize: 11,
+                                fontWeight: 700,
+                                cursor: "pointer",
+                              }}
+                            >
+                              Fermer
+                            </button>
                             <div style={{ fontSize: 12, fontWeight: 800, color: auditTone.accent }}>
                               SCORE : {selectedAuditDetail.globalScore.toFixed(0)}%
                             </div>
@@ -1945,8 +2105,8 @@ export default function SuiviPage() {
                           </div>
                         </div>
 
-                        <div style={{ marginTop: 14 }}>
-                          <div style={{ height: 12, borderRadius: 999, background: "#ffffffa8", overflow: "hidden", border: "1px solid #ffffffb8" }}>
+                        <div style={{ marginTop: 10 }}>
+                          <div style={{ height: 8, borderRadius: 999, background: "#ffffffa8", overflow: "hidden", border: "1px solid #ffffffb8" }}>
                             <div
                               style={{
                                 width: `${selectedAuditDetail.globalScore}%`,
@@ -1961,134 +2121,109 @@ export default function SuiviPage() {
                     );
                   })()}
 
-                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-                    {selectedAuditDetail.sections.map((section) => (
-                      <div
-                        key={section.id}
-                        style={{
-                          display: "inline-flex",
-                          alignItems: "center",
-                          gap: 8,
-                          minHeight: 34,
-                          borderRadius: 999,
-                          border: "1px solid #e8ecf1",
-                          background: "#fbfcfe",
-                          padding: "0 10px",
-                          fontSize: 11,
-                        }}
-                      >
-                        <span style={{ fontWeight: 700, color: "#0f172a" }}>{section.label}</span>
-                        <SectionScoreBadge score={section.score} />
-                      </div>
-                    ))}
-                  </div>
-
-                  <div style={{ display: "grid", gap: 10 }}>
-                    {selectedAuditDetail.sections.map((section) => {
-                      const expanded = expandedAuditSections[section.id];
-                      const sectionTone = statusTone(section.score);
-                      return (
-                        <div
-                          key={section.id}
-                          style={{
-                            borderRadius: 14,
-                            border: `1px solid ${sectionTone.border}`,
-                            background: "#ffffff",
-                            overflow: "hidden",
-                            boxShadow: "0 1px 2px rgba(15,23,42,0.03)",
-                          }}
-                        >
+                  <div style={{ display: "grid", gridTemplateColumns: "210px minmax(0, 1fr)", gap: 12, alignItems: "stretch", minHeight: 0 }}>
+                    <div style={{ display: "grid", gap: 8, minHeight: 0, overflowY: "auto", paddingRight: 2 }}>
+                      {selectedAuditDetail.sections.map((section) => {
+                        const active = activeAuditSection?.id === section.id;
+                        const sectionTone = statusTone(section.score);
+                        return (
                           <button
+                            key={section.id}
                             type="button"
                             onClick={() => toggleAuditSection(section.id)}
                             style={{
                               width: "100%",
-                              border: "none",
-                              background: "#fff",
-                              cursor: "pointer",
                               textAlign: "left",
-                              padding: "12px 14px",
-                              display: "flex",
-                              justifyContent: "space-between",
-                              gap: 12,
-                              alignItems: "center",
+                              borderRadius: 14,
+                              border: `1px solid ${active ? sectionTone.border : "#e8ecf1"}`,
+                              background: active ? sectionTone.bg : "#fff",
+                              padding: "8px 10px",
+                              cursor: "pointer",
                             }}
                           >
-                            <div style={{ minWidth: 0 }}>
-                              <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-                                <strong style={{ fontSize: 13, color: "#0f172a" }}>{section.label}</strong>
-                                <span style={{ fontSize: 11, color: "#64748b" }}>Coeff. {section.coefficient}%</span>
-                                <span style={{ fontSize: 11, color: "#64748b" }}>{section.items.length} points</span>
+                            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "start" }}>
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}>{section.label}</div>
+                                <div style={{ fontSize: 10, color: "#64748b", marginTop: 3 }}>
+                                  Coeff. {section.coefficient}% · {section.items.length} points
+                                </div>
                               </div>
-                            </div>
-                            <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-                              <span style={{ fontSize: 11, color: "#64748b" }}>{expanded ? "Réduire" : "Voir le détail"}</span>
                               <SectionScoreBadge score={section.score} />
                             </div>
                           </button>
+                        );
+                      })}
+                    </div>
 
-                          {expanded ? (
-                            <div style={{ display: "grid", gap: 8, padding: "0 14px 14px" }}>
-                              {section.items.map((item) => {
-                                const itemScore = statusTone(item.scoreValue);
-                                return (
-                                  <div
-                                    key={item.id}
-                                    style={{
-                                      display: "grid",
-                                      gridTemplateColumns: "minmax(0, 1fr) auto",
-                                      gap: 10,
-                                      alignItems: "center",
-                                      borderRadius: 12,
-                                      background: "#fff",
-                                      border: "1px solid #e8ecf1",
-                                      padding: "10px 12px",
-                                    }}
-                                  >
-                                    <div style={{ minWidth: 0 }}>
-                                      <div style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}>{item.label}</div>
-                                      <div style={{ fontSize: 11, color: "#64748b", marginTop: 4 }}>
-                                        {item.type === "rating"
-                                          ? `Notation ${item.ratingValue ?? 0}/5`
-                                          : `Réponse ${item.booleanAnswer ?? "-"}${item.expectedAnswer ? ` · Attendu ${item.expectedAnswer}` : ""}`}
-                                      </div>
-                                    </div>
-
-                                    <span
-                                      style={{
-                                        fontSize: 11,
-                                        fontWeight: 700,
-                                        borderRadius: 999,
-                                        padding: "4px 10px",
-                                        background: itemScore.bg,
-                                        color: itemScore.color,
-                                        border: `1px solid ${itemScore.border}`,
-                                      }}
-                                    >
-                                      {item.type === "rating" ? `${item.ratingValue ?? 0}/5` : `${item.scoreValue.toFixed(0)}%`}
-                                    </span>
-                                  </div>
-                                );
-                              })}
-
-                              {section.comment ? (
-                                <div
-                                  style={{
-                                    borderRadius: 12,
-                                    border: "1px solid #fde68a",
-                                    background: "#fffbeb",
-                                    padding: "12px 14px",
-                                  }}
-                                >
-                                  <div style={{ fontSize: 12, fontWeight: 700, color: "#92400e" }}>Observation terrain</div>
-                                  <div style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.65, marginTop: 6 }}>{section.comment}</div>
-                                </div>
-                              ) : null}
+                    {activeAuditSection ? (
+                      <div style={{ display: "grid", gap: 8, borderRadius: 18, border: "1px solid #e8ecf1", background: "#fbfcfe", padding: "12px 14px", minHeight: 0, overflowY: "auto" }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "center", flexWrap: "wrap", paddingBottom: 2 }}>
+                          <div>
+                            <div style={{ fontSize: 17, fontWeight: 800, color: "#0f172a" }}>{activeAuditSection.label}</div>
+                            <div style={{ fontSize: 11, color: "#64748b", marginTop: 3 }}>
+                              Coeff. {activeAuditSection.coefficient}% · {activeAuditSection.items.length} points contrôlés
                             </div>
-                          ) : null}
+                          </div>
+                          <SectionScoreBadge score={activeAuditSection.score} />
                         </div>
-                      );
-                    })}
+
+                        {activeAuditSection.items.map((item) => {
+                          const itemScore = statusTone(item.scoreValue);
+                          return (
+                            <div
+                              key={item.id}
+                              style={{
+                                display: "grid",
+                                gridTemplateColumns: "minmax(0, 1fr) auto",
+                                gap: 10,
+                                alignItems: "center",
+                                borderRadius: 12,
+                                background: "#fff",
+                                border: "1px solid #e8ecf1",
+                                padding: "9px 11px",
+                              }}
+                            >
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{ fontSize: 11, fontWeight: 700, color: "#334155" }}>{item.label}</div>
+                                <div style={{ fontSize: 10, color: "#64748b", marginTop: 3 }}>
+                                  {item.type === "rating"
+                                    ? `Notation ${item.ratingValue ?? 0}/5`
+                                    : `Réponse ${item.booleanAnswer ?? "-"}${item.expectedAnswer ? ` · Attendu ${item.expectedAnswer}` : ""}`}
+                                </div>
+                              </div>
+
+                              <span
+                                style={{
+                                  fontSize: 11,
+                                  fontWeight: 700,
+                                  borderRadius: 999,
+                                  padding: "4px 10px",
+                                  background: itemScore.bg,
+                                  color: itemScore.color,
+                                  border: `1px solid ${itemScore.border}`,
+                                }}
+                              >
+                                {item.type === "rating" ? `${item.ratingValue ?? 0}/5` : `${item.scoreValue.toFixed(0)}%`}
+                              </span>
+                            </div>
+                          );
+                        })}
+
+                        {activeAuditSection.comment ? (
+                          <div
+                            style={{
+                              borderRadius: 12,
+                              border: "1px solid #fde68a",
+                              background: "#fffbeb",
+                              padding: "12px 14px",
+                            }}
+                          >
+                            <div style={{ fontSize: 12, fontWeight: 700, color: "#92400e" }}>Observation terrain</div>
+                            <div style={{ fontSize: 12, color: "#6b7280", lineHeight: 1.65, marginTop: 6 }}>{activeAuditSection.comment}</div>
+                          </div>
+                        ) : null}
+                      </div>
+                    ) : null}
                   </div>
 
                   {selectedAuditDetail.progressAxes ? (
@@ -2100,14 +2235,8 @@ export default function SuiviPage() {
                     </div>
                   ) : null}
                 </div>
-              ) : (
-                <div style={{ borderRadius: 16, border: "1px dashed #dbe3eb", background: "#fbfcfe", padding: "18px 20px", fontSize: 12, color: "#64748b", lineHeight: 1.7 }}>
-                  Aucune fiche visite ouverte pour l&apos;instant.
-                  <br />
-                  Choisis un collaborateur puis ouvre seulement la fiche que tu veux consulter.
-                </div>
-              )}
-            </div>
+              </div>
+            ) : null}
           </div>
           )}
         </Card>

@@ -8,7 +8,7 @@ import {
   type TgRayon,
   type TgWeekPlanRow,
 } from "@/lib/tg-data";
-import { hasBrowserWindow } from "@/lib/browser-cache";
+import { hasBrowserWindow, purgeLegacyCacheKeys } from "@/lib/browser-cache";
 import { loadRhEmployees, type RhEmployee } from "@/lib/rh-store";
 import { createClient } from "@/lib/supabase";
 
@@ -17,6 +17,8 @@ const TG_RAYONS_KEY = "epicerie-manager-tg-rayons-v1";
 const TG_DEFAULT_ASSIGNMENTS_KEY = "epicerie-manager-tg-default-assignments-v1";
 const TG_CUSTOM_MECHANICS_KEY = "epicerie-manager-tg-custom-mechanics-v1";
 const TG_UPDATED_EVENT = "epicerie-manager:tg-updated";
+const TG_RAYONS_CONFIG_TABLE = "tg_rayons_config";
+const TG_CUSTOM_MECHANICS_TABLE = "tg_custom_mechanics";
 
 let tgRayonsSnapshot = cloneRayons(tgRayons);
 let tgRayonsSerialized = JSON.stringify(tgRayonsSnapshot);
@@ -26,10 +28,6 @@ let tgWeekPlansSnapshot = clonePlans(tgWeekPlans);
 let tgWeekPlansSerialized = JSON.stringify(tgWeekPlansSnapshot);
 let tgCustomMechanicsSnapshot: string[] = [];
 let tgCustomMechanicsSerialized = JSON.stringify(tgCustomMechanicsSnapshot);
-
-function canUseBrowserStorage() {
-  return typeof window !== "undefined" && typeof window.localStorage !== "undefined";
-}
 
 function canUseStorage() {
   return hasBrowserWindow();
@@ -109,40 +107,13 @@ function replaceTgCustomMechanicsSnapshot(mechanics: string[]) {
   return true;
 }
 
-function writeLocalStorage(key: string, serialized: string) {
-  if (!canUseBrowserStorage()) return;
-  try {
-    window.localStorage.setItem(key, serialized);
-  } catch {
-    // Ignore local storage quota/security failures and keep in-memory snapshot.
-  }
-}
-
-function readLocalStorage<T>(key: string, fallback: T): T {
-  if (!canUseBrowserStorage()) return fallback;
-  try {
-    const raw = window.localStorage.getItem(key);
-    if (!raw) return fallback;
-    return JSON.parse(raw) as T;
-  } catch {
-    return fallback;
-  }
-}
-
-function persistTgRayonsSnapshot() {
-  writeLocalStorage(TG_RAYONS_KEY, tgRayonsSerialized);
-}
-
-function persistTgAssignmentsSnapshot() {
-  writeLocalStorage(TG_DEFAULT_ASSIGNMENTS_KEY, tgAssignmentsSerialized);
-}
-
-function persistTgWeekPlansSnapshot() {
-  writeLocalStorage(TG_WEEK_PLANS_KEY, tgWeekPlansSerialized);
-}
-
-function persistTgCustomMechanicsSnapshot() {
-  writeLocalStorage(TG_CUSTOM_MECHANICS_KEY, tgCustomMechanicsSerialized);
+function purgeLegacyTgStorage() {
+  purgeLegacyCacheKeys([
+    TG_RAYONS_KEY,
+    TG_DEFAULT_ASSIGNMENTS_KEY,
+    TG_WEEK_PLANS_KEY,
+    TG_CUSTOM_MECHANICS_KEY,
+  ]);
 }
 
 function parseWeekNumber(value: string) {
@@ -192,6 +163,24 @@ function uniqueStrings(values: string[]) {
   return Array.from(new Set(values.filter(Boolean)));
 }
 
+function getBaseRayonsForSync() {
+  return tgRayonsSnapshot.length ? cloneRayons(tgRayonsSnapshot) : cloneRayons(tgRayons);
+}
+
+function getCanonicalRayonOrderMap() {
+  return new Map(
+    getBaseRayonsForSync().map((rayon, index) => [
+      rayon.rayon,
+      {
+        family: rayon.family,
+        order: Number(rayon.order) || (index + 1) * 10,
+        active: rayon.active,
+        startWeekId: rayon.startWeekId,
+      },
+    ]),
+  );
+}
+
 export function getTgUpdatedEventName() {
   return TG_UPDATED_EVENT;
 }
@@ -201,10 +190,19 @@ function emitTgUpdated() {
   window.dispatchEvent(new Event(TG_UPDATED_EVENT));
 }
 
+function buildAssignmentsFromConfigRayons(rayons: Array<{ rayon: string; defaultResponsible?: string | null }>) {
+  return rayons
+    .map((row) => ({
+      rayon: String(row.rayon ?? "").trim(),
+      employee: String(row.defaultResponsible ?? "").trim(),
+    }))
+    .filter((row) => row.rayon && row.employee);
+}
+
 export function loadTgRayons(): TgRayon[] {
   if (!canUseStorage()) return cloneRayons(tgRayons);
   try {
-    replaceTgRayonsSnapshot(readLocalStorage(TG_RAYONS_KEY, tgRayonsSnapshot));
+    purgeLegacyTgStorage();
     return cloneRayons(tgRayonsSnapshot);
   } catch {
     return cloneRayons(tgRayons);
@@ -214,16 +212,13 @@ export function loadTgRayons(): TgRayon[] {
 export function saveTgRayons(rayons: TgRayon[]) {
   if (!canUseStorage()) return;
   const changed = replaceTgRayonsSnapshot(rayons);
-  if (changed) {
-    persistTgRayonsSnapshot();
-    emitTgUpdated();
-  }
+  if (changed) emitTgUpdated();
 }
 
 export function loadTgDefaultAssignments(): TgDefaultAssignment[] {
   if (!canUseStorage()) return cloneAssignments(tgDefaultAssignments);
   try {
-    replaceTgAssignmentsSnapshot(readLocalStorage(TG_DEFAULT_ASSIGNMENTS_KEY, tgAssignmentsSnapshot));
+    purgeLegacyTgStorage();
     return cloneAssignments(loadCanonicalTgDefaultAssignments());
   } catch {
     return cloneAssignments(tgDefaultAssignments);
@@ -233,16 +228,13 @@ export function loadTgDefaultAssignments(): TgDefaultAssignment[] {
 export function saveTgDefaultAssignments(assignments: TgDefaultAssignment[]) {
   if (!canUseStorage()) return;
   const changed = replaceTgAssignmentsSnapshot(assignments);
-  if (changed) {
-    persistTgAssignmentsSnapshot();
-    emitTgUpdated();
-  }
+  if (changed) emitTgUpdated();
 }
 
 export function loadTgWeekPlans(): TgWeekPlanRow[] {
   if (!canUseStorage()) return clonePlans(tgWeekPlans);
   try {
-    replaceTgWeekPlansSnapshot(readLocalStorage(TG_WEEK_PLANS_KEY, tgWeekPlansSnapshot));
+    purgeLegacyTgStorage();
     return clonePlans(tgWeekPlansSnapshot);
   } catch {
     return clonePlans(tgWeekPlans);
@@ -252,16 +244,13 @@ export function loadTgWeekPlans(): TgWeekPlanRow[] {
 export function saveTgWeekPlans(plans: TgWeekPlanRow[]) {
   if (!canUseStorage()) return;
   const changed = replaceTgWeekPlansSnapshot(plans);
-  if (changed) {
-    persistTgWeekPlansSnapshot();
-    emitTgUpdated();
-  }
+  if (changed) emitTgUpdated();
 }
 
 export function loadTgCustomMechanics(): string[] {
   if (!canUseStorage()) return [];
   try {
-    replaceTgCustomMechanicsSnapshot(readLocalStorage(TG_CUSTOM_MECHANICS_KEY, tgCustomMechanicsSnapshot));
+    purgeLegacyTgStorage();
     return [...tgCustomMechanicsSnapshot];
   } catch {
     return [];
@@ -270,8 +259,94 @@ export function loadTgCustomMechanics(): string[] {
 
 export function saveTgCustomMechanics(mechanics: string[]) {
   if (!canUseStorage()) return;
-  if (replaceTgCustomMechanicsSnapshot(mechanics)) {
-    persistTgCustomMechanicsSnapshot();
+  replaceTgCustomMechanicsSnapshot(mechanics);
+}
+
+async function deleteRowsByStringKey(
+  supabase: ReturnType<typeof createClient>,
+  table: string,
+  column: string,
+  values: string[],
+) {
+  const uniqueValues = uniqueStrings(values);
+  if (!uniqueValues.length) return;
+  for (let index = 0; index < uniqueValues.length; index += 100) {
+    const chunk = uniqueValues.slice(index, index + 100);
+    const { error } = await supabase.from(table).delete().in(column, chunk);
+    if (error) throw error;
+  }
+}
+
+export async function saveTgConfigToSupabase(
+  rayons: TgRayon[],
+  assignments: TgDefaultAssignment[],
+  mechanics: string[],
+) {
+  if (!canUseStorage()) return false;
+
+  try {
+    const supabase = createClient();
+    const assignmentEntries = assignments
+      .map(
+        (assignment): [string, string] => [assignment.rayon.trim(), assignment.employee.trim()],
+      )
+      .filter(([rayon, employee]) => Boolean(rayon && employee));
+    const assignmentMap = new Map<string, string>(assignmentEntries);
+
+    const configRows = cloneRayons(rayons).map((rayon, index) => ({
+      rayon: rayon.rayon.trim(),
+      family: rayon.family === "Sucre" ? "SUCRE" : "SALE",
+      order_index: Number(rayon.order) || (index + 1) * 10,
+      active: rayon.active,
+      start_week_id: rayon.startWeekId?.trim() || null,
+      default_responsible: assignmentMap.get(rayon.rayon.trim()) ?? null,
+    }));
+    const rayonNames = configRows.map((row) => row.rayon);
+
+    const { data: existingConfigRows, error: existingConfigError } = await supabase
+      .from(TG_RAYONS_CONFIG_TABLE)
+      .select("rayon")
+      .limit(1000);
+    if (existingConfigError) throw existingConfigError;
+
+    if (configRows.length) {
+      const { error: upsertConfigError } = await supabase
+        .from(TG_RAYONS_CONFIG_TABLE)
+        .upsert(configRows, { onConflict: "rayon" });
+      if (upsertConfigError) throw upsertConfigError;
+    }
+
+    const staleRayons = (existingConfigRows ?? [])
+      .map((row) => String((row as Record<string, unknown>).rayon ?? "").trim())
+      .filter((rayon) => rayon && !rayonNames.includes(rayon));
+    await deleteRowsByStringKey(supabase, TG_RAYONS_CONFIG_TABLE, "rayon", staleRayons);
+
+    const normalizedMechanics = uniqueStrings(mechanics.map((mechanic) => mechanic.trim())).sort((a, b) =>
+      a.localeCompare(b, "fr"),
+    );
+    const { data: existingMechanicsRows, error: existingMechanicsError } = await supabase
+      .from(TG_CUSTOM_MECHANICS_TABLE)
+      .select("name")
+      .limit(1000);
+    if (existingMechanicsError) throw existingMechanicsError;
+
+    if (normalizedMechanics.length) {
+      const { error: upsertMechanicsError } = await supabase
+        .from(TG_CUSTOM_MECHANICS_TABLE)
+        .upsert(normalizedMechanics.map((name, index) => ({ name, order_index: (index + 1) * 10 })), {
+          onConflict: "name",
+        });
+      if (upsertMechanicsError) throw upsertMechanicsError;
+    }
+
+    const staleMechanics = (existingMechanicsRows ?? [])
+      .map((row) => String((row as Record<string, unknown>).name ?? "").trim())
+      .filter((name) => name && !normalizedMechanics.includes(name));
+    await deleteRowsByStringKey(supabase, TG_CUSTOM_MECHANICS_TABLE, "name", staleMechanics);
+
+    return true;
+  } catch {
+    return false;
   }
 }
 
@@ -407,13 +482,68 @@ export async function syncTgFromSupabase() {
 
   try {
     const supabase = createClient();
+    let configChanged = false;
+
+    try {
+      const { data: configRows, error: configError } = await supabase
+        .from(TG_RAYONS_CONFIG_TABLE)
+        .select("rayon,family,order_index,active,start_week_id,default_responsible")
+        .order("order_index", { ascending: true })
+        .limit(1000);
+      if (configError) throw configError;
+      if (configRows?.length) {
+        const nextRayons = configRows.map((row, index) => {
+          const record = row as Record<string, unknown>;
+          return {
+            rayon: String(record.rayon ?? "").trim(),
+            family: normalizeFamilyFromDb(String(record.family ?? "")),
+            order: String(Number(record.order_index ?? 0) || (index + 1) * 10),
+            active: Boolean(record.active ?? true),
+            startWeekId: String(record.start_week_id ?? "").trim() || undefined,
+          };
+        });
+        const nextAssignments = buildAssignmentsFromConfigRayons(
+          configRows.map((row) => ({
+            rayon: String((row as Record<string, unknown>).rayon ?? ""),
+            defaultResponsible: String((row as Record<string, unknown>).default_responsible ?? ""),
+          })),
+        );
+        const rayonsChanged = replaceTgRayonsSnapshot(nextRayons);
+        const assignmentsChanged = replaceTgAssignmentsSnapshot(nextAssignments);
+        configChanged = rayonsChanged || assignmentsChanged;
+      }
+    } catch {
+      // Ignore missing config table until migration is applied.
+    }
+
+    try {
+      const { data: mechanicsRows, error: mechanicsError } = await supabase
+        .from(TG_CUSTOM_MECHANICS_TABLE)
+        .select("name")
+        .order("order_index", { ascending: true })
+        .limit(1000);
+      if (mechanicsError) throw mechanicsError;
+      if (mechanicsRows) {
+        const mechanicsChanged = replaceTgCustomMechanicsSnapshot(
+          mechanicsRows
+            .map((row) => String((row as Record<string, unknown>).name ?? "").trim())
+            .filter(Boolean),
+        );
+        configChanged = mechanicsChanged || configChanged;
+      }
+    } catch {
+      // Ignore missing custom mechanics table until migration is applied.
+    }
 
     const { data: plansRows, error: plansError } = await supabase
       .from("plans_tg")
       .select("id,label,semaine_de")
       .limit(2000);
     if (plansError) throw plansError;
-    if (!plansRows || plansRows.length === 0) return false;
+    if (!plansRows || plansRows.length === 0) {
+      if (configChanged) emitTgUpdated();
+      return configChanged;
+    }
 
     const planMeta = new Map<
       string,
@@ -424,7 +554,10 @@ export async function syncTgFromSupabase() {
       if (!weekId) return;
       planMeta.set(String(row.id), { weekId, label: String(row.label ?? "") });
     });
-    if (planMeta.size === 0) return false;
+    if (planMeta.size === 0) {
+      if (configChanged) emitTgUpdated();
+      return configChanged;
+    }
 
     const { data: entriesRows, error: entriesError } = await supabase
       .from("plans_tg_entries")
@@ -432,7 +565,10 @@ export async function syncTgFromSupabase() {
       .order("id", { ascending: true })
       .limit(20000);
     if (entriesError) throw entriesError;
-    if (!entriesRows || entriesRows.length === 0) return false;
+    if (!entriesRows || entriesRows.length === 0) {
+      if (configChanged) emitTgUpdated();
+      return configChanged;
+    }
 
     const canonicalAssignments = loadCanonicalTgDefaultAssignments();
     const assignmentMap = new Map(canonicalAssignments.map((assignment) => [assignment.rayon, assignment.employee]));
@@ -493,23 +629,39 @@ export async function syncTgFromSupabase() {
       nextPlans.push(mapped);
     });
 
-    const nextRayons = Array.from(seenRayons.entries())
-      .map(([rayon, value], index) => ({
-        rayon,
-        family: value.family,
-        order: String((index + 1) * 10),
-        active: true,
-        startWeekId: value.firstWeekId,
-        orderHint: value.orderHint,
-      }))
-      .sort((left, right) => {
-        const leftWeek = weekOrderMap.get(left.startWeekId ?? "") ?? Number.MAX_SAFE_INTEGER;
-        const rightWeek = weekOrderMap.get(right.startWeekId ?? "") ?? Number.MAX_SAFE_INTEGER;
-        if (leftWeek !== rightWeek) return leftWeek - rightWeek;
-        if (left.orderHint !== right.orderHint) return left.orderHint - right.orderHint;
-        return left.rayon.localeCompare(right.rayon, "fr");
+    const baseRayons = getBaseRayonsForSync();
+    const canonicalRayons = getCanonicalRayonOrderMap();
+    const nextRayons = baseRayons
+      .map((baseRayon, index) => {
+        const seen = seenRayons.get(baseRayon.rayon);
+        return {
+          rayon: baseRayon.rayon,
+          family: seen?.family ?? baseRayon.family,
+          order: String(Number(baseRayon.order) || (index + 1) * 10),
+          active: baseRayon.active,
+          startWeekId: seen?.firstWeekId ?? baseRayon.startWeekId,
+        };
       })
-      .map(({ orderHint: _orderHint, ...row }, index) => ({ ...row, order: String((index + 1) * 10) }));
+      .concat(
+        Array.from(seenRayons.entries())
+          .filter(([rayon]) => !canonicalRayons.has(rayon))
+          .map(([rayon, value], index) => ({
+            rayon,
+            family: value.family,
+            order: String((baseRayons.length + index + 1) * 10),
+            active: true,
+            startWeekId: value.firstWeekId,
+            orderHint: value.orderHint,
+          }))
+          .sort((left, right) => {
+            const leftWeek = weekOrderMap.get(left.startWeekId ?? "") ?? Number.MAX_SAFE_INTEGER;
+            const rightWeek = weekOrderMap.get(right.startWeekId ?? "") ?? Number.MAX_SAFE_INTEGER;
+            if (leftWeek !== rightWeek) return leftWeek - rightWeek;
+            if (left.orderHint !== right.orderHint) return left.orderHint - right.orderHint;
+            return left.rayon.localeCompare(right.rayon, "fr");
+          })
+          .map(({ orderHint: _orderHint, ...row }) => row),
+      );
 
     const nextAssignments = [
       ...canonicalAssignments,
@@ -521,10 +673,6 @@ export async function syncTgFromSupabase() {
     const rayonsChanged = replaceTgRayonsSnapshot(nextRayons);
     const assignmentsChanged = replaceTgAssignmentsSnapshot(nextAssignments);
     const mechanicsChanged = replaceTgCustomMechanicsSnapshot(nextMechanics);
-    if (plansChanged) persistTgWeekPlansSnapshot();
-    if (rayonsChanged) persistTgRayonsSnapshot();
-    if (assignmentsChanged) persistTgAssignmentsSnapshot();
-    if (mechanicsChanged) persistTgCustomMechanicsSnapshot();
     if (plansChanged || rayonsChanged || assignmentsChanged || mechanicsChanged) {
       emitTgUpdated();
     }

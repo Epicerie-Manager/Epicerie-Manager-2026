@@ -20,6 +20,7 @@ import {
   addDocumentToSupabase,
   getInfoAnnouncementAudience,
   getInfosUpdatedEventName,
+  getSignedInfosUrl,
   loadInfoAnnouncements,
   loadInfoCategories,
   isInfoAnnouncementActiveNow,
@@ -201,6 +202,54 @@ function getAnnouncementWindowLabel(announcement: InfoAnnouncement) {
   if (startLabel) return `Diffusion à partir du ${startLabel}`;
   if (endLabel) return `Visible jusqu'au ${endLabel}`;
   return "Diffusion immédiate";
+}
+
+function SignedDocumentAttachment({ item }: { item: InfoItem }) {
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const fallbackUrl = item.attachment?.filePath ? null : (item.attachment?.dataUrl || null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const filePath = item.attachment?.filePath ?? "";
+    if (!filePath) return () => { cancelled = true; };
+
+    void getSignedInfosUrl(filePath, 7200).then((url) => {
+      if (!cancelled) setSignedUrl(url);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [item]);
+
+  if (!item.attachment) return null;
+  const resolvedUrl = signedUrl ?? fallbackUrl;
+  if (!resolvedUrl) {
+    return <span style={{ color: "#94a3b8", fontSize: "12px" }}>Chargement du document...</span>;
+  }
+
+  return (
+    <div style={{ display: "grid", gap: 8 }}>
+      <a
+        href={resolvedUrl}
+        target="_blank"
+        rel="noreferrer"
+        download={item.attachment.name}
+        style={{ color: moduleThemes.infos.color, fontWeight: 700, fontSize: "12px", textDecoration: "none" }}
+      >
+        Ouvrir / telecharger
+      </a>
+      {item.attachment.mimeType.startsWith("image/") ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={resolvedUrl}
+          alt={item.title}
+          style={{ marginTop: "4px", width: "100%", borderRadius: "8px", border: "1px solid #dbe3eb" }}
+        />
+      ) : null}
+    </div>
+  );
 }
 
 export default function InfosPage() {
@@ -690,21 +739,7 @@ export default function InfosPage() {
                         <span style={{ color: "#334155", fontSize: "11px" }}>
                           {selectedItem.attachment.mimeType || "Type inconnu"} - {formatBytes(selectedItem.attachment.size)}
                         </span>
-                        <a
-                          href={selectedItem.attachment.dataUrl}
-                          download={selectedItem.attachment.name}
-                          style={{ color: theme.color, fontWeight: 700, fontSize: "12px", textDecoration: "none" }}
-                        >
-                          Ouvrir / telecharger
-                        </a>
-                        {selectedItem.attachment.mimeType.startsWith("image/") ? (
-                          // eslint-disable-next-line @next/next/no-img-element
-                          <img
-                            src={selectedItem.attachment.dataUrl}
-                            alt={selectedItem.title}
-                            style={{ marginTop: "4px", width: "100%", borderRadius: "8px", border: "1px solid #dbe3eb" }}
-                          />
-                        ) : null}
+                        <SignedDocumentAttachment item={selectedItem} />
                       </div>
                     ) : (
                       <div

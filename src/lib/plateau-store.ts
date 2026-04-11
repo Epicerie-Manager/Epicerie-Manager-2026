@@ -192,6 +192,23 @@ function buildExcelStoragePath(weekNumber: number) {
   return `weeks/semaine-${String(weekNumber).padStart(2, "0")}/source.xlsx`;
 }
 
+export async function getSignedPlateauUrl(
+  filePath: string,
+  expiresIn = 3600,
+): Promise<string | null> {
+  if (!filePath) return null;
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase.storage
+      .from(PLATEAU_STORAGE_BUCKET)
+      .createSignedUrl(filePath, expiresIn);
+    if (error || !data?.signedUrl) return null;
+    return data.signedUrl;
+  } catch {
+    return null;
+  }
+}
+
 export function loadPlateauAssets(): PlateauAsset[] {
   if (!canUseStorage()) return [];
   return cloneAssets(plateauAssetsSnapshot);
@@ -332,12 +349,11 @@ export async function savePlateauAssetsToSupabase(
         });
       if (uploadError) throw uploadError;
 
-      const { data } = supabase.storage.from(PLATEAU_STORAGE_BUCKET).getPublicUrl(filePath);
       uploadedRows.push({
         week_number: entry.weekNumber,
         plateau_key: entry.plateauKey,
         file_path: filePath,
-        public_url: data.publicUrl,
+        public_url: "",
         source_pdf_name: sanitizeFileName(entry.sourcePdfName || "plateau"),
         source_type: "pdf",
         page_number: entry.pageNumber ?? null,
@@ -407,16 +423,12 @@ export async function savePlateauExcelToSupabase(upload: PlateauExcelUpload): Pr
       });
     if (uploadError) throw uploadError;
 
-    const { data: urlData } = supabase.storage
-      .from(PLATEAU_STORAGE_BUCKET)
-      .getPublicUrl(filePath);
-
     const row = {
       week_number: upload.weekNumber,
       implantation_date: upload.implantationDate,
       desimplantation_date: upload.desimplantationDate,
       file_path: filePath,
-      public_url: urlData.publicUrl,
+      public_url: "",
       source_name: sanitizeFileName(upload.sourceName || "source.xlsx"),
       uploaded_by: user?.id ?? null,
       updated_at: new Date().toISOString(),

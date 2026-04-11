@@ -5,6 +5,7 @@ export type InfoDocumentAttachment = {
   mimeType: string;
   size: number;
   dataUrl: string;
+  filePath?: string;
   uploadedAt: string;
 };
 

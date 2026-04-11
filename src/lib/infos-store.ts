@@ -276,23 +276,49 @@ function sanitizeFileName(fileName: string) {
 }
 
 function extractStoragePath(row: DbRow) {
+  const directPath = String(row.file_path ?? "").trim();
+  if (directPath) return directPath;
   const rawUrl = String(row.url ?? "").trim();
   if (!rawUrl) return "";
+  if (!rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) return rawUrl;
   const marker = `/storage/v1/object/public/${INFO_STORAGE_BUCKET}/`;
   const idx = rawUrl.indexOf(marker);
   if (idx < 0) return "";
   return decodeURIComponent(rawUrl.slice(idx + marker.length));
 }
 
+export async function getSignedInfosUrl(
+  filePath: string,
+  expiresIn = 7200,
+): Promise<string | null> {
+  if (!filePath) return null;
+  try {
+    const supabase = createClient();
+    const { data, error } = await supabase.storage
+      .from(INFO_STORAGE_BUCKET)
+      .createSignedUrl(filePath, expiresIn);
+    if (error || !data?.signedUrl) return null;
+    return data.signedUrl;
+  } catch {
+    return null;
+  }
+}
+
 function mapDocumentRowToItem(row: DbRow): InfoItem {
+  const filePath = extractStoragePath(row);
   const rawUrl = String(row.url ?? "").trim();
-  const fileName = rawUrl ? decodeURIComponent(rawUrl.split("/").pop() || "document") : "document";
-  const attachment = rawUrl
+  const fileName = filePath
+    ? decodeURIComponent(filePath.split("/").pop() || "document")
+    : rawUrl
+      ? decodeURIComponent(rawUrl.split("/").pop() || "document")
+      : "document";
+  const attachment = filePath || rawUrl
     ? {
         name: fileName,
         mimeType: String(row.type ?? "application/octet-stream"),
-        size: 0,
-        dataUrl: rawUrl,
+        size: Number(row.size_bytes ?? 0),
+        dataUrl: "",
+        filePath: filePath || undefined,
         uploadedAt: String(row.updated_at ?? row.created_at ?? new Date().toISOString()),
       }
     : undefined;
@@ -567,11 +593,12 @@ export async function addDocumentToSupabase(
 ): Promise<InfoItem> {
   try {
     const supabase = createClient();
-    let url: string | null = null;
+    const url = "";
+    let filePath: string | null = null;
     const type = toDbDocumentType(file);
 
     if (file) {
-      const filePath = `${INFO_CATEGORY_TO_DB[categoryId]}/${Date.now()}_${sanitizeFileName(file.name)}`;
+      filePath = `${INFO_CATEGORY_TO_DB[categoryId]}/${Date.now()}_${sanitizeFileName(file.name)}`;
       const { error: uploadError } = await supabase.storage
         .from(INFO_STORAGE_BUCKET)
         .upload(filePath, file, {
@@ -580,23 +607,47 @@ export async function addDocumentToSupabase(
           contentType: file.type || undefined,
         });
       if (uploadError) throw uploadError;
-
-      const { data } = supabase.storage.from(INFO_STORAGE_BUCKET).getPublicUrl(filePath);
-      url = data.publicUrl;
     }
 
-    const { data, error } = await supabase
-      .from("documents")
-      .insert({
-        categorie: INFO_CATEGORY_TO_DB[categoryId],
-        titre: title,
-        description,
-        type,
-        url,
-      })
-      .select("*")
-      .single();
-    if (error) throw error;
+    let data: unknown = null;
+    {
+      const primaryInsert = await supabase
+        .from("documents")
+        .insert({
+          categorie: INFO_CATEGORY_TO_DB[categoryId],
+          titre: title,
+          description,
+          type,
+          url,
+          file_path: filePath,
+          size_bytes: file?.size ?? 0,
+        })
+        .select("*")
+        .single();
+
+      if (primaryInsert.error) {
+        const message = String(primaryInsert.error.message ?? "").toLowerCase();
+        if (filePath && (message.includes("file_path") || message.includes("size_bytes"))) {
+          const fallbackInsert = await supabase
+            .from("documents")
+            .insert({
+              categorie: INFO_CATEGORY_TO_DB[categoryId],
+              titre: title,
+              description,
+              type,
+              url: filePath,
+            })
+            .select("*")
+            .single();
+          if (fallbackInsert.error) throw fallbackInsert.error;
+          data = fallbackInsert.data;
+        } else {
+          throw primaryInsert.error;
+        }
+      } else {
+        data = primaryInsert.data;
+      }
+    }
 
     const nextCategories = loadInfoCategories().map((category) =>
       category.id === categoryId

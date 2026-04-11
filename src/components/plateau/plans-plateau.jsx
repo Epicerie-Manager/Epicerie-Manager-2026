@@ -21,6 +21,7 @@ import {
   loadPlateauAssets,
   loadPlateauExcelSources,
   loadPlateauNotes,
+  getSignedPlateauUrl,
   removePlateauAssetFromSupabase,
   savePlateauAssetsToSupabase,
   savePlateauExcelToSupabase,
@@ -394,6 +395,7 @@ export default function PlateauApp(){
   const [importError,setImportError]=useState("");
   const [assetActionError,setAssetActionError]=useState("");
   const [assetActionBusy,setAssetActionBusy]=useState(false);
+  const [signedImageUrl,setSignedImageUrl]=useState(null);
 
   const assetLookup = getPlateauAssetLookup(plateauAssets);
   const focusedExcelSource = getExcelSourceForWeek(excelSources, focusWeek) || getActiveExcelSource(excelSources);
@@ -647,8 +649,27 @@ export default function PlateauApp(){
     op?.pl,
   );
   const selectedOpImage = op
-    ? (selectedPersistedAsset?.publicUrl || null)
+    ? signedImageUrl
     : null;
+
+  useEffect(() => {
+    let cancelled = false;
+
+    if (!selectedPersistedAsset?.filePath) {
+      setSignedImageUrl(null);
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void getSignedPlateauUrl(selectedPersistedAsset.filePath, 3600).then((url) => {
+      if (!cancelled) setSignedImageUrl(url);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [selectedPersistedAsset?.filePath]);
 
   const handleSingleImageUpload = async(file) => {
     if(!op) return;
@@ -1050,7 +1071,7 @@ export default function PlateauApp(){
 
                 {focusedExcelSource ? (
                   <PlateauExcelViewer
-                    publicUrl={focusedExcelSource.publicUrl}
+                    filePath={focusedExcelSource.filePath}
                     sheetName={selectedSheetName}
                     weekLabel={formatExcelSourceLabel(focusedExcelSource)}
                   />

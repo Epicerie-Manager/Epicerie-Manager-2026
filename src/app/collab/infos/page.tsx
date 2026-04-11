@@ -16,6 +16,7 @@ import {
   confirmAnnouncementReadingInSupabase,
   getCollabInfosFromSupabase,
   getInfosUpdatedEventName,
+  getSignedInfosUrl,
   markAnnouncementsSeenInSupabase,
 } from "@/lib/infos-store";
 import type { InfoAnnouncement, InfoCategory, InfoItem } from "@/lib/infos-data";
@@ -40,6 +41,55 @@ function priorityMeta(priority: InfoAnnouncement["priority"]) {
 function getAttachmentLabel(item: InfoItem) {
   if (!item.attachment) return "Sans pièce jointe";
   return `${item.attachment.name} · ${formatBytes(item.attachment.size)}`;
+}
+
+function SignedCollabDocumentLink({ item }: { item: InfoItem }) {
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const fallbackUrl = item.attachment?.filePath ? null : (item.attachment?.dataUrl || null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const filePath = item.attachment?.filePath ?? "";
+    if (!filePath) return () => { cancelled = true; };
+
+    void getSignedInfosUrl(filePath, 7200).then((url) => {
+      if (!cancelled) setSignedUrl(url);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [item]);
+
+  if (!item.attachment) return null;
+  const resolvedUrl = signedUrl ?? fallbackUrl;
+  if (!resolvedUrl) {
+    return <span style={{ fontSize: 12, color: collabTheme.muted }}>Chargement du document...</span>;
+  }
+
+  return (
+    <a
+      href={resolvedUrl}
+      target="_blank"
+      rel="noreferrer"
+      style={{
+        display: "inline-flex",
+        marginTop: 10,
+        borderRadius: 999,
+        padding: "7px 11px",
+        background: `${collabTheme.blue}14`,
+        color: collabTheme.blue,
+        fontSize: 12,
+        fontWeight: 700,
+        textDecoration: "none",
+        maxWidth: "100%",
+        whiteSpace: "normal",
+      }}
+    >
+      Ouvrir le document
+    </a>
+  );
 }
 
 export default function CollabInfosPage() {
@@ -405,28 +455,7 @@ export default function CollabInfosPage() {
                   <div style={{ marginTop: 8, fontSize: 12, color: collabTheme.muted, overflowWrap: "anywhere" }}>
                     {getAttachmentLabel(item)}
                   </div>
-                  {item.attachment ? (
-                    <a
-                      href={item.attachment.dataUrl}
-                      target="_blank"
-                      rel="noreferrer"
-                      style={{
-                        display: "inline-flex",
-                        marginTop: 10,
-                        borderRadius: 999,
-                        padding: "7px 11px",
-                        background: `${collabTheme.blue}14`,
-                        color: collabTheme.blue,
-                        fontSize: 12,
-                        fontWeight: 700,
-                        textDecoration: "none",
-                        maxWidth: "100%",
-                        whiteSpace: "normal",
-                      }}
-                    >
-                      Ouvrir le document
-                    </a>
-                  ) : null}
+                  {item.attachment ? <SignedCollabDocumentLink item={item} /> : null}
                 </div>
               ))
             ) : (

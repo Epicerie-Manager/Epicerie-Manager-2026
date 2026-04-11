@@ -112,7 +112,7 @@ export default function CollabPlateauPage() {
             </div>
 
             <PlateauExcelViewer
-              publicUrl={activeSource.publicUrl}
+              filePath={activeSource.filePath}
               sheetName={selectedSheetName}
               weekLabel={formatWeekLabel(activeSource)}
             />

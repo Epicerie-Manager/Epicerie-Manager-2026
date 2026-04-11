@@ -2,9 +2,10 @@
 
 import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import * as XLSX from "xlsx";
+import { getSignedPlateauUrl } from "@/lib/plateau-store";
 
 type PlateauExcelViewerProps = {
-  publicUrl: string;
+  filePath: string;
   sheetName?: string;
   weekLabel?: string;
 };
@@ -256,7 +257,7 @@ function buildViewerSheet(sheet: XLSX.WorkSheet): ViewerSheet {
 }
 
 export default function PlateauExcelViewer({
-  publicUrl,
+  filePath,
   sheetName = "PLATEAU A",
   weekLabel,
 }: PlateauExcelViewerProps) {
@@ -269,7 +270,7 @@ export default function PlateauExcelViewer({
     let cancelled = false;
 
     async function loadSheet() {
-      if (!publicUrl) {
+      if (!filePath) {
         setViewerSheet(null);
         setLoading(false);
         return;
@@ -279,7 +280,12 @@ export default function PlateauExcelViewer({
       setError("");
 
       try {
-        const response = await fetch(publicUrl, { cache: "no-store" });
+        const signedUrl = await getSignedPlateauUrl(filePath, 3600);
+        if (!signedUrl) {
+          throw new Error("Impossible de générer l'accès sécurisé au plan.");
+        }
+
+        const response = await fetch(signedUrl, { cache: "no-store" });
         if (!response.ok) {
           throw new Error(`Impossible de charger le fichier (${response.status}).`);
         }
@@ -319,7 +325,7 @@ export default function PlateauExcelViewer({
     return () => {
       cancelled = true;
     };
-  }, [publicUrl, sheetName]);
+  }, [filePath, sheetName]);
 
   const zoomLabel = useMemo(() => `${Math.round(zoom * 100)}%`, [zoom]);
 

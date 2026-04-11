@@ -270,7 +270,7 @@ function TgCard({ row, highlight }: { row: CollabTgRow; highlight: boolean }) {
         </div>
       </div>
 
-      <div style={{ display: "grid", gap: 10, marginTop: 14 }}>
+      <div style={{ display: "grid", gap: 10, marginTop: 8 }}>
         <TgLine label="TG" value={tgDetails} tone={collabTheme.accent} />
         <TgLine label="GB" value={row.gbProduct} tone={collabTheme.blue} />
       </div>

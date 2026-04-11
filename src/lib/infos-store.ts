@@ -627,7 +627,7 @@ export async function addDocumentToSupabase(
 
       if (primaryInsert.error) {
         const message = String(primaryInsert.error.message ?? "").toLowerCase();
-        if (filePath && (message.includes("file_path") || message.includes("size_bytes"))) {
+        if (message.includes("file_path") || message.includes("size_bytes") || message.includes("schema cache")) {
           const fallbackInsert = await supabase
             .from("documents")
             .insert({
@@ -635,7 +635,7 @@ export async function addDocumentToSupabase(
               titre: title,
               description,
               type,
-              url: filePath,
+              url: filePath ?? "",
             })
             .select("*")
             .single();

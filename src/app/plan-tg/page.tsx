@@ -24,6 +24,7 @@ import {
   saveTgDefaultAssignments,
   saveTgRayons,
   saveTgWeekPlans,
+  saveTgWeekPlansToSupabase,
   syncTgFromSupabase,
 } from "@/lib/tg-store";
 import { moduleThemes } from "@/lib/theme";
@@ -200,6 +201,7 @@ export default function PlanTgPage(){
   const [newRayonAnchor,setNewRayonAnchor]=useState("");
   const [newRayonPositionMode,setNewRayonPositionMode]=useState<PositionMode>("end");
   const [newRayonStartWeekId,setNewRayonStartWeekId]=useState(initialWeekId);
+  const [remoteSaveEnabled,setRemoteSaveEnabled]=useState(false);
 
   const employees=tgEmployees.filter((e)=>e.active).map((e)=>e.name);
   const assignmentMap=useMemo(()=>buildAssignmentMap(assignments),[assignments]);
@@ -224,6 +226,14 @@ export default function PlanTgPage(){
   useEffect(()=>{saveTgDefaultAssignments(assignments);},[assignments]);
   useEffect(()=>{saveTgWeekPlans(normalizePlans(plans,orderedRayons,assignmentMap));},[assignmentMap,orderedRayons,plans]);
   useEffect(()=>{
+    if(!remoteSaveEnabled) return;
+    const normalizedPlans = normalizePlans(plans,orderedRayons,assignmentMap);
+    const timeout = window.setTimeout(()=>{
+      void saveTgWeekPlansToSupabase(normalizedPlans);
+    },800);
+    return ()=>window.clearTimeout(timeout);
+  },[assignmentMap,orderedRayons,plans,remoteSaveEnabled]);
+  useEffect(()=>{
     const refresh=()=>{
       const nextRayons = assignSequentialRayonOrders(sortRayonsByOrder(loadTgRayons()));
       const nextAssignments = loadTgDefaultAssignments();
@@ -237,6 +247,9 @@ export default function PlanTgPage(){
     void Promise.all([syncTgFromSupabase(), syncRhFromSupabase()]).then(([tgSynced, rhSynced])=>{
       const synced = Boolean(tgSynced || rhSynced);
       if(synced) refresh();
+      setRemoteSaveEnabled(true);
+    }).catch(()=>{
+      setRemoteSaveEnabled(true);
     });
     const tgEventName = getTgUpdatedEventName();
     const rhEventName = getRhUpdatedEventName();

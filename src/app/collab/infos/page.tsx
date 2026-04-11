@@ -21,6 +21,19 @@ import {
 } from "@/lib/infos-store";
 import type { InfoAnnouncement, InfoCategory, InfoItem } from "@/lib/infos-data";
 
+function getCollabInfosDocumentsSeenKey(profileKey: string) {
+  return `epicerie-collab-infos-documents-seen:${profileKey}`;
+}
+
+function getLatestDocumentTimestamp(categories: InfoCategory[]) {
+  return categories
+    .flatMap((category) => category.items)
+    .map((item) => String(item.updatedAt ?? item.createdAt ?? ""))
+    .filter(Boolean)
+    .sort()
+    .at(-1) ?? "";
+}
+
 function formatBytes(bytes: number) {
   if (!Number.isFinite(bytes) || bytes <= 0) return "0 o";
   if (bytes < 1024) return `${bytes} o`;
@@ -104,6 +117,17 @@ export default function CollabInfosPage() {
   const [openingAnnouncementId, setOpeningAnnouncementId] = useState<string | null>(null);
   const [expandedAnnouncementIds, setExpandedAnnouncementIds] = useState<string[]>([]);
   const [lastRefreshAt, setLastRefreshAt] = useState<Date | null>(null);
+
+  useEffect(() => {
+    if (!profile) return;
+    const latestDocumentTimestamp = getLatestDocumentTimestamp(categories);
+    if (!latestDocumentTimestamp || typeof window === "undefined") return;
+    const profileKey = String(profile.employee_id ?? profile.id ?? profile.employees?.name ?? "collab");
+    window.localStorage.setItem(
+      getCollabInfosDocumentsSeenKey(profileKey),
+      latestDocumentTimestamp,
+    );
+  }, [categories, profile]);
 
   useEffect(() => {
     let cancelled = false;

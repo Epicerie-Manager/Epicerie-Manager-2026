@@ -23,7 +23,23 @@ import {
   type CollabPlanningEntry,
 } from "@/lib/collab-data";
 import { confirmAnnouncementReadingInSupabase, getCollabInfosFromSupabase } from "@/lib/infos-store";
-import type { InfoAnnouncement } from "@/lib/infos-data";
+import type { InfoAnnouncement, InfoCategory } from "@/lib/infos-data";
+
+function getCollabInfosDocumentsSeenKey(profileKey: string) {
+  return `epicerie-collab-infos-documents-seen:${profileKey}`;
+}
+
+function countDocumentsAfter(categories: InfoCategory[], seenTimestamp: string) {
+  if (!seenTimestamp) {
+    return categories.reduce((total, category) => total + category.items.length, 0);
+  }
+  return categories.reduce(
+    (total, category) =>
+      total +
+      category.items.filter((item) => String(item.updatedAt ?? item.createdAt ?? "") > seenTimestamp).length,
+    0,
+  );
+}
 
 function AnnouncementBubble({
   label,
@@ -139,6 +155,7 @@ export default function CollabHomePage() {
   const [tomorrowEntry, setTomorrowEntry] = useState<CollabPlanningEntry | null>(null);
   const [tgPlan, setTgPlan] = useState<Record<string, unknown> | null>(null);
   const [announcements, setAnnouncements] = useState<InfoAnnouncement[]>([]);
+  const [newDocumentsCount, setNewDocumentsCount] = useState(0);
   const [pendingAbsences, setPendingAbsences] = useState(0);
   const [loadError, setLoadError] = useState("");
   const [lastRefreshAt, setLastRefreshAt] = useState<Date | null>(null);
@@ -173,6 +190,13 @@ export default function CollabHomePage() {
         setTomorrowEntry((planningRows.find((entry) => getEntryDate(entry) === tomorrow) as CollabPlanningEntry | undefined) ?? null);
         setTgPlan((currentTgPlan as Record<string, unknown> | null) ?? null);
         setAnnouncements(infoPayload.announcements);
+        const profileKey = String(
+          collabProfile.employee_id ?? collabProfile.id ?? collabProfile.employees?.name ?? "collab",
+        );
+        const documentsSeenKey = getCollabInfosDocumentsSeenKey(profileKey);
+        const seenDocumentsAt =
+          typeof window !== "undefined" ? window.localStorage.getItem(documentsSeenKey) ?? "" : "";
+        setNewDocumentsCount(countDocumentsAfter(infoPayload.categories, seenDocumentsAt));
         setPendingAbsences(
           (absences as Array<Record<string, unknown>>).filter((row) => String(row.statut ?? "").toLowerCase().includes("attente")).length,
         );
@@ -183,6 +207,7 @@ export default function CollabHomePage() {
         setTomorrowEntry(null);
         setTgPlan(null);
         setAnnouncements([]);
+        setNewDocumentsCount(0);
         setPendingAbsences(0);
         setLoadError("Certaines informations collaborateur n'ont pas pu être chargées.");
       }
@@ -225,12 +250,20 @@ export default function CollabHomePage() {
   ]
     .filter(Boolean)
     .join(" · ");
+  const infosSummaryParts = [
+    newDocumentsCount ? `${newDocumentsCount} document${newDocumentsCount > 1 ? "s" : ""} nouveau${newDocumentsCount > 1 ? "x" : ""}` : null,
+    unreadAnnouncementCount ? unreadAnnouncementSummary : null,
+  ].filter(Boolean);
+  const infosSubtitle = infosSummaryParts.length ? infosSummaryParts.join(" · ") : "Actualités magasin";
   const announcementBadge = unreadAnnouncementCount ? (
     <>
+      {newDocumentsCount ? <AnnouncementBubble label="Docs" count={newDocumentsCount} bg="#2563eb" color="#eff6ff" /> : null}
       {announcementCounts.urgent ? <AnnouncementBubble label="Urgent" count={announcementCounts.urgent} bg="#c1121f" color="#fff8f3" /> : null}
       {announcementCounts.important ? <AnnouncementBubble label="Important" count={announcementCounts.important} bg="#d97706" color="#fffaf2" /> : null}
       {announcementCounts.normal ? <AnnouncementBubble label="Info" count={announcementCounts.normal} bg="#facc15" color="#6b4f00" /> : null}
     </>
+  ) : newDocumentsCount ? (
+    <AnnouncementBubble label="Docs" count={newDocumentsCount} bg="#2563eb" color="#eff6ff" />
   ) : null;
 
   if (!profile) return null;
@@ -301,11 +334,15 @@ export default function CollabHomePage() {
         <QuickTile
           href="/collab/infos"
           title="Infos"
-          subtitle={unreadAnnouncementCount ? unreadAnnouncementSummary : "Actualités magasin"}
+          subtitle={infosSubtitle}
           tone={collabTheme.gold}
           icon="infos"
           badge={announcementBadge}
-          badgeLabel={unreadAnnouncementCount ? `${unreadAnnouncementCount} annonces non lues` : undefined}
+          badgeLabel={
+            newDocumentsCount || unreadAnnouncementCount
+              ? `${newDocumentsCount} documents nouveaux, ${unreadAnnouncementCount} annonces non lues`
+              : undefined
+          }
         />
       </div>
 

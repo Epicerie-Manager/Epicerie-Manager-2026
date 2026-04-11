@@ -21,6 +21,13 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v1.0.2 - 2026-04-11
+
+- Plan TG / Persistance : les saisies `TG` et `GB` sont maintenant enregistrees immediatement ligne par ligne dans `Supabase`, au lieu de rester d'abord dans un snapshot local en memoire.
+- Plan TG / Fiabilite : une semaine absente de `plans_tg` peut maintenant etre creee automatiquement au premier enregistrement, ce qui evite la perte silencieuse des saisies sur des semaines comme `S17`.
+- Plan TG / Synchronisation : reduction du risque qu'un poste reconnecte avec un etat stale reecrase `Supabase` avec un ancien snapshot hebdomadaire ; la persistance metier passe desormais par une ecriture ciblee par rayon.
+- Plan TG / UX : ajout d'un message d'erreur visible dans le panneau d'edition quand l'enregistrement d'une ligne TG echoue.
+
 ## v1.0.0 - 2026-04-10
 
 - Exports / Planning : nouvelle trame d'impression equipe plus lisible, avec contrastes renforces, en-tetes rouge Auchan et footer de version harmonise.

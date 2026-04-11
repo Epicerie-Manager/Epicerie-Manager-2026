@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { DM_Sans, Fraunces, Geist, Geist_Mono } from "next/font/google";
+import { Analytics } from "@vercel/analytics/next";
 import { AppShell } from "@/components/layout/app-shell";
 import packageJson from "../../package.json";
 import "./globals.css";
@@ -50,6 +51,7 @@ export default function RootLayout({
     >
       <body className="min-h-full">
         <AppShell version={packageJson.version}>{children}</AppShell>
+        <Analytics />
       </body>
     </html>
   );

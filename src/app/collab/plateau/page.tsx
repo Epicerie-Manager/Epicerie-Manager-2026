@@ -21,11 +21,7 @@ import {
   type PlateauAssetKey,
 } from "@/lib/plateau-store";
 
-const PLATEAUX: Array<{ key: PlateauAssetKey; label: string }> = [
-  { key: "A", label: "Plateau A" },
-  { key: "B", label: "Plateau B" },
-  { key: "C", label: "Plateau C" },
-];
+const DEFAULT_PLATEAU: PlateauAssetKey = "A";
 
 const SEMAINES = Array.from(
   { length: PLATEAU_WEEK_MAX - PLATEAU_WEEK_MIN + 1 },
@@ -164,7 +160,7 @@ function ZoomablePlan({ image, label }: { image: string | null; label: string })
               fontSize: 13,
             }}
           >
-            Aucun plan disponible pour cette semaine et ce plateau.
+            Aucun plan disponible pour cette semaine.
           </div>
         )}
       </div>
@@ -177,7 +173,7 @@ export default function CollabPlateauPage() {
   const [ready, setReady] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefreshAt, setLastRefreshAt] = useState<Date | null>(null);
-  const [selectedPlateau, setSelectedPlateau] = useState<PlateauAssetKey>("A");
+  const selectedPlateau: PlateauAssetKey = DEFAULT_PLATEAU;
   const [focusWeek, setFocusWeek] = useState(() => getCurrentPlateauWeek());
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [assetsVersion, setAssetsVersion] = useState(0);
@@ -334,29 +330,7 @@ export default function CollabPlateauPage() {
           </div>
         </div>
 
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {PLATEAUX.map((plateau) => (
-            <button
-              key={plateau.key}
-              type="button"
-              onClick={() => setSelectedPlateau(plateau.key)}
-              style={{
-                padding: "7px 12px",
-                borderRadius: 999,
-                border: `1px solid ${selectedPlateau === plateau.key ? collabTheme.accent : collabTheme.line}`,
-                background: selectedPlateau === plateau.key ? collabTheme.accent : "#fffdfb",
-                color: selectedPlateau === plateau.key ? "#fff8f1" : collabTheme.muted,
-                fontSize: 12,
-                fontWeight: 700,
-                cursor: "pointer",
-              }}
-            >
-              {plateau.label}
-            </button>
-          ))}
-        </div>
-
-        <ZoomablePlan image={imageUrl} label={`Semaine ${focusWeek} · ${PLATEAUX.find((plateau) => plateau.key === selectedPlateau)?.label || selectedPlateau}`} />
+        <ZoomablePlan image={imageUrl} label={`Semaine ${focusWeek} · Plateau ${selectedPlateau}`} />
       </SectionCard>
 
       <CollabBottomNav />

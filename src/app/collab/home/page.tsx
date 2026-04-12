@@ -11,7 +11,7 @@ import {
   StatusPill,
 } from "@/components/collab/layout";
 import { collabSerifTitleStyle, collabTheme } from "@/components/collab/theme";
-import { getCollabProfile, type CollabProfile } from "@/lib/collab-auth";
+import { collabSignOut, getCollabProfile, type CollabProfile } from "@/lib/collab-auth";
 import {
   formatFrenchLongDate,
   getCurrentTGPlan,
@@ -293,12 +293,38 @@ export default function CollabHomePage() {
     }
   }
 
+  async function handleSignOut() {
+    await collabSignOut();
+    router.replace("/collab/login");
+  }
+
   return (
     <CollabPage>
       <CollabHeader
         title={`Bonjour, ${displayName}.`}
         subtitle={displayDate}
-        right={<StatusPill label="Connecté" color="#0c7a45" background="#eefbf4" />}
+        right={
+          <div style={{ display: "grid", gap: 8, justifyItems: "end" }}>
+            <StatusPill label="Connecté" color="#0c7a45" background="#eefbf4" />
+            <button
+              type="button"
+              onClick={() => void handleSignOut()}
+              style={{
+                minHeight: 30,
+                borderRadius: 999,
+                border: "1px solid rgba(255,255,255,0.28)",
+                background: "rgba(255,255,255,0.12)",
+                color: "#fff8f1",
+                padding: "0 12px",
+                fontSize: 11,
+                fontWeight: 700,
+                cursor: "pointer",
+              }}
+            >
+              Déconnexion
+            </button>
+          </div>
+        }
         showRefresh
         lastRefreshAt={lastRefreshAt}
       />
@@ -331,6 +357,7 @@ export default function CollabHomePage() {
         <QuickTile href="/collab/planning" title="Planning" subtitle="Semaine · Mois · Équipe" tone={collabTheme.blue} icon="planning" />
         <QuickTile href="/collab/absences" title="Absences" subtitle={pendingAbsences ? `${pendingAbsences} en attente` : "Suivi des demandes"} tone={collabTheme.violet} icon="absences" badge={pendingAbsences || null} />
         <QuickTile href="/collab/plan-tg" title="Plan TG/GB" subtitle={tgPlan ? "Sem. en cours" : "À venir"} tone={collabTheme.green} icon="tg" />
+        <QuickTile href="/collab/plateau" title="Plan plateau" subtitle="Consulter le plan partagé de la semaine" tone={collabTheme.accent} icon="plateau" />
         <QuickTile
           href="/collab/infos"
           title="Infos"

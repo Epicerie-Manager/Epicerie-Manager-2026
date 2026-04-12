@@ -7,9 +7,19 @@ import appPackage from "../../../package.json";
 import { collabCardStyle, collabSerifTitleStyle, collabTheme } from "@/components/collab/theme";
 import { getCollabProfile } from "@/lib/collab-auth";
 import { getMyAbsences } from "@/lib/collab-data";
+import { getCollabInfosFromSupabase } from "@/lib/infos-store";
 
-function CollabGlyph({ kind, color = "currentColor", size = 18 }: { kind: "planning" | "absences" | "tg" | "infos"; color?: string; size?: number }) {
+function CollabGlyph({ kind, color = "currentColor", size = 18 }: { kind: "home" | "planning" | "absences" | "tg" | "infos" | "plateau"; color?: string; size?: number }) {
   const props = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", xmlns: "http://www.w3.org/2000/svg" };
+
+  if (kind === "home") {
+    return (
+      <svg {...props}>
+        <path d="M4.5 10.4L12 4.6L19.5 10.4V18.2A1.3 1.3 0 0 1 18.2 19.5H5.8A1.3 1.3 0 0 1 4.5 18.2V10.4Z" stroke={color} strokeWidth="1.8" strokeLinejoin="round" />
+        <path d="M9.2 19.2V13.6H14.8V19.2" stroke={color} strokeWidth="1.8" strokeLinejoin="round" />
+      </svg>
+    );
+  }
 
   if (kind === "planning") {
     return (
@@ -34,6 +44,15 @@ function CollabGlyph({ kind, color = "currentColor", size = 18 }: { kind: "plann
       <svg {...props}>
         <path d="M7 10.5V18M12 6.5V18M17 3.5V18" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
         <path d="M5 18.5H19" stroke={color} strokeWidth="1.8" strokeLinecap="round" />
+      </svg>
+    );
+  }
+
+  if (kind === "plateau") {
+    return (
+      <svg {...props}>
+        <rect x="4.5" y="5" width="15" height="14.5" rx="2.5" stroke={color} strokeWidth="1.8" />
+        <path d="M9 5.2V19.2M14.8 5.2V19.2M4.8 10.2H19.2M4.8 14.8H19.2" stroke={color} strokeWidth="1.4" strokeLinecap="round" />
       </svg>
     );
   }
@@ -235,7 +254,7 @@ export function QuickTile({
   tone?: string;
   badge?: ReactNode;
   badgeLabel?: string;
-  icon?: "planning" | "absences" | "tg" | "infos";
+  icon?: "planning" | "absences" | "tg" | "infos" | "plateau";
 }) {
   return (
     <Link
@@ -324,24 +343,44 @@ export function StatusPill({ label, color, background }: { label: string; color:
   );
 }
 
-const navItems = [
-  { href: "/collab/home", label: "Accueil" },
-  { href: "/collab/planning", label: "Planning" },
-  { href: "/collab/absences", label: "Absences" },
-  { href: "/collab/more", label: "Plus" },
+const navItems: Array<{
+  href: string;
+  label: string;
+  icon: "home" | "planning" | "absences" | "tg" | "infos" | "plateau";
+}> = [
+  { href: "/collab/home", label: "Accueil", icon: "home" },
+  { href: "/collab/planning", label: "Planning", icon: "planning" },
+  { href: "/collab/absences", label: "Absences", icon: "absences" },
+  { href: "/collab/plan-tg", label: "Plan TG", icon: "tg" },
+  { href: "/collab/plateau", label: "Plateau", icon: "plateau" },
+  { href: "/collab/infos", label: "Infos", icon: "infos" },
 ];
 
 function getAbsenceResponseSeenKey(profileKey: string) {
   return `epicerie-collab-absence-response-seen:${profileKey}`;
 }
 
+function getCollabInfosDocumentsSeenKey(profileKey: string) {
+  return `epicerie-collab-infos-documents-seen:${profileKey}`;
+}
+
 function getAbsenceResponseTimestamp(row: Record<string, unknown>) {
   return String(row.updated_at ?? row.created_at ?? row.date_fin ?? "");
+}
+
+function getLatestInfosDocumentTimestamp(categories: Array<{ items?: Array<{ updatedAt?: string; createdAt?: string }> }>) {
+  return categories
+    .flatMap((category) => category.items ?? [])
+    .map((item) => String(item.updatedAt ?? item.createdAt ?? ""))
+    .filter(Boolean)
+    .sort()
+    .at(-1) ?? "";
 }
 
 export function CollabBottomNav() {
   const pathname = usePathname();
   const [showAbsenceBadge, setShowAbsenceBadge] = useState(false);
+  const [showInfosBadge, setShowInfosBadge] = useState(false);
 
   useEffect(() => {
     let cancelled = false;
@@ -381,6 +420,38 @@ export function CollabBottomNav() {
     };
   }, [pathname]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    void getCollabProfile()
+      .then(async (profile) => {
+        if (!profile?.employee_id) return;
+        const profileKey = String(profile.employee_id ?? profile.id ?? profile.employees?.name ?? "collab");
+        const docsSeenKey = getCollabInfosDocumentsSeenKey(profileKey);
+        const payload = await getCollabInfosFromSupabase(profile.employee_id);
+        const latestDocumentTimestamp = getLatestInfosDocumentTimestamp(payload.categories);
+        const seenDocumentsAt = window.localStorage.getItem(docsSeenKey) ?? "";
+        const hasUnreadDocs = Boolean(latestDocumentTimestamp && latestDocumentTimestamp > seenDocumentsAt);
+        const hasUnreadAnnouncements = payload.announcements.some((announcement) => !announcement.selfReceipt?.seenAt);
+
+        if (pathname === "/collab/infos") {
+          if (!cancelled) setShowInfosBadge(false);
+          return;
+        }
+
+        if (!cancelled) {
+          setShowInfosBadge(hasUnreadDocs || hasUnreadAnnouncements);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setShowInfosBadge(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
+
   return (
     <div
       style={{
@@ -388,11 +459,11 @@ export function CollabBottomNav() {
         left: "50%",
         bottom: 12,
         transform: "translateX(-50%)",
-        width: "min(720px, calc(100vw - 22px))",
+        width: "min(760px, calc(100vw - 18px))",
         ...collabCardStyle({
-          padding: "8px 10px 9px",
+          padding: "6px 6px 7px",
           display: "grid",
-          gridTemplateColumns: "repeat(4, 1fr)",
+          gridTemplateColumns: `repeat(${navItems.length}, 1fr)`,
           zIndex: 50,
         }),
       }}
@@ -406,25 +477,54 @@ export function CollabBottomNav() {
             style={{
               textDecoration: "none",
               textAlign: "center",
-              padding: "8px 4px 6px",
+              padding: "6px 2px 5px",
               color: active ? collabTheme.accent : "#a18f7e",
               fontWeight: active ? 700 : 600,
-              fontSize: 12,
+              fontSize: 10,
               position: "relative",
               borderBottom: active ? `2px solid ${collabTheme.accent}` : "2px solid transparent",
+              display: "grid",
+              justifyItems: "center",
+              gap: 4,
             }}
           >
-            {item.label}
+            <span
+              style={{
+                width: 28,
+                height: 28,
+                borderRadius: 10,
+                display: "grid",
+                placeItems: "center",
+                background: active ? "rgba(210,0,24,0.08)" : "transparent",
+              }}
+            >
+              <CollabGlyph kind={item.icon} color={active ? collabTheme.accent : "#a18f7e"} size={16} />
+            </span>
+            <span>{item.label}</span>
             {item.href === "/collab/absences" && showAbsenceBadge ? (
               <span
                 style={{
                   position: "absolute",
-                  top: 4,
-                  right: 12,
+                  top: 6,
+                  right: "calc(50% - 18px)",
                   width: 8,
                   height: 8,
                   borderRadius: 999,
                   background: collabTheme.accent,
+                  boxShadow: "0 0 0 2px #ffffff",
+                }}
+              />
+            ) : null}
+            {item.href === "/collab/infos" && showInfosBadge ? (
+              <span
+                style={{
+                  position: "absolute",
+                  top: 6,
+                  right: "calc(50% - 18px)",
+                  width: 8,
+                  height: 8,
+                  borderRadius: 999,
+                  background: "#2563eb",
                   boxShadow: "0 0 0 2px #ffffff",
                 }}
               />

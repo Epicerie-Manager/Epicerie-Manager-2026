@@ -21,6 +21,12 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v1.0.7 - 2026-04-12
+
+- Plateau / Import : retour a un flux `PDF` pour les plans plateau, avec rattachement automatique des pages aux `Plateau A`, `Plateau B` et `Plateau C` et liaison a la bonne semaine de la timeline a partir des dates detectees dans le document.
+- Plateau / Affichage manager : remplacement du zoom en pop-up par un zoom direct dans la vue avec reglette et deplacement dans le plan zoomé, pour faciliter la lecture des PDF vectoriels.
+- Collaborateurs / Plateau : la vue mobile lit maintenant les memes plans PDF que le manager, avec reglette de zoom, deplacement dans le plan et selecteur de semaine pour consulter d'autres semaines que la semaine courante.
+
 ## v1.0.6 - 2026-04-12
 
 - Absences / Planning : un `Déplacement RH` approuvé n'apparait plus comme un jour `X` / non travaillé dans le planning principal. Le motif est maintenant conservé comme statut métier dédié.

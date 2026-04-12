@@ -30,6 +30,15 @@ import {
   type MetreAuditDetail,
   type MetreAuditListItem,
 } from "@/lib/followup-store";
+import {
+  formatRuptureDateLabel,
+  loadRupturesDashboard,
+  type RuptureCollaboratorRow,
+  type RuptureHistoryRow,
+  type RuptureSectorAverageRow,
+  type RuptureSectorAverageSummary,
+  type RupturesDashboardData,
+} from "@/lib/ruptures-store";
 import { moduleThemes } from "@/lib/theme";
 
 type FollowupView = "form" | "team" | "mobile";
@@ -182,6 +191,31 @@ function CompactPill({
   );
 }
 
+function ruptureDelayTone(value: number) {
+  if (value <= 10) {
+    return {
+      background: "#f0fdf4",
+      border: "#bbf7d0",
+      color: "#166534",
+      glow: "rgba(34,197,94,0.24)",
+    };
+  }
+  if (value <= 20) {
+    return {
+      background: "#fff7ed",
+      border: "#fed7aa",
+      color: "#c2410c",
+      glow: "rgba(249,115,22,0.24)",
+    };
+  }
+  return {
+    background: "#fef2f2",
+    border: "#fecaca",
+    color: "#b91c1c",
+    glow: "rgba(239,68,68,0.22)",
+  };
+}
+
 function StatBox({
   label,
   value,
@@ -280,6 +314,11 @@ function TeamBarsChart({
     1,
   );
   const chartHeight = 190;
+  const chartTopPadding = 28;
+  const chartBottomPadding = 12;
+  const chartUsableHeight = chartHeight - chartTopPadding - chartBottomPadding;
+  const getPointY = (value: number) =>
+    chartHeight - ((value / maxValue) * chartUsableHeight + chartBottomPadding);
   const svgWidth = Math.max(points.length * 84, 420);
   const plotBackground =
     tone === "violet"
@@ -291,7 +330,7 @@ function TeamBarsChart({
   const linePath = points
     .map((point, index) => {
       const x = (index / Math.max(points.length - 1, 1)) * (svgWidth - 36) + 18;
-      const y = chartHeight - ((point.value / maxValue) * (chartHeight - 24) + 12);
+      const y = getPointY(point.value);
       return `${index === 0 ? "M" : "L"} ${x} ${y}`;
     })
     .join(" ");
@@ -300,7 +339,7 @@ function TeamBarsChart({
     ? points
         .map((point, index) => {
           const x = (index / Math.max(points.length - 1, 1)) * (svgWidth - 36) + 18;
-          const y = chartHeight - ((((point.target ?? 0) / maxValue) * (chartHeight - 24)) + 12);
+          const y = getPointY(point.target ?? 0);
           return `${index === 0 ? "M" : "L"} ${x} ${y}`;
         })
         .join(" ")
@@ -334,7 +373,7 @@ function TeamBarsChart({
       <div style={{ position: "relative", marginTop: 18 }}>
         <svg viewBox={`0 0 ${svgWidth} ${chartHeight}`} style={{ width: "100%", height: 210, display: "block" }}>
           {[0.25, 0.5, 0.75, 1].map((ratio) => {
-            const y = chartHeight - ratio * (chartHeight - 24) - 12;
+            const y = chartHeight - ratio * chartUsableHeight - chartBottomPadding;
             return (
               <line
                 key={ratio}
@@ -352,8 +391,8 @@ function TeamBarsChart({
             const step = (svgWidth - 36) / Math.max(points.length - 1, 1);
             const x = index * step + 18;
             const barWidth = Math.min(42, step * 0.56);
-            const barHeight = (point.value / maxValue) * (chartHeight - 24);
-            const barY = chartHeight - barHeight - 12;
+            const barHeight = (point.value / maxValue) * chartUsableHeight;
+            const barY = chartHeight - barHeight - chartBottomPadding;
             return (
               <g key={point.label}>
                 <rect
@@ -390,11 +429,11 @@ function TeamBarsChart({
           <path d={linePath} fill="none" stroke={accent} strokeWidth="3" />
           {points.map((point, index) => {
             const x = (index / Math.max(points.length - 1, 1)) * (svgWidth - 36) + 18;
-            const y = chartHeight - ((point.value / maxValue) * (chartHeight - 24) + 12);
+            const y = getPointY(point.value);
             return (
               <g key={`${point.label}-dot`}>
                 <circle cx={x} cy={y} r="5.5" fill="#fff" stroke={accent} strokeWidth="3" />
-                <text x={x} y={y - 12} textAnchor="middle" fontSize="10" fontWeight="800" fill="#334155">
+                <text x={x} y={Math.max(y - 12, 14)} textAnchor="middle" fontSize="10" fontWeight="800" fill="#334155">
                   {point.value}
                 </text>
               </g>
@@ -423,6 +462,7 @@ export default function SuiviPage() {
   const [draft, setDraft] = useState<MetreAuditDraft>(() => createEmptyMetreAuditDraft());
   const [balisageByEmployee, setBalisageByEmployee] = useState<Record<string, EmployeeBalisageYearStats>>({});
   const [absenceByEmployee, setAbsenceByEmployee] = useState<Record<string, EmployeeAbsenceYearStats>>({});
+  const [rupturesDashboard, setRupturesDashboard] = useState<RupturesDashboardData | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -451,14 +491,16 @@ export default function SuiviPage() {
           loadManagerDisplayName(),
           loadRecentMetreAudits(200),
         ]);
-        const [balisageStats, absenceStats] = await Promise.all([
+        const [balisageStats, absenceStats, rupturesStats] = await Promise.all([
           loadEmployeeBalisageYearStats(employeeRows.map((employee) => employee.id)),
           loadEmployeeAbsenceYearStats(employeeRows.map((employee) => employee.id)),
+          loadRupturesDashboard(undefined, "year").catch(() => null),
         ]);
         if (cancelled) return;
         setEmployees(employeeRows);
         setBalisageByEmployee(balisageStats);
         setAbsenceByEmployee(absenceStats);
+        setRupturesDashboard(rupturesStats);
         setAudits(recentAudits);
         setSelectedAuditId((current) => current ?? null);
         setSelectedEmployeeId((current) => current ?? ALL_EMPLOYEES_OPTION);
@@ -559,7 +601,6 @@ export default function SuiviPage() {
   );
 
   const annualVisitsTarget = useMemo(() => eligibleFieldVisitCount * 3, [eligibleFieldVisitCount]);
-  const quadrimesterVisitsTarget = useMemo(() => Number((annualVisitsTarget / 3).toFixed(1)), [annualVisitsTarget]);
   const monthlyVisitsTarget = useMemo(() => Number((annualVisitsTarget / 12).toFixed(1)), [annualVisitsTarget]);
   const monthlyBalisageTarget = useMemo(
     () => eligibleBalisageCount * balisageObjective,
@@ -679,7 +720,6 @@ export default function SuiviPage() {
     [teamBalisageSeries],
   );
   const teamCurrentBalisage = teamBalisageSeries.at(-1)?.value ?? 0;
-  const teamCurrentBalisageLabel = teamBalisageSeries.at(-1)?.label ?? "Mois";
   const teamBalisageGap = Math.max(monthlyBalisageTarget - teamCurrentBalisage, 0);
 
   const visitProgressToDate = useMemo(() => {
@@ -699,6 +739,67 @@ export default function SuiviPage() {
       visitsBehind,
     };
   }, [annualVisitsTarget, fieldVisitAudits]);
+  const currentFieldVisitQuadrimester = useMemo(() => {
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = today.getMonth();
+    if (month <= 3) {
+      return {
+        key: "Q1",
+        label: "1er quadrimestre",
+        start: new Date(year, 0, 1),
+        end: new Date(year, 3, 30),
+        deadlineLabel: "30 avril",
+      };
+    }
+    if (month <= 7) {
+      return {
+        key: "Q2",
+        label: "2e quadrimestre",
+        start: new Date(year, 4, 1),
+        end: new Date(year, 7, 31),
+        deadlineLabel: "31 aout",
+      };
+    }
+    return {
+      key: "Q3",
+      label: "3e quadrimestre",
+      start: new Date(year, 8, 1),
+      end: new Date(year, 11, 31),
+      deadlineLabel: "31 decembre",
+    };
+  }, []);
+  const expectedQuadrimesterVisits = useMemo(() => {
+    if (currentFieldVisitQuadrimester.key === "Q1") return 1;
+    if (currentFieldVisitQuadrimester.key === "Q2") return 2;
+    return 3;
+  }, [currentFieldVisitQuadrimester.key]);
+  const fieldVisitCountsByEmployee = useMemo(() => {
+    const currentYear = new Date().getFullYear();
+    const annualCounts = new Map<string, number>();
+
+    fieldVisitAudits.forEach((audit) => {
+      const auditDate = new Date(audit.auditDate);
+      if (auditDate.getFullYear() !== currentYear) return;
+      annualCounts.set(audit.employeeId, (annualCounts.get(audit.employeeId) ?? 0) + 1);
+    });
+
+    return eligibleFieldVisitEmployees
+      .map((employee) => {
+        const annualCompleted = annualCounts.get(employee.id) ?? 0;
+        const quadrimesterCompleted = Math.min(annualCompleted, expectedQuadrimesterVisits);
+        return {
+          employeeId: employee.id,
+          employeeName: employee.name,
+          annualCompleted,
+          quadrimesterCompleted,
+          expectedCompleted: expectedQuadrimesterVisits,
+          quadrimesterDone: annualCompleted >= expectedQuadrimesterVisits,
+          missingVisits: Math.max(expectedQuadrimesterVisits - annualCompleted, 0),
+        };
+      })
+      .sort((left, right) => left.employeeName.localeCompare(right.employeeName, "fr", { sensitivity: "base" }));
+  }, [eligibleFieldVisitEmployees, expectedQuadrimesterVisits, fieldVisitAudits]);
 
   const selectedEmployeeBalisage = useMemo(() => {
     if (!selectedEmployeeSnapshot) return null;
@@ -754,17 +855,95 @@ export default function SuiviPage() {
     };
   }, [absenceByEmployee]);
 
+  const ruptureCollaboratorRows = useMemo(
+    () => rupturesDashboard?.collaboratorRows ?? [],
+    [rupturesDashboard],
+  );
+  const teamSectorRows = useMemo<RuptureSectorAverageRow[]>(
+    () => rupturesDashboard?.teamSectorRows ?? [],
+    [rupturesDashboard],
+  );
+  const teamSectorSummary = useMemo<RuptureSectorAverageSummary>(
+    () =>
+      rupturesDashboard?.teamSectorSummary ?? {
+        avgTotalRuptures: 0,
+        avgRemainingRuptures: 0,
+        delayRate: 0,
+      },
+    [rupturesDashboard],
+  );
+  const ruptureHistoryRows = useMemo(
+    () => rupturesDashboard?.historyRows ?? [],
+    [rupturesDashboard],
+  );
+  const ruptureCurrentLabel = useMemo(
+    () => rupturesDashboard ? formatRuptureDateLabel(rupturesDashboard.selectedDate) : "Aucun import",
+    [rupturesDashboard],
+  );
+  const teamRuptureAveragePct = useMemo(() => {
+    const values = ruptureHistoryRows
+      .filter((row) => row.dayCount > 0 && row.averagePct !== null)
+      .map((row) => row.averagePct as number);
+    return values.length ? Math.round(values.reduce((sum, value) => sum + value, 0) / values.length) : null;
+  }, [ruptureHistoryRows]);
+  const teamRuptureTreatedMorning = useMemo(() => {
+    if (!rupturesDashboard?.morning.importRow || !rupturesDashboard.fin.importRow) return null;
+    return Math.max(rupturesDashboard.morning.collab - rupturesDashboard.fin.collab, 0);
+  }, [rupturesDashboard]);
+  const selectedEmployeeRuptureCurrent = useMemo<RuptureCollaboratorRow | null>(() => {
+    if (!rupturesDashboard || !selectedEmployeeSnapshot) return null;
+    if (selectedEmployeeSnapshot.employeeId === ALL_EMPLOYEES_OPTION) {
+      return {
+        employeeId: ALL_EMPLOYEES_OPTION,
+        employeeName: "Toute l'équipe",
+        totalLatest: rupturesDashboard.latest.totalRuptures,
+        morningCollab: rupturesDashboard.morning.collab,
+        finCollab: rupturesDashboard.fin.importRow ? rupturesDashboard.fin.collab : null,
+        treated: teamRuptureTreatedMorning,
+        pct: rupturesDashboard.latest.pctTraitement,
+        hasMorningWork: rupturesDashboard.morning.collab > 0,
+        hasActiveWork: rupturesDashboard.latest.collab > 0,
+      };
+    }
+    return ruptureCollaboratorRows.find((row) => row.employeeId === selectedEmployeeSnapshot.employeeId) ?? null;
+  }, [ruptureCollaboratorRows, rupturesDashboard, selectedEmployeeSnapshot, teamRuptureTreatedMorning]);
+  const selectedEmployeeRuptureHistory = useMemo<RuptureHistoryRow | null>(() => {
+    if (!selectedEmployeeSnapshot) return null;
+    if (selectedEmployeeSnapshot.employeeId === ALL_EMPLOYEES_OPTION) {
+      const activeRows = ruptureHistoryRows.filter((row) => row.dayCount > 0);
+      return {
+        employeeId: ALL_EMPLOYEES_OPTION,
+        employeeName: "Toute l'équipe",
+        dayCount: activeRows.reduce((sum, row) => sum + row.dayCount, 0),
+        averagePct: teamRuptureAveragePct,
+        totalAssigned: activeRows.reduce((sum, row) => sum + row.totalAssigned, 0),
+        totalTreated: activeRows.reduce((sum, row) => sum + row.totalTreated, 0),
+        totalUntreated: activeRows.reduce((sum, row) => sum + row.totalUntreated, 0),
+      };
+    }
+    return ruptureHistoryRows.find((row) => row.employeeId === selectedEmployeeSnapshot.employeeId) ?? null;
+  }, [ruptureHistoryRows, selectedEmployeeSnapshot, teamRuptureAveragePct]);
+
   const teamInsights = useMemo(() => {
     const strengths: string[] = [];
     const watchpoints: string[] = [];
 
     if (averageAuditScore >= 75) strengths.push(`moyenne audits équipe solide à ${averageAuditScore}%`);
     if (teamBalisageAveragePerMonth > 0) strengths.push(`balisage équipe moyen à ${teamBalisageAveragePerMonth} contrôles par mois`);
+    if (rupturesDashboard?.latest.importRow && (rupturesDashboard.latest.pctTraitement ?? 0) >= 80) {
+      strengths.push(`ruptures récentes bien tenues avec ${rupturesDashboard.latest.pctTraitement}% de traitement`);
+    }
+    if (rupturesDashboard?.latest.importRow && rupturesDashboard.latest.collab === 0) {
+      strengths.push("aucune rupture collab restante sur le dernier import");
+    }
     if (visitProgressToDate.visitsBehind > 0) watchpoints.push(`${visitProgressToDate.visitsBehind} visites manager en retard sur l'objectif annuel`);
     if (teamAbsenceSummary.pendingRequests > 0) watchpoints.push(`${teamAbsenceSummary.pendingRequests} demande(s) d'absence en attente sur l'équipe`);
+    if (rupturesDashboard?.latest.importRow && rupturesDashboard.latest.collab > 0) {
+      watchpoints.push(`${rupturesDashboard.latest.collab} rupture(s) collab restantes sur le dernier import`);
+    }
 
     return { strengths, watchpoints };
-  }, [averageAuditScore, teamAbsenceSummary.pendingRequests, teamBalisageAveragePerMonth, visitProgressToDate.visitsBehind]);
+  }, [averageAuditScore, rupturesDashboard, teamAbsenceSummary.pendingRequests, teamBalisageAveragePerMonth, visitProgressToDate.visitsBehind]);
 
   const selectedBalisageReferenceObjective =
     selectedEmployeeSnapshot?.employeeId === ALL_EMPLOYEES_OPTION ? monthlyBalisageTarget : balisageObjective;
@@ -810,8 +989,21 @@ export default function SuiviPage() {
       }
     }
 
+    if (selectedEmployeeRuptureHistory) {
+      const outstandingSinceJanuary = selectedEmployeeRuptureHistory.totalUntreated;
+      if ((selectedEmployeeRuptureHistory.averagePct ?? 0) >= 80 && (selectedEmployeeRuptureHistory.dayCount ?? 0) > 0) {
+        strengths.push(`ruptures depuis janvier bien tenues avec ${selectedEmployeeRuptureHistory.averagePct}% de moyenne`);
+      }
+      if (outstandingSinceJanuary > 0) {
+        watchpoints.push(`${outstandingSinceJanuary} rupture(s) non traitée(s) recensée(s) depuis janvier`);
+      }
+      if ((selectedEmployeeRuptureHistory.averagePct ?? 100) < 80 && (selectedEmployeeRuptureHistory.dayCount ?? 0) > 0) {
+        watchpoints.push(`moyenne rupture depuis janvier à ${selectedEmployeeRuptureHistory.averagePct}%`);
+      }
+    }
+
     return { strengths, watchpoints };
-  }, [averageAuditScore, selectedBalisageReferenceObjective, selectedEmployeeAbsence, selectedEmployeeBalisage, selectedEmployeeSnapshot, teamBalisageAveragePerMonth, visitProgressToDate.visitsBehind]);
+  }, [averageAuditScore, selectedBalisageReferenceObjective, selectedEmployeeAbsence, selectedEmployeeBalisage, selectedEmployeeRuptureHistory, selectedEmployeeSnapshot, teamBalisageAveragePerMonth, visitProgressToDate.visitsBehind]);
 
   const visibleBalisageMonths = useMemo(() => {
     const months = selectedEmployeeBalisage?.months ?? [];
@@ -1456,7 +1648,42 @@ export default function SuiviPage() {
 
           {teamSubview === "overview" ? (
           <div style={{ display: "grid", gap: 14, marginTop: 16 }}>
-          <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
+          <div style={{ display: "grid", gap: 18, gridTemplateColumns: "minmax(0, 1fr) minmax(420px, 0.9fr)", alignItems: "end" }}>
+            <div />
+            <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
+              <div style={{ borderRadius: 16, border: "1px solid #bbf7d0", background: "#f0fdf4", padding: "12px 14px", boxShadow: innerTileStyle.boxShadow }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "#166534" }}>Points forts</div>
+                <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
+                  {teamInsights.strengths.length ? teamInsights.strengths.slice(0, 2).map((item) => (
+                    <div key={item} style={{ fontSize: 11, color: "#166534", lineHeight: 1.5 }}>
+                      • {item}
+                    </div>
+                  )) : (
+                    <div style={{ fontSize: 11, color: "#166534", lineHeight: 1.5 }}>
+                      Aucun point fort majeur ne remonte encore.
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div style={{ borderRadius: 16, border: "1px solid #fecaca", background: "#fef2f2", padding: "12px 14px", boxShadow: innerTileStyle.boxShadow }}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "#b91c1c" }}>Points de vigilance</div>
+                <div style={{ display: "grid", gap: 6, marginTop: 8 }}>
+                  {teamInsights.watchpoints.length ? teamInsights.watchpoints.slice(0, 2).map((item) => (
+                    <div key={item} style={{ fontSize: 11, color: "#991b1b", lineHeight: 1.5 }}>
+                      • {item}
+                    </div>
+                  )) : (
+                    <div style={{ fontSize: 11, color: "#991b1b", lineHeight: 1.5 }}>
+                      Aucun signal d&apos;alerte majeur ne remonte pour l&apos;instant.
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div style={{ display: "grid", gap: 18, gridTemplateColumns: "repeat(2, minmax(0, 1fr))", alignItems: "start" }}>
             <div style={{ display: "grid", gap: 12 }}>
               <TeamBarsChart
                 title="Controle balisage equipe"
@@ -1468,36 +1695,6 @@ export default function SuiviPage() {
                 targetLabel={`Objectif equipe ${monthlyBalisageTarget}`}
                 tone="violet"
               />
-
-              <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
-                <div style={innerTileStyle}>
-                  <div style={{ fontSize: 11, color: "#64748b" }}>Collaborateurs concernes</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", marginTop: 4 }}>{eligibleBalisageCount}</div>
-                </div>
-                <div style={innerTileStyle}>
-                  <div style={{ fontSize: 11, color: "#64748b" }}>Objectif / collaborateur</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", marginTop: 4 }}>{balisageObjective}</div>
-                </div>
-                <div style={innerTileStyle}>
-                  <div style={{ fontSize: 11, color: "#64748b" }}>Objectif equipe / mois</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: "#6d28d9", marginTop: 4 }}>{monthlyBalisageTarget}</div>
-                </div>
-                <div
-                  style={{
-                    ...innerTileStyle,
-                    borderColor: teamBalisageGap > 0 ? "#ddd6fe" : "#bbf7d0",
-                    background: teamBalisageGap > 0 ? "#faf7ff" : "#f0fdf4",
-                  }}
-                >
-                  <div style={{ fontSize: 11, color: "#64748b" }}>{teamCurrentBalisageLabel} realise</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: teamBalisageGap > 0 ? "#6d28d9" : "#166534", marginTop: 4 }}>
-                    {teamCurrentBalisage}
-                  </div>
-                  <div style={{ fontSize: 11, color: "#64748b", marginTop: 6 }}>
-                    {teamBalisageGap > 0 ? `${teamBalisageGap} controles manquants pour atteindre la cible` : "objectif atteint ou depasse"}
-                  </div>
-                </div>
-              </div>
             </div>
 
             <div style={{ display: "grid", gap: 12 }}>
@@ -1511,95 +1708,299 @@ export default function SuiviPage() {
                 targetLabel={`Objectif ${monthlyVisitsTarget}/mois`}
                 tone="red"
               />
-
-              <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
-                <div style={innerTileStyle}>
-                  <div style={{ fontSize: 11, color: "#64748b" }}>Collaborateurs concernes</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", marginTop: 4 }}>{eligibleFieldVisitCount}</div>
-                </div>
-                <div style={innerTileStyle}>
-                  <div style={{ fontSize: 11, color: "#64748b" }}>Objectif annuel</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", marginTop: 4 }}>{annualVisitsTarget}</div>
-                </div>
-                <div style={innerTileStyle}>
-                  <div style={{ fontSize: 11, color: "#64748b" }}>Objectif / quadrimestre</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: "#0f172a", marginTop: 4 }}>{quadrimesterVisitsTarget}</div>
-                </div>
-                <div style={innerTileStyle}>
-                  <div style={{ fontSize: 11, color: "#64748b" }}>Objectif lisse / mois</div>
-                  <div style={{ fontSize: 20, fontWeight: 800, color: "#ef4444", marginTop: 4 }}>{monthlyVisitsTarget}</div>
-                </div>
-                <div style={{ ...innerTileStyle, gridColumn: "1 / -1", borderColor: visitProgressToDate.visitsBehind > 0 ? "#fecaca" : "#bbf7d0", background: visitProgressToDate.visitsBehind > 0 ? "#fff5f5" : "#f0fdf4" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "start", flexWrap: "wrap" }}>
-                    <div>
-                      <div style={{ fontSize: 11, color: visitProgressToDate.visitsBehind > 0 ? "#991b1b" : "#166534" }}>Avance / retard</div>
-                      <div style={{ fontSize: 22, fontWeight: 800, color: visitProgressToDate.visitsBehind > 0 ? "#b91c1c" : "#166534", marginTop: 4 }}>
-                        {visitProgressToDate.visitsBehind > 0 ? `${visitProgressToDate.visitsBehind} visite(s) en retard` : "Rythme tenu"}
-                      </div>
-                    </div>
-                    <div style={{ minWidth: 160, fontSize: 11, color: "#64748b", lineHeight: 1.6 }}>
-                      <div>Fait : <strong style={{ color: "#0f172a" }}>{visitProgressToDate.visitsDone}</strong></div>
-                      <div>Attendu a date : <strong style={{ color: "#0f172a" }}>{visitProgressToDate.expectedVisits}</strong></div>
-                    </div>
-                  </div>
-                </div>
-              </div>
             </div>
           </div>
 
-          <div style={{ display: "grid", gap: 12, gridTemplateColumns: "minmax(320px, 1fr) minmax(240px, 0.8fr) minmax(240px, 0.8fr)" }}>
-            <div style={innerTileStyle}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: "#0f172a" }}>Absences depuis janvier</div>
-              <div style={{ fontSize: 11, color: "#64748b", marginTop: 3 }}>
-                Vision consolidée de toute l&apos;équipe
+          <div style={{ display: "grid", gap: 18, gridTemplateColumns: "repeat(2, minmax(0, 1fr))", alignItems: "start" }}>
+            <div>
+              <div
+                style={{
+                  ...innerTileStyle,
+                  borderColor: teamBalisageGap > 0 ? "#ddd6fe" : "#bbf7d0",
+                  background: teamBalisageGap > 0 ? "#faf7ff" : "#f0fdf4",
+                  minHeight: 0,
+                  padding: "10px 14px",
+                }}
+              >
+                <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: "#64748b" }}>Nombre de controles restant a faire</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: teamBalisageGap > 0 ? "#6d28d9" : "#166534", marginTop: 4, lineHeight: 1.1 }}>
+                      {Math.max(teamBalisageGap, 0)}
+                    </div>
+                  </div>
+                </div>
               </div>
-              <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(2, minmax(0, 1fr))", marginTop: 12 }}>
-                <div style={{ borderRadius: 12, background: "#f8fafc", border: "1px solid #e2e8f0", padding: "10px 12px" }}>
-                  <div style={{ fontSize: 11, color: "#64748b" }}>Demandes</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", marginTop: 4 }}>{teamAbsenceSummary.totalRequests}</div>
+
+              <div
+                style={{
+                  ...innerTileStyle,
+                  marginTop: 18,
+                  borderColor: ruptureDelayTone(teamSectorSummary.delayRate).border,
+                  boxShadow: `0 0 0 1px ${ruptureDelayTone(teamSectorSummary.delayRate).border} inset, 0 0 0 3px ${ruptureDelayTone(teamSectorSummary.delayRate).glow}, 0 10px 28px rgba(15,23,42,0.06)`,
+                  background: "linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%)",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "start", flexWrap: "wrap" }}>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: "#0f172a" }}>Moyenne équipe ruptures</div>
+                    <div style={{ fontSize: 11, color: "#64748b", marginTop: 3 }}>
+                      Depuis le début de l&apos;année, calculé à partir des imports déjà injectés
+                    </div>
+                  </div>
+                  <div style={{ display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
+                    <span style={{ fontSize: 11, color: "#64748b" }}>{ruptureCurrentLabel}</span>
+                    <span
+                      style={{
+                        display: "inline-flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        minWidth: 88,
+                        minHeight: 30,
+                        padding: "0 10px",
+                        borderRadius: 999,
+                        fontSize: 12,
+                        fontWeight: 800,
+                        background: ruptureDelayTone(teamSectorSummary.delayRate).background,
+                        border: `1px solid ${ruptureDelayTone(teamSectorSummary.delayRate).border}`,
+                        color: ruptureDelayTone(teamSectorSummary.delayRate).color,
+                      }}
+                    >
+                      {teamSectorSummary.delayRate.toFixed(2).replace(".", ",")}%
+                    </span>
+                  </div>
                 </div>
-                <div style={{ borderRadius: 12, background: "#eff6ff", border: "1px solid #bfdbfe", padding: "10px 12px" }}>
-                  <div style={{ fontSize: 11, color: "#64748b" }}>Jours approuvés</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: "#1d4ed8", marginTop: 4 }}>{teamAbsenceSummary.approvedDays}</div>
+
+                <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(3, minmax(0, 1fr))", marginTop: 14 }}>
+                  <StatBox
+                    label="Moyenne ruptures"
+                    value={teamSectorSummary.avgTotalRuptures.toFixed(1).replace(".", ",")}
+                    color="#0f172a"
+                    background="#f8fafc"
+                    border="#e2e8f0"
+                  />
+                  <StatBox
+                    label="Moyenne restantes"
+                    value={teamSectorSummary.avgRemainingRuptures.toFixed(1).replace(".", ",")}
+                    color="#c2410c"
+                    background="#fff7ed"
+                    border="#fed7aa"
+                  />
+                  <StatBox
+                    label="Taux de retard"
+                    value={`${teamSectorSummary.delayRate.toFixed(2).replace(".", ",")}%`}
+                    color={ruptureDelayTone(teamSectorSummary.delayRate).color}
+                    background={ruptureDelayTone(teamSectorSummary.delayRate).background}
+                    border={ruptureDelayTone(teamSectorSummary.delayRate).border}
+                  />
                 </div>
-                <div style={{ borderRadius: 12, background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "10px 12px" }}>
-                  <div style={{ fontSize: 11, color: "#64748b" }}>Approuvées</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: "#166534", marginTop: 4 }}>{teamAbsenceSummary.approvedRequests}</div>
-                </div>
-                <div style={{ borderRadius: 12, background: "#fff7ed", border: "1px solid #fdba74", padding: "10px 12px" }}>
-                  <div style={{ fontSize: 11, color: "#64748b" }}>En attente</div>
-                  <div style={{ fontSize: 18, fontWeight: 800, color: "#c2410c", marginTop: 4 }}>{teamAbsenceSummary.pendingRequests}</div>
+
+                <div style={{ overflowX: "hidden", marginTop: 14 }}>
+                  <table style={{ width: "100%", borderCollapse: "collapse", tableLayout: "fixed" }}>
+                    <thead>
+                      <tr>
+                        {["Secteur", "rupt", "reta", "tx retard"].map((heading) => (
+                          <th
+                            key={heading}
+                            style={{
+                              padding: "8px 10px",
+                              borderBottom: "1px solid #dbe3eb",
+                              textAlign: heading === "Secteur" ? "left" : "right",
+                              fontSize: 11,
+                              fontWeight: 800,
+                              color: "#64748b",
+                              textTransform: "uppercase",
+                              letterSpacing: "0.05em",
+                              width:
+                                heading === "Secteur"
+                                  ? "52%"
+                                  : heading === "tx retard"
+                                    ? "18%"
+                                    : "15%",
+                            }}
+                          >
+                            {heading}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {teamSectorRows.map((row) => {
+                        const tone = ruptureDelayTone(row.delayRate);
+                        return (
+                          <tr key={row.sectorCode}>
+                            <td style={{ padding: "9px 10px", borderBottom: "1px solid #eef2f7", fontSize: 12, fontWeight: 700, color: "#0f172a" }}>
+                              {row.sectorLabel}
+                            </td>
+                            <td style={{ padding: "9px 10px", borderBottom: "1px solid #eef2f7", textAlign: "right", fontSize: 12, color: "#0f172a" }}>
+                              {row.avgTotalRuptures.toFixed(1).replace(".", ",")}
+                            </td>
+                            <td style={{ padding: "9px 10px", borderBottom: "1px solid #eef2f7", textAlign: "right", fontSize: 12, color: "#0f172a" }}>
+                              {row.avgRemainingRuptures.toFixed(1).replace(".", ",")}
+                            </td>
+                            <td style={{ padding: "9px 10px", borderBottom: "1px solid #eef2f7", textAlign: "right" }}>
+                              <span
+                                style={{
+                                  display: "inline-flex",
+                                  alignItems: "center",
+                                  justifyContent: "center",
+                                  minWidth: 72,
+                                  minHeight: 28,
+                                  padding: "0 8px",
+                                  borderRadius: 999,
+                                  fontSize: 11,
+                                  fontWeight: 800,
+                                  background: tone.background,
+                                  border: `1px solid ${tone.border}`,
+                                  color: tone.color,
+                                }}
+                              >
+                                {row.delayRate.toFixed(2).replace(".", ",")}%
+                              </span>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
                 </div>
               </div>
             </div>
 
-            <div style={{ borderRadius: 16, border: "1px solid #bbf7d0", background: "#f0fdf4", padding: "14px 16px", boxShadow: innerTileStyle.boxShadow }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: "#166534" }}>Points forts</div>
-              <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-                {teamInsights.strengths.length ? teamInsights.strengths.map((item) => (
-                  <div key={item} style={{ fontSize: 12, color: "#166534", lineHeight: 1.6 }}>
-                    • {item}
+            <div style={{ display: "grid", gap: 12 }}>
+              <div
+                style={{
+                  ...innerTileStyle,
+                  padding: "10px 12px",
+                  borderColor: visitProgressToDate.visitsBehind > 0 ? "#fecaca" : "#bbf7d0",
+                  background: visitProgressToDate.visitsBehind > 0 ? "#fff5f5" : "#f0fdf4",
+                }}
+              >
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "start", flexWrap: "wrap" }}>
+                  <div>
+                    <div style={{ fontSize: 11, color: visitProgressToDate.visitsBehind > 0 ? "#991b1b" : "#166534" }}>Avance / retard</div>
+                    <div style={{ fontSize: 20, fontWeight: 800, color: visitProgressToDate.visitsBehind > 0 ? "#b91c1c" : "#166534", marginTop: 4 }}>
+                      {visitProgressToDate.visitsBehind > 0 ? `${visitProgressToDate.visitsBehind} visite(s) en retard` : "Rythme tenu"}
+                    </div>
                   </div>
-                )) : (
-                  <div style={{ fontSize: 12, color: "#166534", lineHeight: 1.6 }}>
-                    Aucun point fort majeur ne remonte encore.
+                  <div style={{ minWidth: 140, fontSize: 11, color: "#64748b", lineHeight: 1.6, textAlign: "right" }}>
+                    <div>Fait : <strong style={{ color: "#0f172a" }}>{visitProgressToDate.visitsDone}</strong></div>
+                    <div>Attendu a date : <strong style={{ color: "#0f172a" }}>{visitProgressToDate.expectedVisits}</strong></div>
                   </div>
-                )}
+                </div>
               </div>
-            </div>
 
-            <div style={{ borderRadius: 16, border: "1px solid #fecaca", background: "#fef2f2", padding: "14px 16px", boxShadow: innerTileStyle.boxShadow }}>
-              <div style={{ fontSize: 12, fontWeight: 800, color: "#b91c1c" }}>Points de vigilance</div>
-              <div style={{ display: "grid", gap: 8, marginTop: 10 }}>
-                {teamInsights.watchpoints.length ? teamInsights.watchpoints.map((item) => (
-                  <div key={item} style={{ fontSize: 12, color: "#991b1b", lineHeight: 1.6 }}>
-                    • {item}
+              <div style={{ ...innerTileStyle, display: "grid", gap: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "start", flexWrap: "wrap" }}>
+                  <div>
+                    <div style={{ fontSize: 12, fontWeight: 800, color: "#0f172a" }}>Visites par collaborateur</div>
+                    <div style={{ fontSize: 11, color: "#64748b", marginTop: 3 }}>
+                      {currentFieldVisitQuadrimester.label} en cours : {expectedQuadrimesterVisits} visite(s) attendue(s) au cumul avant le {currentFieldVisitQuadrimester.deadlineLabel} {new Date().getFullYear()}
+                    </div>
                   </div>
-                )) : (
-                  <div style={{ fontSize: 12, color: "#991b1b", lineHeight: 1.6 }}>
-                    Aucun signal d&apos;alerte majeur ne remonte pour l&apos;instant.
+                  <span
+                    style={{
+                      display: "inline-flex",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      minHeight: 28,
+                      padding: "0 10px",
+                      borderRadius: 999,
+                      fontSize: 11,
+                      fontWeight: 800,
+                      background: "#f8fafc",
+                      border: "1px solid #dbe3eb",
+                      color: "#475569",
+                    }}
+                  >
+                    {eligibleFieldVisitCount} collaborateurs
+                  </span>
+                </div>
+
+                <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
+                  {fieldVisitCountsByEmployee.map((item) => {
+                    const done = item.quadrimesterDone;
+                    return (
+                      <div
+                        key={item.employeeId}
+                        style={{
+                          display: "flex",
+                          justifyContent: "space-between",
+                          gap: 10,
+                          alignItems: "center",
+                          borderRadius: 12,
+                          border: `1px solid ${done ? "#bbf7d0" : "#fecaca"}`,
+                          background: done ? "#f0fdf4" : "#fff5f5",
+                          padding: "9px 10px",
+                        }}
+                      >
+                        <div style={{ minWidth: 0 }}>
+                          <div
+                            style={{
+                              fontSize: 12,
+                              fontWeight: 700,
+                              color: "#0f172a",
+                              whiteSpace: "nowrap",
+                              overflow: "hidden",
+                              textOverflow: "ellipsis",
+                            }}
+                          >
+                            {item.employeeName}
+                          </div>
+                          <div style={{ fontSize: 10, color: "#64748b", marginTop: 2 }}>
+                            {done
+                              ? `a jour pour le ${currentFieldVisitQuadrimester.label.toLowerCase()}`
+                              : `${item.missingVisits} visite(s) manquante(s) avant le ${currentFieldVisitQuadrimester.deadlineLabel}`}
+                          </div>
+                        </div>
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            minWidth: 38,
+                            minHeight: 28,
+                            padding: "0 8px",
+                            borderRadius: 999,
+                            fontSize: 12,
+                            fontWeight: 800,
+                            background: done ? "#dcfce7" : "#fee2e2",
+                            color: done ? "#166534" : "#b91c1c",
+                            border: `1px solid ${done ? "#86efac" : "#fecaca"}`,
+                            flexShrink: 0,
+                          }}
+                        >
+                          {item.quadrimesterCompleted}/{item.expectedCompleted}
+                        </span>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+
+              <div style={innerTileStyle}>
+                <div style={{ fontSize: 12, fontWeight: 800, color: "#0f172a" }}>Absences depuis janvier</div>
+                <div style={{ fontSize: 11, color: "#64748b", marginTop: 3 }}>
+                  Vision consolidée de toute l&apos;équipe
+                </div>
+                <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(4, minmax(0, 1fr))", marginTop: 12 }}>
+                  <div style={{ borderRadius: 12, background: "#f8fafc", border: "1px solid #e2e8f0", padding: "10px 12px" }}>
+                    <div style={{ fontSize: 11, color: "#64748b" }}>Demandes</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: "#0f172a", marginTop: 4 }}>{teamAbsenceSummary.totalRequests}</div>
                   </div>
-                )}
+                  <div style={{ borderRadius: 12, background: "#eff6ff", border: "1px solid #bfdbfe", padding: "10px 12px" }}>
+                    <div style={{ fontSize: 11, color: "#64748b" }}>Jours approuvés</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: "#1d4ed8", marginTop: 4 }}>{teamAbsenceSummary.approvedDays}</div>
+                  </div>
+                  <div style={{ borderRadius: 12, background: "#f0fdf4", border: "1px solid #bbf7d0", padding: "10px 12px" }}>
+                    <div style={{ fontSize: 11, color: "#64748b" }}>Approuvées</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: "#166534", marginTop: 4 }}>{teamAbsenceSummary.approvedRequests}</div>
+                  </div>
+                  <div style={{ borderRadius: 12, background: "#fff7ed", border: "1px solid #fdba74", padding: "10px 12px" }}>
+                    <div style={{ fontSize: 11, color: "#64748b" }}>En attente</div>
+                    <div style={{ fontSize: 18, fontWeight: 800, color: "#c2410c", marginTop: 4 }}>{teamAbsenceSummary.pendingRequests}</div>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
@@ -1893,6 +2294,76 @@ export default function SuiviPage() {
                     {showAllBalisageMonths ? "Masquer les autres mois" : "Voir tout le balisage"}
                   </button>
                 ) : null}
+              </div>
+
+              <div style={{ ...innerTileStyle, display: "grid", gap: 12 }}>
+                <div>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "start", flexWrap: "wrap" }}>
+                    <div>
+                      <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#64748b" }}>
+                        Ruptures depuis janvier
+                      </div>
+                      <div style={{ fontSize: 12, color: "#64748b", marginTop: 4 }}>
+                        Lecture cumulée depuis le début de l&apos;année sur les imports disponibles
+                      </div>
+                    </div>
+                    <span
+                      style={{
+                        fontSize: 11,
+                        fontWeight: 800,
+                        borderRadius: 999,
+                        padding: "4px 10px",
+                        background: "#fff1f2",
+                        color: "#be123c",
+                        border: "1px solid #fecdd3",
+                      }}
+                    >
+                      Depuis janvier
+                    </span>
+                  </div>
+                </div>
+
+                <div style={{ display: "grid", gap: 8, gridTemplateColumns: "repeat(3, minmax(0, 1fr))" }}>
+                  <StatBox
+                    label="A traiter"
+                    value={selectedEmployeeRuptureHistory?.totalAssigned ?? 0}
+                    color={(selectedEmployeeRuptureHistory?.totalAssigned ?? 0) > 0 ? "#b91c1c" : "#166534"}
+                    background={(selectedEmployeeRuptureHistory?.totalAssigned ?? 0) > 0 ? "#fef2f2" : "#f0fdf4"}
+                    border={(selectedEmployeeRuptureHistory?.totalAssigned ?? 0) > 0 ? "#fecaca" : "#bbf7d0"}
+                  />
+                  <StatBox
+                    label="Traitées"
+                    value={selectedEmployeeRuptureHistory?.totalTreated ?? 0}
+                    color="#be123c"
+                    background="#fff1f2"
+                    border="#fecdd3"
+                  />
+                  <StatBox
+                    label="Moyenne"
+                    value={selectedEmployeeRuptureHistory?.averagePct != null ? `${selectedEmployeeRuptureHistory.averagePct}%` : "-"}
+                    color="#9f1239"
+                    background="#fff7f7"
+                    border="#fecaca"
+                  />
+                </div>
+
+                <div
+                  style={{
+                    borderRadius: 12,
+                    border: "1px solid #ffe4e6",
+                    background: "#fff8f8",
+                    padding: "10px 12px",
+                    fontSize: 11,
+                    color: "#7f1d1d",
+                    lineHeight: 1.6,
+                  }}
+                >
+                  {selectedEmployeeRuptureCurrent || selectedEmployeeRuptureHistory
+                    ? selectedEmployeeSnapshot?.employeeId === ALL_EMPLOYEES_OPTION
+                      ? "Synthèse agrégée équipe depuis le début de l'année, calculée à partir des imports Ruptures disponibles. Les jours sans export Ruptures ne sont pas comptés."
+                      : "Les stats affichées suivent l'affectation rupture du collaborateur depuis le début de l'année sur les imports disponibles. Les jours sans export Ruptures ne sont pas comptés dans cette synthèse."
+                    : "Aucune donnée rupture disponible pour cette sélection pour l'instant."}
+                </div>
               </div>
 
               <div style={{ ...innerTileStyle, display: "grid", gap: 12 }}>

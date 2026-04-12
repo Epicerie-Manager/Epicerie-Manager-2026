@@ -27,6 +27,8 @@ import {
   type RuptureEmployee,
   type RuptureImportRow,
   type RupturePeriod,
+  type RuptureSectorAverageRow,
+  type RuptureSectorAverageSummary,
   type RuptureTeamSnapshot,
   type RupturesDashboardData,
 } from "@/lib/ruptures-store";
@@ -697,12 +699,38 @@ function HistoricalView({
   onHistoryRangeChange,
   selectedDate,
   historyRows,
+  teamSectorRows,
+  teamSectorSummary,
 }: {
   historyRange: RuptureHistoryRange;
   onHistoryRangeChange: (range: RuptureHistoryRange) => void;
   selectedDate: string;
   historyRows: RuptureHistoryRow[];
+  teamSectorRows: RuptureSectorAverageRow[];
+  teamSectorSummary: RuptureSectorAverageSummary;
 }) {
+  const getDelayTone = (value: number) => {
+    if (value <= 10) {
+      return {
+        background: "#f0fdf4",
+        border: "#bbf7d0",
+        color: "#166534",
+      };
+    }
+    if (value <= 20) {
+      return {
+        background: "#fff7ed",
+        border: "#fed7aa",
+        color: "#c2410c",
+      };
+    }
+    return {
+      background: "#fef2f2",
+      border: "#fecaca",
+      color: "#b91c1c",
+    };
+  };
+
   return (
     <Card style={baseCardStyle}>
       <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "end", flexWrap: "wrap" }}>
@@ -861,6 +889,133 @@ function HistoricalView({
         }) : (
           <div style={{ fontSize: "12px", color: "#94a3b8" }}>Aucune statistique exploitable sur cette période.</div>
         )}
+      </div>
+
+      <div style={{ marginTop: "22px", borderTop: "1px solid #eef2f7", paddingTop: "18px" }}>
+        {(() => {
+          const summaryTone = getDelayTone(teamSectorSummary.delayRate);
+          return (
+            <>
+        <div>
+          <div style={{ fontSize: "12px", fontWeight: 800, color: "#0f172a" }}>Moyenne équipe depuis le début de l&apos;année</div>
+          <div style={{ marginTop: "6px", fontSize: "12px", color: "#64748b", lineHeight: 1.6 }}>
+            Basé sur les imports de fin de matinée déjà injectés. `rupt` = moyenne des ruptures totales, `reta` = moyenne des ruptures restantes à traiter, `tx retard` = reta / rupt.
+          </div>
+        </div>
+
+        <div
+          style={{
+            marginTop: "14px",
+            borderRadius: "20px",
+            border: `1px solid ${summaryTone.border}`,
+            background: "linear-gradient(180deg, #ffffff 0%, #fbfcfe 100%)",
+            boxShadow: `0 0 0 1px ${summaryTone.border} inset, 0 0 0 3px ${summaryTone.background}, 0 12px 28px rgba(15,23,42,0.06), 0 0 22px ${summaryTone.border}`,
+            padding: "16px",
+          }}
+        >
+          <div style={{ overflowX: "auto" }}>
+            <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "760px" }}>
+            <thead>
+              <tr>
+                {["Secteur", "rupt", "reta", "tx retard"].map((heading) => (
+                  <th
+                    key={heading}
+                    style={{
+                      padding: "10px 12px",
+                      borderBottom: "1px solid #dbe3eb",
+                      textAlign: heading === "Secteur" ? "left" : "right",
+                      fontSize: "11px",
+                      fontWeight: 800,
+                      color: "#64748b",
+                      textTransform: "uppercase",
+                      letterSpacing: "0.05em",
+                    }}
+                  >
+                    {heading}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+              <tbody>
+                {teamSectorRows.map((row) => {
+                  const delayTone = getDelayTone(row.delayRate);
+                  return (
+                    <tr key={row.sectorCode}>
+                      <td style={{ padding: "10px 12px", borderBottom: "1px solid #eef2f7", fontSize: "12px", fontWeight: 700, color: "#0f172a" }}>
+                        {row.sectorLabel}
+                      </td>
+                      <td style={{ padding: "10px 12px", borderBottom: "1px solid #eef2f7", textAlign: "right", fontSize: "12px", color: "#0f172a" }}>
+                        {row.avgTotalRuptures.toFixed(1).replace(".", ",")}
+                      </td>
+                      <td style={{ padding: "10px 12px", borderBottom: "1px solid #eef2f7", textAlign: "right", fontSize: "12px", color: "#0f172a" }}>
+                        {row.avgRemainingRuptures.toFixed(1).replace(".", ",")}
+                      </td>
+                      <td style={{ padding: "10px 12px", borderBottom: "1px solid #eef2f7", textAlign: "right" }}>
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            minWidth: "88px",
+                            minHeight: "30px",
+                            padding: "0 10px",
+                            borderRadius: "999px",
+                            fontSize: "12px",
+                            fontWeight: 800,
+                            background: delayTone.background,
+                            border: `1px solid ${delayTone.border}`,
+                            color: delayTone.color,
+                          }}
+                        >
+                          {row.delayRate.toFixed(2).replace(".", ",")}%
+                        </span>
+                      </td>
+                    </tr>
+                  );
+                })}
+                <tr>
+                  <td style={{ padding: "12px", borderTop: "2px solid #dbe3eb", fontSize: "12px", fontWeight: 800, color: "#2563eb" }}>
+                    MOYENNE EQUIPE
+                  </td>
+                  <td style={{ padding: "12px", borderTop: "2px solid #dbe3eb", textAlign: "right", fontSize: "12px", fontWeight: 800, color: "#0f172a" }}>
+                    {teamSectorSummary.avgTotalRuptures.toFixed(1).replace(".", ",")}
+                  </td>
+                  <td style={{ padding: "12px", borderTop: "2px solid #dbe3eb", textAlign: "right", fontSize: "12px", fontWeight: 800, color: "#0f172a" }}>
+                    {teamSectorSummary.avgRemainingRuptures.toFixed(1).replace(".", ",")}
+                  </td>
+                  <td style={{ padding: "12px", borderTop: "2px solid #dbe3eb", textAlign: "right" }}>
+                    {(() => {
+                      const delayTone = getDelayTone(teamSectorSummary.delayRate);
+                      return (
+                        <span
+                          style={{
+                            display: "inline-flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            minWidth: "88px",
+                            minHeight: "30px",
+                            padding: "0 10px",
+                            borderRadius: "999px",
+                            fontSize: "12px",
+                            fontWeight: 800,
+                            background: delayTone.background,
+                            border: `1px solid ${delayTone.border}`,
+                            color: delayTone.color,
+                          }}
+                        >
+                          {teamSectorSummary.delayRate.toFixed(2).replace(".", ",")}%
+                        </span>
+                      );
+                    })()}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+            </>
+          );
+        })()}
       </div>
     </Card>
   );
@@ -1070,6 +1225,8 @@ export default function RupturesPage() {
           onHistoryRangeChange={(range) => void handleChangeHistoryRange(range)}
           selectedDate={selectedDate}
           historyRows={dashboardData.historyRows}
+          teamSectorRows={dashboardData.teamSectorRows}
+          teamSectorSummary={dashboardData.teamSectorSummary}
         />
       )}
     </section>

@@ -225,7 +225,7 @@ export default function LoginPage() {
                 color: TEXT,
               }}
             >
-              Bon retour
+              Bonjour
             </div>
             <div style={{ fontSize: 13, color: MUTED, lineHeight: 1.55, marginBottom: 8 }}>
               Connecte-toi avec ton compte manager.

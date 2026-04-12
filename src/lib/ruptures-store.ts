@@ -92,6 +92,20 @@ export type RuptureRayonRow = ParsedRuptureRow & {
   employeeName: string | null;
 };
 
+export type RuptureSectorAverageRow = {
+  sectorCode: number;
+  sectorLabel: string;
+  avgTotalRuptures: number;
+  avgRemainingRuptures: number;
+  delayRate: number;
+};
+
+export type RuptureSectorAverageSummary = {
+  avgTotalRuptures: number;
+  avgRemainingRuptures: number;
+  delayRate: number;
+};
+
 export type RupturesDashboardData = {
   employees: RuptureEmployee[];
   recentImports: RuptureImportRow[];
@@ -102,6 +116,8 @@ export type RupturesDashboardData = {
   latest: RuptureTeamSnapshot;
   collaboratorRows: RuptureCollaboratorRow[];
   historyRows: RuptureHistoryRow[];
+  teamSectorRows: RuptureSectorAverageRow[];
+  teamSectorSummary: RuptureSectorAverageSummary;
   rayonRows: RuptureRayonRow[];
   detailRows: RuptureDetailRow[];
   detailEnabled: boolean;
@@ -193,6 +209,44 @@ export const RUPTURE_COLLAB_STATUSES = new Set([
   "Attente Correction Paramétrage",
   "Attente Suppression Balisage",
 ]);
+
+const RUPTURE_SECTOR_DEFINITIONS = [
+  {
+    sectorCode: 121,
+    sectorLabel: "EPICERIE SUCREE DU QUOTIDIEN",
+    rayonCodes: [304, 305, 475, 477, 478, 479, 489, 492, 640, 641, 642, 643, 644, 645, 646, 647, 655, 656],
+  },
+  {
+    sectorCode: 89,
+    sectorLabel: "EPICERIE SUCREE GOURMANDE",
+    rayonCodes: [138, 449, 638, 639, 650, 651, 653, 717],
+  },
+  {
+    sectorCode: 74,
+    sectorLabel: "EPICERIE SALEE DU QUOTIDIEN",
+    rayonCodes: [16, 474, 600, 624, 628, 629, 631, 632, 636, 637],
+  },
+  {
+    sectorCode: 61,
+    sectorLabel: "EPICERIE SALEE FAIT MAISON",
+    rayonCodes: [130, 137, 630, 633, 634, 635, 654],
+  },
+  {
+    sectorCode: 39,
+    sectorLabel: "BOULANGERIE PATISSERIE LS",
+    rayonCodes: [98, 721, 725, 728, 732, 734, 910],
+  },
+  {
+    sectorCode: 62,
+    sectorLabel: "ANIMALERIE ALIMENTATION",
+    rayonCodes: [330, 626],
+  },
+  {
+    sectorCode: 60,
+    sectorLabel: "ANIMALERIE ACCESSOIRES",
+    rayonCodes: [45, 327, 339, 340, 360, 494, 496, 503],
+  },
+] as const;
 
 let schemaCapabilitiesPromise: Promise<RupturesSchemaCapabilities> | null = null;
 
@@ -537,6 +591,74 @@ function buildHistoryRows(
       if (rightScore !== leftScore) return rightScore - leftScore;
       return left.employeeName.localeCompare(right.employeeName, "fr");
     });
+}
+
+function buildTeamSectorAverageRows(
+  imports: RuptureImportRow[],
+  rowsByImportId: Map<string, ParsedRuptureRow[]>,
+  selectedDate: string,
+) {
+  const anchorDate = new Date(`${selectedDate}T12:00:00`);
+  const selectedYear = anchorDate.getFullYear();
+
+  const finImports = imports.filter((item) => {
+    if (item.period !== "fin_matinee") return false;
+    const itemDate = new Date(`${item.dateKey}T12:00:00`);
+    return itemDate.getFullYear() === selectedYear && item.dateKey <= selectedDate;
+  });
+
+  if (!finImports.length) {
+    return {
+      rows: [] as RuptureSectorAverageRow[],
+      summary: {
+        avgTotalRuptures: 0,
+        avgRemainingRuptures: 0,
+        delayRate: 0,
+      } satisfies RuptureSectorAverageSummary,
+    };
+  }
+
+  const rows = RUPTURE_SECTOR_DEFINITIONS.map((sector) => {
+    const rayonCodes = new Set<number>(sector.rayonCodes);
+    let totalRuptures = 0;
+    let remainingRuptures = 0;
+
+    finImports.forEach((item) => {
+      const importRows = rowsByImportId.get(item.id) ?? [];
+      const sectorRows = importRows.filter((row) => rayonCodes.has(row.rayonNum));
+      totalRuptures += sectorRows.reduce((sum, row) => sum + row.totalATraiter, 0);
+      remainingRuptures += sectorRows.reduce((sum, row) => sum + row.sousResponsabiliteCollab, 0);
+    });
+
+    const avgTotalRuptures = Number((totalRuptures / finImports.length).toFixed(1));
+    const avgRemainingRuptures = Number((remainingRuptures / finImports.length).toFixed(1));
+    const delayRate = avgTotalRuptures > 0
+      ? Number(((avgRemainingRuptures / avgTotalRuptures) * 100).toFixed(2))
+      : 0;
+
+    return {
+      sectorCode: sector.sectorCode,
+      sectorLabel: sector.sectorLabel,
+      avgTotalRuptures,
+      avgRemainingRuptures,
+      delayRate,
+    } satisfies RuptureSectorAverageRow;
+  });
+
+  const avgTotalRuptures = Number(rows.reduce((sum, row) => sum + row.avgTotalRuptures, 0).toFixed(1));
+  const avgRemainingRuptures = Number(rows.reduce((sum, row) => sum + row.avgRemainingRuptures, 0).toFixed(1));
+  const delayRate = avgTotalRuptures > 0
+    ? Number(((avgRemainingRuptures / avgTotalRuptures) * 100).toFixed(2))
+    : 0;
+
+  return {
+    rows,
+    summary: {
+      avgTotalRuptures,
+      avgRemainingRuptures,
+      delayRate,
+    } satisfies RuptureSectorAverageSummary,
+  };
 }
 
 function mapLegacyImportToUi(row: DbLegacyImportRow): RuptureImportRow {
@@ -1019,6 +1141,10 @@ export async function loadRupturesDashboard(selectedDate?: string, historyRange:
   const historyDetailBundle = historyImportIds.length
     ? await loadDetailRowsByImportIds(historyImportIds)
     : { detailEnabled: false, rowsByImportId: new Map<string, RuptureDetailRow[]>() };
+  const allRowsByImportId = recentImports.length
+    ? await loadSyntheseRowsByImportIds(recentImports.map((item) => item.id))
+    : new Map<string, ParsedRuptureRow[]>();
+  const teamSectorAverages = buildTeamSectorAverageRows(recentImports, allRowsByImportId, effectiveDate);
 
   return {
     employees,
@@ -1037,6 +1163,8 @@ export async function loadRupturesDashboard(selectedDate?: string, historyRange:
       effectiveDate,
       historyRange,
     ),
+    teamSectorRows: teamSectorAverages.rows,
+    teamSectorSummary: teamSectorAverages.summary,
     rayonRows,
     detailRows: latestDetailRows,
     detailEnabled: detailBundle.detailEnabled,

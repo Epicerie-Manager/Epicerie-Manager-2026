@@ -21,6 +21,13 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v1.0.8 - 2026-04-12
+
+- Suivi / Ruptures : ajout d'une synthese `Moyenne equipe ruptures` depuis janvier dans les stats historiques `Ruptures`, avec detail par secteur, ligne `Moyenne equipe` et code couleur du taux de retard.
+- Suivi / Dashboard equipe : integration de la synthese `Moyenne equipe ruptures` dans `Suivi equipe`, avec ajustements de layout sur les blocs balisage, visites, absences, points forts et points de vigilance.
+- Suivi / Vue collaborateur : la carte `Ruptures` repose maintenant sur une lecture cumulee `depuis janvier` au lieu du seul dernier import, et les textes expliquent que les jours sans export `Ruptures` ne sont pas comptes.
+- Connexion / Accueil : le titre de l'ecran de login manager affiche desormais `Bonjour` a la place de `Bon retour`.
+
 ## v1.0.7 - 2026-04-12
 
 - Plateau / Import : retour a un flux `PDF` pour les plans plateau, avec rattachement automatique des pages aux `Plateau A`, `Plateau B` et `Plateau C` et liaison a la bonne semaine de la timeline a partir des dates detectees dans le document.

@@ -168,6 +168,21 @@ function arePlansEqual(a:TgWeekPlanRow[],b:TgWeekPlanRow[]){
   ));
 }
 
+function areWeekPlanRowsEqual(a:TgWeekPlanRow,b:TgWeekPlanRow){
+  return (
+    a.weekId===b.weekId &&
+    a.rayon===b.rayon &&
+    a.family===b.family &&
+    a.defaultResponsible===b.defaultResponsible &&
+    a.gbProduct===b.gbProduct &&
+    a.tgResponsible===b.tgResponsible &&
+    a.tgProduct===b.tgProduct &&
+    a.tgQuantity===b.tgQuantity &&
+    a.tgMechanic===b.tgMechanic &&
+    a.hasOperation===b.hasOperation
+  );
+}
+
 function RayonCardPlan({row,isSelected,onClick,theme}:{row:TgWeekPlanRow;isSelected:boolean;onClick:()=>void;theme:{color:string;medium:string}}){
   const hasData=!!(row.tgProduct||row.gbProduct);
   return <div onClick={onClick} style={{borderRadius:10,border:isSelected?`2px solid ${theme.color}`:"1px solid #dbe3eb",overflow:"hidden",cursor:"pointer",background:"#fff",boxShadow:isSelected?`0 0 0 3px ${theme.medium}`:"none"}}>
@@ -235,7 +250,7 @@ export default function PlanTgPage(){
 
   useEffect(()=>{saveTgRayons(orderedRayons);},[orderedRayons]);
   useEffect(()=>{saveTgDefaultAssignments(assignments);},[assignments]);
-  useEffect(()=>{saveTgWeekPlans(normalizePlans(plans,orderedRayons,assignmentMap));},[assignmentMap,orderedRayons,plans]);
+  useEffect(()=>{saveTgWeekPlans(normalizePlans(plans,orderedRayons,assignmentMap), { emitEvent: false });},[assignmentMap,orderedRayons,plans]);
 
   const flushPersistRow = useCallback(async (key:string) => {
     if (rowSaveInFlightRef.current.has(key)) return;
@@ -382,17 +397,23 @@ export default function PlanTgPage(){
   }, []);
 
   const updateSelectedRow=useCallback((patch:Partial<TgWeekPlanRow>)=>{
-    if(!selectedRow) return;
+    const targetRayon = effectiveSelectedRayon;
+    if(!targetRayon) return;
     setPlans((current)=>{
+      let changed = false;
       const next=current.map((row)=>{
-        if(row.weekId!==activeWeek.id||row.rayon!==selectedRow.rayon) return row;
-        return withOperationState({...row,...patch});
+        if(row.weekId!==activeWeek.id||row.rayon!==targetRayon) return row;
+        const patchedRow = withOperationState({...row,...patch});
+        if(areWeekPlanRowsEqual(row, patchedRow)) return row;
+        changed = true;
+        return patchedRow;
       });
-      const updatedRow=next.find((row)=>row.weekId===activeWeek.id&&row.rayon===selectedRow.rayon);
+      if(!changed) return current;
+      const updatedRow=next.find((row)=>row.weekId===activeWeek.id&&row.rayon===targetRayon);
       if(updatedRow) persistRow(updatedRow);
       return next;
     });
-  },[activeWeek.id,persistRow,selectedRow]);
+  },[activeWeek.id,effectiveSelectedRayon,persistRow]);
 
   const addCustomMechanic=()=>{
     const value=mecaCustomInput.trim().toUpperCase();
@@ -570,7 +591,7 @@ export default function PlanTgPage(){
     </Card>}
 
     <div style={{display:"grid",gap:"12px",gridTemplateColumns:"1.2fr 1fr"}}>
-      <Card><Kicker moduleKey="plantg" label="Vue rayons"/><h2 style={{marginTop:"6px",fontSize:"18px",color:"#0f172a"}}>Saisie rapide semaine</h2><div style={{marginTop:"10px",display:"grid",gap:"8px",maxHeight:"560px",overflowY:"auto",paddingRight:"2px"}}>{filteredRows.map((r)=>{const active=r.rayon===effectiveSelectedRayon;const hasTG=Boolean(r.tgProduct);const hasGB=Boolean(r.gbProduct);const hasData=hasTG||hasGB;const rayonIndex=orderedRayons.findIndex((x)=>x.rayon===r.rayon);return <div key={r.rayon} role="button" tabIndex={0} onClick={()=>setSelectedRayon(r.rayon)} onKeyDown={(e)=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setSelectedRayon(r.rayon);}}} style={{textAlign:"left",borderRadius:"12px",border:`1px solid ${active?theme.color:"#dbe3eb"}`,background:active?theme.light:"#fff",padding:"10px 12px",cursor:"pointer"}}><div style={{display:"flex",justifyContent:"space-between",gap:"8px",alignItems:"flex-start"}}><div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}><strong style={{fontSize:"13px",color:"#0f172a"}}>{r.rayon}</strong><span style={{fontSize:"10px",fontWeight:700,borderRadius:"999px",padding:"3px 8px",background:r.family==="Sale"?"#dcfce7":"#fef3c7",color:r.family==="Sale"?"#166534":"#92400e"}}>{r.family}</span></div><div style={{display:"flex",alignItems:"center",gap:6}}><button type="button" onClick={(e)=>{e.stopPropagation();moveRayon(r.rayon,-1);}} disabled={rayonIndex<=0} style={{border:"1px solid #dbe3eb",background:"#fff",borderRadius:6,padding:"1px 6px",fontSize:11,cursor:rayonIndex<=0?"not-allowed":"pointer",opacity:rayonIndex<=0?0.4:1}}>↑</button><button type="button" onClick={(e)=>{e.stopPropagation();moveRayon(r.rayon,1);}} disabled={rayonIndex>=orderedRayons.length-1} style={{border:"1px solid #dbe3eb",background:"#fff",borderRadius:6,padding:"1px 6px",fontSize:11,cursor:rayonIndex>=orderedRayons.length-1?"not-allowed":"pointer",opacity:rayonIndex>=orderedRayons.length-1?0.4:1}}>↓</button><span style={{width:10,height:10,borderRadius:"50%",background:hasData?"#15803d":"#cbd5e1",display:"inline-block"}}/></div></div><div style={{marginTop:"5px",fontSize:"12px",color:"#64748b"}}>Resp. base: <strong style={{color:"#334155"}}>{r.defaultResponsible||"Non défini"}</strong></div><div style={{marginTop:"4px",fontSize:"12px",color:"#475569",display:"grid",gap:2}}>{hasTG?<div><span style={{display:"inline-block",width:10,height:10,borderRadius:"50%",background:"#dc3545",marginRight:6}}/>TG : {r.tgProduct}{r.tgQuantity?` · ${r.tgQuantity}`:""}{r.tgMechanic?` · ${r.tgMechanic}`:""}</div>:null}{hasGB?<div><span style={{display:"inline-block",width:10,height:10,borderRadius:"50%",background:"#1d5fa0",marginRight:6}}/>GB : {r.gbProduct}</div>:null}{!hasData?<div style={{color:"#94a3b8",fontStyle:"italic"}}>Aucune opération saisie</div>:null}</div></div>;})}</div></Card>
+      <Card><Kicker moduleKey="plantg" label="Vue rayons"/><h2 style={{marginTop:"6px",fontSize:"18px",color:"#0f172a"}}>Saisie rapide semaine</h2><div style={{marginTop:"10px",display:"grid",gap:"8px",maxHeight:"560px",overflowY:"auto",paddingRight:"2px"}}>{filteredRows.map((r)=>{const active=r.rayon===effectiveSelectedRayon;const hasTG=Boolean(r.tgProduct);const hasGB=Boolean(r.gbProduct);const hasData=hasTG||hasGB;const rayonIndex=orderedRayons.findIndex((x)=>x.rayon===r.rayon);return <div key={r.rayon} role="button" tabIndex={0} onClick={()=>setSelectedRayon(r.rayon)} onKeyDown={(e)=>{if(e.key==="Enter"||e.key===" "){e.preventDefault();setSelectedRayon(r.rayon);}}} style={{textAlign:"left",borderRadius:"12px",border:`1px solid ${active?theme.color:"#dbe3eb"}`,background:active?theme.light:"#fff",padding:"10px 12px",cursor:"pointer"}}><div style={{display:"flex",justifyContent:"space-between",gap:"8px",alignItems:"flex-start"}}><div style={{display:"flex",alignItems:"center",gap:6,flexWrap:"wrap"}}><strong style={{fontSize:"13px",color:"#0f172a"}}>{r.rayon}</strong><span style={{fontSize:"10px",fontWeight:700,borderRadius:"999px",padding:"3px 8px",background:r.family==="Sale"?"#dcfce7":"#fef3c7",color:r.family==="Sale"?"#166534":"#92400e"}}>{r.family}</span></div><div style={{display:"flex",alignItems:"center",gap:6}}><button type="button" onClick={(e)=>{e.stopPropagation();moveRayon(r.rayon,-1);}} disabled={rayonIndex<=0} style={{border:"1px solid #dbe3eb",background:"#fff",borderRadius:6,padding:"1px 6px",fontSize:11,cursor:rayonIndex<=0?"not-allowed":"pointer",opacity:rayonIndex<=0?0.4:1}}>↑</button><button type="button" onClick={(e)=>{e.stopPropagation();moveRayon(r.rayon,1);}} disabled={rayonIndex>=orderedRayons.length-1} style={{border:"1px solid #dbe3eb",background:"#fff",borderRadius:6,padding:"1px 6px",fontSize:11,cursor:rayonIndex>=orderedRayons.length-1?"not-allowed":"pointer",opacity:rayonIndex>=orderedRayons.length-1?0.4:1}}>↓</button><span style={{width:10,height:10,borderRadius:"50%",background:hasData?"#15803d":"#cbd5e1",display:"inline-block"}}/></div></div><div style={{marginTop:"5px",fontSize:"12px",color:"#64748b"}}>Resp. base: <strong style={{color:"#334155"}}>{r.defaultResponsible||"Non défini"}</strong></div><div style={{marginTop:"4px",fontSize:"12px",color:"#475569",display:"grid",gap:6}}>{hasTG?<div style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere",wordBreak:"break-word",lineHeight:1.45}}><span style={{display:"inline-block",width:10,height:10,borderRadius:"50%",background:"#dc3545",marginRight:6}}/>TG : {r.tgProduct}{r.tgQuantity?`\n${r.tgQuantity}`:""}{r.tgMechanic?` · ${r.tgMechanic}`:""}</div>:null}{hasGB?<div style={{whiteSpace:"pre-wrap",overflowWrap:"anywhere",wordBreak:"break-word",lineHeight:1.45}}><span style={{display:"inline-block",width:10,height:10,borderRadius:"50%",background:"#1d5fa0",marginRight:6}}/>GB : {r.gbProduct}</div>:null}{!hasData?<div style={{color:"#94a3b8",fontStyle:"italic"}}>Aucune opération saisie</div>:null}</div></div>;})}</div></Card>
 
       <Card><Kicker moduleKey="plantg" label="Edition rayon"/><h2 style={{marginTop:"6px",fontSize:"18px",color:"#0f172a"}}>{selectedRow?selectedRow.rayon:"Sélectionner un rayon"}</h2>{selectedRow?<div style={{display:"grid",gap:"10px",marginTop:"10px"}}>
         <label style={{display:"grid",gap:"4px",fontSize:"12px",color:"#64748b"}}><span>Produit GB (gondole basse)</span><textarea value={selectedRow.gbProduct} onChange={(e)=>updateSelectedRow({gbProduct:e.target.value})} rows={2} style={{borderRadius:"10px",border:"1px solid #dbe3eb",padding:"8px 10px",resize:"vertical",fontFamily:"inherit"}}/></label>

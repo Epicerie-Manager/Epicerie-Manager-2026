@@ -241,10 +241,10 @@ export function loadTgWeekPlans(): TgWeekPlanRow[] {
   }
 }
 
-export function saveTgWeekPlans(plans: TgWeekPlanRow[]) {
+export function saveTgWeekPlans(plans: TgWeekPlanRow[], options?: { emitEvent?: boolean }) {
   if (!canUseStorage()) return;
   const changed = replaceTgWeekPlansSnapshot(plans);
-  if (changed) emitTgUpdated();
+  if (changed && options?.emitEvent !== false) emitTgUpdated();
 }
 
 export function loadTgCustomMechanics(): string[] {

@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v1.0.4 - 2026-04-12
+
+- Plan TG / Vue rayons : les contenus `TG` et `GB` respectent maintenant les retours a la ligne et cassent correctement les longues chaines, pour garder les produits lisibles dans la tuile de saisie rapide.
+- Plan TG / Stabilite : correction d'un emballement de mises a jour pendant la saisie rapide sur des champs tres longs, qui pouvait finir en erreur React `Maximum update depth exceeded`.
+
 ## v1.0.3 - 2026-04-12
 
 - Ruptures / Stats historiques : ajout, pour chaque collaborateur, du nombre total de ruptures collab sur la periode, du nombre traite et du nombre non traite, en plus du nombre de jours actifs et de la moyenne.

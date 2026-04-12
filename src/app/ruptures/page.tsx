@@ -371,7 +371,7 @@ function TeamView({
         Comparaison du snapshot du matin et du snapshot de fin de matinée pour mesurer l&apos;évolution réelle des ruptures collab.
       </p>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "12px", marginTop: "14px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "12px", marginTop: "14px", alignItems: "start" }}>
         <SnapshotBlock title="Début de matinée" snapshot={morning} placeholder="En attente du premier import du jour." />
         <SnapshotBlock
           title="Fin de matinée"
@@ -434,7 +434,7 @@ function CollaboratorView({
         Tri décroissant sur le pourcentage traité quand le second import existe. Les jours sans rupture collab restent en vert.
       </p>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "12px", marginTop: "14px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "12px", marginTop: "14px", alignItems: "start" }}>
         {collaboratorRows.length ? collaboratorRows.map((row) => {
           const currentOutstanding = hasSecondImport ? (row.finCollab ?? row.morningCollab) : row.morningCollab;
           const hasWork = currentOutstanding > 0 || row.hasActiveWork;
@@ -726,7 +726,7 @@ function HistoricalView({
         Période de référence autour du {formatRuptureDateLabel(selectedDate)}.
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: "12px", marginTop: "14px" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "12px", marginTop: "14px", alignItems: "start" }}>
         {historyRows.length ? historyRows.map((row) => {
           const tone = getRupturePctTone(row.averagePct);
           const cardTone = tone === "#639922"

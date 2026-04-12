@@ -21,6 +21,10 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v1.0.5 - 2026-04-12
+
+- Ruptures / Layout : ajustement des grilles du module pour retrouver une lecture plus logique par vue, avec `Vue equipe` en 2 colonnes et `Stats historiques` / `Moyenne par collaborateur` en 3 colonnes sur desktop.
+
 ## v1.0.4 - 2026-04-12
 
 - Plan TG / Vue rayons : les contenus `TG` et `GB` respectent maintenant les retours a la ligne et cassent correctement les longues chaines, pour garder les produits lisibles dans la tuile de saisie rapide.

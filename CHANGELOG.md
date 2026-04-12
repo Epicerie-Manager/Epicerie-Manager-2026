@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v1.0.6 - 2026-04-12
+
+- Absences / Planning : un `Déplacement RH` approuvé n'apparait plus comme un jour `X` / non travaillé dans le planning principal. Le motif est maintenant conservé comme statut métier dédié.
+- Planning / Affichage : le libellé court visible dans les cellules et exports passe en `DEP RH` pour éviter la confusion avec un simple repos hebdomadaire.
+
 ## v1.0.5 - 2026-04-12
 
 - Ruptures / Layout : ajustement des grilles du module pour retrouver une lecture plus logique par vue, avec `Vue equipe` en 2 colonnes et `Stats historiques` / `Moyenne par collaborateur` en 3 colonnes sur desktop.

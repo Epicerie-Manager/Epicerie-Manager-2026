@@ -155,6 +155,7 @@ const ST = {
   PRESENT:{c:"#166534",bg:"#dcfce7",l:"Présent",short:"P"},
   RH:{c:"#5b21b6",bg:"#ede9fe",l:"Repos hebdo",short:"RH"},
   CP:{c:"#b45309",bg:"#fef3c7",l:"Congé payé",short:"CP"},
+  DEPLACEMENT_RH:{c:"#4338ca",bg:"#eef2ff",l:"Déplacement RH",short:"DEP RH"},
   MAL:{c:"#b91c1c",bg:"#fee2e2",l:"Maladie",short:"MAL"},
   ABS:{c:"#be185d",bg:"#fce7f3",l:"Absence",short:"ABS"},
   FORM:{c:"#1d4ed8",bg:"#dbeafe",l:"Formation",short:"FOR"},
@@ -194,11 +195,11 @@ function isCoordinatorEmployee(emp){
 }
 
 function isAbsenceStatus(status){
-  return ["CP","MAL","CONGE_MAT","FORM","FERIE","X","ABS"].includes(String(status||"").toUpperCase());
+  return ["CP","MAL","CONGE_MAT","FORM","FERIE","DEPLACEMENT_RH","X","ABS"].includes(String(status||"").toUpperCase());
 }
 
 function isApprovedAbsenceStatus(status){
-  return ["CP","MAL","CONGE_MAT","FORM","FERIE","ABS"].includes(String(status||"").toUpperCase());
+  return ["CP","MAL","CONGE_MAT","FORM","FERIE","DEPLACEMENT_RH","ABS"].includes(String(status||"").toUpperCase());
 }
 
 function comparePlanningEmployees(a,b){
@@ -360,6 +361,7 @@ function getPendingPlanningStatus(absenceType){
   if(upper==="CONGE_MAT") return "CONGE_MAT";
   if(upper==="FORM") return "FORM";
   if(upper==="FERIE") return "FERIE";
+  if(upper==="DEPLACEMENT_RH") return "DEPLACEMENT_RH";
   return "ABS";
 }
 

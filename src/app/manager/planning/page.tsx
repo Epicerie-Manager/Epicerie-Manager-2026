@@ -92,7 +92,7 @@ function getStatusTone(status: string) {
   if (normalized === "X") return { bg: "#f3f4f6", color: "#6b7280", label: "X" };
   if (normalized === "CP") return { bg: "#fffbeb", color: "#92400e", label: "CP" };
   if (normalized === "CONGE_SANS_SOLDE") return { bg: "#fff7ed", color: "#c2410c", label: "CSS" };
-  if (normalized === "DEPLACEMENT_RH") return { bg: "#eef2ff", color: "#4338ca", label: "DEP" };
+  if (normalized === "DEPLACEMENT_RH") return { bg: "#eef2ff", color: "#4338ca", label: "DEP RH" };
   if (normalized === "MAL") return { bg: "#fef2f2", color: "#b91c1c", label: "MAL" };
   if (normalized === "CONGE_MAT") return { bg: "#fff7ed", color: "#c2410c", label: "MAT" };
   if (normalized === "FORM") return { bg: "#eff6ff", color: "#1d4ed8", label: "FORM" };

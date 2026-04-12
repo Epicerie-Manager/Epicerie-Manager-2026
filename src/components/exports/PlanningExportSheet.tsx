@@ -19,6 +19,7 @@ import { shadows } from "@/lib/theme";
 const LEGENDS = [
   { label: "Horaire", color: "#166534", bg: "#ffffff" },
   { label: "RH", color: "#92400e", bg: "#fffbeb" },
+  { label: "DEP RH", color: "#4338ca", bg: "#eef2ff" },
   { label: "Férié/CP", color: "#991b1b", bg: "#fff7f7" },
   { label: "C.M", color: "#831843", bg: "#fdf2f8" },
   { label: "Dimanche", color: "#9ca3af", bg: "#f9fafb" },

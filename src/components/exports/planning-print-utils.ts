@@ -93,6 +93,7 @@ const STATUS_STYLE: Record<string, ExportStatusCell> = {
   PRESENT: { text: "", bg: "#ffffff", color: "#166534", borderColor: "#e5e7eb", accentColor: "#16a34a" },
   RH: { text: "RH", bg: "#fffbeb", color: "#92400e", borderColor: "#e5e7eb", accentColor: "#d97706" },
   CP: { text: "CP", bg: "#fff7f7", color: "#991b1b", borderColor: "#e5e7eb", accentColor: "#dc2626" },
+  DEPLACEMENT_RH: { text: "DEP RH", bg: "#eef2ff", color: "#4338ca", borderColor: "#c7d2fe", accentColor: "#4338ca" },
   FERIE: { text: "FER", bg: "#fff7f7", color: "#991b1b", borderColor: "#e5e7eb", accentColor: "#dc2626" },
   X: { text: "—", bg: "#f9fafb", color: "#9ca3af", borderColor: "#f3f4f6" },
   ABS: { text: "ABS", bg: "#fff7f7", color: "#991b1b", borderColor: "#e5e7eb", accentColor: "#dc2626" },

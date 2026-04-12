@@ -97,7 +97,7 @@ function ZoomablePlan({ image, label }: { image: string | null; label: string })
                   <input
                     type="range"
                     min="0.6"
-                    max="2.4"
+                    max="3.5"
                     step="0.1"
                     value={zoomLevel}
                     onChange={(event) => setZoomLevel(Number(event.target.value))}

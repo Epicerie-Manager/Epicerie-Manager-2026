@@ -5,7 +5,12 @@ import { useRouter } from "next/navigation";
 import { CollabBottomNav, CollabHeader, CollabPage, SectionCard } from "@/components/collab/layout";
 import { collabTheme } from "@/components/collab/theme";
 import { getCollabProfile } from "@/lib/collab-auth";
-import { getCurrentPlateauWeek } from "@/lib/plateau-data";
+import {
+  getCurrentPlateauWeek,
+  PLATEAU_WEEK_MAX,
+  PLATEAU_WEEK_MIN,
+  plateauWeekDates,
+} from "@/lib/plateau-data";
 import {
   getBestPlateauAssetForWeek,
   getPlateauAssetsUpdatedEventName,
@@ -21,6 +26,11 @@ const PLATEAUX: Array<{ key: PlateauAssetKey; label: string }> = [
   { key: "B", label: "Plateau B" },
   { key: "C", label: "Plateau C" },
 ];
+
+const SEMAINES = Array.from(
+  { length: PLATEAU_WEEK_MAX - PLATEAU_WEEK_MIN + 1 },
+  (_, index) => PLATEAU_WEEK_MIN + index,
+);
 
 function ZoomablePlan({ image, label }: { image: string | null; label: string }) {
   const [zoomLevel, setZoomLevel] = useState(1);
@@ -168,9 +178,10 @@ export default function CollabPlateauPage() {
   const [refreshing, setRefreshing] = useState(false);
   const [lastRefreshAt, setLastRefreshAt] = useState<Date | null>(null);
   const [selectedPlateau, setSelectedPlateau] = useState<PlateauAssetKey>("A");
-  const [focusWeek] = useState(() => getCurrentPlateauWeek());
+  const [focusWeek, setFocusWeek] = useState(() => getCurrentPlateauWeek());
   const [imageUrl, setImageUrl] = useState<string | null>(null);
   const [assetsVersion, setAssetsVersion] = useState(0);
+  const weekLabel = plateauWeekDates[focusWeek]?.label ?? `Semaine ${focusWeek}`;
 
   useEffect(() => {
     let cancelled = false;
@@ -240,7 +251,7 @@ export default function CollabPlateauPage() {
     <CollabPage>
       <CollabHeader
         title="Plans Plateau"
-        subtitle={`Semaine ${focusWeek} · plan partagé`}
+        subtitle={`Semaine ${focusWeek} · ${weekLabel}`}
         showRefresh
         onRefresh={handleRefresh}
         refreshing={refreshing}
@@ -250,6 +261,77 @@ export default function CollabPlateauPage() {
       <SectionCard style={{ display: "grid", gap: 14 }}>
         <div style={{ fontSize: 13, color: collabTheme.muted }}>
           Retrouvez le plan PDF partagé pour la semaine en cours. Le zoom reste disponible comme côté manager.
+        </div>
+
+        <div style={{ display: "grid", gap: 10 }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+            <button
+              type="button"
+              onClick={() => setFocusWeek((week) => Math.max(PLATEAU_WEEK_MIN, week - 1))}
+              disabled={focusWeek <= PLATEAU_WEEK_MIN}
+              style={{
+                padding: "8px 12px",
+                borderRadius: 10,
+                border: `1px solid ${collabTheme.line}`,
+                background: "#fffdfb",
+                color: collabTheme.text,
+                cursor: focusWeek <= PLATEAU_WEEK_MIN ? "not-allowed" : "pointer",
+                opacity: focusWeek <= PLATEAU_WEEK_MIN ? 0.5 : 1,
+                fontSize: 12,
+                fontWeight: 700,
+              }}
+            >
+              Prec.
+            </button>
+
+            <div style={{ textAlign: "center" }}>
+              <div style={{ fontSize: 14, fontWeight: 800, color: collabTheme.text }}>Semaine {focusWeek}</div>
+              <div style={{ fontSize: 11, color: collabTheme.muted }}>{weekLabel}</div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setFocusWeek((week) => Math.min(PLATEAU_WEEK_MAX, week + 1))}
+              disabled={focusWeek >= PLATEAU_WEEK_MAX}
+              style={{
+                padding: "8px 12px",
+                borderRadius: 10,
+                border: `1px solid ${collabTheme.line}`,
+                background: "#fffdfb",
+                color: collabTheme.text,
+                cursor: focusWeek >= PLATEAU_WEEK_MAX ? "not-allowed" : "pointer",
+                opacity: focusWeek >= PLATEAU_WEEK_MAX ? 0.5 : 1,
+                fontSize: 12,
+                fontWeight: 700,
+              }}
+            >
+              Suiv.
+            </button>
+          </div>
+
+          <div style={{ display: "flex", gap: 6, overflowX: "auto", paddingBottom: 2 }}>
+            {SEMAINES.map((week) => (
+              <button
+                key={week}
+                type="button"
+                onClick={() => setFocusWeek(week)}
+                style={{
+                  flex: "0 0 auto",
+                  minWidth: 44,
+                  padding: "6px 10px",
+                  borderRadius: 999,
+                  border: `1px solid ${focusWeek === week ? collabTheme.accent : collabTheme.line}`,
+                  background: focusWeek === week ? collabTheme.accent : "#fffdfb",
+                  color: focusWeek === week ? "#fff8f1" : collabTheme.muted,
+                  fontSize: 11,
+                  fontWeight: 800,
+                  cursor: "pointer",
+                }}
+              >
+                {week}
+              </button>
+            ))}
+          </div>
         </div>
 
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>

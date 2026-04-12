@@ -1,9 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { createPortal } from "react-dom";
-import { parsePlateauExcelMeta } from "@/lib/plateau-excel-parser";
-import PlateauExcelViewer from "@/components/plateau/plateau-excel-viewer";
+import { useState, useEffect, useRef } from "react";
 import {
   getCurrentPlateauWeek,
   PLATEAU_WEEK_MAX as S_MAX,
@@ -13,21 +10,16 @@ import {
 } from "@/lib/plateau-data";
 import {
   buildPlateauNoteKey,
-  getActiveExcelSource,
   getBestPlateauAssetForWeek,
-  getExcelSourceForWeek,
   getPlateauAssetLookup,
   getPlateauAssetsUpdatedEventName,
   loadPlateauAssets,
-  loadPlateauExcelSources,
   loadPlateauNotes,
   getSignedPlateauUrl,
   removePlateauAssetFromSupabase,
   savePlateauAssetsToSupabase,
-  savePlateauExcelToSupabase,
   savePlateauNoteToSupabase,
   syncPlateauAssetsFromSupabase,
-  syncPlateauExcelSourcesFromSupabase,
   syncPlateauNotesFromSupabase,
 } from "@/lib/plateau-store";
 
@@ -72,6 +64,8 @@ const MOIS_LABELS=[{m:2,l:"Mars",sStart:10,sEnd:13},{m:3,l:"Avril",sStart:14,sEn
 
 const WEEK_PATTERN = /\b(?:semaine|sem\.?)\s*0?([1-9]|1\d|2\d|3\d)\b/gi;
 const DATE_RANGE_PATTERN = /mardi\s+0*(\d{1,2})\s+([a-z\u00e9\u00fb\u00ee\u00f4]+)\s+au\s+lundi\s+0*(\d{1,2})\s+([a-z\u00e9\u00fb\u00ee\u00f4]+)/gi;
+const IMPLANTATION_DATE_PATTERN = /(implantation|desimplantation|desimplantation ou repli)\s+(?:[a-z]+\s+)?0*(\d{1,2})\s+([a-z\u00e9\u00fb\u00ee\u00f4]+)(?:\s+(\d{4}))?/gi;
+const GENERIC_DATE_WITH_YEAR_PATTERN = /(?:lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|monday|tuesday|wednesday|thursday|friday|saturday|sunday)?\s*0*(\d{1,2})\s+([a-z\u00e9\u00fb\u00ee\u00f4]+)\s+(\d{4})/gi;
 const MONTH_ALIASES = {
   jan: "janvier",
   janvier: "janvier",
@@ -97,6 +91,24 @@ const MONTH_ALIASES = {
   novembre: "novembre",
   dec: "decembre",
   decembre: "decembre",
+  january: "janvier",
+  february: "fevrier",
+  march: "mars",
+  april: "avril",
+  may: "mai",
+  june: "juin",
+  july: "juillet",
+  august: "aout",
+  september: "septembre",
+  october: "octobre",
+  november: "novembre",
+  december: "decembre",
+};
+
+const DEFAULT_PAGE_PLATEAU = {
+  1: "A",
+  2: "B",
+  3: "C",
 };
 
 const normalizeText = (value = "") =>
@@ -104,19 +116,6 @@ const normalizeText = (value = "") =>
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase();
-
-const formatIsoDate = (value) => {
-  if (!value) return "";
-  return new Date(`${value}T12:00:00`).toLocaleDateString("fr-FR", {
-    day: "numeric",
-    month: "short",
-  });
-};
-
-const formatExcelSourceLabel = (source) => {
-  if (!source) return "";
-  return `S${source.weekNumber} · ${formatIsoDate(source.implantationDate)} au ${formatIsoDate(source.desimplantationDate)}`;
-};
 
 const normalizeMonth = (rawMonth = "") => {
   const cleaned = normalizeText(rawMonth).replace(/[^a-z]/g, "");
@@ -162,6 +161,80 @@ const detectWeeksFromDateRanges = (text) => {
     }
   }
   return weeks;
+};
+
+const inferYearFromWeek = (week) => {
+  if (!week || !WEEK_DATES[week]) return new Date().getFullYear();
+  const startMonth = normalizeMonth(WEEK_DATES[week].d.split(/\s+/)[1] || "");
+  return ["janvier", "fevrier"].includes(startMonth) ? 2027 : 2026;
+};
+
+const buildIsoDate = (day, month, year) => {
+  if (!day || !month || !year) return "";
+  const monthIndex = [
+    "janvier",
+    "fevrier",
+    "mars",
+    "avril",
+    "mai",
+    "juin",
+    "juillet",
+    "aout",
+    "septembre",
+    "octobre",
+    "novembre",
+    "decembre",
+  ].indexOf(month);
+  if (monthIndex === -1) return "";
+  return new Date(Date.UTC(year, monthIndex, day)).toISOString().slice(0, 10);
+};
+
+const detectDateWindowFromText = (text) => {
+  const weeksFromDateRange = detectWeeksFromDateRanges(text);
+  const inferredWeek = weeksFromDateRange.size > 0 ? [...weeksFromDateRange][0] : null;
+  const inferredYear = inferYearFromWeek(inferredWeek);
+  const matches = [];
+  IMPLANTATION_DATE_PATTERN.lastIndex = 0;
+  let match;
+  while ((match = IMPLANTATION_DATE_PATTERN.exec(text)) !== null) {
+    const label = normalizeText(match[1] || "");
+    const day = Number(match[2]);
+    const month = normalizeMonth(match[3]);
+    const explicitYear = Number(match[4] || inferredYear);
+    const isoDate = buildIsoDate(day, month, explicitYear);
+    if (!isoDate) continue;
+    matches.push({ label, isoDate });
+  }
+
+  const genericDates = [];
+  GENERIC_DATE_WITH_YEAR_PATTERN.lastIndex = 0;
+  while ((match = GENERIC_DATE_WITH_YEAR_PATTERN.exec(text)) !== null) {
+    const day = Number(match[1]);
+    const month = normalizeMonth(match[2]);
+    const year = Number(match[3]);
+    const isoDate = buildIsoDate(day, month, year);
+    if (!isoDate) continue;
+    if (!genericDates.includes(isoDate)) genericDates.push(isoDate);
+  }
+
+  const implantationDate =
+    matches.find((entry) => entry.label.includes("implantation"))?.isoDate ||
+    genericDates[0] ||
+    "";
+  const desimplantationDate =
+    matches.find((entry) => entry.label.includes("desimplantation"))?.isoDate ||
+    genericDates[1] ||
+    "";
+
+  const implantationWeek = implantationDate
+    ? getCurrentPlateauWeek(new Date(`${implantationDate}T12:00:00`))
+    : null;
+
+  return {
+    implantationDate,
+    desimplantationDate,
+    weekNumber: implantationWeek || inferredWeek,
+  };
 };
 
 const detectPlateauxFromText = (text) => {
@@ -263,18 +336,46 @@ const ImageViewer=({image,opName,onUpload,onRemove,busy})=>{
     void onUpload(file);
     e.target.value = "";
   };
-  const [zoomed,setZoomed]=useState(false);
-  const [zoomLevel,setZoomLevel]=useState(1.25);
+  const [zoomLevel,setZoomLevel]=useState(1);
+  const zoomLabel=`${Math.round(zoomLevel*100)}%`;
+  const scrollRef = useRef(null);
+  const dragStateRef = useRef(null);
+  const [isDragging,setIsDragging]=useState(false);
 
-  const openZoom=()=>{
-    setZoomLevel(1.25);
-    setZoomed(true);
+  const handlePointerDown = (event) => {
+    if (!scrollRef.current || zoomLevel <= 1) return;
+    event.preventDefault();
+    const target = scrollRef.current;
+    dragStateRef.current = {
+      pointerId: event.pointerId,
+      startX: event.clientX,
+      startY: event.clientY,
+      startLeft: target.scrollLeft,
+      startTop: target.scrollTop,
+    };
+    setIsDragging(true);
+    target.setPointerCapture?.(event.pointerId);
   };
 
-  const closeZoom=()=>setZoomed(false);
-  const zoomIn=()=>setZoomLevel((z)=>Math.min(5,z+0.25));
-  const zoomOut=()=>setZoomLevel((z)=>Math.max(0.75,z-0.25));
-  const zoomReset=()=>setZoomLevel(1.8);
+  const handlePointerMove = (event) => {
+    if (!scrollRef.current || !dragStateRef.current) return;
+    const drag = dragStateRef.current;
+    if (drag.pointerId !== event.pointerId) return;
+    event.preventDefault();
+    const target = scrollRef.current;
+    target.scrollLeft = drag.startLeft - (event.clientX - drag.startX);
+    target.scrollTop = drag.startTop - (event.clientY - drag.startY);
+  };
+
+  const stopDragging = (event) => {
+    if (!dragStateRef.current) return;
+    if (event && dragStateRef.current.pointerId !== event.pointerId) return;
+    if (scrollRef.current && event) {
+      scrollRef.current.releasePointerCapture?.(event.pointerId);
+    }
+    dragStateRef.current = null;
+    setIsDragging(false);
+  };
 
   return(
     <>
@@ -284,11 +385,63 @@ const ImageViewer=({image,opName,onUpload,onRemove,busy})=>{
       }}>
         {image?(
           <>
-            {/* Data URL / user-imported image preview intentionally uses img. */}
-            {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={image} alt={opName} onClick={openZoom} style={{width:"100%",display:"block",cursor:"zoom-in"}}/>
-            <div style={{position:"absolute",top:10,right:10,display:"flex",gap:6}}>
-              <button onClick={openZoom} style={{width:32,height:32,borderRadius:8,background:"rgba(255,255,255,0.9)",border:"none",cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 6px rgba(0,0,0,0.1)"}}>{IC.zoom(V.mc,16)}</button>
+            <div style={{padding:"12px 12px 0",background:"#fff"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap",marginBottom:12}}>
+                <div style={{fontSize:11,fontWeight:700,color:V.muted}}>Zoom {zoomLabel}</div>
+                <div style={{display:"flex",alignItems:"center",gap:10,flex:"1 1 220px",justifyContent:"flex-end"}}>
+                  <input
+                    type="range"
+                    min="0.6"
+                    max="2.4"
+                    step="0.1"
+                    value={zoomLevel}
+                    onChange={(e)=>setZoomLevel(Number(e.target.value))}
+                    style={{width:"min(280px,100%)",accentColor:V.mc}}
+                  />
+                  <button
+                    type="button"
+                    onClick={()=>setZoomLevel(1)}
+                    style={{padding:"6px 10px",borderRadius:8,border:`1px solid ${V.border}`,background:"#fff",cursor:"pointer",fontSize:12,fontWeight:700,color:V.muted}}
+                  >
+                    Reset
+                  </button>
+                </div>
+              </div>
+            </div>
+            <div
+              ref={scrollRef}
+              onPointerDown={handlePointerDown}
+              onPointerMove={handlePointerMove}
+              onPointerUp={stopDragging}
+              onPointerCancel={stopDragging}
+              style={{
+                overflow:"auto",
+                maxHeight:"76vh",
+                background:"#f5f7fb",
+                padding:12,
+                cursor:zoomLevel>1?(isDragging?"grabbing":"grab"):"default",
+                touchAction:"none",
+              }}
+            >
+              {/* Data URL / user-imported image preview intentionally uses img. */}
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={image}
+                alt={opName}
+                draggable={false}
+                onDragStart={(event)=>event.preventDefault()}
+                style={{
+                  width:`${zoomLevel*100}%`,
+                  maxWidth:"none",
+                  minWidth:"100%",
+                  display:"block",
+                  borderRadius:12,
+                  boxShadow:"0 10px 24px rgba(15,23,42,0.16)",
+                  userSelect:"none",
+                }}
+              />
+            </div>
+            <div style={{position:"absolute",top:58,right:10,display:"flex",gap:6}}>
               <label style={{width:32,height:32,borderRadius:8,background:"rgba(255,255,255,0.9)",border:"none",cursor:busy?"wait":"pointer",display:"flex",alignItems:"center",justifyContent:"center",boxShadow:"0 2px 6px rgba(0,0,0,0.1)",opacity:busy?0.6:1}}>
                 {IC.upload(V.mc,16)}<input type="file" accept="image/*" onChange={handleFile} style={{display:"none"}}/>
               </label>
@@ -305,41 +458,6 @@ const ImageViewer=({image,opName,onUpload,onRemove,busy})=>{
           </label>
         )}
       </div>
-
-      {/* Zoom modal */}
-      {zoomed&&image&&typeof document!=="undefined"&&createPortal(
-        <div onClick={closeZoom} style={{position:"fixed",left:0,top:0,width:"100vw",height:"100vh",background:"rgba(15,23,42,0.72)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:99999,padding:20}}>
-          <div onClick={(e)=>e.stopPropagation()} style={{width:"min(92vw,1400px)",height:"min(90vh,920px)",background:"#fff",borderRadius:14,display:"flex",flexDirection:"column",overflow:"hidden",boxShadow:"0 24px 48px rgba(0,0,0,0.3)"}}>
-            <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"10px 14px",borderBottom:`1px solid ${V.border}`}}>
-              <div style={{fontSize:13,fontWeight:700,color:V.body,whiteSpace:"nowrap",overflow:"hidden",textOverflow:"ellipsis"}}>{opName}</div>
-              <div style={{display:"flex",alignItems:"center",gap:6}}>
-                <button onClick={zoomOut} style={{padding:"6px 10px",borderRadius:8,border:`1px solid ${V.border}`,background:"#fff",cursor:"pointer",fontSize:13,fontWeight:700,color:V.body}}>−</button>
-                <div style={{minWidth:58,textAlign:"center",fontSize:12,fontWeight:700,color:V.muted}}>{Math.round(zoomLevel*100)}%</div>
-                <button onClick={zoomIn} style={{padding:"6px 10px",borderRadius:8,border:`1px solid ${V.border}`,background:"#fff",cursor:"pointer",fontSize:13,fontWeight:700,color:V.body}}>+</button>
-                <button onClick={zoomReset} style={{padding:"6px 10px",borderRadius:8,border:`1px solid ${V.border}`,background:"#fff",cursor:"pointer",fontSize:12,fontWeight:700,color:V.muted}}>Reset</button>
-                <button onClick={closeZoom} style={{padding:"6px 10px",borderRadius:8,border:`1px solid ${V.border}`,background:"#fff",cursor:"pointer",fontSize:12,fontWeight:700,color:V.red}}>Fermer</button>
-              </div>
-            </div>
-            <div style={{flex:1,overflow:"auto",background:"#f5f7fb",padding:16}}>
-              {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img
-                src={image}
-                alt={opName}
-                style={{
-                  width:`${zoomLevel*100}%`,
-                  maxWidth:"none",
-                  minWidth:0,
-                  display:"block",
-                  borderRadius:10,
-                  boxShadow:"0 8px 24px rgba(0,0,0,0.18)",
-                  transformOrigin:"top left",
-                }}
-              />
-            </div>
-          </div>
-        </div>,
-        document.body
-      )}
     </>
   );
 };
@@ -381,15 +499,12 @@ export default function PlateauApp(){
   const [selectedOp,setSelectedOp]=useState("a3");
   const [focusWeek,setFocusWeek]=useState(12);
   const [plateauAssets,setPlateauAssets]=useState(() => loadPlateauAssets());
-  const [excelSources,setExcelSources]=useState(() => loadPlateauExcelSources());
   const [notes,setNotes]=useState(() => loadPlateauNotes());
-  const [selectedSheetName,setSelectedSheetName]=useState("PLATEAU A");
 
   const op=OPS.find(o=>o.id===selectedOp);
   const sameWeekOps=op?OPS.filter(o=>o.id!==selectedOp&&o.sFrom<=op.sTo&&o.sTo>=op.sFrom):[];
 
   const [showImport,setShowImport]=useState(false);
-  const [importKind,setImportKind]=useState("excel");
   const [importProgress,setImportProgress]=useState(null); // null | 0-100
   const [importMessage,setImportMessage]=useState("");
   const [importError,setImportError]=useState("");
@@ -398,7 +513,6 @@ export default function PlateauApp(){
   const [signedImageUrl,setSignedImageUrl]=useState(null);
 
   const assetLookup = getPlateauAssetLookup(plateauAssets);
-  const focusedExcelSource = getExcelSourceForWeek(excelSources, focusWeek) || getActiveExcelSource(excelSources);
 
   const lastImport = plateauAssets.length > 0
     ? new Date(
@@ -407,24 +521,15 @@ export default function PlateauApp(){
         ), plateauAssets[0]).importedAt,
       ).toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"})
     : "Aucun import";
-  const lastExcelImport = excelSources.length > 0
-    ? new Date(
-        excelSources.reduce((latest, source) => (
-          new Date(source.importedAt) > new Date(latest.importedAt) ? source : latest
-        ), excelSources[0]).importedAt,
-      ).toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"})
-    : "Aucun import";
 
   useEffect(() => {
     const refreshAssets = () => {
       setPlateauAssets(loadPlateauAssets());
-      setExcelSources(loadPlateauExcelSources());
       setNotes(loadPlateauNotes());
     };
     refreshAssets();
     void Promise.all([
       syncPlateauAssetsFromSupabase(),
-      syncPlateauExcelSourcesFromSupabase(),
       syncPlateauNotesFromSupabase(),
     ]).then(refreshAssets);
 
@@ -432,12 +537,6 @@ export default function PlateauApp(){
     window.addEventListener(eventName, refreshAssets);
     return () => window.removeEventListener(eventName, refreshAssets);
   }, []);
-
-  useEffect(() => {
-    if (!op) return;
-    const nextSheet = op.pl === "B" ? "PLATEAU B" : op.pl === "C" ? "PLATEAU C" : "PLATEAU A";
-    setSelectedSheetName(nextSheet);
-  }, [op]);
 
   const handlePdfImport=async(e)=>{
     const input=e.target;
@@ -454,11 +553,10 @@ export default function PlateauApp(){
     setImportProgress(3);
 
     try{
-      const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
-      const workerSrc = new URL("pdfjs-dist/legacy/build/pdf.worker.min.mjs", import.meta.url).toString();
-      pdfjs.GlobalWorkerOptions.workerSrc = workerSrc;
+      const pdfjs = await import(/* webpackIgnore: true */ "/vendor/pdfjs/pdf.mjs");
+      pdfjs.GlobalWorkerOptions.workerSrc = "/vendor/pdfjs/pdf.worker.min.mjs";
 
-      const data = await file.arrayBuffer();
+      const data = new Uint8Array(await file.arrayBuffer());
       const loadingTask = pdfjs.getDocument({ data });
       const pdfDoc = await loadingTask.promise;
 
@@ -474,18 +572,25 @@ export default function PlateauApp(){
           .map((item)=>("str" in item ? item.str : ""))
           .join(" ");
         const normalizedText = normalizeText(rawText);
-        const weeksFromDate = detectWeeksFromDateRanges(normalizedText);
+        const dateWindow = detectDateWindowFromText(normalizedText);
+        const weeksFromDate = dateWindow.weekNumber ? new Set([dateWindow.weekNumber]) : detectWeeksFromDateRanges(normalizedText);
         const weeksFromLabel = detectWeeksFromText(normalizedText);
         const weeks = weeksFromDate.size > 0 ? weeksFromDate : weeksFromLabel;
         const plateaux = detectPlateauxFromText(rawText);
+        const defaultPlateau = DEFAULT_PAGE_PLATEAU[pageNumber];
         const isRecapPage =
           normalizedText.includes("pcc") ||
           normalizedText.includes("recap") ||
           normalizedText.includes("recapitulatif") ||
           normalizedText.includes("calendrier") ||
           normalizedText.includes("vacances scolaires");
-        const hasPlanPlateauMarker = normalizedText.includes("plan plateau");
-        const isEligibleWeeklyPage = !isRecapPage && (weeks.size > 0 || hasPlanPlateauMarker);
+        const hasPlanPlateauMarker =
+          normalizedText.includes("plan plateau") ||
+          normalizedText.includes("plateau a") ||
+          normalizedText.includes("plateau b") ||
+          normalizedText.includes("plateau c") ||
+          normalizedText.includes("les halles");
+        const isEligibleWeeklyPage = !isRecapPage && (weeks.size > 0 || hasPlanPlateauMarker || Boolean(defaultPlateau));
 
         let renderScale = IMPORT_RENDER_SCALE;
         let viewport = page.getViewport({ scale: renderScale });
@@ -507,50 +612,55 @@ export default function PlateauApp(){
           }, "image/png");
         });
 
-        pageInfos.push({ pageNumber, imageBlob, weeks, plateaux, isEligibleWeeklyPage });
+        pageInfos.push({
+          pageNumber,
+          imageBlob,
+          weeks,
+          plateaux,
+          defaultPlateau,
+          implantationDate: dateWindow.implantationDate,
+          desimplantationDate: dateWindow.desimplantationDate,
+          isEligibleWeeklyPage,
+        });
         setImportProgress(Math.max(4,Math.min(96,Math.round((pageNumber/totalPages)*96))));
       }
 
-      const weekFallbackStart = S_MIN;
       const uploadsByWeekAndPlateau = new Map();
       const weeklyPages = pageInfos.filter((info)=>info.isEligibleWeeklyPage);
       let skippedPagesCount = pageInfos.length - weeklyPages.length;
 
-      weeklyPages.forEach((info, index)=>{
-        const inferredWeek = weekFallbackStart + index;
+      weeklyPages.forEach((info)=>{
         const effectiveWeeks = info.weeks.size>0
           ? [...info.weeks]
-          : (inferredWeek>=S_MIN && inferredWeek<=S_MAX ? [inferredWeek] : []);
+          : [];
 
         if (effectiveWeeks.length === 0) {
           skippedPagesCount += 1;
         }
 
         effectiveWeeks.forEach((week)=>{
-          if(info.plateaux.size===0){
-            const weekKey = `${week}:WEEK`;
-            if(!uploadsByWeekAndPlateau.has(weekKey)) {
-              uploadsByWeekAndPlateau.set(weekKey, {
-                weekNumber: week,
-                plateauKey: "WEEK",
-                file: info.imageBlob,
-                contentType: "image/png",
-                pageNumber: info.pageNumber,
-                sourcePdfName: file.name,
-              });
-            }
+          const plateauKeys = info.plateaux.size > 0
+            ? [...info.plateaux]
+            : info.defaultPlateau
+              ? [info.defaultPlateau]
+              : [];
+
+          if(plateauKeys.length===0){
             return;
           }
-          info.plateaux.forEach((pl)=>{
-            const key = `${week}:${pl}`;
-            if(!uploadsByWeekAndPlateau.has(key)) {
-              uploadsByWeekAndPlateau.set(key, {
+
+          plateauKeys.forEach((plateauKey)=>{
+            const weekKey = `${week}:${plateauKey}`;
+            if(!uploadsByWeekAndPlateau.has(weekKey)){
+              uploadsByWeekAndPlateau.set(weekKey, {
                 weekNumber: week,
-                plateauKey: pl,
+                plateauKey,
                 file: info.imageBlob,
                 contentType: "image/png",
                 pageNumber: info.pageNumber,
                 sourcePdfName: file.name,
+                implantationDate: info.implantationDate || null,
+                desimplantationDate: info.desimplantationDate || null,
               });
             }
           });
@@ -582,51 +692,6 @@ export default function PlateauApp(){
       setImportMessage("");
       setImportError(`Import impossible: ${error?.message || "erreur inconnue"}`);
     }finally{
-      input.value = "";
-    }
-  };
-
-  const handleExcelImport = async(e) => {
-    const input = e.target;
-    const files = Array.from(input.files || []);
-    if (!files.length) return;
-
-    setImportError("");
-    setImportMessage(`Analyse de ${files.length} fichier(s) Excel...`);
-    setImportProgress(5);
-
-    try {
-      for (let index = 0; index < files.length; index += 1) {
-        const file = files[index];
-        setImportMessage(`Traitement de ${file.name} (${index + 1}/${files.length})...`);
-        setImportProgress(Math.round(10 + (index / files.length) * 70));
-
-        const meta = await parsePlateauExcelMeta(file);
-        await savePlateauExcelToSupabase({
-          weekNumber: meta.weekNumber,
-          implantationDate: meta.implantationDate,
-          desimplantationDate: meta.desimplantationDate,
-          file,
-          sourceName: file.name,
-        });
-      }
-
-      setImportProgress(95);
-      await syncPlateauExcelSourcesFromSupabase();
-      setExcelSources(loadPlateauExcelSources());
-      setImportProgress(100);
-      setImportMessage(`${files.length} fichier(s) Excel importé(s) avec succès.`);
-
-      setTimeout(() => {
-        setImportProgress(null);
-        setImportMessage("");
-        setShowImport(false);
-      }, 900);
-    } catch (error) {
-      setImportProgress(null);
-      setImportMessage("");
-      setImportError(`Import Excel impossible: ${error?.message || "erreur inconnue"}`);
-    } finally {
       input.value = "";
     }
   };
@@ -757,25 +822,10 @@ export default function PlateauApp(){
           </div>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             <div style={{fontSize:11,color:V.light,textAlign:"right",marginRight:4}}>
-              <div>Dernier import Excel</div>
-              <div style={{fontWeight:700,color:V.muted}}>{lastExcelImport}</div>
-            </div>
-            <button onClick={()=>{setImportKind("excel");setImportError("");setImportMessage("");setShowImport(true);}} style={{
-              display:"flex",alignItems:"center",gap:8,padding:"10px 18px",borderRadius:12,
-              border:"none",background:V.green,color:"#fff",cursor:"pointer",fontSize:13,fontWeight:700,
-              boxShadow:`0 2px 8px ${V.green}30`,
-            }}>
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><polyline points="14 2 14 8 20 8"/>
-                <path d="M8 9h8M8 13h8M8 17h5"/>
-              </svg>
-              Importer Excel semaine
-            </button>
-            <div style={{fontSize:11,color:V.light,textAlign:"right",marginRight:4}}>
               <div>Dernier import PDF</div>
               <div style={{fontWeight:700,color:V.muted}}>{lastImport}</div>
             </div>
-            <button onClick={()=>{setImportKind("pdf");setImportError("");setImportMessage("");setShowImport(true);}} style={{
+            <button onClick={()=>{setImportError("");setImportMessage("");setShowImport(true);}} style={{
               display:"flex",alignItems:"center",gap:8,padding:"10px 18px",borderRadius:12,
               border:"none",background:V.mc,color:"#fff",cursor:"pointer",fontSize:13,fontWeight:700,
               boxShadow:`0 2px 8px ${V.mc}30`,
@@ -796,12 +846,10 @@ export default function PlateauApp(){
             <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:20,width:520,boxShadow:"0 24px 48px rgba(0,0,0,0.2)",overflow:"hidden"}}>
               <div style={{background:V.mc,padding:"18px 24px",color:"#fff"}}>
                 <div style={{fontSize:18,fontWeight:700}}>
-                  {importKind==="excel" ? "Importer les fichiers Excel plateau" : "Importer le PDF des plans plateau"}
+                  Importer le PDF des plans plateau
                 </div>
                 <div style={{fontSize:13,opacity:0.8}}>
-                  {importKind==="excel"
-                    ? "Chaque fichier hebdomadaire sera stocké dans Supabase et relu tel quel."
-                    : "Le système va extraire tous les plans et opérations automatiquement"}
+                    Le système va rattacher les pages PDF aux plateaux et à la bonne semaine de la timeline.
                 </div>
               </div>
               <div style={{padding:24}}>
@@ -828,17 +876,14 @@ export default function PlateauApp(){
                         </svg>
                       </div>
                       <div style={{fontSize:15,fontWeight:700,color:V.body}}>
-                        {importKind==="excel" ? "Déposer les fichiers Excel ici" : "Glisser-déposer le PDF ici"}
+                        Glisser-déposer le PDF ici
                       </div>
                       <div style={{fontSize:12,color:V.muted}}>ou cliquer pour sélectionner le fichier</div>
-                      <div style={{fontSize:11,color:V.light}}>
-                        {importKind==="excel" ? "Fichiers Excel (.xlsx) — sélection multiple autorisée" : "Fichier PDF uniquement — max 50 Mo"}
-                      </div>
+                      <div style={{fontSize:11,color:V.light}}>Fichier PDF vectoriel recommandé — max 50 Mo</div>
                       <input
                         type="file"
-                        accept={importKind==="excel" ? ".xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : "application/pdf"}
-                        multiple={importKind==="excel"}
-                        onChange={importKind==="excel" ? handleExcelImport : handlePdfImport}
+                        accept="application/pdf"
+                        onChange={handlePdfImport}
                         style={{display:"none"}}
                       />
                     </label>
@@ -847,19 +892,12 @@ export default function PlateauApp(){
                     <div style={{marginTop:18,padding:"14px 16px",borderRadius:14,background:"#f8fafc",border:`1px solid ${V.border}`}}>
                       <div style={{fontSize:12,fontWeight:700,color:V.muted,marginBottom:8}}>Ce qui va se passer :</div>
                       <div style={{display:"grid",gap:6}}>
-                        {(importKind==="excel"
-                          ? [
-                              {n:"1",t:"Lecture des dates",d:"Les dates d'implantation et désimplantation sont lues dans PLATEAU A"},
-                              {n:"2",t:"Détection de la semaine",d:"Le numéro de semaine ISO est calculé automatiquement"},
-                              {n:"3",t:"Stockage Supabase",d:"Le fichier .xlsx est stocké dans le bucket partagé `plateau-plans`"},
-                              {n:"4",t:"Affichage partagé",d:"Le même plan est ensuite visible côté manager et collaborateur"},
-                            ]
-                          : [
-                              {n:"1",t:"Extraction des pages",d:"Chaque page du PDF est convertie en image"},
-                              {n:"2",t:"Détection des opérations",d:"Les noms, dates et plateaux sont identifiés automatiquement"},
-                              {n:"3",t:"Stockage Supabase",d:"Les plans sont envoyés dans le bucket partagé `plateau-plans`"},
-                              {n:"4",t:"Mise à jour",d:"Les semaines importées sont remplacées proprement et restent disponibles après déconnexion"},
-                            ]).map(s=>(
+                        {[
+                          {n:"1",t:"Lecture des dates",d:"Les dates du PDF servent à retrouver la semaine de la timeline"},
+                          {n:"2",t:"Mapping des pages",d:"Page 1 = Plateau A, page 2 = Plateau B, page 3 = Plateau C par défaut"},
+                          {n:"3",t:"Stockage Supabase",d:"Chaque plan est persisté dans le bucket partagé `plateau-plans`"},
+                          {n:"4",t:"Affichage hebdomadaire",d:"Quand vous changez de semaine, le plan associé se recharge automatiquement"},
+                        ].map(s=>(
                           <div key={s.n} style={{display:"flex",alignItems:"flex-start",gap:10}}>
                             <div style={{width:22,height:22,borderRadius:7,background:V.mIG,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,color:V.mc,flexShrink:0}}>{s.n}</div>
                             <div>
@@ -1039,58 +1077,29 @@ export default function PlateauApp(){
               <div style={{marginBottom:16,padding:"14px 16px",borderRadius:16,background:"#fffaf4",border:`1px solid ${V.border}`}}>
                 <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",gap:12,flexWrap:"wrap",marginBottom:10}}>
                   <div>
-                    <div style={{fontSize:11,fontWeight:700,color:V.light,letterSpacing:"0.04em"}}>PLAN EXCEL HEBDOMADAIRE</div>
+                    <div style={{fontSize:11,fontWeight:700,color:V.light,letterSpacing:"0.04em"}}>PLAN HEBDOMADAIRE LIÉ À LA TIMELINE</div>
                     <div style={{fontSize:14,fontWeight:700,color:V.body}}>
-                      {focusedExcelSource ? formatExcelSourceLabel(focusedExcelSource) : `S${focusWeek}`}
+                      Semaine {imageWeekForSelectedOp}
                     </div>
                   </div>
-                  {focusedExcelSource ? (
-                    <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>
-                      {["PLATEAU A","PLATEAU B","PLATEAU C"].map((sheet)=>(
-                        <button
-                          key={sheet}
-                          type="button"
-                          onClick={()=>setSelectedSheetName(sheet)}
-                          style={{
-                            padding:"6px 10px",
-                            borderRadius:10,
-                            border:`1px solid ${selectedSheetName===sheet?V.mc:V.line}`,
-                            background:selectedSheetName===sheet?V.mc:"#fff",
-                            color:selectedSheetName===sheet?"#fff":V.muted,
-                            fontSize:11,
-                            fontWeight:700,
-                            cursor:"pointer",
-                          }}
-                        >
-                          {sheet}
-                        </button>
-                      ))}
-                    </div>
-                  ) : null}
+                  <div style={{fontSize:12,color:V.muted}}>
+                    {selectedPersistedAsset ? `${PL[op.pl]?.label || op.pl} · plan trouvé` : `${PL[op.pl]?.label || op.pl} · aucun plan chargé`}
+                  </div>
                 </div>
 
-                {focusedExcelSource ? (
-                  <PlateauExcelViewer
-                    filePath={focusedExcelSource.filePath}
-                    sheetName={selectedSheetName}
-                    weekLabel={formatExcelSourceLabel(focusedExcelSource)}
-                  />
-                ) : (
-                  <div style={{
-                    padding:"18px 16px",
-                    borderRadius:12,
-                    border:`1px dashed ${V.line}`,
-                    textAlign:"center",
-                    fontSize:12,
-                    color:V.light,
-                    background:"#fff",
-                  }}>
-                    Aucun fichier Excel partagé pour la semaine {focusWeek}.
-                  </div>
-                )}
+                <div style={{
+                  padding:"12px 14px",
+                  borderRadius:12,
+                  border:`1px dashed ${V.line}`,
+                  fontSize:12,
+                  color:V.muted,
+                  background:"#fff",
+                }}>
+                    Le plan affiché ci-dessous suit la semaine sélectionnée dans la timeline et le plateau de l&apos;opération active.
+                </div>
               </div>
 
-              <div style={{fontSize:11,fontWeight:700,color:V.light,letterSpacing:"0.04em",marginBottom:8}}>PLAN IMAGE / ARCHIVE PDF</div>
+              <div style={{fontSize:11,fontWeight:700,color:V.light,letterSpacing:"0.04em",marginBottom:8}}>PLAN PDF IMPORTÉ</div>
               <ImageViewer
                 image={selectedOpImage}
                 opName={op.nom}

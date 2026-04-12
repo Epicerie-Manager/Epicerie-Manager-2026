@@ -14,6 +14,7 @@ const eslintConfig = defineConfig([
     "next-env.d.ts",
     "public/sw.js",
     "public/workbox-*.js",
+    "public/vendor/**",
     // Local tooling/worktree artifacts should not affect app linting.
     ".claude/**",
     "test-results/**",

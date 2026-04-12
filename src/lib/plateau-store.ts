@@ -30,6 +30,8 @@ export type PlateauAssetUpload = {
   contentType?: string;
   pageNumber?: number | null;
   sourcePdfName?: string;
+  implantationDate?: string | null;
+  desimplantationDate?: string | null;
 };
 
 export type PlateauExcelSource = {
@@ -357,6 +359,8 @@ export async function savePlateauAssetsToSupabase(
         source_pdf_name: sanitizeFileName(entry.sourcePdfName || "plateau"),
         source_type: "pdf",
         page_number: entry.pageNumber ?? null,
+        implantation_date: entry.implantationDate ?? null,
+        desimplantation_date: entry.desimplantationDate ?? null,
         uploaded_by: user?.id ?? null,
       });
 

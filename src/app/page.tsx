@@ -17,6 +17,7 @@ import { absenceTypes } from "@/lib/absences-data";
 import { loadAbsenceRequests, getAbsencesUpdatedEventName, syncAbsencesFromSupabase } from "@/lib/absences-store";
 import { hasBrowserWindow } from "@/lib/browser-cache";
 import { balisageMonths, balisageObjective, type BalisageEmployeeStat } from "@/lib/balisage-data";
+import { getBalisageDynamicStatus, getCurrentBalisageMonthId } from "@/lib/balisage-metrics";
 import { attachRhActivityToBalisageStats, getActiveBalisageStats, getInactiveBalisageStats } from "@/lib/balisage-rh";
 import { formatPresenceThresholdSummary, getPresenceThresholdLevel } from "@/lib/presence-thresholds";
 import {
@@ -81,77 +82,12 @@ const DASHBOARD_ANNOUNCEMENT_DISMISS_KEY = "epicerie-dashboard-announcements-see
 
 const medals = ["🥇", "🥈", "🥉"];
 const WEEK_LABELS = ["LUN", "MAR", "MER", "JEU", "VEN", "SAM"];
-const MONTH_TO_BALISAGE: Record<number, string> = {
-  0: "JANV_2026",
-  1: "FEVR_2026",
-  2: "MARS_2026",
-  3: "AVRIL_2026",
-  4: "MAI_2026",
-  5: "JUIN_2026",
-  6: "JUIL_2026",
-  7: "AOUT_2026",
-  8: "SEPT_2026",
-  9: "OCT_2026",
-  10: "NOV_2026",
-  11: "DEC_2026",
-};
-
 function normalizeDashboardIdentity(value: string) {
   return value
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, "");
-}
-
-function parseMonthFromId(monthId: string) {
-  const [rawMonth, rawYear] = monthId.split("_");
-  const year = Number(rawYear);
-  const monthMap: Record<string, number> = {
-    JANV: 0,
-    FEVR: 1,
-    MARS: 2,
-    AVRIL: 3,
-    MAI: 4,
-    JUIN: 5,
-    JUIL: 6,
-    AOUT: 7,
-    SEPT: 8,
-    OCT: 9,
-    NOV: 10,
-    DEC: 11,
-  };
-  return {
-    year,
-    month: monthMap[rawMonth] ?? 0,
-  };
-}
-
-function getBalisageDynamicStatus(total: number, monthId: string, today = new Date()) {
-  const { year, month } = parseMonthFromId(monthId);
-  const monthStart = new Date(year, month, 1);
-  const monthEnd = new Date(year, month + 1, 0);
-  const totalDays = monthEnd.getDate();
-
-  const isPastMonth = today > monthEnd;
-  const isFutureMonth = today < monthStart;
-
-  if (isFutureMonth) return "OK";
-  if (isPastMonth) {
-    if (total >= balisageObjective) return "OK";
-    if (total >= balisageObjective * 0.9) return "En retard";
-    return "Alerte";
-  }
-
-  const completedDays = Math.max(today.getDate() - 1, 0);
-  const remainingDays = Math.max(totalDays - completedDays, 1);
-  const remainingControls = Math.max(balisageObjective - total, 0);
-  const nominalDailyPace = balisageObjective / totalDays;
-  const requiredDailyPace = remainingControls / remainingDays;
-  const paceRatio = requiredDailyPace / nominalDailyPace;
-  if (paceRatio <= 1) return "OK";
-  if (paceRatio <= 1.1) return "En retard";
-  return "Alerte";
 }
 
 function loadPresenceWidgetSnapshot(): PresenceWidgetSnapshot | null {
@@ -646,7 +582,7 @@ export default function DashboardPage() {
     setDashboardMonthCursor(new Date(today.getFullYear(), today.getMonth(), 1));
   };
 
-  const monthId = MONTH_TO_BALISAGE[today.getMonth()] ?? "MARS_2026";
+  const monthId = getCurrentBalisageMonthId(today);
   const monthLabel = balisageMonths.find((month) => month.id === monthId)?.label ?? "Mois courant";
   const balisageStats = balisageDataState[monthId] ?? [];
   const balisageStatsWithActivity = attachRhActivityToBalisageStats(balisageStats, rhEmployees);

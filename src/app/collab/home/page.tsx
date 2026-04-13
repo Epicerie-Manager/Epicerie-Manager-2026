@@ -358,6 +358,7 @@ export default function CollabHomePage() {
         <QuickTile href="/collab/absences" title="Absences" subtitle={pendingAbsences ? `${pendingAbsences} en attente` : "Suivi des demandes"} tone={collabTheme.violet} icon="absences" badge={pendingAbsences || null} />
         <QuickTile href="/collab/plan-tg" title="Plan TG/GB" subtitle={tgPlan ? "Sem. en cours" : "À venir"} tone={collabTheme.green} icon="tg" />
         <QuickTile href="/collab/plateau" title="Plan plateau" subtitle="Consulter le plan partagé de la semaine" tone={collabTheme.accent} icon="plateau" />
+        <QuickTile href="/collab/balisage" title="Contrôle balisage" subtitle="Suivi de tes contrôles" tone="#0891B2" icon="balisage" />
         <QuickTile
           href="/collab/infos"
           title="Infos"

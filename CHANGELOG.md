@@ -21,6 +21,13 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v1.1.0 - 2026-04-13
+
+- Collaborateur / Balisage : ajout d'une nouvelle tuile `Contrôle balisage` sur l'accueil PWA, menant à une page lecture seule avec onglets `Mon suivi` et `Vue équipe`.
+- Collaborateur / Balisage : affichage du suivi personnel, de l'historique mensuel et de la vue équipe avec lecture des données `balisage_mensuel`, couleurs de statut et légende visuelle alignées sur les barres.
+- Collaborateur / Planning : déplacement des flèches de navigation mensuelle au niveau du titre du calendrier en vue `Mois`, pour une lecture plus naturelle du mois affiché.
+- Collaborateur / Planning : harmonisation et agrandissement des boutons de navigation `Semaine`, `Mois` et `Équipe` pour rendre les flèches plus lisibles.
+
 ## v1.0.9 - 2026-04-13
 
 - Bureau / Gestionnaire : ajout d'un profil bureau `Gestionnaire` limite a une page d'accueil simplifiee et au seul module `Ruptures`, avec filtrage de navigation et redirection automatique hors des modules non autorises.

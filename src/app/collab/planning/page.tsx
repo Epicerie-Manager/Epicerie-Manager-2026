@@ -226,6 +226,10 @@ export default function CollabPlanningPage() {
     () => formatWeekRange(weekDays[0], weekDays[6]),
     [weekDays],
   );
+  const monthLabel = useMemo(
+    () => monthCursor.toLocaleDateString("fr-FR", { month: "long", year: "numeric" }),
+    [monthCursor],
+  );
   const weekTitle = useMemo(
     () => getWeekTitle(weekDays[0], weekDays[6]),
     [weekDays],
@@ -239,20 +243,8 @@ export default function CollabPlanningPage() {
         title="Planning"
         subtitle={
           activeTab === "Mois"
-            ? monthCursor.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })
+            ? monthLabel
             : weekRangeLabel
-        }
-        right={
-          activeTab === "Mois" ? (
-            <div style={{ display: "flex", gap: 8 }}>
-              <button type="button" onClick={() => setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))} style={{ width: 28, height: 28, borderRadius: 999, border: "1px solid rgba(255,255,255,0.38)", background: "rgba(255,255,255,0.14)", color: "#fff", cursor: "pointer" }}>
-                ‹
-              </button>
-              <button type="button" onClick={() => setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))} style={{ width: 28, height: 28, borderRadius: 999, border: "1px solid rgba(255,255,255,0.38)", background: "rgba(255,255,255,0.14)", color: "#fff", cursor: "pointer" }}>
-                ›
-              </button>
-            </div>
-          ) : null
         }
         showRefresh
         lastRefreshAt={lastRefreshAt}
@@ -294,10 +286,10 @@ export default function CollabPlanningPage() {
                 <div style={{ marginTop: 3, fontSize: 12, color: collabTheme.muted }}>{weekRangeLabel}</div>
               </div>
               <div style={{ display: "flex", gap: 8 }}>
-                <button type="button" onClick={() => setWeekCursor((current) => addDays(current, -7))} style={{ width: 30, height: 30, borderRadius: 999, border: `1px solid ${collabTheme.line}`, background: "#fffaf6", color: collabTheme.text, cursor: "pointer" }}>
+                <button type="button" onClick={() => setWeekCursor((current) => addDays(current, -7))} style={{ width: 34, height: 34, borderRadius: 999, border: `1px solid ${collabTheme.line}`, background: "#fffaf6", color: collabTheme.text, cursor: "pointer", fontSize: 18, lineHeight: 1 }}>
                   ‹
                 </button>
-                <button type="button" onClick={() => setWeekCursor((current) => addDays(current, 7))} style={{ width: 30, height: 30, borderRadius: 999, border: `1px solid ${collabTheme.line}`, background: "#fffaf6", color: collabTheme.text, cursor: "pointer" }}>
+                <button type="button" onClick={() => setWeekCursor((current) => addDays(current, 7))} style={{ width: 34, height: 34, borderRadius: 999, border: `1px solid ${collabTheme.line}`, background: "#fffaf6", color: collabTheme.text, cursor: "pointer", fontSize: 18, lineHeight: 1 }}>
                   ›
                 </button>
               </div>
@@ -336,7 +328,48 @@ export default function CollabPlanningPage() {
 
       {activeTab === "Mois" ? (
         <SectionCard>
-          <SectionTitle>{monthCursor.toLocaleDateString("fr-FR", { month: "long", year: "numeric" })}</SectionTitle>
+          <SectionTitle
+            right={
+              <div style={{ display: "flex", gap: 8 }}>
+                <button
+                  type="button"
+                  onClick={() => setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() - 1, 1))}
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 999,
+                    border: `1px solid ${collabTheme.line}`,
+                    background: "#fffaf6",
+                    color: collabTheme.text,
+                    cursor: "pointer",
+                    fontSize: 18,
+                    lineHeight: 1,
+                  }}
+                >
+                  ‹
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMonthCursor((current) => new Date(current.getFullYear(), current.getMonth() + 1, 1))}
+                  style={{
+                    width: 34,
+                    height: 34,
+                    borderRadius: 999,
+                    border: `1px solid ${collabTheme.line}`,
+                    background: "#fffaf6",
+                    color: collabTheme.text,
+                    cursor: "pointer",
+                    fontSize: 18,
+                    lineHeight: 1,
+                  }}
+                >
+                  ›
+                </button>
+              </div>
+            }
+          >
+            {monthLabel}
+          </SectionTitle>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(7, 1fr)", gap: 7 }}>
             {monthDays.map((day, index) => {
               const iso = formatIsoDate(day);
@@ -383,10 +416,10 @@ export default function CollabPlanningPage() {
           <SectionTitle
             right={
               <div style={{ display: "flex", gap: 8 }}>
-                <button type="button" onClick={() => setWeekCursor((current) => addDays(current, -7))} style={{ width: 30, height: 30, borderRadius: 999, border: `1px solid ${collabTheme.line}`, background: "#fffaf6", color: collabTheme.text, cursor: "pointer" }}>
+                <button type="button" onClick={() => setWeekCursor((current) => addDays(current, -7))} style={{ width: 34, height: 34, borderRadius: 999, border: `1px solid ${collabTheme.line}`, background: "#fffaf6", color: collabTheme.text, cursor: "pointer", fontSize: 18, lineHeight: 1 }}>
                   ‹
                 </button>
-                <button type="button" onClick={() => setWeekCursor((current) => addDays(current, 7))} style={{ width: 30, height: 30, borderRadius: 999, border: `1px solid ${collabTheme.line}`, background: "#fffaf6", color: collabTheme.text, cursor: "pointer" }}>
+                <button type="button" onClick={() => setWeekCursor((current) => addDays(current, 7))} style={{ width: 34, height: 34, borderRadius: 999, border: `1px solid ${collabTheme.line}`, background: "#fffaf6", color: collabTheme.text, cursor: "pointer", fontSize: 18, lineHeight: 1 }}>
                   ›
                 </button>
               </div>

@@ -9,7 +9,7 @@ import { getCollabProfile } from "@/lib/collab-auth";
 import { getMyAbsences } from "@/lib/collab-data";
 import { getCollabInfosFromSupabase } from "@/lib/infos-store";
 
-function CollabGlyph({ kind, color = "currentColor", size = 18 }: { kind: "home" | "planning" | "absences" | "tg" | "infos" | "plateau"; color?: string; size?: number }) {
+function CollabGlyph({ kind, color = "currentColor", size = 18 }: { kind: "home" | "planning" | "absences" | "tg" | "infos" | "plateau" | "balisage"; color?: string; size?: number }) {
   const props = { width: size, height: size, viewBox: "0 0 24 24", fill: "none", xmlns: "http://www.w3.org/2000/svg" };
 
   if (kind === "home") {
@@ -57,6 +57,15 @@ function CollabGlyph({ kind, color = "currentColor", size = 18 }: { kind: "home"
     );
   }
 
+  if (kind === "balisage") {
+    return (
+      <svg {...props}>
+        <rect x="4.5" y="4.5" width="15" height="15" rx="3" stroke={color} strokeWidth="1.8" />
+        <path d="M8.2 12.1L10.7 14.6L15.9 9.4" stroke={color} strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+      </svg>
+    );
+  }
+
   return (
     <svg {...props}>
       <path d="M6.5 4.5H14.5L18.5 8.5V18A1.5 1.5 0 0 1 17 19.5H6.5A2 2 0 0 1 4.5 17.5V6.5A2 2 0 0 1 6.5 4.5Z" stroke={color} strokeWidth="1.8" strokeLinejoin="round" />
@@ -95,7 +104,7 @@ export function CollabPage({ children }: { children: ReactNode }) {
 
 export function CollabHeader(props: {
   title: string;
-  subtitle?: string;
+  subtitle?: ReactNode;
   right?: ReactNode;
   accent?: boolean;
   bottomRight?: ReactNode;
@@ -254,7 +263,7 @@ export function QuickTile({
   tone?: string;
   badge?: ReactNode;
   badgeLabel?: string;
-  icon?: "planning" | "absences" | "tg" | "infos" | "plateau";
+  icon?: "planning" | "absences" | "tg" | "infos" | "plateau" | "balisage";
 }) {
   return (
     <Link

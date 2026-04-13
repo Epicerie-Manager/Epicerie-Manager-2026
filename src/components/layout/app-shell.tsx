@@ -16,6 +16,9 @@ import {
   restoreBrowserSessionMarker,
 } from "@/lib/browser-session";
 import { isAdminUser } from "@/lib/admin-access";
+import { canAccessOfficePath, getOfficeModuleAccess } from "@/lib/office-access";
+import type { ModuleAccessKey } from "@/lib/modules-config";
+import { loadCurrentOfficeProfile } from "@/lib/office-profile";
 import { colors, getThemeByPathname, moduleThemes, shadows } from "@/lib/theme";
 import { createClient } from "@/lib/supabase";
 
@@ -183,6 +186,9 @@ export function AppShell({ version, children }: AppShellProps) {
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [userLabel, setUserLabel] = useState("");
   const [isAdmin, setIsAdmin] = useState(false);
+  const [officeRole, setOfficeRole] = useState("");
+  const [allowedModules, setAllowedModules] = useState<ModuleAccessKey[]>([]);
+  const [officeAccessResolved, setOfficeAccessResolved] = useState(false);
   const signingOutRef = useRef(false);
 
   useEffect(() => {
@@ -205,6 +211,7 @@ export function AppShell({ version, children }: AppShellProps) {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) {
+        setOfficeAccessResolved(true);
         router.replace("/login");
         return;
       }
@@ -212,6 +219,7 @@ export function AppShell({ version, children }: AppShellProps) {
       if (!restored) {
         clearBrowserSessionState();
         await supabase.auth.signOut();
+        setOfficeAccessResolved(true);
         router.replace("/login");
         router.refresh();
         return;
@@ -219,23 +227,28 @@ export function AppShell({ version, children }: AppShellProps) {
       markBrowserSessionActive();
       recordBrowserActivity();
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("password_changed,full_name,role")
-        .eq("id", user.id)
-        .maybeSingle();
-
+      const profile = await loadCurrentOfficeProfile(supabase);
+      const resolvedRole = String(profile?.role ?? "");
+      const resolvedAdmin = isAdminUser(user.email ?? null, resolvedRole);
       setUserLabel(profile?.full_name?.trim() || user.email || "");
-      setIsAdmin(isAdminUser(user.email ?? null, String(profile?.role ?? "")));
+      setIsAdmin(resolvedAdmin);
+      setOfficeRole(resolvedRole);
+      setAllowedModules(profile?.allowed_modules ?? []);
 
       const passwordChanged = profile?.password_changed === true;
       if (!passwordChanged && pathname !== "/change-password") {
         router.replace("/change-password");
         return;
       }
+      if (!canAccessOfficePath(pathname, resolvedRole, profile?.allowed_modules ?? [], resolvedAdmin)) {
+        setOfficeAccessResolved(true);
+        router.replace("/");
+        return;
+      }
       if (passwordChanged && pathname === "/change-password") {
         router.replace("/");
       }
+      setOfficeAccessResolved(true);
     };
     void guardPasswordFlow();
   }, [isCollabRoute, isPrintRoute, pathname, router]);
@@ -334,7 +347,10 @@ export function AppShell({ version, children }: AppShellProps) {
     return <>{children}</>;
   }
 
-  const visibleModuleItems = moduleItems.filter((item) => item.id !== "admin" || isAdmin);
+  const allowedModuleIds = officeAccessResolved
+    ? getOfficeModuleAccess(officeRole, allowedModules, isAdmin)
+    : new Set<ModuleNavItem["id"]>(["dashboard"]);
+  const visibleModuleItems = moduleItems.filter((item) => allowedModuleIds.has(item.id));
 
   return (
     <div

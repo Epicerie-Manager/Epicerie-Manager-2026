@@ -134,13 +134,13 @@ export default function ChangePasswordPage() {
         return;
       }
 
-      const { error: profileError } = await supabase.from("profiles").upsert(
-        {
-          id: user.id,
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update({
           password_changed: true,
-        },
-        { onConflict: "id" },
-      );
+          first_login: false,
+        })
+        .eq("id", user.id);
       if (profileError) {
         setError(profileError.message);
         return;

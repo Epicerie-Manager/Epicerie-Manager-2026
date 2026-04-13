@@ -1,5 +1,5 @@
 import { defaultRhEmployees } from "@/lib/rh-store";
-import { isRhEmployeeCoordinatorRole } from "@/lib/rh-status";
+import { isRhEmployeeExcludedFromBalisage } from "@/lib/rh-status";
 
 export type BalisageEmployeeStat = {
   name: string;
@@ -26,7 +26,7 @@ export const balisageMonths = [
 
 function getTrackedBalisageEmployeeNames() {
   return defaultRhEmployees
-    .filter((employee) => employee.t !== "E" && !isRhEmployeeCoordinatorRole(employee.obs, employee.t))
+    .filter((employee) => employee.t !== "E" && !isRhEmployeeExcludedFromBalisage(employee.obs, employee.t))
     .map((employee) => employee.n.trim().toUpperCase());
 }
 

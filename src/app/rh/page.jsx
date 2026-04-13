@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { ModuleSelector } from "@/components/rh/ModuleSelector";
 import { Avatar } from "@/components/ui/avatar";
+import { buildTemporaryOfficePassword } from "@/lib/temporary-password";
 import {
   createRhEmployeeInSupabase,
   defaultRhCycles,
@@ -42,6 +44,11 @@ const V = {
 const TYPE_LABELS = { M:{l:"Matin",c:V.blue,bg:"#eff6ff"}, S:{l:"Après-midi",c:V.purple,bg:"#f5f3ff"}, E:{l:"Étudiant",c:"#9ca3af",bg:"#f5f7f9"} };
 const JOURS = ["LUN","MAR","MER","JEU","VEN","SAM"];
 const JOURS_FULL = ["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
+const OFFICE_ROLE_OPTIONS = [
+  { value: "collaborateur", label: "Collaborateur" },
+  { value: "gestionnaire", label: "Gestionnaire" },
+  { value: "manager", label: "Manager" },
+];
 
 function compareEmployeesByName(a,b){
   return String(a?.n||"").localeCompare(String(b?.n||""),"fr");
@@ -97,10 +104,12 @@ const RoleBadge=({value,type,size="md"})=>{
 /* ═══════════════════════════════════════════════════════════
    EDIT EMPLOYEE MODAL
    ═══════════════════════════════════════════════════════════ */
-const EditEmpModal=({emp,availableRayons,onSave,onClose,onResetPin,busy})=>{
+const EditEmpModal=({emp,availableRayons,onSave,onClose,onResetPin,onResetPassword,busy})=>{
   const [d,setD]=useState({...emp});
   const upd=(k,v)=>setD(p=>({...p,[k]:v}));
   const roleMeta=getRhEmployeeRoleMeta(d.obs,d.t);
+  const temporaryPassword = buildTemporaryOfficePassword(d.n);
+  const canResetOfficePassword = Boolean(d.profileId);
   const toggleRayon=(rayon)=>{
     const current = Array.isArray(d.rayons) ? d.rayons : [];
     if(current.includes(rayon)){
@@ -135,6 +144,20 @@ const EditEmpModal=({emp,availableRayons,onSave,onClose,onResetPin,busy})=>{
         hsa:value==="E"?(current.hsa||"14h-21h30"):current.hsa,
         obs:nextRole,
       };
+    });
+  };
+
+  const handleProfileRoleChange=(value)=>{
+    setD((current)=>{
+      const next = { ...current, profile_role:value };
+      const currentRhRole = getRhEmployeeRoleMeta(current.obs,current.t).id;
+      if(value==="gestionnaire" && currentRhRole==="COLLABORATEUR"){
+        next.obs = getRhEmployeeRoleLabel("GESTIONNAIRE", current.t);
+      }
+      if(value!=="gestionnaire" && currentRhRole==="GESTIONNAIRE"){
+        next.obs = getRhEmployeeRoleLabel("COLLABORATEUR", current.t);
+      }
+      return next;
     });
   };
 
@@ -204,6 +227,17 @@ const EditEmpModal=({emp,availableRayons,onSave,onClose,onResetPin,busy})=>{
               </div>
             </div>
             <div>
+              <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Accès bureau</label>
+              <select value={d.profile_role || "collaborateur"} onChange={e=>handleProfileRoleChange(e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.line}`,fontSize:14,fontWeight:700,outline:"none",boxSizing:"border-box"}}>
+                {OFFICE_ROLE_OPTIONS.map((role)=>(
+                  <option key={role.value} value={role.value}>{role.label}</option>
+                ))}
+              </select>
+              <div style={{fontSize:10,color:V.light,marginTop:6}}>
+                Définit le type d&apos;accès à l&apos;application bureau.
+              </div>
+            </div>
+            <div>
               <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Rayons ruptures</label>
               <input
                 value={formatRupturesRayonsInput(d.ruptures_rayons)}
@@ -216,6 +250,16 @@ const EditEmpModal=({emp,availableRayons,onSave,onClose,onResetPin,busy})=>{
               </div>
             </div>
           </div>
+
+          {d.profile_role === "gestionnaire" ? (
+            <div style={{marginBottom:18}}>
+              <ModuleSelector
+                selectedModules={Array.isArray(d.allowed_modules) ? d.allowed_modules : []}
+                onChange={(modules)=>upd("allowed_modules",modules)}
+                disabled={busy}
+              />
+            </div>
+          ) : null}
 
           <div style={{fontSize:12,color:V.muted,fontWeight:700,marginBottom:8}}>RAYONS RESPONSABLE TG/GB</div>
           <div style={{padding:"14px",borderRadius:14,background:"#f8fafc",border:`1px solid ${V.line}`,marginBottom:18}}>
@@ -261,17 +305,35 @@ const EditEmpModal=({emp,availableRayons,onSave,onClose,onResetPin,busy})=>{
           </div>
         </div>
         <div style={{padding:"14px 24px",borderTop:`1px solid ${V.line}`,background:"#fff",display:"flex",gap:8,justifyContent:"flex-end",flexShrink:0}}>
-          <button
-            onClick={()=>onResetPin?.(d)}
-            disabled={busy||!d.dbId}
-            style={{
-              marginRight:"auto",padding:"10px 16px",borderRadius:10,border:`1px solid ${V.line}`,
-              background:"#f8fafc",color:V.body,cursor:busy||!d.dbId?"not-allowed":"pointer",
-              fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:8,opacity:busy||!d.dbId?0.6:1,
-            }}
-          >
-            {IC.key(V.body,14)} Réinitialiser le PIN
-          </button>
+          <div style={{marginRight:"auto",display:"grid",gap:8}}>
+            <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
+              <button
+                onClick={()=>onResetPin?.(d)}
+                disabled={busy||!d.dbId}
+                style={{
+                  padding:"10px 16px",borderRadius:10,border:`1px solid ${V.line}`,
+                  background:"#f8fafc",color:V.body,cursor:busy||!d.dbId?"not-allowed":"pointer",
+                  fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:8,opacity:busy||!d.dbId?0.6:1,
+                }}
+              >
+                {IC.key(V.body,14)} Réinitialiser le PIN
+              </button>
+              <button
+                onClick={()=>onResetPassword?.(d)}
+                disabled={busy||!canResetOfficePassword}
+                style={{
+                  padding:"10px 16px",borderRadius:10,border:`1px solid ${V.mc}25`,
+                  background:"#f0fdfa",color:V.mc,cursor:busy||!canResetOfficePassword?"not-allowed":"pointer",
+                  fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:8,opacity:busy||!canResetOfficePassword?0.6:1,
+                }}
+              >
+                {IC.key(V.mc,14)} Réinitialiser le mot de passe
+              </button>
+            </div>
+            <div style={{fontSize:11,color:V.light}}>
+              Mot de passe temporaire : <strong style={{color:V.mc,fontWeight:700}}>{temporaryPassword}</strong>
+            </div>
+          </div>
           <button onClick={onClose} disabled={busy} style={{padding:"10px 20px",borderRadius:10,border:`1px solid ${V.line}`,background:"#fafafa",color:V.muted,cursor:busy?"not-allowed":"pointer",fontSize:13,opacity:busy?0.6:1}}>Annuler</button>
           <button onClick={()=>onSave(d)} disabled={busy} style={{padding:"10px 24px",borderRadius:10,border:"none",background:V.mc,color:"#fff",cursor:busy?"not-allowed":"pointer",fontSize:13,fontWeight:700,opacity:busy?0.7:1}}>Enregistrer</button>
         </div>
@@ -303,6 +365,36 @@ const ResetPinModal=({employee,onCancel,onConfirm,busy})=>{
         <div style={{padding:"14px 24px",borderTop:`1px solid ${V.line}`,display:"flex",gap:8,justifyContent:"flex-end"}}>
           <button onClick={onCancel} disabled={busy} style={{padding:"10px 20px",borderRadius:10,border:`1px solid ${V.line}`,background:"#fafafa",color:V.muted,cursor:busy?"not-allowed":"pointer",fontSize:13,opacity:busy?0.6:1}}>Annuler</button>
           <button onClick={onConfirm} disabled={busy} style={{padding:"10px 18px",borderRadius:10,border:`1px solid ${V.mc}25`,background:V.mG,color:V.mc,cursor:busy?"not-allowed":"pointer",fontSize:13,fontWeight:700,opacity:busy?0.7:1}}>Réinitialiser le PIN</button>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ResetPasswordModal=({employee,onCancel,onConfirm,busy})=>{
+  if(!employee) return null;
+  const temporaryPassword = buildTemporaryOfficePassword(employee.n);
+  return(
+    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,zIndex:1100}} onClick={busy?undefined:onCancel}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:20,width:"min(460px, calc(100vw - 32px))",boxShadow:"0 24px 48px rgba(0,0,0,0.18)",overflow:"hidden"}}>
+        <div style={{padding:"20px 24px",borderBottom:`1px solid ${V.line}`,background:"#fcfffe"}}>
+          <div style={{display:"flex",alignItems:"center",gap:10}}>
+            <div style={{width:42,height:42,borderRadius:14,background:V.mM,display:"flex",alignItems:"center",justifyContent:"center"}}>{IC.key(V.mc,18)}</div>
+            <div>
+              <div style={{fontSize:16,fontWeight:700,color:V.text}}>Réinitialiser le mot de passe</div>
+              <div style={{fontSize:12,color:V.muted,marginTop:2}}>Accès bureau temporaire</div>
+            </div>
+          </div>
+        </div>
+        <div style={{padding:"20px 24px",fontSize:14,lineHeight:1.6,color:V.body}}>
+          Réinitialiser le mot de passe bureau de <strong>{employee.n}</strong> ?
+          <div style={{marginTop:8,color:V.muted}}>
+            Le mot de passe temporaire sera <strong style={{color:V.mc}}>{temporaryPassword}</strong> et la prochaine connexion repassera par le changement de mot de passe.
+          </div>
+        </div>
+        <div style={{padding:"14px 24px",borderTop:`1px solid ${V.line}`,display:"flex",gap:8,justifyContent:"flex-end"}}>
+          <button onClick={onCancel} disabled={busy} style={{padding:"10px 20px",borderRadius:10,border:`1px solid ${V.line}`,background:"#fafafa",color:V.muted,cursor:busy?"not-allowed":"pointer",fontSize:13,opacity:busy?0.6:1}}>Annuler</button>
+          <button onClick={onConfirm} disabled={busy} style={{padding:"10px 18px",borderRadius:10,border:`1px solid ${V.mc}25`,background:V.mG,color:V.mc,cursor:busy?"not-allowed":"pointer",fontSize:13,fontWeight:700,opacity:busy?0.7:1}}>Réinitialiser le mot de passe</button>
         </div>
       </div>
     </div>
@@ -376,6 +468,8 @@ const NewEmpModal=({availableRayons,onSave,onClose})=>{
     photo:null,
     rayons:[],
     ruptures_rayons:[],
+    profile_role:"collaborateur",
+    allowed_modules:[],
   });
   const [cycle,setCycle]=useState(["LUN","LUN","LUN","LUN","LUN"]);
   const upd=(k,v)=>setD(p=>({...p,[k]:v}));
@@ -418,6 +512,20 @@ const NewEmpModal=({availableRayons,onSave,onClose})=>{
   };
 
   const canSave = d.n.trim().length > 1;
+
+  const handleProfileRoleChange=(value)=>{
+    setD((current)=>{
+      const next = { ...current, profile_role:value };
+      const currentRhRole = getRhEmployeeRoleMeta(current.obs,current.t).id;
+      if(value==="gestionnaire" && currentRhRole==="COLLABORATEUR"){
+        next.obs = getRhEmployeeRoleLabel("GESTIONNAIRE", current.t);
+      }
+      if(value!=="gestionnaire" && currentRhRole==="GESTIONNAIRE"){
+        next.obs = getRhEmployeeRoleLabel("COLLABORATEUR", current.t);
+      }
+      return next;
+    });
+  };
 
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflowY:"auto",zIndex:1000}} onClick={onClose}>
@@ -469,6 +577,17 @@ const NewEmpModal=({availableRayons,onSave,onClose})=>{
               </div>
             </div>
             <div>
+              <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Accès bureau</label>
+              <select value={d.profile_role} onChange={e=>handleProfileRoleChange(e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.line}`,fontSize:14,fontWeight:700,outline:"none",boxSizing:"border-box"}}>
+                {OFFICE_ROLE_OPTIONS.map((role)=>(
+                  <option key={role.value} value={role.value}>{role.label}</option>
+                ))}
+              </select>
+              <div style={{fontSize:10,color:V.light,marginTop:6}}>
+                Le rôle gestionnaire active une sélection fine des modules bureau.
+              </div>
+            </div>
+            <div>
               <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Rayons ruptures</label>
               <input
                 value={formatRupturesRayonsInput(d.ruptures_rayons)}
@@ -481,6 +600,15 @@ const NewEmpModal=({availableRayons,onSave,onClose})=>{
               </div>
             </div>
           </div>
+
+          {d.profile_role === "gestionnaire" ? (
+            <div style={{marginBottom:18}}>
+              <ModuleSelector
+                selectedModules={Array.isArray(d.allowed_modules) ? d.allowed_modules : []}
+                onChange={(modules)=>upd("allowed_modules",modules)}
+              />
+            </div>
+          ) : null}
 
           <div style={{fontSize:12,color:V.muted,fontWeight:700,marginBottom:8}}>HORAIRES PAR DEFAUT</div>
           <div style={{padding:"16px",borderRadius:14,background:"#f8fafc",border:`1px solid ${V.line}`,marginBottom:18}}>
@@ -698,6 +826,7 @@ export default function RHModule(){
   const [error,setError]=useState("");
   const [success,setSuccess]=useState("");
   const [resetPinFor,setResetPinFor]=useState(null);
+  const [resetPasswordFor,setResetPasswordFor]=useState(null);
   const availableRayons = useMemo(
     ()=>[...tgRayons]
       .filter((rayon)=>rayon.active)
@@ -841,6 +970,14 @@ export default function RHModule(){
 
   const requestResetPin=(employee)=>{
     setResetPinFor(employee);
+    setResetPasswordFor(null);
+    setError("");
+    setSuccess("");
+  };
+
+  const requestResetPassword=(employee)=>{
+    setResetPasswordFor(employee);
+    setResetPinFor(null);
     setError("");
     setSuccess("");
   };
@@ -865,6 +1002,34 @@ export default function RHModule(){
       setEditEmp(null);
     }catch(err){
       setError(err instanceof Error ? err.message : "Erreur lors de la reinitialisation");
+    }finally{
+      setBusy(false);
+    }
+  };
+
+  const confirmResetPassword=async()=>{
+    if(!resetPasswordFor?.profileId || busy) return;
+    setBusy(true);
+    setError("");
+    setSuccess("");
+    try{
+      const response = await fetch("/api/manager/reset-office-password",{
+        method:"POST",
+        headers:{"Content-Type":"application/json"},
+        body:JSON.stringify({
+          profile_id:resetPasswordFor.profileId,
+          employee_name:resetPasswordFor.n,
+        }),
+      });
+      const payload = await response.json().catch(()=>({}));
+      if(!response.ok){
+        throw new Error(payload?.error || "Erreur lors de la reinitialisation du mot de passe");
+      }
+      setSuccess(`Mot de passe réinitialisé pour ${resetPasswordFor.n}. Temporaire : ${payload?.temporaryPassword || buildTemporaryOfficePassword(resetPasswordFor.n)}.`);
+      setResetPasswordFor(null);
+      setEditEmp(null);
+    }catch(err){
+      setError(err instanceof Error ? err.message : "Erreur lors de la reinitialisation du mot de passe");
     }finally{
       setBusy(false);
     }
@@ -965,10 +1130,11 @@ export default function RHModule(){
       </div>
 
       {/* MODALS */}
-      {editEmp&&<EditEmpModal emp={editEmp} availableRayons={availableRayons} onSave={saveEmp} onClose={()=>setEditEmp(null)} onResetPin={requestResetPin} busy={busy}/>}
+        {editEmp&&<EditEmpModal emp={editEmp} availableRayons={availableRayons} onSave={saveEmp} onClose={()=>setEditEmp(null)} onResetPin={requestResetPin} onResetPassword={requestResetPassword} busy={busy}/>}
       {editCycleFor&&<EditCycleModal empName={editCycleFor} cycle={cycles[editCycleFor]||["LUN","LUN","LUN","LUN","LUN"]} onSave={c=>saveCycle(editCycleFor,c)} onClose={()=>setEditCycleFor(null)} busy={busy}/>}
       {newEmpOpen&&<NewEmpModal availableRayons={availableRayons} onSave={createEmp} onClose={()=>setNewEmpOpen(false)}/>}
-      {resetPinFor&&<ResetPinModal employee={resetPinFor} onCancel={()=>setResetPinFor(null)} onConfirm={confirmResetPin} busy={busy}/>}
+        {resetPinFor&&<ResetPinModal employee={resetPinFor} onCancel={()=>setResetPinFor(null)} onConfirm={confirmResetPin} busy={busy}/>}
+        {resetPasswordFor&&<ResetPasswordModal employee={resetPasswordFor} onCancel={()=>setResetPasswordFor(null)} onConfirm={confirmResetPassword} busy={busy}/>}
     </div>
   );
 }

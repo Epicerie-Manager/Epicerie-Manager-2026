@@ -4,7 +4,7 @@ import {
   type BalisageEmployeeStat,
 } from "@/lib/balisage-data";
 import { hasBrowserWindow, purgeLegacyCacheKeys } from "@/lib/browser-cache";
-import { isRhEmployeeCoordinatorRole } from "@/lib/rh-status";
+import { isRhEmployeeExcludedFromBalisage } from "@/lib/rh-status";
 import { createClient } from "@/lib/supabase";
 
 const BALISAGE_STORAGE_KEY = "epicerie-manager-balisage-data-v1";
@@ -56,7 +56,7 @@ function normalizeEmployeeName(value: unknown) {
 
 function isTrackedBalisageEmployee(employee: { type?: string | null; observation?: string | null }) {
   const type = normalizeEmployeeName(employee.type);
-  return type !== "ETUDIANT" && !isRhEmployeeCoordinatorRole(employee.observation, type);
+  return type !== "ETUDIANT" && !isRhEmployeeExcludedFromBalisage(employee.observation, type);
 }
 
 function createEmptyBalisageDataset(employeeRows: Array<{ name?: string | null; type?: string | null; observation?: string | null }>) {

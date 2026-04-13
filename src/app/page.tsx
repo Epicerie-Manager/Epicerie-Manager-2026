@@ -8,8 +8,10 @@ import { KPI, KPIRow } from "@/components/ui/kpi";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { NavCard, NavCardGrid } from "@/components/ui/nav-card";
 import AgendaCard from "@/components/dashboard/agenda-card";
+import type { ModuleAccessKey } from "@/lib/modules-config";
 import { moduleThemes } from "@/lib/theme";
 import { isAdminUser } from "@/lib/admin-access";
+import { getVisibleModules, isGestionnaireRole } from "@/lib/modules-config";
 import type { InfoAnnouncement } from "@/lib/infos-data";
 import { absenceTypes } from "@/lib/absences-data";
 import { loadAbsenceRequests, getAbsencesUpdatedEventName, syncAbsencesFromSupabase } from "@/lib/absences-store";
@@ -41,6 +43,7 @@ import { getRhUpdatedEventName, loadRhEmployees, syncRhFromSupabase } from "@/li
 import { loadLatestRupturesCountForToday } from "@/lib/ruptures-store";
 import { getPlateauWeekFocusData } from "@/lib/plateau-data";
 import { createClient } from "@/lib/supabase";
+import { getOfficeProfileFirstName, loadCurrentOfficeProfile } from "@/lib/office-profile";
 import {
   confirmAnnouncementReadingInSupabase,
   getInfosUpdatedEventName,
@@ -273,6 +276,10 @@ export default function DashboardPage() {
   const [presenceWidgetSnapshot, setPresenceWidgetSnapshot] = useState<PresenceWidgetSnapshot | null>(() => loadPresenceWidgetSnapshot());
   const [planningSyncReady, setPlanningSyncReady] = useState(() => planningEmployees.length > 0);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [dashboardRole, setDashboardRole] = useState("");
+  const [dashboardAllowedModules, setDashboardAllowedModules] = useState<ModuleAccessKey[]>([]);
+  const [dashboardDisplayName, setDashboardDisplayName] = useState("");
+  const [accessProfileResolved, setAccessProfileResolved] = useState(false);
   const [dashboardProfileId, setDashboardProfileId] = useState("");
   const [dashboardEmployeeId, setDashboardEmployeeId] = useState("");
   const [dashboardAnnouncements, setDashboardAnnouncements] = useState<InfoAnnouncement[]>([]);
@@ -290,16 +297,15 @@ export default function DashboardPage() {
       } = await supabase.auth.getUser();
       if (!user) {
         setIsAdmin(false);
+        setDashboardRole("");
+        setDashboardDisplayName("");
         setDashboardProfileId("");
         setDashboardEmployeeId("");
+        setAccessProfileResolved(true);
         return;
       }
 
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("role,employee_id,full_name")
-        .eq("id", user.id)
-        .maybeSingle();
+      const profile = await loadCurrentOfficeProfile(supabase);
 
       let resolvedEmployeeId = String(profile?.employee_id ?? "");
       if (!resolvedEmployeeId) {
@@ -323,13 +329,21 @@ export default function DashboardPage() {
 
       setDashboardProfileId(String(user.id ?? ""));
       setDashboardEmployeeId(resolvedEmployeeId);
+      setDashboardRole(String(profile?.role ?? ""));
+      setDashboardAllowedModules(profile?.allowed_modules ?? []);
+      setDashboardDisplayName(getOfficeProfileFirstName(String(profile?.full_name ?? user.email ?? "")));
       setIsAdmin(isAdminUser(user.email ?? null, String(profile?.role ?? "")));
+      setAccessProfileResolved(true);
     };
 
     void checkAdmin();
   }, []);
 
+  const isSupplyManager = isGestionnaireRole(dashboardRole);
+  const visibleModules = getVisibleModules({ role: dashboardRole, allowed_modules: dashboardAllowedModules });
+
   useEffect(() => {
+    if (isSupplyManager) return;
     const refreshAnnouncements = () => {
       setDashboardAnnouncements(loadInfoAnnouncements());
     };
@@ -342,9 +356,18 @@ export default function DashboardPage() {
     const eventName = getInfosUpdatedEventName();
     window.addEventListener(eventName, refreshAnnouncements);
     return () => window.removeEventListener(eventName, refreshAnnouncements);
-  }, []);
+  }, [isSupplyManager]);
 
   useEffect(() => {
+    if (!accessProfileResolved) return;
+
+    if (isSupplyManager) {
+      void loadLatestRupturesCountForToday()
+        .then((count) => setRupturesTodayCount(count))
+        .catch(() => setRupturesTodayCount(0));
+      return;
+    }
+
     const refreshAll = (referenceDate = new Date()) => {
       const planningMonthKey = getPlanningMonthKey(referenceDate);
       setNow(referenceDate);
@@ -397,7 +420,7 @@ export default function DashboardPage() {
       window.clearInterval(minuteTimer);
       listeners.forEach((eventName) => window.removeEventListener(eventName, handleRefreshAll));
     };
-  }, []);
+  }, [accessProfileResolved, isSupplyManager]);
 
   const today = now;
   const todayIso = today.toISOString().slice(0, 10);
@@ -720,6 +743,93 @@ export default function DashboardPage() {
         }]
       : []),
   ];
+
+  if (!accessProfileResolved) {
+    return (
+      <div style={{ padding: "22px 0" }}>
+        <Card>
+          <Kicker moduleKey="dashboard" label="Accueil" icon={<IconGrid />} />
+          <h1 style={{ fontSize: "22px", fontWeight: 700, letterSpacing: "-0.04em", color: "#0f172a" }}>
+            Chargement de l&apos;espace
+          </h1>
+          <p style={{ fontSize: "12px", color: "#64748b", marginTop: "4px" }}>
+            Vérification du profil et des accès en cours.
+          </p>
+        </Card>
+      </div>
+    );
+  }
+
+  if (isSupplyManager) {
+    const welcomeName = dashboardDisplayName || "Christelle";
+    const moduleIcons: Record<string, React.ReactNode> = {
+      planning: <IconCalendar />,
+      ruptures: <IconAlert />,
+      absences: <IconFile />,
+      infos: <IconInfo />,
+      rh: <IconUsers />,
+      balisage: <IconCheck />,
+      plateau: <IconMap />,
+      plan_tg: <IconShoppingBag />,
+      exports: <IconFile />,
+    };
+
+    return (
+      <div style={{ padding: "22px 0", display: "grid", gap: "14px" }}>
+        <Card
+          style={{
+            position: "relative",
+            overflow: "hidden",
+            background: "linear-gradient(135deg, #fff6f6 0%, #ffffff 55%, #fff1f2 100%)",
+            border: "1px solid #ffd5d8",
+          }}
+        >
+          <div
+            aria-hidden
+            style={{
+              position: "absolute",
+              top: "-80px",
+              right: "-40px",
+              width: "220px",
+              height: "220px",
+              borderRadius: "999px",
+              background: "radial-gradient(circle, rgba(212,5,17,0.12) 0%, rgba(212,5,17,0) 72%)",
+            }}
+          />
+          <Kicker moduleKey="dashboard" label="Accueil" icon={<IconUsers />} />
+          <h1 style={{ fontSize: "28px", fontWeight: 700, letterSpacing: "-0.04em", color: "#0f172a", marginTop: "6px" }}>
+            Bienvenue {welcomeName}
+          </h1>
+          <p style={{ fontSize: "13px", color: "#64748b", marginTop: "8px", maxWidth: "560px", lineHeight: 1.6 }}>
+            Votre espace est pour l&apos;instant centré sur le suivi des ruptures. La page d&apos;accueil reste disponible, avec un accès direct vers le module utile à votre activité.
+          </p>
+        </Card>
+
+        <Card>
+          <Kicker moduleKey="dashboard" label="Navigation" icon={<IconGrid />} />
+          <h2 style={{ fontSize: "17px", fontWeight: 700, letterSpacing: "-0.02em", color: "#0f172a" }}>Accès modules</h2>
+          <p style={{ fontSize: "12px", color: "#64748b", marginTop: "3px", marginBottom: "10px" }}>Accès autorisé pour le rôle approvisionnement</p>
+
+          <NavCardGrid style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
+            {visibleModules.map((moduleItem) => (
+              <NavCard
+                key={moduleItem.key}
+                moduleKey={moduleItem.moduleId}
+                title={moduleItem.label}
+                description={
+                  moduleItem.key === "ruptures" && rupturesTodayCount
+                    ? `${rupturesTodayCount} rupture(s) équipe aujourd'hui`
+                    : moduleItem.description
+                }
+                icon={moduleIcons[moduleItem.key]}
+                href={moduleItem.href}
+              />
+            ))}
+          </NavCardGrid>
+        </Card>
+      </div>
+    );
+  }
 
   async function confirmDashboardAnnouncement(announcementId: string) {
     if (!dashboardProfileId) return;

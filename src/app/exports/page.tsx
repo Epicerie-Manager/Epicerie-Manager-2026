@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { colors, shadows } from "@/lib/theme";
+import { useModuleAccess } from "@/lib/use-module-access";
 
 type ExportCardProps = {
   emoji: string;
@@ -102,6 +103,10 @@ function ExportCard({
 }
 
 export default function ExportsPage() {
+  const { hasAccess, loading } = useModuleAccess("exports");
+
+  if (loading || !hasAccess) return null;
+
   return (
     <div style={{ maxWidth: 980, margin: "0 auto", padding: 24 }}>
       <div style={{ marginBottom: 18 }}>

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { normalizeAllowedModules } from "@/lib/modules-config";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 type CreateCollaboratorBody = {
@@ -13,6 +14,8 @@ type CreateCollaboratorBody = {
   rayons?: string[];
   ruptures_rayons?: number[];
   cycle?: string[];
+  profile_role?: string;
+  allowed_modules?: string[];
 };
 
 function createRouteSupabaseClient(request: NextRequest) {
@@ -138,6 +141,8 @@ export async function POST(request: NextRequest) {
     const employeeType = body.t ?? "M";
     const employeeRole = String(body.obs ?? "Collaborateur").trim();
     const employeeCycle = Array.isArray(body.cycle) ? body.cycle.slice(0, 5) : [];
+    const profileRole = String(body.profile_role ?? "collaborateur").trim().toLowerCase() || "collaborateur";
+    const allowedModules = profileRole === "gestionnaire" ? normalizeAllowedModules(body.allowed_modules) : [];
 
     if (employeeName.length < 2) {
       return NextResponse.json({ error: "Nom collaborateur invalide." }, { status: 400 });
@@ -200,10 +205,11 @@ export async function POST(request: NextRequest) {
       id: userId,
       full_name: employeeName,
       email,
-      role: "collaborateur",
+      role: profileRole,
       employee_id: insertedEmployee.id,
       first_login: true,
       password_changed: false,
+      allowed_modules: allowedModules,
     });
 
     if (profileInsertError) {
@@ -229,7 +235,13 @@ export async function POST(request: NextRequest) {
       success: true,
       email,
       initialPin: "000000",
-      employee: insertedEmployee,
+      employee: {
+        ...insertedEmployee,
+        profile_id: userId,
+        email,
+        profile_role: profileRole,
+        allowed_modules: allowedModules,
+      },
     });
   } catch (error) {
     const supabaseAdmin = createAdminClient();

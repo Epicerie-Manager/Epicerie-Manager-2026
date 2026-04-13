@@ -1,6 +1,6 @@
 import type { BalisageEmployeeStat } from "@/lib/balisage-data";
 import type { RhEmployee } from "@/lib/rh-store";
-import { isRhEmployeeCoordinatorRole } from "@/lib/rh-status";
+import { isRhEmployeeExcludedFromBalisage } from "@/lib/rh-status";
 
 export type BalisageEmployeeWithRhState = BalisageEmployeeStat & {
   actif: boolean;
@@ -18,7 +18,7 @@ export function attachRhActivityToBalisageStats(
   return rhEmployees
     .filter((employee) => (
       employee.t !== "E" &&
-      !isRhEmployeeCoordinatorRole(employee.obs, employee.t) &&
+      !isRhEmployeeExcludedFromBalisage(employee.obs, employee.t) &&
       !excludedNames.has(employee.n.trim().toUpperCase())
     ))
     .map((employee) => {

@@ -1,4 +1,5 @@
 import { hasBrowserWindow, purgeLegacyCacheKeys } from "@/lib/browser-cache";
+import { normalizeAllowedModules, type ModuleAccessKey } from "@/lib/modules-config";
 import { getRhEmployeeRoleLabel } from "@/lib/rh-status";
 import { createClient } from "@/lib/supabase";
 
@@ -7,6 +8,7 @@ export type RhEmployeeType = "M" | "S" | "E";
 export type RhEmployee = {
   id: number;
   dbId?: string;
+  profileId?: string;
   n: string;
   t: RhEmployeeType;
   hs: string | null;
@@ -17,6 +19,9 @@ export type RhEmployee = {
   photo: string | null;
   rayons?: string[];
   ruptures_rayons?: number[];
+  email?: string;
+  profile_role?: string;
+  allowed_modules?: ModuleAccessKey[];
 };
 
 export type CreateRhEmployeeResult = {
@@ -49,6 +54,7 @@ function cloneEmployees(employees: RhEmployee[]) {
     ...employee,
     obs: getRhEmployeeRoleLabel(employee.obs, employee.t),
     rayons: employee.rayons ? [...employee.rayons] : undefined,
+    allowed_modules: employee.allowed_modules ? [...employee.allowed_modules] : [],
   }));
 }
 
@@ -149,6 +155,12 @@ function mapEmployeeRowToRhEmployee(
   },
   index: number,
   photos?: { byDbId: Map<string, string | null>; byName: Map<string, string | null> },
+  profileByEmployeeId?: Map<string, {
+    id: string;
+    email: string | null;
+    role: string | null;
+    allowed_modules: ModuleAccessKey[];
+  }>,
 ): RhEmployee {
   const normalizedName = String(employee.name ?? "").trim().toUpperCase();
   const photo =
@@ -156,10 +168,12 @@ function mapEmployeeRowToRhEmployee(
     photos?.byName.get(normalizedName) ??
     null;
   const normalizedType = normalizeRhType(String(employee.type ?? ""));
+  const profile = profileByEmployeeId?.get(String(employee.id));
 
   return {
     id: index + 1,
     dbId: String(employee.id),
+    profileId: profile?.id,
     n: normalizedName,
     t: normalizedType,
     hs: employee.horaire_standard ?? null,
@@ -170,6 +184,9 @@ function mapEmployeeRowToRhEmployee(
     photo,
     rayons: normalizeEmployeeRayons(employee.tg_rayons),
     ruptures_rayons: normalizeEmployeeRuptureRayons(employee.ruptures_rayons),
+    email: String(profile?.email ?? "").trim(),
+    profile_role: String(profile?.role ?? "collaborateur").trim(),
+    allowed_modules: profile?.allowed_modules ?? [],
   };
 }
 
@@ -263,8 +280,24 @@ export async function syncRhFromSupabase() {
       .select("id,name,type,horaire_standard,horaire_mardi,horaire_samedi,observation,actif,tg_rayons,ruptures_rayons")
       .limit(5000);
     if (employeeError) throw employeeError;
+    const { data: profileRows } = await supabase
+      .from("profiles")
+      .select("id,email,role,employee_id,allowed_modules")
+      .not("employee_id", "is", null)
+      .limit(5000);
+    const profileByEmployeeId = new Map(
+      (profileRows ?? []).map((profile) => [
+        String(profile.employee_id),
+        {
+          id: String(profile.id),
+          email: profile.email == null ? null : String(profile.email),
+          role: profile.role == null ? null : String(profile.role),
+          allowed_modules: normalizeAllowedModules(profile.allowed_modules),
+        },
+      ]),
+    );
     const mappedEmployees: RhEmployee[] = (employeeRows ?? []).map((employee, index) =>
-      mapEmployeeRowToRhEmployee(employee, index, photos),
+      mapEmployeeRowToRhEmployee(employee, index, photos, profileByEmployeeId),
     );
     const nameById = new Map(
       (employeeRows ?? []).map((employee) => [String(employee.id), String(employee.name ?? "").trim().toUpperCase()]),
@@ -344,6 +377,10 @@ export async function createRhEmployeeInSupabase(
         actif: boolean | null;
         tg_rayons?: string[] | null;
         ruptures_rayons?: number[] | null;
+        profile_id?: string | null;
+        email?: string | null;
+        profile_role?: string | null;
+        allowed_modules?: ModuleAccessKey[] | null;
       };
     };
 
@@ -353,7 +390,22 @@ export async function createRhEmployeeInSupabase(
 
     const cycle = Array.isArray(employee.cycle) ? employee.cycle : [];
     const nextEmployee = {
-      ...mapEmployeeRowToRhEmployee(payload.employee, loadRhEmployees().length, getPhotoLookup(loadRhEmployees())),
+      ...mapEmployeeRowToRhEmployee(
+        payload.employee,
+        loadRhEmployees().length,
+        getPhotoLookup(loadRhEmployees()),
+        new Map([
+          [
+            String(payload.employee.id),
+            {
+              id: String(payload.employee.profile_id ?? ""),
+              email: payload.employee.email == null ? null : String(payload.employee.email),
+              role: payload.employee.profile_role == null ? null : String(payload.employee.profile_role),
+              allowed_modules: normalizeAllowedModules(payload.employee.allowed_modules),
+            },
+          ],
+        ]),
+      ),
       photo: employee.photo ?? null,
     };
     const employees = [...loadRhEmployees(), nextEmployee];
@@ -385,6 +437,13 @@ export async function updateRhEmployeeInSupabase(employee: RhEmployee): Promise<
     tg_rayons: normalizeEmployeeRayons(employee.rayons) ?? [],
     ruptures_rayons: normalizeEmployeeRuptureRayons(employee.ruptures_rayons),
   };
+  const profilePayload = {
+    role: String(employee.profile_role ?? "collaborateur").trim() || "collaborateur",
+    allowed_modules:
+      String(employee.profile_role ?? "collaborateur").trim() === "gestionnaire"
+        ? normalizeAllowedModules(employee.allowed_modules)
+        : [],
+  };
 
   try {
       const { data: updatedEmployee, error } = await supabase
@@ -394,6 +453,13 @@ export async function updateRhEmployeeInSupabase(employee: RhEmployee): Promise<
         .select("id,name,type,horaire_standard,horaire_mardi,horaire_samedi,observation,actif,tg_rayons,ruptures_rayons")
         .single();
     if (error) throw error;
+    if (employee.profileId) {
+      const { error: profileError } = await supabase
+        .from("profiles")
+        .update(profilePayload)
+        .eq("id", employee.profileId);
+      if (profileError) throw profileError;
+    }
 
     const cachedEmployees = loadRhEmployees();
     const photos = getPhotoLookup(cachedEmployees);
@@ -402,7 +468,22 @@ export async function updateRhEmployeeInSupabase(employee: RhEmployee): Promise<
       0,
     );
     const nextEmployee = {
-      ...mapEmployeeRowToRhEmployee(updatedEmployee, currentIndex, photos),
+      ...mapEmployeeRowToRhEmployee(
+        updatedEmployee,
+        currentIndex,
+        photos,
+        new Map([
+          [
+            String(updatedEmployee.id),
+            {
+              id: String(employee.profileId ?? ""),
+              email: employee.email ?? null,
+              role: profilePayload.role,
+              allowed_modules: profilePayload.allowed_modules,
+            },
+          ],
+        ]),
+      ),
       id: employee.id,
       photo: employee.photo ?? null,
       rayons: employee.rayons ? [...employee.rayons] : undefined,

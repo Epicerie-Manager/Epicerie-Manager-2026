@@ -1,4 +1,4 @@
-export type RhEmployeeRole = "COORDINATEUR" | "COLLABORATEUR" | "ETUDIANT" | "STAGIAIRE" | "AUTRE";
+export type RhEmployeeRole = "COORDINATEUR" | "COLLABORATEUR" | "GESTIONNAIRE" | "ETUDIANT" | "STAGIAIRE" | "AUTRE";
 export type RhEmployeeType = "M" | "S" | "E";
 
 export const RH_ROLE_META: Record<
@@ -16,6 +16,12 @@ export const RH_ROLE_META: Record<
     color: "#1d4ed8",
     bg: "#dbeafe",
     border: "#93c5fd",
+  },
+  GESTIONNAIRE: {
+    label: "Gestionnaire",
+    color: "#b91c1c",
+    bg: "#fee2e2",
+    border: "#fca5a5",
   },
   ETUDIANT: {
     label: "Etudiant",
@@ -55,6 +61,7 @@ export function normalizeRhEmployeeRole(value: unknown, employeeType?: RhEmploye
   const normalizedType = normalizeText(employeeType);
 
   if (normalized.includes("COORD")) return "COORDINATEUR";
+  if (normalized.includes("GESTION")) return "GESTIONNAIRE";
   if (normalized.includes("STAG")) return "STAGIAIRE";
   if (normalized.includes("ETUD")) return "ETUDIANT";
   if (normalized.includes("COLLAB") || normalized.includes("EMPLOY")) return "COLLABORATEUR";
@@ -74,4 +81,13 @@ export function getRhEmployeeRoleLabel(value: unknown, employeeType?: RhEmployee
 
 export function isRhEmployeeCoordinatorRole(value: unknown, employeeType?: RhEmployeeType | string) {
   return normalizeRhEmployeeRole(value, employeeType) === "COORDINATEUR";
+}
+
+export function isRhEmployeeOfficeRole(value: unknown, employeeType?: RhEmployeeType | string) {
+  return normalizeRhEmployeeRole(value, employeeType) === "GESTIONNAIRE";
+}
+
+export function isRhEmployeeExcludedFromBalisage(value: unknown, employeeType?: RhEmployeeType | string) {
+  const role = normalizeRhEmployeeRole(value, employeeType);
+  return role === "COORDINATEUR" || role === "GESTIONNAIRE";
 }

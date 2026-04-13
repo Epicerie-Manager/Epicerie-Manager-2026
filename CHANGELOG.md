@@ -21,6 +21,13 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v1.0.9 - 2026-04-13
+
+- Bureau / Gestionnaire : ajout d'un profil bureau `Gestionnaire` limite a une page d'accueil simplifiee et au seul module `Ruptures`, avec filtrage de navigation et redirection automatique hors des modules non autorises.
+- RH / Fiche employe : ajout de la gestion des `Modules autorises`, de l'acces bureau `Gestionnaire` et du bouton `Reinitialiser le mot de passe` qui applique un mot de passe temporaire de type `Prenom+2026`.
+- Connexion / Premiere utilisation : correction du changement de mot de passe a la premiere connexion pour eviter l'erreur `profiles_role_check` lors de la mise a jour du profil.
+- RH / Statuts terrain : ajout du statut RH `Gestionnaire` et exclusion de ces profils du `Controle balisage`, pour ne pas melanger les comptes bureau avec les equipes terrain.
+
 ## v1.0.8 - 2026-04-12
 
 - Suivi / Ruptures : ajout d'une synthese `Moyenne equipe ruptures` depuis janvier dans les stats historiques `Ruptures`, avec detail par secteur, ligne `Moyenne equipe` et code couleur du taux de retard.

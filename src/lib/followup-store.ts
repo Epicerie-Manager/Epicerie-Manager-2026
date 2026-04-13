@@ -4,9 +4,14 @@ import { normalizeRhEmployeeRole } from "@/lib/rh-status";
 import { countDaysExcludingSundays } from "@/lib/absence-days";
 import {
   METRE_A_METRE_SECTIONS,
+  METRE_A_METRE_SECTIONS_APRES_MIDI,
   computeGlobalScore,
   computeSectionScore,
   createEmptyMetreAuditDraft,
+  getFollowupTypeForShift,
+  getSectionsForShift,
+  getShiftFromFollowupType,
+  type AuditShift,
   type MetreAuditDraft,
 } from "@/lib/metre-a-metre-config";
 
@@ -36,6 +41,7 @@ export type FollowupFieldVisitSetup = {
 type FollowupRow = {
   id: string;
   employee_id: string;
+  followup_type?: string;
   audit_date: string;
   rayon: string;
   manager_name: string;
@@ -91,11 +97,13 @@ type AbsenceYearRow = {
   type: string | null;
 };
 
-const FOLLOWUP_EXCLUDED_NAMES = new Set(["DILAXSHAN"]);
+const FOLLOWUP_EXCLUDED_NAMES = new Set<string>();
+const FOLLOWUP_FIELD_VISIT_INCLUDED_NAMES = new Set(["ABDOU", "DILAXSHAN", "MASSIMO"]);
 
 export type MetreAuditListItem = {
   id: string;
   employeeId: string;
+  shift: AuditShift;
   auditDate: string;
   rayon: string;
   managerName: string;
@@ -157,8 +165,10 @@ export type EmployeeAbsenceYearStats = {
   lastAbsenceType: string | null;
 };
 
-const sectionConfigByKey = new Map<string, (typeof METRE_A_METRE_SECTIONS)[number]>(
-  METRE_A_METRE_SECTIONS.map((section) => [section.key, section]),
+const allMetreSections = [...METRE_A_METRE_SECTIONS, ...METRE_A_METRE_SECTIONS_APRES_MIDI];
+
+const sectionConfigByKey = new Map<string, (typeof allMetreSections)[number]>(
+  allMetreSections.map((section) => [section.key, section]),
 );
 
 function computeStoredAuditGlobalScore(
@@ -166,7 +176,10 @@ function computeStoredAuditGlobalScore(
   fallbackScore: number,
 ) {
   if (!sections.length) return fallbackScore;
-  const totalCoefficient = METRE_A_METRE_SECTIONS.reduce((sum, section) => sum + section.coefficient, 0);
+  const activeConfigs = sections
+    .map((section) => sectionConfigByKey.get(section.key))
+    .filter((section): section is (typeof allMetreSections)[number] => Boolean(section));
+  const totalCoefficient = activeConfigs.reduce((sum, section) => sum + section.coefficient, 0);
   if (!totalCoefficient) return fallbackScore;
 
   const weighted = sections.reduce((sum, section) => {
@@ -179,7 +192,8 @@ function computeStoredAuditGlobalScore(
 }
 
 function buildSectionRowsForAudit(followupId: string, draft: MetreAuditDraft) {
-  return METRE_A_METRE_SECTIONS.map((section, sectionIndex) => ({
+  const activeSections = getSectionsForShift(draft.shift);
+  return activeSections.map((section, sectionIndex) => ({
     followup_id: followupId,
     section_key: section.key,
     section_label: section.label,
@@ -195,7 +209,8 @@ function buildItemRowsForAudit(
   sectionIdsByKey: Map<string, string>,
   draft: MetreAuditDraft,
 ) {
-  return METRE_A_METRE_SECTIONS.flatMap((section) => {
+  const activeSections = getSectionsForShift(draft.shift);
+  return activeSections.flatMap((section) => {
     const sectionId = sectionIdsByKey.get(section.key);
     if (!sectionId) return [];
     const response = draft.sections[section.key];
@@ -287,7 +302,6 @@ export async function loadFollowupEmployees(): Promise<FollowupEmployeeOption[]>
   const { data, error } = await supabase
     .from("employees")
     .select("id,name,tg_rayons,actif,type,observation")
-    .eq("actif", true)
     .order("name");
 
   if (error) throw error;
@@ -295,9 +309,10 @@ export async function loadFollowupEmployees(): Promise<FollowupEmployeeOption[]>
   return ((data ?? []) as EmployeeRow[]).map((employee) => {
     const role = normalizeRhEmployeeRole(employee.observation, employee.type ?? undefined);
     const normalizedName = String(employee.name ?? "").trim().toUpperCase();
+    const forceFieldVisitInclusion = FOLLOWUP_FIELD_VISIT_INCLUDED_NAMES.has(normalizedName);
     const eligible =
-      employee.actif === true &&
-      role === "COLLABORATEUR" &&
+      (employee.actif === true || forceFieldVisitInclusion) &&
+      (role === "COLLABORATEUR" || forceFieldVisitInclusion) &&
       !FOLLOWUP_EXCLUDED_NAMES.has(normalizedName);
 
     return {
@@ -308,7 +323,10 @@ export async function loadFollowupEmployees(): Promise<FollowupEmployeeOption[]>
         : [],
       role,
       eligibleForFieldVisit: eligible,
-      eligibleForBalisage: eligible,
+      eligibleForBalisage:
+        employee.actif === true &&
+        role === "COLLABORATEUR" &&
+        !FOLLOWUP_EXCLUDED_NAMES.has(normalizedName),
     };
   });
 }
@@ -369,7 +387,7 @@ export async function saveMetreAudit(draft: MetreAuditDraft) {
     .insert({
       employee_id: draft.employeeId,
       manager_user_id: user?.id ?? null,
-      followup_type: "metre_a_metre",
+      followup_type: getFollowupTypeForShift(draft.shift),
       audit_date: draft.auditDate,
       rayon: draft.rayon.trim(),
       manager_name: draft.managerName.trim(),
@@ -407,6 +425,7 @@ export async function updateMetreAudit(auditId: string, draft: MetreAuditDraft) 
     .update({
       employee_id: draft.employeeId,
       manager_user_id: user?.id ?? null,
+      followup_type: getFollowupTypeForShift(draft.shift),
       audit_date: draft.auditDate,
       rayon: draft.rayon.trim(),
       manager_name: draft.managerName.trim(),
@@ -415,7 +434,7 @@ export async function updateMetreAudit(auditId: string, draft: MetreAuditDraft) 
       progress_axes: draft.progressAxes.trim(),
     })
     .eq("id", auditId)
-    .eq("followup_type", "metre_a_metre");
+    .in("followup_type", ["metre_a_metre", "metre_a_metre_apres_midi"]);
 
   if (updateError) throw updateError;
 
@@ -431,6 +450,7 @@ export async function loadRecentMetreAudits(limit = 20): Promise<MetreAuditListI
     .select(`
       id,
       employee_id,
+      followup_type,
       audit_date,
       rayon,
       manager_name,
@@ -443,7 +463,7 @@ export async function loadRecentMetreAudits(limit = 20): Promise<MetreAuditListI
         score
       )
     `)
-    .eq("followup_type", "metre_a_metre")
+    .in("followup_type", ["metre_a_metre", "metre_a_metre_apres_midi"])
     .order("audit_date", { ascending: false })
     .order("created_at", { ascending: false })
     .limit(limit);
@@ -462,6 +482,7 @@ export async function loadRecentMetreAudits(limit = 20): Promise<MetreAuditListI
     return {
       id: String(row.id),
       employeeId: String(row.employee_id),
+      shift: getShiftFromFollowupType(row.followup_type),
       auditDate: String(row.audit_date),
       rayon: String(row.rayon ?? ""),
       managerName: String(row.manager_name ?? ""),
@@ -479,7 +500,7 @@ export async function deleteMetreAudit(auditId: string) {
     .from("employee_followups")
     .delete()
     .eq("id", auditId)
-    .eq("followup_type", "metre_a_metre");
+    .in("followup_type", ["metre_a_metre", "metre_a_metre_apres_midi"]);
 
   if (error) throw error;
 }
@@ -634,6 +655,7 @@ export async function loadMetreAuditDetail(auditId: string): Promise<MetreAuditD
     .select(`
       id,
       employee_id,
+      followup_type,
       audit_date,
       rayon,
       manager_name,
@@ -705,6 +727,7 @@ export async function loadMetreAuditDetail(auditId: string): Promise<MetreAuditD
   return {
     id: String(row.id),
     employeeId: String(row.employee_id),
+    shift: getShiftFromFollowupType(row.followup_type),
     auditDate: String(row.audit_date),
     rayon: String(row.rayon ?? ""),
     managerName: String(row.manager_name ?? ""),
@@ -723,8 +746,9 @@ export async function loadMetreAuditDraft(auditId: string): Promise<MetreAuditDr
   const detail = await loadMetreAuditDetail(auditId);
   if (!detail) return null;
 
-  const draft = createEmptyMetreAuditDraft();
+  const draft = createEmptyMetreAuditDraft(detail.shift);
   draft.auditDate = detail.auditDate;
+  draft.shift = detail.shift;
   draft.rayon = detail.rayon;
   draft.managerName = detail.managerName;
   draft.collaboratorName = detail.collaboratorName;

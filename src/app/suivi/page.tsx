@@ -7,9 +7,9 @@ import { Kicker } from "@/components/ui/kicker";
 import { KPI, KPIRow } from "@/components/ui/kpi";
 import { balisageObjective } from "@/lib/balisage-data";
 import {
-  METRE_A_METRE_SECTIONS,
   computeSectionScore,
   createEmptyMetreAuditDraft,
+  getSectionsForShift,
   type BooleanAnswer,
   type MetreAuditDraft,
 } from "@/lib/metre-a-metre-config";
@@ -188,6 +188,36 @@ function CompactPill({
     >
       {children}
     </button>
+  );
+}
+
+function AuditShiftBadge({ shift }: { shift: MetreAuditDraft["shift"] }) {
+  const isMorning = shift === "matin";
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: 24,
+        padding: "0 10px",
+        borderRadius: 999,
+        fontSize: 11,
+        fontWeight: 800,
+        whiteSpace: "nowrap",
+        background: isMorning ? "#fff7ed" : "#eff6ff",
+        border: `1px solid ${isMorning ? "#fdba74" : "#bfdbfe"}`,
+        color: isMorning ? "#b45309" : "#1d4ed8",
+      }}
+    >
+      {isMorning ? "Matin" : "Après-midi"}
+    </span>
+  );
+}
+
+function getExpandedFormSectionsForShift(shift: MetreAuditDraft["shift"]) {
+  return Object.fromEntries(
+    getSectionsForShift(shift).map((section, index) => [section.key, index === 0]),
   );
 }
 
@@ -474,7 +504,7 @@ export default function SuiviPage() {
   const [editingAuditId, setEditingAuditId] = useState<string | null>(null);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [expandedFormSections, setExpandedFormSections] = useState<Record<string, boolean>>(() =>
-    Object.fromEntries(METRE_A_METRE_SECTIONS.map((section, index) => [section.key, index === 0])),
+    getExpandedFormSectionsForShift("matin"),
   );
   const [expandedAuditSections, setExpandedAuditSections] = useState<Record<string, boolean>>({});
   const [showAllBalisageMonths, setShowAllBalisageMonths] = useState(false);
@@ -564,10 +594,11 @@ export default function SuiviPage() {
     () => employees.find((employee) => employee.id === draft.employeeId) ?? null,
     [draft.employeeId, employees],
   );
+  const activeSections = useMemo(() => getSectionsForShift(draft.shift), [draft.shift]);
 
   const completedSections = useMemo(
     () =>
-      METRE_A_METRE_SECTIONS.filter((section) => {
+      activeSections.filter((section) => {
         const response = draft.sections[section.key];
         const ratingCount = Object.values(response.ratings).filter((value) => typeof value === "number").length;
         const booleanCount = Object.values(response.booleans).filter((value) => value === "OUI" || value === "NON").length;
@@ -575,7 +606,7 @@ export default function SuiviPage() {
           ? ratingCount === section.questions.length
           : booleanCount === section.questions.length;
       }).length,
-    [draft],
+    [activeSections, draft],
   );
 
   const averageAuditScore = useMemo(
@@ -1045,7 +1076,7 @@ export default function SuiviPage() {
     }
   }, [selectedAuditId, selectedEmployeeSnapshot]);
 
-  const setDraftField = (key: keyof MetreAuditDraft, value: string) => {
+  const setDraftField = <K extends keyof MetreAuditDraft>(key: K, value: MetreAuditDraft[K]) => {
     setDraft((current) => ({ ...current, [key]: value }));
   };
 
@@ -1116,12 +1147,13 @@ export default function SuiviPage() {
   };
 
   const resetDraftToCreateMode = () => {
+    const nextShift = draft.shift;
     setEditingAuditId(null);
     setDraft((current) => ({
-      ...createEmptyMetreAuditDraft(),
+      ...createEmptyMetreAuditDraft(current.shift),
       managerName: current.managerName,
     }));
-    setExpandedFormSections(Object.fromEntries(METRE_A_METRE_SECTIONS.map((section, index) => [section.key, index === 0])));
+    setExpandedFormSections(getExpandedFormSectionsForShift(nextShift));
   };
 
   const handleSave = async () => {
@@ -1217,7 +1249,7 @@ export default function SuiviPage() {
       setDraft(existingDraft);
       setSelectedEmployeeId(existingDraft.employeeId);
       setView("form");
-      setExpandedFormSections(Object.fromEntries(METRE_A_METRE_SECTIONS.map((section, index) => [section.key, index === 0])));
+      setExpandedFormSections(getExpandedFormSectionsForShift(existingDraft.shift));
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Impossible de charger l'audit à modifier.");
     } finally {
@@ -1368,7 +1400,7 @@ export default function SuiviPage() {
             </div>
 
             <div style={{ display: "grid", gap: 12, marginTop: 16 }}>
-              {METRE_A_METRE_SECTIONS.map((section) => {
+              {activeSections.map((section) => {
                 const response = draft.sections[section.key];
                 const sectionScore = computeSectionScore(section, response);
                 const sectionTone = statusTone(sectionScore);
@@ -1593,7 +1625,7 @@ export default function SuiviPage() {
               </div>
 
               <div style={{ display: "grid", gap: 8 }}>
-                {METRE_A_METRE_SECTIONS.map((section) => {
+                {activeSections.map((section) => {
                   const score = computeSectionScore(section, draft.sections[section.key]);
                   return (
                     <div
@@ -1622,7 +1654,7 @@ export default function SuiviPage() {
               <div style={{ borderRadius: 12, border: "1px dashed #d6ccfa", background: "#faf7ff", padding: "12px 14px" }}>
                 <div style={{ fontSize: 12, fontWeight: 700, color: "#6d28d9" }}>Avancement</div>
                 <div style={{ fontSize: 12, color: "#475569", marginTop: 4, lineHeight: 1.6 }}>
-                  {completedSections}/{METRE_A_METRE_SECTIONS.length} sections complétées. Le score global se met à jour en direct à mesure de la saisie.
+                  {completedSections}/{activeSections.length} sections complétées. Le score global se met à jour en direct à mesure de la saisie.
                 </div>
               </div>
             </div>
@@ -2137,14 +2169,17 @@ export default function SuiviPage() {
                               textAlign: "left",
                               cursor: "pointer",
                             }}
-                          >
-                            <div style={{ minWidth: 0 }}>
-                              <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}>
-                                {audit.collaboratorName} · {formatAuditDate(audit.auditDate)}
-                              </div>
-                              <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 3 }}>
-                                {audit.rayon} · {audit.managerName || "Manager non renseigné"}
-                              </div>
+                            >
+                              <div style={{ minWidth: 0 }}>
+                                <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+                                  <div style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}>
+                                    {audit.collaboratorName} · {formatAuditDate(audit.auditDate)}
+                                  </div>
+                                  <AuditShiftBadge shift={audit.shift} />
+                                </div>
+                                <div style={{ fontSize: 11, color: "#94a3b8", marginTop: 3 }}>
+                                  {audit.rayon} · {audit.managerName || "Manager non renseigné"}
+                                </div>
                             </div>
                             <div style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
                               <span
@@ -2492,7 +2527,10 @@ export default function SuiviPage() {
                             <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: auditTone.accent }}>
                               Fiche de visite
                             </div>
-                            <h3 style={{ margin: "4px 0 0", fontSize: 20, lineHeight: 1.05, color: "#0f172a" }}>{selectedAuditDetail.collaboratorName}</h3>
+                            <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap", marginTop: 4 }}>
+                              <h3 style={{ margin: 0, fontSize: 20, lineHeight: 1.05, color: "#0f172a" }}>{selectedAuditDetail.collaboratorName}</h3>
+                              <AuditShiftBadge shift={selectedAuditDetail.shift} />
+                            </div>
                             <div style={{ fontSize: 11, color: "#475569", marginTop: 6 }}>
                               Date : {formatAuditDate(selectedAuditDetail.auditDate)} · Rayon : {selectedAuditDetail.rayon}
                             </div>
@@ -2755,14 +2793,14 @@ export default function SuiviPage() {
                 <div style={{ borderRadius: 18, border: "1px solid #e9ddff", background: "#fff", padding: "12px 14px" }}>
                   <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
                     <div>
-                      <div style={{ fontSize: 13, fontWeight: 800, color: "#0f172a" }}>Présentation rayon</div>
+                      <div style={{ fontSize: 13, fontWeight: 800, color: "#0f172a" }}>{activeSections[0]?.label ?? "Section terrain"}</div>
                       <div style={{ fontSize: 11, color: "#64748b", marginTop: 2 }}>Notation tactile en un geste</div>
                     </div>
-                    <SectionScoreBadge score={computeSectionScore(METRE_A_METRE_SECTIONS[0], draft.sections.presentation_rayon)} />
+                    <SectionScoreBadge score={activeSections[0] ? computeSectionScore(activeSections[0], draft.sections[activeSections[0].key]) : 0} />
                   </div>
 
                   <div style={{ display: "grid", gap: 8, marginTop: 12 }}>
-                    {METRE_A_METRE_SECTIONS[0].questions.slice(0, 3).map((question) => (
+                    {(activeSections[0]?.questions ?? []).slice(0, 3).map((question) => (
                       <div key={question.key} style={{ borderRadius: 12, border: "1px solid #f1eaff", background: "#faf7ff", padding: "10px 12px" }}>
                         <div style={{ fontSize: 12, fontWeight: 700, color: "#334155" }}>{question.label}</div>
                         <div style={{ display: "flex", gap: 6, marginTop: 8 }}>

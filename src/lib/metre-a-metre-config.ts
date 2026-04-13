@@ -1,5 +1,6 @@
 export type MetreQuestionType = "rating" | "boolean";
 export type BooleanAnswer = "OUI" | "NON" | null;
+export type AuditShift = "matin" | "apres_midi";
 
 export type MetreQuestion = {
   key: string;
@@ -8,13 +9,23 @@ export type MetreQuestion = {
   expectedAnswer?: "OUI" | "NON";
 };
 
+export type MetreSectionKey =
+  | "presentation_rayon"
+  | "balisage_signaletique"
+  | "ruptures_fraicheur"
+  | "reserve_logistique"
+  | "epi"
+  | "am_etat_reserve"
+  | "am_tri_caddie"
+  | "am_remplissage_produits_cles"
+  | "am_tg_plateau"
+  | "am_balisage_prix"
+  | "am_proprete_rayon"
+  | "am_ruptures_tenue"
+  | "am_epi";
+
 export type MetreSection = {
-  key:
-    | "presentation_rayon"
-    | "balisage_signaletique"
-    | "ruptures_fraicheur"
-    | "reserve_logistique"
-    | "epi";
+  key: MetreSectionKey;
   label: string;
   coefficient: number;
   type: MetreQuestionType;
@@ -87,6 +98,90 @@ export const METRE_A_METRE_SECTIONS: MetreSection[] = [
   },
 ];
 
+export const METRE_A_METRE_SECTIONS_APRES_MIDI: MetreSection[] = [
+  {
+    key: "am_etat_reserve",
+    label: "État de la Réserve",
+    coefficient: 15,
+    type: "rating",
+    questions: [
+      { key: "am_reserve_general_state", label: "État général de la réserve", type: "rating" },
+    ],
+  },
+  {
+    key: "am_tri_caddie",
+    label: "Tri Caddie",
+    coefficient: 10,
+    type: "boolean",
+    questions: [
+      { key: "am_trolley_sorting_done", label: "Tri caddie effectué", type: "boolean", expectedAnswer: "OUI" },
+    ],
+  },
+  {
+    key: "am_remplissage_produits_cles",
+    label: "Remplissage Produits Clés",
+    coefficient: 25,
+    type: "boolean",
+    questions: [
+      { key: "am_fill_farine", label: "Farine", type: "boolean", expectedAnswer: "OUI" },
+      { key: "am_fill_sucre", label: "Sucre", type: "boolean", expectedAnswer: "OUI" },
+      { key: "am_fill_huile", label: "Huile", type: "boolean", expectedAnswer: "OUI" },
+      { key: "am_fill_nutella", label: "Nutella", type: "boolean", expectedAnswer: "OUI" },
+      { key: "am_fill_cafe_carte_noire", label: "Café Carte Noire", type: "boolean", expectedAnswer: "OUI" },
+      { key: "am_fill_pain_de_mie", label: "Pain de mie", type: "boolean", expectedAnswer: "OUI" },
+      { key: "am_fill_viennoiserie", label: "Viennoiserie", type: "boolean", expectedAnswer: "OUI" },
+    ],
+  },
+  {
+    key: "am_tg_plateau",
+    label: "TG & Plateau",
+    coefficient: 10,
+    type: "boolean",
+    questions: [
+      { key: "am_tg_filled", label: "TG remplies", type: "boolean", expectedAnswer: "OUI" },
+      { key: "am_plateau_filled", label: "Plateau rempli", type: "boolean", expectedAnswer: "OUI" },
+    ],
+  },
+  {
+    key: "am_balisage_prix",
+    label: "Balisage Prix",
+    coefficient: 10,
+    type: "boolean",
+    questions: [
+      { key: "am_price_labels_ok", label: "Balisage prix en place", type: "boolean", expectedAnswer: "OUI" },
+    ],
+  },
+  {
+    key: "am_proprete_rayon",
+    label: "Propreté Rayon",
+    coefficient: 10,
+    type: "boolean",
+    questions: [
+      { key: "am_cardboard_plastic_in_aisle", label: "Plastiques / cartons dans les rayons", type: "boolean", expectedAnswer: "NON" },
+    ],
+  },
+  {
+    key: "am_ruptures_tenue",
+    label: "Ruptures & Tenue Rayon",
+    coefficient: 10,
+    type: "rating",
+    questions: [
+      { key: "am_visual_stockouts", label: "Ruptures visuelles", type: "rating" },
+      { key: "am_general_upkeep", label: "Tenue générale du rayon", type: "rating" },
+    ],
+  },
+  {
+    key: "am_epi",
+    label: "EPI",
+    coefficient: 10,
+    type: "boolean",
+    questions: [
+      { key: "am_auchan_vest_worn", label: "Gilet Auchan", type: "boolean", expectedAnswer: "OUI" },
+      { key: "am_safety_shoes_worn", label: "Chaussures de sécurité portées", type: "boolean", expectedAnswer: "OUI" },
+    ],
+  },
+];
+
 export type MetreSectionResponse = {
   comment: string;
   ratings: Record<string, number | null>;
@@ -95,6 +190,7 @@ export type MetreSectionResponse = {
 
 export type MetreAuditDraft = {
   auditDate: string;
+  shift: AuditShift;
   rayon: string;
   managerName: string;
   collaboratorName: string;
@@ -103,9 +199,22 @@ export type MetreAuditDraft = {
   sections: Record<string, MetreSectionResponse>;
 };
 
-export function createEmptyMetreAuditDraft(): MetreAuditDraft {
+export function getSectionsForShift(shift: AuditShift): MetreSection[] {
+  return shift === "matin" ? METRE_A_METRE_SECTIONS : METRE_A_METRE_SECTIONS_APRES_MIDI;
+}
+
+export function getFollowupTypeForShift(shift: AuditShift) {
+  return shift === "matin" ? "metre_a_metre" : "metre_a_metre_apres_midi";
+}
+
+export function getShiftFromFollowupType(followupType: string | null | undefined): AuditShift {
+  return followupType === "metre_a_metre_apres_midi" ? "apres_midi" : "matin";
+}
+
+export function createEmptyMetreAuditDraft(shift: AuditShift = "matin"): MetreAuditDraft {
+  const activeSections = getSectionsForShift(shift);
   const sections = Object.fromEntries(
-    METRE_A_METRE_SECTIONS.map((section) => [
+    activeSections.map((section) => [
       section.key,
       {
         comment: "",
@@ -125,6 +234,7 @@ export function createEmptyMetreAuditDraft(): MetreAuditDraft {
 
   return {
     auditDate: new Date().toISOString().slice(0, 10),
+    shift,
     rayon: "",
     managerName: "",
     collaboratorName: "",
@@ -156,9 +266,11 @@ export function computeSectionScore(section: MetreSection, response: MetreSectio
 }
 
 export function computeGlobalScore(draft: MetreAuditDraft) {
-  const totalCoefficient = METRE_A_METRE_SECTIONS.reduce((sum, section) => sum + section.coefficient, 0);
-  const weighted = METRE_A_METRE_SECTIONS.reduce((sum, section) => {
+  const activeSections = getSectionsForShift(draft.shift);
+  const totalCoefficient = activeSections.reduce((sum, section) => sum + section.coefficient, 0);
+  const weighted = activeSections.reduce((sum, section) => {
     const sectionResponse = draft.sections[section.key];
+    if (!sectionResponse) return sum;
     const sectionScore = computeSectionScore(section, sectionResponse);
     return sum + sectionScore * section.coefficient;
   }, 0);

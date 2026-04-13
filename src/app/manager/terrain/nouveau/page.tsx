@@ -4,10 +4,11 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useRef, useState } from "react";
 import {
-  METRE_A_METRE_SECTIONS,
   computeGlobalScore,
   computeSectionScore,
   createEmptyMetreAuditDraft,
+  getSectionsForShift,
+  type AuditShift,
   type BooleanAnswer,
   type MetreAuditDraft,
 } from "@/lib/metre-a-metre-config";
@@ -69,6 +70,7 @@ function ManagerNewTerrainVisitPageContent() {
   const [employees, setEmployees] = useState<FollowupEmployeeOption[]>([]);
   const [rayons, setRayons] = useState<string[]>([]);
   const [draft, setDraft] = useState<MetreAuditDraft>(() => createEmptyMetreAuditDraft());
+  const [shift, setShift] = useState<AuditShift>("matin");
   const [activeSectionIndex, setActiveSectionIndex] = useState(0);
   const [saving, setSaving] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -112,6 +114,7 @@ function ManagerNewTerrainVisitPageContent() {
         setEmployees(effectiveEmployees);
         setRayons(availableRayons);
         if (existingDraft) {
+          setShift(existingDraft.shift);
           setDraft({
             ...existingDraft,
             managerName: existingDraft.managerName || managerName,
@@ -139,9 +142,10 @@ function ManagerNewTerrainVisitPageContent() {
     };
   }, [auditId, isEditMode]);
 
-  const activeSection = METRE_A_METRE_SECTIONS[activeSectionIndex];
+  const activeSections = getSectionsForShift(shift);
+  const activeSection = activeSections[activeSectionIndex];
   const globalScore = computeGlobalScore(draft);
-  const completedSections = METRE_A_METRE_SECTIONS.filter((section) => {
+  const completedSections = activeSections.filter((section) => {
     const response = draft.sections[section.key];
     const answeredCount = section.type === "rating"
       ? Object.values(response.ratings).filter((value) => typeof value === "number").length
@@ -150,6 +154,23 @@ function ManagerNewTerrainVisitPageContent() {
   }).length;
   const activeResponse = draft.sections[activeSection.key];
   const activeSectionScore = computeSectionScore(activeSection, activeResponse);
+
+  const handleShiftChange = (newShift: AuditShift) => {
+    if (newShift === shift) return;
+    setShift(newShift);
+    setActiveSectionIndex(0);
+    setDraft((prev) => {
+      const fresh = createEmptyMetreAuditDraft(newShift);
+      return {
+        ...fresh,
+        auditDate: prev.auditDate,
+        rayon: prev.rayon,
+        managerName: prev.managerName,
+        collaboratorName: prev.collaboratorName,
+        employeeId: prev.employeeId,
+      };
+    });
+  };
 
   const handleEmployeeChange = (employeeId: string) => {
     const employee = employees.find((entry) => entry.id === employeeId);
@@ -227,7 +248,10 @@ function ManagerNewTerrainVisitPageContent() {
           : `Audit enregistré avec succès, score global ${Math.round(result.globalScore)}%.`,
       );
       if (!isEditMode) {
-        setDraft((current) => ({ ...createEmptyMetreAuditDraft(), managerName: current.managerName }));
+        setDraft((current) => ({
+          ...createEmptyMetreAuditDraft(shift),
+          managerName: current.managerName,
+        }));
         setActiveSectionIndex(0);
       }
     } catch (saveError) {
@@ -280,13 +304,43 @@ function ManagerNewTerrainVisitPageContent() {
       </div>
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
-        <div style={metricTileStyle()}><div style={{ fontSize: 11, color: "#6b7280" }}>Progression</div><div style={{ marginTop: 6, fontSize: 24, fontWeight: 800, color: "#111827" }}>{completedSections}/5</div></div>
+        <div style={metricTileStyle()}><div style={{ fontSize: 11, color: "#6b7280" }}>Progression</div><div style={{ marginTop: 6, fontSize: 24, fontWeight: 800, color: "#111827" }}>{completedSections}/{activeSections.length}</div></div>
         <div style={metricTileStyle()}><div style={{ fontSize: 11, color: "#6b7280" }}>Score live</div><div style={{ marginTop: 6, fontSize: 24, fontWeight: 800, color: "#7c2d12" }}>{Math.round(globalScore)}%</div></div>
         <div style={metricTileStyle()}><div style={{ fontSize: 11, color: "#6b7280" }}>Section</div><div style={{ marginTop: 6, fontSize: 24, fontWeight: 800, color: "#6d28d9" }}>{activeSectionIndex + 1}</div></div>
       </div>
 
       <div ref={sectionTopRef} style={shellCard()}>
         <div style={{ display: "grid", gap: 12 }}>
+          <div style={{ display: "grid", gap: 5 }}>
+            <span style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>Équipe auditée</span>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8, padding: 4, borderRadius: 20, background: "#fff7fb", border: "1px solid #fbcfe8" }}>
+              {([
+                { value: "matin", label: "☀️ Matin - Ouverture" },
+                { value: "apres_midi", label: "🌙 AM - Maintenance" },
+              ] as const).map((option) => {
+                const active = shift === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => handleShiftChange(option.value)}
+                    style={{
+                      minHeight: 44,
+                      borderRadius: 16,
+                      border: "none",
+                      background: active ? "linear-gradient(135deg, #be123c, #ef4444)" : "transparent",
+                      color: active ? "#fff" : "#6b7280",
+                      fontSize: 13,
+                      fontWeight: 800,
+                      boxShadow: active ? "0 10px 24px rgba(190,24,93,0.18)" : "none",
+                    }}
+                  >
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
           <label style={{ display: "grid", gap: 5 }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>Collaborateur</span>
             <select value={draft.employeeId} onChange={(event) => handleEmployeeChange(event.target.value)} style={{ minHeight: 48, borderRadius: 18, border: "1px solid #d8d1c8", padding: "0 14px", fontSize: 14, background: "#fff" }}>
@@ -322,7 +376,7 @@ function ManagerNewTerrainVisitPageContent() {
         <div style={{ display: "grid", gap: 12 }}>
           <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "baseline" }}>
             <div>
-              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#6d28d9" }}>Section {activeSectionIndex + 1} / {METRE_A_METRE_SECTIONS.length}</div>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#6d28d9" }}>Section {activeSectionIndex + 1} / {activeSections.length}</div>
               <div style={{ marginTop: 6, fontSize: 24, fontWeight: 800, letterSpacing: "-0.05em", color: "#111827" }}>{activeSection.label}</div>
             </div>
             <div style={{ borderRadius: 999, padding: "8px 10px", background: activeSectionScore >= 80 ? "#ecfdf5" : activeSectionScore >= 60 ? "#fffbeb" : "#fef2f2", color: activeSectionScore >= 80 ? "#166534" : activeSectionScore >= 60 ? "#92400e" : "#b91c1c", fontSize: 12, fontWeight: 800 }}>
@@ -331,7 +385,7 @@ function ManagerNewTerrainVisitPageContent() {
           </div>
 
           <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-            {METRE_A_METRE_SECTIONS.map((section, index) => {
+            {activeSections.map((section, index) => {
               const currentScore = computeSectionScore(section, draft.sections[section.key]);
               const active = index === activeSectionIndex;
               return (
@@ -478,7 +532,7 @@ function ManagerNewTerrainVisitPageContent() {
             >
               Section précédente
             </button>
-            {activeSectionIndex === METRE_A_METRE_SECTIONS.length - 1 ? (
+            {activeSectionIndex === activeSections.length - 1 ? (
               <button
                 type="button"
                 onClick={() => scrollToProgressAxes()}
@@ -500,7 +554,7 @@ function ManagerNewTerrainVisitPageContent() {
                 type="button"
                 onClick={() => {
                   setActiveSectionIndex((current) => {
-                    const next = Math.min(current + 1, METRE_A_METRE_SECTIONS.length - 1);
+                    const next = Math.min(current + 1, activeSections.length - 1);
                     requestAnimationFrame(() => scrollToActiveSection());
                     return next;
                   });

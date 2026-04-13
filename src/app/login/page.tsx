@@ -33,6 +33,7 @@ export default function LoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -237,7 +238,7 @@ export default function LoginPage() {
               required
               value={email}
               onChange={(event) => setEmail(event.target.value)}
-              placeholder="prenom.nom@..."
+              placeholder="prenom@ep.fr"
               style={{
                 minHeight: 46,
                 borderRadius: 10,
@@ -253,25 +254,66 @@ export default function LoginPage() {
             />
 
             <label style={{ fontSize: 12, fontWeight: 500, color: "#888", marginTop: 2 }}>Mot de passe</label>
-            <input
-              type="password"
-              required
-              value={password}
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="Mot de passe"
-              style={{
-                minHeight: 46,
-                borderRadius: 10,
-                border: `1px solid ${INPUT_BORDER}`,
-                background: INPUT_BG,
-                padding: "0 14px",
-                fontSize: 14,
-                color: TEXT,
-                colorScheme: "light",
-                outline: "none",
-                fontFamily: "var(--font-dm-sans), sans-serif",
-              }}
-            />
+            <div style={{ position: "relative" }}>
+              <input
+                type={showPassword ? "text" : "password"}
+                required
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="Mot de passe"
+                style={{
+                  minHeight: 46,
+                  width: "100%",
+                  borderRadius: 10,
+                  border: `1px solid ${INPUT_BORDER}`,
+                  background: INPUT_BG,
+                  padding: "0 50px 0 14px",
+                  fontSize: 14,
+                  color: TEXT,
+                  colorScheme: "light",
+                  outline: "none",
+                  fontFamily: "var(--font-dm-sans), sans-serif",
+                }}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword((current) => !current)}
+                aria-label={showPassword ? "Masquer le mot de passe" : "Afficher le mot de passe"}
+                aria-pressed={showPassword}
+                style={{
+                  position: "absolute",
+                  top: "50%",
+                  right: 10,
+                  transform: "translateY(-50%)",
+                  width: 30,
+                  height: 30,
+                  borderRadius: 999,
+                  border: "none",
+                  background: "transparent",
+                  color: "#8B8178",
+                  display: "grid",
+                  placeItems: "center",
+                  cursor: "pointer",
+                  padding: 0,
+                }}
+              >
+                <svg
+                  width="18"
+                  height="18"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.9"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  aria-hidden="true"
+                >
+                  <path d="M2 12s3.6-6 10-6 10 6 10 6-3.6 6-10 6-10-6-10-6Z" />
+                  <circle cx="12" cy="12" r="3" />
+                  {showPassword ? <path d="M4 4 20 20" /> : null}
+                </svg>
+              </button>
+            </div>
 
             {error ? (
               <div

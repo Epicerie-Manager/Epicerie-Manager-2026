@@ -1091,9 +1091,9 @@ export async function loadRupturesDashboard(selectedDate?: string, historyRange:
     loadRupturesImports(120),
   ]);
 
-  const availableDates = Array.from(new Set(recentImports.map((item) => item.dateKey))).sort((left, right) => right.localeCompare(left));
-  const fallbackDate = availableDates[0] ?? formatLocalIsoDate(new Date());
-  const effectiveDate = selectedDate && availableDates.includes(selectedDate) ? selectedDate : fallbackDate;
+  const todayDate = formatLocalIsoDate(new Date());
+  const availableDates = Array.from(new Set([todayDate, ...recentImports.map((item) => item.dateKey)])).sort((left, right) => right.localeCompare(left));
+  const effectiveDate = selectedDate ?? todayDate;
 
   const morningImport = recentImports.find((item) => item.dateKey === effectiveDate && item.period === "matin") ?? null;
   const finImport = recentImports.find((item) => item.dateKey === effectiveDate && item.period === "fin_matinee") ?? null;

@@ -34,6 +34,16 @@ import {
 } from "@/lib/ruptures-store";
 
 type ViewMode = "equipe" | "collaborateurs" | "historique";
+type ImportSlotStatus = "ok" | "pending" | "missing";
+
+type DailyImportStatusGroup = {
+  dateKey: string;
+  label: string;
+  morningImport: RuptureImportRow | null;
+  finImport: RuptureImportRow | null;
+  morningStatus: ImportSlotStatus;
+  finStatus: ImportSlotStatus;
+};
 
 const baseCardStyle: React.CSSProperties = {
   background: "#fff",
@@ -87,11 +97,117 @@ function EmptyState({ text }: { text: string }) {
   );
 }
 
+function getImportStatusTone(status: ImportSlotStatus) {
+  if (status === "ok") {
+    return {
+      background: "#f0fdf4",
+      border: "#bbf7d0",
+      color: "#166534",
+      label: "OK",
+    };
+  }
+  if (status === "pending") {
+    return {
+      background: "#fff7ed",
+      border: "#fdba74",
+      color: "#c2410c",
+      label: "En attente",
+    };
+  }
+  return {
+    background: "#fef2f2",
+    border: "#fecaca",
+    color: "#b91c1c",
+    label: "Manquant",
+  };
+}
+
+function computeDailyImportStatusGroups(
+  recentImports: RuptureImportRow[],
+  selectedDate: string,
+) {
+  const grouped = new Map<string, { morningImport: RuptureImportRow | null; finImport: RuptureImportRow | null }>();
+  const todayDate = formatLocalIsoDate(new Date());
+
+  recentImports.forEach((item) => {
+    const current = grouped.get(item.dateKey) ?? { morningImport: null, finImport: null };
+    if (item.period === "matin") current.morningImport = item;
+    if (item.period === "fin_matinee") current.finImport = item;
+    grouped.set(item.dateKey, current);
+  });
+
+  if (!grouped.has(selectedDate)) {
+    grouped.set(selectedDate, { morningImport: null, finImport: null });
+  }
+  if (!grouped.has(todayDate)) {
+    grouped.set(todayDate, { morningImport: null, finImport: null });
+  }
+
+  return Array.from(grouped.entries())
+    .sort((left, right) => right[0].localeCompare(left[0]))
+    .map(([dateKey, value]) => {
+      const isToday = dateKey === todayDate;
+      const morningStatus: ImportSlotStatus =
+        value.morningImport
+          ? "ok"
+          : value.finImport
+            ? "missing"
+            : isToday
+              ? "pending"
+              : "missing";
+      const finStatus: ImportSlotStatus =
+        value.finImport
+          ? "ok"
+          : isToday
+            ? "pending"
+            : "missing";
+
+      return {
+        dateKey,
+        label: formatRuptureDateLabel(dateKey),
+        morningImport: value.morningImport,
+        finImport: value.finImport,
+        morningStatus,
+        finStatus,
+      } satisfies DailyImportStatusGroup;
+    });
+}
+
+function ImportStatusPill({
+  label,
+  status,
+}: {
+  label: string;
+  status: ImportSlotStatus;
+}) {
+  const tone = getImportStatusTone(status);
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: "28px",
+        borderRadius: "999px",
+        border: `1px solid ${tone.border}`,
+        background: tone.background,
+        color: tone.color,
+        padding: "0 10px",
+        fontSize: "11px",
+        fontWeight: 800,
+        whiteSpace: "nowrap",
+      }}
+    >
+      {label} · {tone.label}
+    </span>
+  );
+}
+
 function ImportPanel({
   period,
   onPeriodChange,
   selectedDate,
-  recentImports,
+  recentImportGroups,
   perimetreFileName,
   detailFileName,
   importing,
@@ -103,7 +219,7 @@ function ImportPanel({
   period: RupturePeriod;
   onPeriodChange: (period: RupturePeriod) => void;
   selectedDate: string;
-  recentImports: RuptureImportRow[];
+  recentImportGroups: DailyImportStatusGroup[];
   perimetreFileName: string;
   detailFileName: string;
   importing: boolean;
@@ -113,6 +229,8 @@ function ImportPanel({
   onImport: () => void;
 }) {
   const periodLabel = getRupturePeriodLabel(period);
+  const [historyOpen, setHistoryOpen] = useState(false);
+  const selectedGroup = recentImportGroups.find((group) => group.dateKey === selectedDate) ?? recentImportGroups[0] ?? null;
 
   return (
     <Card style={{ ...baseCardStyle, borderColor: "#ffd5d8" }}>
@@ -213,22 +331,95 @@ function ImportPanel({
       ) : null}
 
       <div style={{ display: "flex", justifyContent: "space-between", gap: "10px", alignItems: "center", flexWrap: "wrap", marginTop: "12px" }}>
-        <div style={{ display: "grid", gap: "8px" }}>
+        <div style={{ display: "grid", gap: "8px", minWidth: "min(100%, 560px)" }}>
           <div style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-            Imports récents
+            Historique des imports
           </div>
-          <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
-            {recentImports.length ? recentImports.slice(0, 10).map((item) => {
-              const active = item.dateKey === selectedDate;
-              return (
-                <button key={item.id} type="button" onClick={() => onPickDate(item.dateKey)} style={softPillStyle(active)}>
-                  {item.dateKey} · {getRupturePeriodLabel(item.period)}
-                </button>
-              );
-            }) : (
+          {recentImportGroups.length ? (
+            <div style={{ display: "grid", gap: "8px" }}>
+              <button
+                type="button"
+                onClick={() => setHistoryOpen((current) => !current)}
+                style={{
+                  minHeight: "44px",
+                  borderRadius: "14px",
+                  border: "1px solid #dbe3eb",
+                  background: "#fff",
+                  color: "#0f172a",
+                  padding: "0 14px",
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "center",
+                  gap: "12px",
+                  fontSize: "12px",
+                  fontWeight: 700,
+                  cursor: "pointer",
+                }}
+              >
+                <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  {selectedGroup ? selectedGroup.label : "Sélectionner une journée"}
+                </span>
+                <span style={{ fontSize: "11px", color: "#64748b" }}>{historyOpen ? "Refermer" : "Choisir une date"}</span>
+              </button>
+
+              {selectedGroup ? (
+                <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                  <ImportStatusPill label="Début de matinée" status={selectedGroup.morningStatus} />
+                  <ImportStatusPill label="Fin de matinée" status={selectedGroup.finStatus} />
+                </div>
+              ) : null}
+
+              {historyOpen ? (
+                <div
+                  style={{
+                    display: "grid",
+                    gap: "8px",
+                    maxHeight: "240px",
+                    overflowY: "auto",
+                    borderRadius: "16px",
+                    border: "1px solid #e5e7eb",
+                    background: "#fffaf9",
+                    padding: "10px",
+                  }}
+                >
+                  {recentImportGroups.map((group) => {
+                    const active = group.dateKey === selectedDate;
+                    return (
+                      <button
+                        key={group.dateKey}
+                        type="button"
+                        onClick={() => {
+                          onPickDate(group.dateKey);
+                          setHistoryOpen(false);
+                        }}
+                        style={{
+                          width: "100%",
+                          borderRadius: "14px",
+                          border: `1px solid ${active ? "#fecdd3" : "#ebe5df"}`,
+                          background: active ? "#fff1f2" : "#fff",
+                          padding: "10px 12px",
+                          display: "grid",
+                          gap: "8px",
+                          cursor: "pointer",
+                          textAlign: "left",
+                        }}
+                      >
+                        <div style={{ fontSize: "12px", fontWeight: 800, color: "#0f172a" }}>{group.label}</div>
+                        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                          <ImportStatusPill label="Début de matinée" status={group.morningStatus} />
+                          <ImportStatusPill label="Fin de matinée" status={group.finStatus} />
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              ) : null}
+            </div>
+          ) : (
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
               <span style={{ fontSize: "12px", color: "#94a3b8" }}>Aucun import disponible pour l&apos;instant.</span>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
         <button
@@ -1034,6 +1225,14 @@ export default function RupturesPage() {
   const [savingReassign, setSavingReassign] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
+  const dailyImportGroups = useMemo(
+    () => computeDailyImportStatusGroups(dashboardData?.recentImports ?? [], selectedDate),
+    [dashboardData?.recentImports, selectedDate],
+  );
+  const selectedDayImportGroup = useMemo(
+    () => dailyImportGroups.find((group) => group.dateKey === selectedDate) ?? dailyImportGroups[0] ?? null,
+    [dailyImportGroups, selectedDate],
+  );
 
   const refreshDashboard = async (dateOverride?: string, rangeOverride?: RuptureHistoryRange) => {
     const data = await loadRupturesDashboard(dateOverride ?? selectedDate, rangeOverride ?? historyRange);
@@ -1151,14 +1350,14 @@ export default function RupturesPage() {
         description="Import du fichier périmètre, lecture équipe, lecture collaborateurs et statistiques historiques sur le site manager."
       />
 
-      <ImportPanel
-        period={period}
-        onPeriodChange={setPeriod}
-        selectedDate={selectedDate}
-        recentImports={dashboardData?.recentImports ?? []}
-        perimetreFileName={selectedPerimetreFile?.name ?? ""}
-        detailFileName={selectedDetailFile?.name ?? ""}
-        importing={importing}
+        <ImportPanel
+          period={period}
+          onPeriodChange={setPeriod}
+          selectedDate={selectedDate}
+          recentImportGroups={dailyImportGroups}
+          perimetreFileName={selectedPerimetreFile?.name ?? ""}
+          detailFileName={selectedDetailFile?.name ?? ""}
+          importing={importing}
         error={error}
         onPickDate={(dateKey) => {
           setError("");
@@ -1187,6 +1386,10 @@ export default function RupturesPage() {
               Journée suivie
             </div>
             <div style={{ marginTop: "4px", fontSize: "18px", fontWeight: 800, color: "#0f172a" }}>{formatRuptureDateLabel(selectedDate)}</div>
+            <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "10px" }}>
+              <ImportStatusPill label="Début de matinée" status={selectedDayImportGroup?.morningStatus ?? "pending"} />
+              <ImportStatusPill label="Fin de matinée" status={selectedDayImportGroup?.finStatus ?? "pending"} />
+            </div>
           </div>
 
           <div style={{ display: "flex", gap: "8px", alignItems: "center", flexWrap: "wrap" }}>

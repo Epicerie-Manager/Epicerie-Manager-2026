@@ -21,6 +21,12 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v1.1.1 - 2026-04-14
+
+- Ruptures / Import double : l'historique des imports est maintenant regroupe par jour avec lecture visuelle des statuts `Début de matinée` et `Fin de matinée` au lieu d'une simple liste brute d'imports recents.
+- Ruptures / Statuts visuels : ajout de pastilles `OK`, `En attente` et `Manquant` pour voir d'un coup d'oeil si les deux imports attendus ont bien ete faits ou s'il manque une periode.
+- Ruptures / Jour courant : la zone `Journée suivie` se cale desormais sur la vraie date du jour, meme si aucun import n'a encore ete injecte, afin d'afficher immediatement les attentes du jour en cours.
+
 ## v1.1.0 - 2026-04-13
 
 - Collaborateur / Balisage : ajout d'une nouvelle tuile `Contrôle balisage` sur l'accueil PWA, menant à une page lecture seule avec onglets `Mon suivi` et `Vue équipe`.

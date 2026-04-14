@@ -171,20 +171,6 @@ export default function ManagerSuiviPage() {
   return (
     <section style={{ display: "grid", gap: 16 }}>
       <div style={shellCard()}>
-        <div style={{ display: "grid", gap: 8 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#6d28d9" }}>
-            Suivi collaborateur
-          </div>
-          <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.06em", color: "#111827" }}>
-            Lecture mobile du suivi
-          </div>
-          <div style={{ fontSize: 14, color: "#6b7280", lineHeight: 1.6 }}>
-            Vision équipe ou zoom sur une personne, puis ouverture d&apos;une fiche terrain seulement si besoin.
-          </div>
-        </div>
-      </div>
-
-      <div style={shellCard()}>
         <div style={{ display: "grid", gap: 10 }}>
           <label style={{ display: "grid", gap: 5 }}>
             <span style={{ fontSize: 11, fontWeight: 700, color: "#6b7280", textTransform: "uppercase", letterSpacing: "0.06em" }}>

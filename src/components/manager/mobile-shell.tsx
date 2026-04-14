@@ -63,6 +63,16 @@ const navItems: NavItem[] = [
     ),
   },
   {
+    label: "Balisage",
+    href: "/manager/balisage",
+    icon: (
+      <svg viewBox="0 0 24 24" style={iconStyle}>
+        <rect x="4" y="4" width="16" height="16" rx="3" />
+        <path d="M8 12.5l2.5 2.5L16.5 9" />
+      </svg>
+    ),
+  },
+  {
     label: "Suivi",
     href: "/manager/suivi",
     icon: (
@@ -99,6 +109,7 @@ const navItems: NavItem[] = [
 function getSectionTitle(pathname: string) {
   if (pathname.startsWith("/manager/terrain")) return "Saisie terrain";
   if (pathname.startsWith("/manager/planning")) return "Planning manager";
+  if (pathname.startsWith("/manager/balisage")) return "Balisage manager";
   if (pathname.startsWith("/manager/suivi")) return "Suivi collaborateur";
   if (pathname.startsWith("/manager/absences")) return "Absences manager";
   if (pathname.startsWith("/manager/infos")) return "Infos manager";
@@ -366,13 +377,13 @@ export function ManagerMobileShell({ version, children }: ManagerMobileShellProp
           zIndex: 30,
         }}
       >
-        <div
-          style={{
-            display: "grid",
-            gridTemplateColumns: "repeat(6, minmax(0, 1fr))",
-            gap: 6,
-            padding: isWideLandscape ? "7px" : "10px",
-            borderRadius: 26,
+          <div
+            style={{
+              display: "grid",
+              gridTemplateColumns: "repeat(7, minmax(0, 1fr))",
+              gap: 6,
+              padding: isWideLandscape ? "7px" : "10px",
+              borderRadius: 26,
             background: isWideLandscape ? "rgba(17,24,39,0.76)" : "rgba(17,24,39,0.92)",
             backdropFilter: "blur(18px)",
             WebkitBackdropFilter: "blur(18px)",

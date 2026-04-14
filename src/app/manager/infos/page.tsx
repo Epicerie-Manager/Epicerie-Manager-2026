@@ -8,16 +8,19 @@ import type {
   InfoAnnouncementTargeting,
   InfoCategory,
   InfoCategoryId,
+  InfoItem,
 } from "@/lib/infos-data";
 import {
   addAnnouncementToSupabase,
   addDocumentToSupabase,
   getInfoAnnouncementAudience,
   getInfosUpdatedEventName,
+  getSignedInfosUrl,
   isInfoAnnouncementActiveNow,
   loadInfoAnnouncements,
   loadInfoCategories,
   removeAnnouncementFromSupabase,
+  removeDocumentFromSupabase,
   syncInfosFromSupabase,
 } from "@/lib/infos-store";
 
@@ -70,11 +73,83 @@ function getTargetingLabel(announcement: InfoAnnouncement) {
   return "Toute l'équipe";
 }
 
+function formatDocumentDate(value: string) {
+  if (!value) return "";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "";
+  return parsed.toLocaleDateString("fr-FR", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+  });
+}
+
+function formatBytes(bytes: number) {
+  if (!Number.isFinite(bytes) || bytes <= 0) return "0 o";
+  if (bytes < 1024) return `${bytes} o`;
+  if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} Ko`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} Mo`;
+}
+
+function getDocumentAttachmentLabel(item: InfoItem) {
+  if (!item.attachment) return "Sans pièce jointe";
+  return `${item.attachment.name} · ${formatBytes(item.attachment.size)}`;
+}
+
+function SignedManagerDocumentLink({ item }: { item: InfoItem }) {
+  const [signedUrl, setSignedUrl] = useState<string | null>(null);
+  const fallbackUrl = item.attachment?.filePath ? null : (item.attachment?.dataUrl || null);
+
+  useEffect(() => {
+    let cancelled = false;
+    const filePath = item.attachment?.filePath ?? "";
+    if (!filePath) return () => { cancelled = true; };
+
+    void getSignedInfosUrl(filePath, 7200).then((url) => {
+      if (!cancelled) setSignedUrl(url);
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [item]);
+
+  if (!item.attachment) return null;
+  const resolvedUrl = signedUrl ?? fallbackUrl;
+  if (!resolvedUrl) {
+    return <span style={{ fontSize: 12, color: "#6b7280" }}>Chargement du document...</span>;
+  }
+
+  return (
+    <a
+      href={resolvedUrl}
+      target="_blank"
+      rel="noreferrer"
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        justifyContent: "center",
+        minHeight: 38,
+        borderRadius: 999,
+        padding: "0 14px",
+        background: "#eff6ff",
+        color: "#1d4ed8",
+        fontSize: 12,
+        fontWeight: 800,
+        textDecoration: "none",
+      }}
+    >
+      Ouvrir
+    </a>
+  );
+}
+
 export default function ManagerInfosPage() {
   const [categories, setCategories] = useState<InfoCategory[]>([]);
   const [announcements, setAnnouncements] = useState<InfoAnnouncement[]>([]);
   const [audience, setAudience] = useState<InfoAnnouncementAudience>({ employees: [], dashboardUsers: [], rayons: [] });
   const [activeCategoryId, setActiveCategoryId] = useState<InfoCategoryId>("proc");
+  const [documentSearch, setDocumentSearch] = useState("");
   const [docTitle, setDocTitle] = useState("");
   const [docDescription, setDocDescription] = useState("");
   const [docFile, setDocFile] = useState<File | null>(null);
@@ -89,6 +164,7 @@ export default function ManagerInfosPage() {
   const [savingDoc, setSavingDoc] = useState(false);
   const [savingAnnouncement, setSavingAnnouncement] = useState(false);
   const [removingId, setRemovingId] = useState<string | null>(null);
+  const [removingDocumentId, setRemovingDocumentId] = useState<string | null>(null);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
@@ -122,6 +198,27 @@ export default function ManagerInfosPage() {
     () => categories.reduce((sum, category) => sum + category.items.length, 0),
     [categories],
   );
+
+  const visibleDocuments = useMemo(() => {
+    const normalized = documentSearch.toLowerCase().trim();
+    return categories
+      .filter((category) => category.id === activeCategoryId)
+      .flatMap((category) =>
+        category.items.map((item) => ({
+          category,
+          item,
+        })),
+      )
+      .filter(({ item }) => {
+        if (!normalized) return true;
+        return (
+          item.title.toLowerCase().includes(normalized) ||
+          item.description.toLowerCase().includes(normalized) ||
+          item.attachment?.name.toLowerCase().includes(normalized)
+        );
+      })
+      .sort((left, right) => String(right.item.updatedAt ?? "").localeCompare(String(left.item.updatedAt ?? "")));
+  }, [activeCategoryId, categories, documentSearch]);
 
   const handleSaveDocument = async () => {
     if (!activeCategory || !docTitle.trim()) {
@@ -195,22 +292,24 @@ export default function ManagerInfosPage() {
     }
   };
 
+  const removeDocument = async (id: string) => {
+    if (typeof window !== "undefined" && !window.confirm("Supprimer ce document du centre info ?")) return;
+    try {
+      setRemovingDocumentId(id);
+      setError("");
+      setSuccess("");
+      await removeDocumentFromSupabase(id);
+      setCategories(loadInfoCategories());
+      setSuccess("Document supprimé.");
+    } catch (nextError) {
+      setError(nextError instanceof Error ? nextError.message : "Impossible de supprimer le document.");
+    } finally {
+      setRemovingDocumentId(null);
+    }
+  };
+
   return (
     <section style={{ display: "grid", gap: 16 }}>
-      <div style={shellCard()}>
-        <div style={{ display: "grid", gap: 8 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#a16207" }}>
-            Communication manager
-          </div>
-          <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.06em", color: "#111827" }}>
-            Infos & documents
-          </div>
-          <div style={{ fontSize: 14, color: "#6b7280", lineHeight: 1.6 }}>
-            Publier une annonce dans le fil d&apos;infos, ajouter un document utile et suivre ce qui est actuellement en ligne.
-          </div>
-        </div>
-      </div>
-
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
         <div style={metricTileStyle()}>
           <div style={{ fontSize: 11, color: "#6b7280" }}>Documents</div>
@@ -228,6 +327,125 @@ export default function ManagerInfosPage() {
 
       {error ? <div style={{ ...shellCard(), color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
       {success ? <div style={{ ...shellCard(), color: "#166534", fontSize: 13 }}>{success}</div> : null}
+
+      <div style={shellCard()}>
+        <div style={{ display: "grid", gap: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#0f766e" }}>
+                Documents en base
+              </div>
+              <div style={{ marginTop: 4, fontSize: 13, color: "#6b7280" }}>
+                Consulte les documents déjà stockés avant d&apos;en ajouter un nouveau.
+              </div>
+            </div>
+            <div style={{ borderRadius: 999, padding: "7px 10px", background: "#ecfeff", color: "#0f766e", fontSize: 11, fontWeight: 800 }}>
+              {visibleDocuments.length} visible(s)
+            </div>
+          </div>
+
+          <input
+            type="search"
+            value={documentSearch}
+            onChange={(event) => setDocumentSearch(event.target.value)}
+            placeholder="Rechercher un document, un fichier, une procédure"
+            style={{ minHeight: 46, borderRadius: 18, border: "1px solid #d8d1c8", padding: "0 14px", fontSize: 14, background: "#fff" }}
+          />
+
+          <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
+            {categories.map((category) => {
+              const active = category.id === activeCategoryId;
+              return (
+                <button
+                  key={category.id}
+                  type="button"
+                  onClick={() => setActiveCategoryId(category.id)}
+                  style={{
+                    minHeight: 36,
+                    borderRadius: 999,
+                    border: `1px solid ${active ? "#14b8a6" : "#d8d1c8"}`,
+                    background: active ? "#ecfeff" : "#fff",
+                    color: active ? "#0f766e" : "#475569",
+                    padding: "0 12px",
+                    fontSize: 12,
+                    fontWeight: 800,
+                    whiteSpace: "nowrap",
+                  }}
+                >
+                  {category.label} · {category.items.length}
+                </button>
+              );
+            })}
+          </div>
+
+          <div style={{ display: "grid", gap: 10 }}>
+            {visibleDocuments.length ? (
+              visibleDocuments.map(({ category, item }) => (
+                <div
+                  key={item.id}
+                  style={{
+                    borderRadius: 20,
+                    border: "1px solid rgba(230,220,212,0.92)",
+                    background: "#fffdfb",
+                    padding: "14px",
+                    display: "grid",
+                    gap: 10,
+                  }}
+                >
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "start" }}>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.03em", color: "#111827" }}>
+                        {item.title}
+                      </div>
+                      <div style={{ marginTop: 4, fontSize: 12, color: "#6b7280", lineHeight: 1.5 }}>
+                        {category.label}
+                        {item.updatedAt ? ` · Maj ${formatDocumentDate(item.updatedAt)}` : ""}
+                      </div>
+                    </div>
+                    <div style={{ borderRadius: 999, padding: "6px 9px", background: "#f8fafc", color: "#475569", fontSize: 11, fontWeight: 800 }}>
+                      {item.attachment ? "Fichier" : "Note"}
+                    </div>
+                  </div>
+
+                  <div style={{ fontSize: 13, color: "#374151", lineHeight: 1.55 }}>
+                    {item.description || "Aucun résumé renseigné."}
+                  </div>
+
+                  <div style={{ fontSize: 12, color: "#6b7280" }}>
+                    {getDocumentAttachmentLabel(item)}
+                  </div>
+
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    {item.attachment ? <SignedManagerDocumentLink item={item} /> : null}
+                    <button
+                      type="button"
+                      disabled={removingDocumentId === item.id}
+                      onClick={() => void removeDocument(item.id)}
+                      style={{
+                        minHeight: 38,
+                        borderRadius: 999,
+                        border: "1px solid #fecaca",
+                        background: "#fef2f2",
+                        color: "#b91c1c",
+                        padding: "0 14px",
+                        fontSize: 12,
+                        fontWeight: 800,
+                        opacity: removingDocumentId === item.id ? 0.6 : 1,
+                      }}
+                    >
+                      {removingDocumentId === item.id ? "Suppression..." : "Supprimer"}
+                    </button>
+                  </div>
+                </div>
+              ))
+            ) : (
+              <div style={{ fontSize: 14, color: "#6b7280" }}>
+                Aucun document trouvé dans cette catégorie.
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
 
       <div style={shellCard()}>
           <div style={{ display: "grid", gap: 12 }}>

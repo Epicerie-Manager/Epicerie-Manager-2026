@@ -294,20 +294,7 @@ export default function ManagerPlanningPage() {
 
   return (
     <section style={{ display: "grid", gap: 16 }}>
-      <div style={shellCard()}>
-        <div style={{ display: "grid", gap: 8 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#1d4ed8" }}>
-            Pilotage quotidien
-          </div>
-          <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.06em", color: "#111827" }}>
-            Vue planning de l&apos;équipe
-          </div>
-          <div style={{ fontSize: 14, color: "#6b7280", lineHeight: 1.6 }}>
-            Consulte le jour ou la semaine, puis modifie directement un horaire ou une présence en touchant la ligne d&apos;un collaborateur.
-          </div>
-          {loading ? <div style={{ fontSize: 12, color: "#6b7280" }}>Synchronisation du planning...</div> : null}
-        </div>
-      </div>
+      {loading ? <div style={{ fontSize: 12, color: "#6b7280", padding: "0 4px" }}>Synchronisation du planning...</div> : null}
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
         <div style={metricTileStyle()}><div style={{ fontSize: 11, color: "#6b7280" }}>Présents</div><div style={{ marginTop: 6, fontSize: 24, fontWeight: 800, color: "#166534" }}>{todayCounts.scheduledCount}</div></div>
@@ -325,50 +312,56 @@ export default function ManagerPlanningPage() {
 
       {view === "today" ? (
         <>
-          <div style={shellCard()}>
-            <div style={{ display: "grid", gap: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
-                <div>
-                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#1d4ed8" }}>Vue du jour</div>
-                  <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedDate((current) => addDays(current, -1))}
-                      style={{ minWidth: 34, minHeight: 34, borderRadius: 14, border: "1px solid #d8d1c8", background: "#fff", fontWeight: 800 }}
-                    >
-                      {"<"}
-                    </button>
-                    <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.05em", color: "#111827" }}>{formatDayLabel(selectedDate)}</div>
-                    <button
-                      type="button"
-                      onClick={() => setSelectedDate((current) => addDays(current, 1))}
-                      style={{ minWidth: 34, minHeight: 34, borderRadius: 14, border: "1px solid #d8d1c8", background: "#fff", fontWeight: 800 }}
-                    >
-                      {">"}
-                    </button>
-                    {formatPlanningDate(selectedDate) !== formatPlanningDate(new Date()) ? (
+          <div style={{ position: "sticky", top: 8, zIndex: 20 }}>
+            <div style={{ ...shellCard(), background: "rgba(255,255,255,0.94)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" }}>
+              <div style={{ display: "grid", gap: 12 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
+                  <div>
+                    <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#1d4ed8" }}>Vue du jour</div>
+                    <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
                       <button
                         type="button"
-                        onClick={() => setSelectedDate(new Date())}
-                        style={{
-                          minHeight: 34,
-                          borderRadius: 14,
-                          border: "1px solid #d8d1c8",
-                          background: "#fff",
-                          padding: "0 10px",
-                          fontSize: 11,
-                          fontWeight: 800,
-                          color: "#475569",
-                        }}
+                        onClick={() => setSelectedDate((current) => addDays(current, -1))}
+                        style={{ minWidth: 34, minHeight: 34, borderRadius: 14, border: "1px solid #d8d1c8", background: "#fff", fontWeight: 800 }}
                       >
-                        Revenir à aujourd&apos;hui
+                        {"<"}
                       </button>
-                    ) : null}
+                      <div style={{ fontSize: 24, fontWeight: 800, letterSpacing: "-0.05em", color: "#111827" }}>{formatDayLabel(selectedDate)}</div>
+                      <button
+                        type="button"
+                        onClick={() => setSelectedDate((current) => addDays(current, 1))}
+                        style={{ minWidth: 34, minHeight: 34, borderRadius: 14, border: "1px solid #d8d1c8", background: "#fff", fontWeight: 800 }}
+                      >
+                        {">"}
+                      </button>
+                      {formatPlanningDate(selectedDate) !== formatPlanningDate(new Date()) ? (
+                        <button
+                          type="button"
+                          onClick={() => setSelectedDate(new Date())}
+                          style={{
+                            minHeight: 34,
+                            borderRadius: 14,
+                            border: "1px solid #d8d1c8",
+                            background: "#fff",
+                            padding: "0 10px",
+                            fontSize: 11,
+                            fontWeight: 800,
+                            color: "#475569",
+                          }}
+                        >
+                          Revenir à aujourd&apos;hui
+                        </button>
+                      ) : null}
+                    </div>
                   </div>
+                  {todayTriPair ? <div style={{ fontSize: 12, color: "#6b7280", textAlign: "right" }}>Tri cadie : <strong style={{ color: "#111827" }}>{todayTriPair[0]} + {todayTriPair[1]}</strong></div> : null}
                 </div>
-                {todayTriPair ? <div style={{ fontSize: 12, color: "#6b7280", textAlign: "right" }}>Tri cadie : <strong style={{ color: "#111827" }}>{todayTriPair[0]} + {todayTriPair[1]}</strong></div> : null}
               </div>
+            </div>
+          </div>
 
+          <div style={shellCard()}>
+            <div style={{ display: "grid", gap: 12 }}>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
                 {todayRows.map((row) => {
                   const tone = getStatusTone(row.status);
@@ -406,63 +399,69 @@ export default function ManagerPlanningPage() {
       ) : null}
 
       {view === "week" ? (
-        <div style={shellCard()}>
-          <div style={{ display: "grid", gap: 12 }}>
-            <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
-              <div>
-                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#0f766e" }}>Vue semaine</div>
-                <div style={{ marginTop: 6, fontSize: 24, fontWeight: 800, letterSpacing: "-0.05em", color: "#111827" }}>{formatDayLabel(weekDays[0])} → {formatDayLabel(weekDays[5])}</div>
-              </div>
-              <div style={{ display: "flex", gap: 8 }}>
-                <button type="button" onClick={() => setWeekCursor((current) => addDays(current, -7))} style={{ minWidth: 42, minHeight: 42, borderRadius: 16, border: "1px solid #d8d1c8", background: "#fff", fontWeight: 800 }}>{"<"}</button>
-                <button type="button" onClick={() => setWeekCursor((current) => addDays(current, 7))} style={{ minWidth: 42, minHeight: 42, borderRadius: 16, border: "1px solid #d8d1c8", background: "#fff", fontWeight: 800 }}>{">"}</button>
-              </div>
-            </div>
-
-            <div style={{ overflowX: "auto", borderRadius: 22, border: "1px solid rgba(230,220,212,0.92)", background: "#fffdfb" }}>
-              <div style={{ minWidth: 680 }}>
-                <div style={{ display: "grid", gridTemplateColumns: "160px repeat(6, minmax(82px, 1fr))", borderBottom: "1px solid rgba(230,220,212,0.92)", background: "#f8fafc" }}>
-                  <div style={{ padding: "12px 14px", fontSize: 12, fontWeight: 800, color: "#475569" }}>Collaborateur</div>
-                  {weekDays.map((date, index) => (
-                    <div key={formatPlanningDate(date)} style={{ padding: "12px 8px", textAlign: "center" }}>
-                      <div style={{ fontSize: 11, fontWeight: 800, color: "#475569" }}>{DAY_NAMES[index]}</div>
-                      <div style={{ marginTop: 2, fontSize: 11, color: "#6b7280" }}>{date.getDate()}</div>
-                    </div>
-                  ))}
+        <>
+          <div style={{ position: "sticky", top: 8, zIndex: 20 }}>
+            <div style={{ ...shellCard(), background: "rgba(255,255,255,0.94)", backdropFilter: "blur(12px)", WebkitBackdropFilter: "blur(12px)" }}>
+              <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center" }}>
+                <div>
+                  <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#0f766e" }}>Vue semaine</div>
+                  <div style={{ marginTop: 6, fontSize: 24, fontWeight: 800, letterSpacing: "-0.05em", color: "#111827" }}>{formatDayLabel(weekDays[0])} → {formatDayLabel(weekDays[5])}</div>
                 </div>
-
-                {weekRows.map((row, rowIndex) => (
-                  <div key={row.employee.n} style={{ display: "grid", gridTemplateColumns: "160px repeat(6, minmax(82px, 1fr))", borderBottom: rowIndex === weekRows.length - 1 ? "none" : "1px solid rgba(230,220,212,0.82)" }}>
-                    <div style={{ padding: "14px", fontSize: 13, fontWeight: 800, color: "#111827", display: "flex", alignItems: "center" }}>{row.employee.n}</div>
-                    {row.days.map((day) => {
-                      const tone = getStatusTone(day.status);
-                      const presenceBadges = day.status === "PRESENT" ? getPresenceBadges(day.horaire) : [];
-                      return (
-                        <button key={`${row.employee.n}-${formatPlanningDate(day.date)}`} type="button" onClick={() => openEditor(row.employee, day.date)} style={{ minHeight: 72, border: "none", borderLeft: "1px solid rgba(230,220,212,0.82)", background: "#fffdfb", padding: "8px 6px", display: "grid", alignContent: "center", justifyItems: "center", gap: 6 }}>
-                          <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "center" }}>
-                            {day.status === "PRESENT"
-                              ? presenceBadges.map((badge) => (
-                                  <div
-                                    key={`${row.employee.n}-${formatPlanningDate(day.date)}-${badge.label}`}
-                                    style={{ minWidth: badge.label === "AM" ? 30 : 24, borderRadius: 999, padding: "5px 8px", background: badge.bg, color: badge.color, fontSize: 10, fontWeight: 800, textAlign: "center" }}
-                                  >
-                                    {badge.label}
-                                  </div>
-                                ))
-                              : <div style={{ minWidth: 44, borderRadius: 999, padding: "5px 8px", background: tone.bg, color: tone.color, fontSize: 10, fontWeight: 800, textAlign: "center" }}>{tone.label}</div>}
-                          </div>
-                          <div style={{ fontSize: 10, color: "#64748b", lineHeight: 1.3, textAlign: "center" }}>
-                            {day.status === "PRESENT" ? (day.horaire || "-") : ""}
-                          </div>
-                        </button>
-                      );
-                    })}
-                  </div>
-                ))}
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button type="button" onClick={() => setWeekCursor((current) => addDays(current, -7))} style={{ minWidth: 42, minHeight: 42, borderRadius: 16, border: "1px solid #d8d1c8", background: "#fff", fontWeight: 800 }}>{"<"}</button>
+                  <button type="button" onClick={() => setWeekCursor((current) => addDays(current, 7))} style={{ minWidth: 42, minHeight: 42, borderRadius: 16, border: "1px solid #d8d1c8", background: "#fff", fontWeight: 800 }}>{">"}</button>
+                </div>
               </div>
             </div>
           </div>
-        </div>
+
+          <div style={shellCard()}>
+            <div style={{ display: "grid", gap: 12 }}>
+              <div style={{ overflowX: "auto", borderRadius: 22, border: "1px solid rgba(230,220,212,0.92)", background: "#fffdfb" }}>
+                <div style={{ minWidth: 680 }}>
+                  <div style={{ display: "grid", gridTemplateColumns: "160px repeat(6, minmax(82px, 1fr))", borderBottom: "1px solid rgba(230,220,212,0.92)", background: "#f8fafc" }}>
+                    <div style={{ padding: "12px 14px", fontSize: 12, fontWeight: 800, color: "#475569" }}>Collaborateur</div>
+                    {weekDays.map((date, index) => (
+                      <div key={formatPlanningDate(date)} style={{ padding: "12px 8px", textAlign: "center" }}>
+                        <div style={{ fontSize: 11, fontWeight: 800, color: "#475569" }}>{DAY_NAMES[index]}</div>
+                        <div style={{ marginTop: 2, fontSize: 11, color: "#6b7280" }}>{date.getDate()}</div>
+                      </div>
+                    ))}
+                  </div>
+
+                  {weekRows.map((row, rowIndex) => (
+                    <div key={row.employee.n} style={{ display: "grid", gridTemplateColumns: "160px repeat(6, minmax(82px, 1fr))", borderBottom: rowIndex === weekRows.length - 1 ? "none" : "1px solid rgba(230,220,212,0.82)" }}>
+                      <div style={{ padding: "14px", fontSize: 13, fontWeight: 800, color: "#111827", display: "flex", alignItems: "center" }}>{row.employee.n}</div>
+                      {row.days.map((day) => {
+                        const tone = getStatusTone(day.status);
+                        const presenceBadges = day.status === "PRESENT" ? getPresenceBadges(day.horaire) : [];
+                        return (
+                          <button key={`${row.employee.n}-${formatPlanningDate(day.date)}`} type="button" onClick={() => openEditor(row.employee, day.date)} style={{ minHeight: 72, border: "none", borderLeft: "1px solid rgba(230,220,212,0.82)", background: "#fffdfb", padding: "8px 6px", display: "grid", alignContent: "center", justifyItems: "center", gap: 6 }}>
+                            <div style={{ display: "flex", gap: 4, flexWrap: "wrap", justifyContent: "center" }}>
+                              {day.status === "PRESENT"
+                                ? presenceBadges.map((badge) => (
+                                    <div
+                                      key={`${row.employee.n}-${formatPlanningDate(day.date)}-${badge.label}`}
+                                      style={{ minWidth: badge.label === "AM" ? 30 : 24, borderRadius: 999, padding: "5px 8px", background: badge.bg, color: badge.color, fontSize: 10, fontWeight: 800, textAlign: "center" }}
+                                    >
+                                      {badge.label}
+                                    </div>
+                                  ))
+                                : <div style={{ minWidth: 44, borderRadius: 999, padding: "5px 8px", background: tone.bg, color: tone.color, fontSize: 10, fontWeight: 800, textAlign: "center" }}>{tone.label}</div>}
+                            </div>
+                            <div style={{ fontSize: 10, color: "#64748b", lineHeight: 1.3, textAlign: "center" }}>
+                              {day.status === "PRESENT" ? (day.horaire || "-") : ""}
+                            </div>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+        </>
       ) : null}
 
       {error ? <div style={{ ...shellCard(), color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}

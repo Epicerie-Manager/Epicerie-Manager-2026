@@ -196,20 +196,6 @@ export default function ManagerAbsencesPage() {
 
   return (
     <section style={{ display: "grid", gap: 16 }}>
-      <div style={shellCard()}>
-        <div style={{ display: "grid", gap: 8 }}>
-          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#2563eb" }}>
-            Validation manager
-          </div>
-          <div style={{ fontSize: 28, fontWeight: 800, letterSpacing: "-0.06em", color: "#111827" }}>
-            Demandes d&apos;absence
-          </div>
-          <div style={{ fontSize: 14, color: "#6b7280", lineHeight: 1.6 }}>
-            Lecture rapide des périodes posées, calcul en jours hors dimanche et validation directe depuis le téléphone.
-          </div>
-        </div>
-      </div>
-
       <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
         <div style={metricTileStyle()}>
           <div style={{ fontSize: 11, color: "#6b7280" }}>En attente</div>

@@ -204,7 +204,7 @@ export function AppShell({ version, children }: AppShellProps) {
   }, [isCollabRoute, isManagerRoute, isPrintRoute]);
 
   useEffect(() => {
-    if (pathname === "/login" || isCollabRoute || isPrintRoute) return;
+    if (pathname === "/login" || isCollabRoute || isPrintRoute || isManagerRoute) return;
     const guardPasswordFlow = async () => {
       const supabase = createClient();
       const {
@@ -251,10 +251,10 @@ export function AppShell({ version, children }: AppShellProps) {
       setOfficeAccessResolved(true);
     };
     void guardPasswordFlow();
-  }, [isCollabRoute, isPrintRoute, pathname, router]);
+  }, [isCollabRoute, isManagerRoute, isPrintRoute, pathname, router]);
 
   useEffect(() => {
-    if (pathname === "/login" || pathname === "/change-password" || isCollabRoute || isPrintRoute) return;
+    if (pathname === "/login" || pathname === "/change-password" || isCollabRoute || isPrintRoute || isManagerRoute) return;
 
     const supabase = createClient();
     const channel = createBrowserSessionChannel();
@@ -318,7 +318,7 @@ export function AppShell({ version, children }: AppShellProps) {
       detachResponder?.();
       channel?.close();
     };
-  }, [isCollabRoute, isPrintRoute, pathname, router]);
+  }, [isCollabRoute, isManagerRoute, isPrintRoute, pathname, router]);
 
   const handleSignOut = async () => {
     if (isSigningOut || signingOutRef.current) return;

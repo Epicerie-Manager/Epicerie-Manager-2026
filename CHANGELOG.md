@@ -27,6 +27,8 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 - Ruptures / Statuts visuels : ajout de pastilles `OK`, `En attente` et `Manquant` pour voir d'un coup d'oeil si les deux imports attendus ont bien ete faits ou s'il manque une periode.
 - Ruptures / Jour courant : la zone `Journée suivie` se cale desormais sur la vraie date du jour, meme si aucun import n'a encore ete injecte, afin d'afficher immediatement les attentes du jour en cours.
 - Collaborateur / Planning equipe : le bandeau `Semaine + jours + dates` reste maintenant fixe pendant le scroll sur mobile, tout en restant aligne avec les colonnes lors du scroll horizontal.
+- Manager mobile / Balisage : ajout d'un nouvel ecran `Balisage` dans l'application manager, simplifie pour le telephone avec mois disponibles et lecture mensuelle de l'equipe sans recopier tout le dashboard bureau.
+- Manager mobile / Navigation : les ecrans `Planning`, `Suivi`, `Absences` et `Infos` arrivent maintenant plus directement sur le contenu utile, avec un bandeau date fixe dans le planning et l'acces aux documents deja stockes depuis `Infos`.
 
 ## v1.1.0 - 2026-04-13
 

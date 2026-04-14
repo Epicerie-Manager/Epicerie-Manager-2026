@@ -50,6 +50,14 @@ function metricTileStyle(): React.CSSProperties {
   };
 }
 
+function responsiveGrid(minWidth: number): React.CSSProperties {
+  return {
+    display: "grid",
+    gridTemplateColumns: `repeat(auto-fit, minmax(${minWidth}px, 1fr))`,
+    gap: 10,
+  };
+}
+
 function formatDateTimeLabel(value: string | null) {
   if (!value) return "";
   const parsed = new Date(value);
@@ -310,7 +318,7 @@ export default function ManagerInfosPage() {
 
   return (
     <section style={{ display: "grid", gap: 16 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
+      <div style={responsiveGrid(120)}>
         <div style={metricTileStyle()}>
           <div style={{ fontSize: 11, color: "#6b7280" }}>Documents</div>
           <div style={{ marginTop: 6, fontSize: 24, fontWeight: 800, color: "#111827" }}>{totalDocs}</div>
@@ -335,7 +343,7 @@ export default function ManagerInfosPage() {
               <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#0f766e" }}>
                 Documents en base
               </div>
-              <div style={{ marginTop: 4, fontSize: 13, color: "#6b7280" }}>
+              <div style={{ marginTop: 4, fontSize: 13, color: "#6b7280", lineHeight: 1.5 }}>
                 Consulte les documents déjà stockés avant d&apos;en ajouter un nouveau.
               </div>
             </div>
@@ -349,10 +357,10 @@ export default function ManagerInfosPage() {
             value={documentSearch}
             onChange={(event) => setDocumentSearch(event.target.value)}
             placeholder="Rechercher un document, un fichier, une procédure"
-            style={{ minHeight: 46, borderRadius: 18, border: "1px solid #d8d1c8", padding: "0 14px", fontSize: 14, background: "#fff" }}
+            style={{ minHeight: 46, minWidth: 0, width: "100%", borderRadius: 18, border: "1px solid #d8d1c8", padding: "0 14px", fontSize: 14, background: "#fff" }}
           />
 
-          <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 2 }}>
+          <div style={{ display: "flex", gap: 8, overflowX: "auto", paddingBottom: 6, scrollbarWidth: "thin" }}>
             {categories.map((category) => {
               const active = category.id === activeCategoryId;
               return (
@@ -411,7 +419,7 @@ export default function ManagerInfosPage() {
                     {item.description || "Aucun résumé renseigné."}
                   </div>
 
-                  <div style={{ fontSize: 12, color: "#6b7280" }}>
+                  <div style={{ fontSize: 12, color: "#6b7280", overflowWrap: "anywhere", lineHeight: 1.5 }}>
                     {getDocumentAttachmentLabel(item)}
                   </div>
 
@@ -448,37 +456,37 @@ export default function ManagerInfosPage() {
       </div>
 
       <div style={shellCard()}>
-          <div style={{ display: "grid", gap: 12 }}>
-            <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#a16207" }}>
-              Nouvelle annonce
-            </div>
-            <div
-              style={{
-                borderRadius: 16,
-                border: "1px solid #dbeafe",
-                background: "#eff6ff",
-                padding: "10px 12px",
-                fontSize: 12,
-                color: "#1e40af",
-                lineHeight: 1.5,
-              }}
-            >
-              Les annonces créées depuis cet écran restent dans le fil d&apos;infos. Le message d&apos;ouverture avec bouton OK est réservé au menu admin.
-            </div>
-            <input
-              value={announcementTitle}
-              onChange={(event) => setAnnouncementTitle(event.target.value)}
+        <div style={{ display: "grid", gap: 12 }}>
+          <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#a16207" }}>
+            Nouvelle annonce
+          </div>
+          <div
+            style={{
+              borderRadius: 16,
+              border: "1px solid #dbeafe",
+              background: "#eff6ff",
+              padding: "10px 12px",
+              fontSize: 12,
+              color: "#1e40af",
+              lineHeight: 1.5,
+            }}
+          >
+            Les annonces créées depuis cet écran restent dans le fil d&apos;infos. Le message d&apos;ouverture avec bouton OK est réservé au menu admin.
+          </div>
+          <input
+            value={announcementTitle}
+            onChange={(event) => setAnnouncementTitle(event.target.value)}
             placeholder="Titre annonce"
-            style={{ minHeight: 48, borderRadius: 18, border: "1px solid #d8d1c8", padding: "0 14px", fontSize: 14, background: "#fff" }}
+            style={{ minHeight: 48, minWidth: 0, width: "100%", borderRadius: 18, border: "1px solid #d8d1c8", padding: "0 14px", fontSize: 14, background: "#fff" }}
           />
           <textarea
             value={announcementContent}
             onChange={(event) => setAnnouncementContent(event.target.value)}
             rows={4}
             placeholder="Contenu"
-            style={{ borderRadius: 18, border: "1px solid #d8d1c8", padding: "12px 14px", fontSize: 14, resize: "vertical", background: "#fff" }}
+            style={{ minWidth: 0, width: "100%", borderRadius: 18, border: "1px solid #d8d1c8", padding: "12px 14px", fontSize: 14, resize: "vertical", background: "#fff" }}
           />
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+          <div style={responsiveGrid(180)}>
             <select
               value={announcementPriority}
               onChange={(event) => setAnnouncementPriority(event.target.value as InfoAnnouncementPriority)}
@@ -561,7 +569,7 @@ export default function ManagerInfosPage() {
           ) : null}
 
           {announcementTargeting === "rayons" ? (
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 8 }}>
+            <div style={responsiveGrid(150)}>
               {audience.rayons.slice(0, 12).map((rayon) => {
                 const active = announcementRayons.includes(rayon);
                 return (
@@ -618,7 +626,7 @@ export default function ManagerInfosPage() {
           <select
             value={activeCategoryId}
             onChange={(event) => setActiveCategoryId(event.target.value as InfoCategoryId)}
-            style={{ minHeight: 46, borderRadius: 18, border: "1px solid #d8d1c8", padding: "0 14px", fontSize: 14, background: "#fff" }}
+            style={{ minHeight: 46, minWidth: 0, width: "100%", borderRadius: 18, border: "1px solid #d8d1c8", padding: "0 14px", fontSize: 14, background: "#fff" }}
           >
             {categories.map((category) => (
               <option key={category.id} value={category.id}>
@@ -630,14 +638,14 @@ export default function ManagerInfosPage() {
             value={docTitle}
             onChange={(event) => setDocTitle(event.target.value)}
             placeholder="Titre document"
-            style={{ minHeight: 46, borderRadius: 18, border: "1px solid #d8d1c8", padding: "0 14px", fontSize: 14, background: "#fff" }}
+            style={{ minHeight: 46, minWidth: 0, width: "100%", borderRadius: 18, border: "1px solid #d8d1c8", padding: "0 14px", fontSize: 14, background: "#fff" }}
           />
           <textarea
             value={docDescription}
             onChange={(event) => setDocDescription(event.target.value)}
             rows={3}
             placeholder="Résumé rapide"
-            style={{ borderRadius: 18, border: "1px solid #d8d1c8", padding: "12px 14px", fontSize: 14, resize: "vertical", background: "#fff" }}
+            style={{ minWidth: 0, width: "100%", borderRadius: 18, border: "1px solid #d8d1c8", padding: "12px 14px", fontSize: 14, resize: "vertical", background: "#fff" }}
           />
           <input
             type="file"
@@ -703,7 +711,7 @@ export default function ManagerInfosPage() {
                     {announcement.content}
                   </div>
 
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
+                  <div style={responsiveGrid(150)}>
                     <div style={metricTileStyle()}>
                       <div style={{ fontSize: 11, color: "#6b7280" }}>Diffusion</div>
                       <div style={{ marginTop: 6, fontSize: 14, fontWeight: 800, color: active ? "#166534" : "#92400e" }}>

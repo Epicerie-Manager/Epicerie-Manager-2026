@@ -26,6 +26,7 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 - Ruptures / Import double : l'historique des imports est maintenant regroupe par jour avec lecture visuelle des statuts `Début de matinée` et `Fin de matinée` au lieu d'une simple liste brute d'imports recents.
 - Ruptures / Statuts visuels : ajout de pastilles `OK`, `En attente` et `Manquant` pour voir d'un coup d'oeil si les deux imports attendus ont bien ete faits ou s'il manque une periode.
 - Ruptures / Jour courant : la zone `Journée suivie` se cale desormais sur la vraie date du jour, meme si aucun import n'a encore ete injecte, afin d'afficher immediatement les attentes du jour en cours.
+- Collaborateur / Planning equipe : le bandeau `Semaine + jours + dates` reste maintenant fixe pendant le scroll sur mobile, tout en restant aligne avec les colonnes lors du scroll horizontal.
 
 ## v1.1.0 - 2026-04-13
 

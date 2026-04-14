@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { CollabBottomNav, CollabHeader, CollabPage, SectionCard, SectionTitle } from "@/components/collab/layout";
 import { collabCardStyle, collabSerifTitleStyle, collabTheme } from "@/components/collab/theme";
@@ -53,6 +53,14 @@ function getWeekTitle(start: Date, end: Date) {
   const startLabel = start.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
   const endLabel = end.toLocaleDateString("fr-FR", { day: "numeric", month: "long" });
   return `Du ${startLabel} au ${endLabel}`;
+}
+
+function getTeamDayLabel(date: Date) {
+  return date.toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", "");
+}
+
+function getTeamDayDateLabel(date: Date) {
+  return date.toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
 }
 
 function getStatusBadge(date: Date) {
@@ -121,6 +129,7 @@ function compareTeamPeople(
 
 export default function CollabPlanningPage() {
   const router = useRouter();
+  const teamScrollRef = useRef<HTMLDivElement | null>(null);
   const [profile, setProfile] = useState<CollabProfile | null>(null);
   const [activeTab, setActiveTab] = useState<PlanningTab>("Semaine");
   const [weekCursor, setWeekCursor] = useState(() => startOfWeek(new Date()));
@@ -129,6 +138,7 @@ export default function CollabPlanningPage() {
   const [monthRows, setMonthRows] = useState<CollabPlanningEntry[]>([]);
   const [teamRows, setTeamRows] = useState<Array<Record<string, unknown>>>([]);
   const [lastRefreshAt, setLastRefreshAt] = useState<Date | null>(null);
+  const [teamScrollLeft, setTeamScrollLeft] = useState(0);
 
   useEffect(() => {
     void getCollabProfile()
@@ -427,18 +437,77 @@ export default function CollabPlanningPage() {
           >
             Vue équipe
           </SectionTitle>
-          <div style={{ marginTop: -4, marginBottom: 14 }}>
-            <div style={{ ...collabSerifTitleStyle({ fontSize: 18 }) }}>Semaine {getWeekNumber(weekDays[0])}</div>
-            <div style={{ marginTop: 2, fontSize: 12, color: collabTheme.muted }}>{weekTitle}</div>
-          </div>
-          <div style={{ overflowX: "auto" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "104px repeat(7, 58px)", gap: 6, minWidth: 540 }}>
-              <div style={{ fontSize: 10, color: collabTheme.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>Nom</div>
-              {displayDays.map((day) => (
-                <div key={day.toISOString()} style={{ fontSize: 10, color: collabTheme.muted, textAlign: "center", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-                  {day.toLocaleDateString("fr-FR", { weekday: "short" }).slice(0, 3)}
+          <div style={{ display: "grid", gap: 10 }}>
+            <div
+              style={{
+                position: "sticky",
+                top: 8,
+                zIndex: 4,
+                marginTop: -4,
+                paddingBottom: 10,
+                overflow: "hidden",
+                background: "linear-gradient(180deg, rgba(255,250,246,0.98) 0%, rgba(255,250,246,0.94) 84%, rgba(255,250,246,0) 100%)",
+              }}
+            >
+              <div
+                style={{
+                  width: "max-content",
+                  minWidth: 540,
+                  transform: `translateX(-${teamScrollLeft}px)`,
+                  willChange: "transform",
+                }}
+              >
+                <div
+                  style={{
+                    ...collabCardStyle({
+                      padding: "12px 10px 10px",
+                      background: "rgba(255,250,246,0.96)",
+                      boxShadow: "0 10px 24px rgba(80,50,30,0.08)",
+                    }),
+                  }}
+                >
+                  <div style={{ ...collabSerifTitleStyle({ fontSize: 18 }) }}>Semaine {getWeekNumber(weekDays[0])}</div>
+                  <div style={{ marginTop: 2, fontSize: 12, color: collabTheme.muted }}>{weekTitle}</div>
+
+                  <div
+                    style={{
+                      display: "grid",
+                      gridTemplateColumns: "104px repeat(7, 58px)",
+                      gap: 6,
+                      marginTop: 12,
+                      alignItems: "start",
+                    }}
+                  >
+                    <div style={{ fontSize: 10, color: collabTheme.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>Nom</div>
+                    {displayDays.map((day) => (
+                      <div
+                        key={day.toISOString()}
+                        style={{
+                          display: "grid",
+                          gap: 3,
+                          justifyItems: "center",
+                          textAlign: "center",
+                        }}
+                      >
+                        <div style={{ fontSize: 10, color: collabTheme.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                          {getTeamDayLabel(day)}
+                        </div>
+                        <div style={{ fontSize: 11, fontWeight: 700, color: collabTheme.text }}>
+                          {getTeamDayDateLabel(day)}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
                 </div>
-              ))}
+              </div>
+            </div>
+
+            <div
+              ref={teamScrollRef}
+              onScroll={(event) => setTeamScrollLeft(event.currentTarget.scrollLeft)}
+              style={{ overflowX: "auto" }}
+            >
+              <div style={{ display: "grid", gridTemplateColumns: "104px repeat(7, 58px)", gap: 6, minWidth: 540 }}>
               {teamNames.map((person) => {
                 const isMe = person.name === profile.employees?.name;
                 return [
@@ -495,6 +564,7 @@ export default function CollabPlanningPage() {
                   }),
                 ];
               })}
+              </div>
             </div>
           </div>
         </SectionCard>

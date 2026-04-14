@@ -48,6 +48,7 @@ import {
   syncPresenceThresholdsFromSupabase,
 } from "@/lib/presence-thresholds-store";
 import { getRhUpdatedEventName, loadRhCycles, loadRhEmployees, syncRhFromSupabase } from "@/lib/rh-store";
+import { useUserRole } from "@/lib/use-user-role";
 
 /* ═══════════════════════════════════════════════════════════
    THEME — Planning = Bleu
@@ -764,7 +765,7 @@ const UndoToast=({snapshot,busy,onUndo,onDismiss})=>{
 /* ═══════════════════════════════════════════════════════════
    VUE MOIS — with hours displayed
    ═══════════════════════════════════════════════════════════ */
-const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenceThresholds,onEdit})=>{
+const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenceThresholds,onEdit,readOnly})=>{
   const days=daysInMonth(year,month);
   const dates=Array.from({length:days},(_,i)=>new Date(year,month,i+1));
   const sections=getPlanningMonthSections(filter);
@@ -928,8 +929,8 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenc
                       if(s==="PRESENT") presCount++;
 
                       return(
-                        <td key={date.getDate()} onMouseEnter={()=>setHoveredDayIso(dayIso)} onClick={()=>onEdit(emp,date)} style={{
-                          padding:"4px 2px",textAlign:"center",borderBottom:`1px solid ${rowBorder}`,cursor:"pointer",
+                        <td key={date.getDate()} onMouseEnter={()=>setHoveredDayIso(dayIso)} onClick={readOnly?undefined:()=>onEdit(emp,date)} style={{
+                          padding:"4px 2px",textAlign:"center",borderBottom:`1px solid ${rowBorder}`,cursor:readOnly?"default":"pointer",
                           background:rowBackground,position:"relative",
                           borderLeft:isT?"2px solid #16a34a":"none",
                           borderRight:isT?"2px solid #16a34a":"none",
@@ -1000,7 +1001,7 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenc
 /* ═══════════════════════════════════════════════════════════
    VUE SEMAINE
    ═══════════════════════════════════════════════════════════ */
-const VueSemaine=({weekStart,overrides,triData,presenceThresholds,onEdit})=>{
+const VueSemaine=({weekStart,overrides,triData,presenceThresholds,onEdit,readOnly})=>{
   const days=Array.from({length:7},(_,i)=>{const d=new Date(weekStart);d.setDate(d.getDate()+i);return d;});
   const todayS=formatPlanningDate(new Date());
 
@@ -1049,9 +1050,9 @@ const VueSemaine=({weekStart,overrides,triData,presenceThresholds,onEdit})=>{
                       {group.list.map(e=>{
                         const roleMeta=getPlanningEmployeeRoleMeta(e);
                         return(
-                        <span key={`${group.label}-${e.n}`} onClick={()=>onEdit(e,date)} style={{
+                        <span key={`${group.label}-${e.n}`} onClick={readOnly?undefined:()=>onEdit(e,date)} style={{
                           display:"inline-flex",alignItems:"center",gap:4,
-                          fontSize:8,fontWeight:600,color:isCoordinatorEmployee(e)?V.mc:V.body,background:isCoordinatorEmployee(e)?"#e7f0fb":group.bg,padding:"2px 5px",borderRadius:4,cursor:"pointer",
+                          fontSize:8,fontWeight:600,color:isCoordinatorEmployee(e)?V.mc:V.body,background:isCoordinatorEmployee(e)?"#e7f0fb":group.bg,padding:"2px 5px",borderRadius:4,cursor:readOnly?"default":"pointer",
                           border:isTriCaddie(e.n,dow,triData)?`1px solid ${V.amber}`:"1px solid transparent",
                         }} title={`Statut RH : ${roleMeta.label}`}><RoleDot emp={e} size={6}/>{e.n}</span>
                       );})}
@@ -1086,7 +1087,7 @@ const VueSemaine=({weekStart,overrides,triData,presenceThresholds,onEdit})=>{
 /* ═══════════════════════════════════════════════════════════
    VUE JOUR
    ═══════════════════════════════════════════════════════════ */
-const VueJour=({date,overrides,triData,binomes,presenceThresholds,onEdit})=>{
+const VueJour=({date,overrides,triData,binomes,presenceThresholds,onEdit,readOnly})=>{
   const dow=date.getDay();const dayLabel=date.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long",year:"numeric"});
   const todayS=formatPlanningDate(new Date());const isT=formatPlanningDate(date)===todayS;
   const grouped=getDayShiftGroups(date,overrides);
@@ -1100,8 +1101,8 @@ const VueJour=({date,overrides,triData,binomes,presenceThresholds,onEdit})=>{
   const EmpCard=({e,horaire,tri})=>{
     const isCoordinator=isCoordinatorEmployee(e);
     return(
-    <div onClick={()=>onEdit(e,date)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:14,background:isCoordinator?"#f3f8ff":"rgba(248,250,252,0.6)",border:`1px solid ${isCoordinator?`${V.mc}25`:V.border}`,cursor:"pointer",borderLeft:tri?`3px solid ${V.amber}`:isCoordinator?`3px solid ${V.mc}`:"3px solid transparent"}}
-      onMouseEnter={ev=>ev.currentTarget.style.background=isCoordinator?"#eaf3fe":V.mL} onMouseLeave={ev=>ev.currentTarget.style.background=isCoordinator?"#f3f8ff":"rgba(248,250,252,0.6)"}>
+    <div onClick={readOnly?undefined:()=>onEdit(e,date)} style={{display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderRadius:14,background:isCoordinator?"#f3f8ff":"rgba(248,250,252,0.6)",border:`1px solid ${isCoordinator?`${V.mc}25`:V.border}`,cursor:readOnly?"default":"pointer",borderLeft:tri?`3px solid ${V.amber}`:isCoordinator?`3px solid ${V.mc}`:"3px solid transparent"}}
+      onMouseEnter={readOnly?undefined:(ev=>ev.currentTarget.style.background=isCoordinator?"#eaf3fe":V.mL)} onMouseLeave={readOnly?undefined:(ev=>ev.currentTarget.style.background=isCoordinator?"#f3f8ff":"rgba(248,250,252,0.6)")}>
       <div style={{width:32,height:32,borderRadius:10,background:isCoordinator?"#dbeafe":V.mIG,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,color:V.mc}}>{e.n.substring(0,2)}</div>
       <div style={{flex:1}}>
         <div style={{display:"flex",alignItems:"center",gap:6,fontSize:13,fontWeight:700,color:isCoordinator?V.mc:V.body}}>
@@ -1176,6 +1177,7 @@ const VueJour=({date,overrides,triData,binomes,presenceThresholds,onEdit})=>{
    MAIN APP
    ═══════════════════════════════════════════════════════════ */
 export default function PlanningApp(){
+  const { isReadOnly, loading: roleLoading } = useUserRole();
   const searchParams = useSearchParams();
   const [,setRhVersion]=useState(0);
   const [view,setView]=useState("mois");  const [year,setYear]=useState(null);
@@ -1371,6 +1373,7 @@ export default function PlanningApp(){
   };
 
   const handleEdit=(emp,date)=>{
+    if(isReadOnly) return;
     const s=getStatus(emp,date,overrides);
     const h=getHoraire(emp,date,overrides);
     const dh=getDefaultHoraire(emp,date);
@@ -1378,6 +1381,7 @@ export default function PlanningApp(){
   };
 
   const saveEdit=async(s,h,scope)=>{
+    if(isReadOnly) return;
     if(!editing)return;
     const normalizedHoraire=scope!=="default"?normalizePlanningHoraireValue(h):null;
     const effectiveStatus=normalizedHoraire&&s==="X"?"PRESENT":s;
@@ -1444,6 +1448,7 @@ export default function PlanningApp(){
   };
 
   const handleUndo=async()=>{
+    if(isReadOnly) return;
     if(!undoToast) return;
     try{
       setUndoBusy(true);
@@ -1540,7 +1545,7 @@ export default function PlanningApp(){
     ? planningSyncStatus.message||"Synchronisation planning indisponible."
     : "";
 
-  if(year===null || month===null || !selectedDate || !weekStart || !planningBootReady){
+  if(roleLoading || year===null || month===null || !selectedDate || !weekStart || !planningBootReady){
     return(
       <div style={{padding:"40px",textAlign:"center",color:"#94a3b8",fontFamily:"'Segoe UI',system-ui,sans-serif"}}>
         Chargement...
@@ -1564,6 +1569,11 @@ export default function PlanningApp(){
             </div>
           </div>
           <div style={{display:"flex",alignItems:"center",gap:6}}>
+            {isReadOnly&&(
+              <span style={{fontSize:11,fontWeight:700,color:V.mc,background:"#eff6ff",border:`1px solid ${V.mc}22`,padding:"6px 10px",borderRadius:999}}>
+                Lecture seule
+              </span>
+            )}
             <Chev dir="l" onClick={()=>nav(-1)}/>
             <Chev dir="r" onClick={()=>nav(1)}/>
             <div style={{display:"flex",gap:3,background:"rgba(241,245,249,0.8)",borderRadius:10,padding:3,marginLeft:6}}>
@@ -1632,9 +1642,9 @@ export default function PlanningApp(){
         <Card style={view==="semaine"?{padding:14}:{}}>
           {view!=="semaine"&&<Legend/>}
           {view!=="semaine"&&<div style={{height:1,background:`linear-gradient(90deg,transparent,${V.line},transparent)`,margin:"8px 0 12px"}}/>}
-          {view==="mois"&&<VueMois year={year} month={month} filter={filter} overrides={overrides} triData={triData} pendingAbsenceLookup={pendingAbsenceLookup} presenceThresholds={presenceThresholds} onEdit={handleEdit}/>}
-          {view==="semaine"&&<VueSemaine weekStart={weekStart} overrides={overrides} triData={triData} presenceThresholds={presenceThresholds} onEdit={handleEdit}/>}
-          {view==="jour"&&<VueJour date={selectedDate} overrides={overrides} triData={triData} binomes={binomes} presenceThresholds={presenceThresholds} onEdit={handleEdit}/>}
+          {view==="mois"&&<VueMois year={year} month={month} filter={filter} overrides={overrides} triData={triData} pendingAbsenceLookup={pendingAbsenceLookup} presenceThresholds={presenceThresholds} onEdit={handleEdit} readOnly={isReadOnly}/>}
+          {view==="semaine"&&<VueSemaine weekStart={weekStart} overrides={overrides} triData={triData} presenceThresholds={presenceThresholds} onEdit={handleEdit} readOnly={isReadOnly}/>}
+          {view==="jour"&&<VueJour date={selectedDate} overrides={overrides} triData={triData} binomes={binomes} presenceThresholds={presenceThresholds} onEdit={handleEdit} readOnly={isReadOnly}/>}
         </Card>
 
         {/* TRI CADDIE + BINÔMES (month view) */}
@@ -1643,7 +1653,7 @@ export default function PlanningApp(){
             <Card style={{padding:18}}>
               <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
                 <div>
-                  <Kicker label="TRI CADDIE — cliquer pour modifier" icon={CartIcon}/>
+                  <Kicker label={isReadOnly?"TRI CADDIE":"TRI CADDIE — cliquer pour modifier"} icon={CartIcon}/>
                   <div style={{marginTop:10,fontSize:16,fontWeight:800,color:V.text}}>
                     Rotation {MOIS_FR[month].toLowerCase()}
                   </div>
@@ -1656,15 +1666,15 @@ export default function PlanningApp(){
                 {triColumns.map((column,columnIndex)=>(
                   <div key={`tri-col-${columnIndex}`} style={{display:"grid",gap:6}}>
                     {column.map(([dow,pair])=>(
-                      <div key={dow} onClick={()=>setEditTri(parseInt(dow))} style={{
+                      <div key={dow} onClick={isReadOnly?undefined:()=>setEditTri(parseInt(dow))} style={{
                         display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:12,
-                        background:"rgba(248,250,252,0.72)",border:`1px solid ${V.border}`,cursor:"pointer",transition:"all 0.15s",
+                        background:"rgba(248,250,252,0.72)",border:`1px solid ${V.border}`,cursor:isReadOnly?"default":"pointer",transition:"all 0.15s",
                         minHeight:44,
                       }}
-                        onMouseEnter={e=>e.currentTarget.style.borderColor=V.amber+"40"} onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(226,232,240,0.5)"}>
+                        onMouseEnter={isReadOnly?undefined:(e=>e.currentTarget.style.borderColor=V.amber+"40")} onMouseLeave={isReadOnly?undefined:(e=>e.currentTarget.style.borderColor="rgba(226,232,240,0.5)")}>
                         <span style={{fontSize:11,fontWeight:800,color:V.mc,minWidth:40,letterSpacing:"0.03em"}}>{JL[dow]}</span>
                         <span style={{fontSize:12,fontWeight:600,color:V.body,flex:1,lineHeight:1.25}}>{pair.join(" + ")}</span>
-                        <span style={{color:V.light,display:"flex",alignItems:"center",justifyContent:"center"}}>{EditIcon}</span>
+                        {!isReadOnly&&<span style={{color:V.light,display:"flex",alignItems:"center",justifyContent:"center"}}>{EditIcon}</span>}
                       </div>
                     ))}
                   </div>
@@ -1674,7 +1684,7 @@ export default function PlanningApp(){
             <Card style={{padding:18}}>
               <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
                 <div>
-                  <Kicker label="BINÔMES REPOS — cliquer pour modifier" icon={LinkIcon}/>
+                  <Kicker label={isReadOnly?"BINÔMES REPOS":"BINÔMES REPOS — cliquer pour modifier"} icon={LinkIcon}/>
                   <div style={{marginTop:10,fontSize:16,fontWeight:800,color:V.text}}>Paires fixes</div>
                 </div>
                 <div style={{fontSize:11,fontWeight:700,color:V.light,paddingTop:6}}>
@@ -1685,15 +1695,15 @@ export default function PlanningApp(){
                 {binomeColumns.map((column,columnIndex)=>(
                   <div key={`binome-col-${columnIndex}`} style={{display:"grid",gap:6}}>
                     {column.map(({pair,index})=>(
-                      <div key={index} onClick={()=>setEditBinome(index)} style={{
+                      <div key={index} onClick={isReadOnly?undefined:()=>setEditBinome(index)} style={{
                         display:"flex",alignItems:"center",gap:10,padding:"9px 12px",borderRadius:12,
-                        background:"rgba(248,250,252,0.72)",border:`1px solid ${V.border}`,cursor:"pointer",transition:"all 0.15s",
+                        background:"rgba(248,250,252,0.72)",border:`1px solid ${V.border}`,cursor:isReadOnly?"default":"pointer",transition:"all 0.15s",
                         minHeight:44,
                       }}
-                        onMouseEnter={e=>e.currentTarget.style.borderColor=V.mc+"40"} onMouseLeave={e=>e.currentTarget.style.borderColor="rgba(226,232,240,0.5)"}>
+                        onMouseEnter={isReadOnly?undefined:(e=>e.currentTarget.style.borderColor=V.mc+"40")} onMouseLeave={isReadOnly?undefined:(e=>e.currentTarget.style.borderColor="rgba(226,232,240,0.5)")}>
                         <span style={{width:24,height:24,borderRadius:8,background:V.mIG,display:"flex",alignItems:"center",justifyContent:"center",fontSize:11,fontWeight:800,color:V.mc,flexShrink:0}}>{index+1}</span>
                         <span style={{fontSize:12,fontWeight:600,color:V.body,flex:1,lineHeight:1.25}}>{pair.join(" + ")}</span>
-                        <span style={{color:V.light,display:"flex",alignItems:"center",justifyContent:"center"}}>{EditIcon}</span>
+                        {!isReadOnly&&<span style={{color:V.light,display:"flex",alignItems:"center",justifyContent:"center"}}>{EditIcon}</span>}
                       </div>
                     ))}
                   </div>
@@ -1705,8 +1715,8 @@ export default function PlanningApp(){
       </div>
 
       {/* MODALS */}
-      {editing&&<EditCellModal empName={editing.emp.n} date={editing.date} currentStatut={editing.s} currentHoraire={editing.h} defaultHoraire={editing.dh} monthLabel={`${MOIS_FR[editing.date.getMonth()]} ${editing.date.getFullYear()}`} horaireOptions={horaireOptions} onSave={saveEdit} onClose={()=>setEditing(null)}/>}
-      {editTri!==null&&<EditTriModal dow={editTri} pair={triData[editTri]} allNames={getAllEmpNames()} onSave={async(pair)=>{
+      {!isReadOnly&&editing&&<EditCellModal empName={editing.emp.n} date={editing.date} currentStatut={editing.s} currentHoraire={editing.h} defaultHoraire={editing.dh} monthLabel={`${MOIS_FR[editing.date.getMonth()]} ${editing.date.getFullYear()}`} horaireOptions={horaireOptions} onSave={saveEdit} onClose={()=>setEditing(null)}/>}
+      {!isReadOnly&&editTri!==null&&<EditTriModal dow={editTri} pair={triData[editTri]} allNames={getAllEmpNames()} onSave={async(pair)=>{
         setBusy(true);
         setError("");
         try{
@@ -1720,7 +1730,7 @@ export default function PlanningApp(){
           setBusy(false);
         }
       }} onClose={()=>setEditTri(null)}/>}
-      {editBinome!==null&&<EditBinomeModal index={editBinome} pair={binomes[editBinome]} allNames={getAllEmpNames()} onSave={async(pair)=>{
+      {!isReadOnly&&editBinome!==null&&<EditBinomeModal index={editBinome} pair={binomes[editBinome]} allNames={getAllEmpNames()} onSave={async(pair)=>{
         setBusy(true);
         setError("");
         try{
@@ -1735,12 +1745,12 @@ export default function PlanningApp(){
           setBusy(false);
         }
       }} onClose={()=>setEditBinome(null)}/>}
-      <UndoToast
+      {!isReadOnly&&<UndoToast
         snapshot={undoToast}
         busy={undoBusy}
         onUndo={handleUndo}
         onDismiss={()=>undoToast&&dismissPlanningUndo(undoToast.id)}
-      />
+      />}
     </div>
   );
 }

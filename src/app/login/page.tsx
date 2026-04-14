@@ -8,7 +8,9 @@ import {
   recordBrowserActivity,
   restoreBrowserSessionMarker,
 } from "@/lib/browser-session";
+import { loadCurrentOfficeProfile } from "@/lib/office-profile";
 import { createClient } from "@/lib/supabase";
+import { buildUserRole } from "@/lib/use-user-role";
 
 const PAGE_BG = "#F4F1ED";
 const PANEL_RED = "#D40511";
@@ -52,11 +54,13 @@ export default function LoginPage() {
       }
       markBrowserSessionActive();
       recordBrowserActivity();
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("password_changed")
-        .eq("id", user.id)
-        .maybeSingle();
+      const profile = await loadCurrentOfficeProfile(supabase);
+      const roleInfo = buildUserRole(profile);
+      if (!roleInfo.hasDashboardAccess) {
+        clearBrowserSessionState();
+        await supabase.auth.signOut();
+        return;
+      }
       router.replace(profile?.password_changed ? "/" : "/change-password");
     };
     void checkSession();
@@ -85,11 +89,14 @@ export default function LoginPage() {
         router.replace("/login");
         return;
       }
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("password_changed")
-        .eq("id", user.id)
-        .maybeSingle();
+      const profile = await loadCurrentOfficeProfile(supabase);
+      const roleInfo = buildUserRole(profile);
+      if (!roleInfo.hasDashboardAccess) {
+        clearBrowserSessionState();
+        await supabase.auth.signOut();
+        setError("Ce compte n'a pas accès au dashboard bureau.");
+        return;
+      }
       router.replace(profile?.password_changed ? "/" : "/change-password");
       router.refresh();
     } finally {
@@ -193,7 +200,7 @@ export default function LoginPage() {
             ))}
           </div>
           <div style={{ marginTop: "auto", fontSize: 11, color: "rgba(255,255,255,0.38)", letterSpacing: "0.06em" }}>
-            Accès managers uniquement
+            Accès bureau selon profil
           </div>
         </div>
 
@@ -229,7 +236,7 @@ export default function LoginPage() {
               Bonjour
             </div>
             <div style={{ fontSize: 13, color: MUTED, lineHeight: 1.55, marginBottom: 8 }}>
-              Connecte-toi avec ton compte manager.
+              Connecte-toi avec ton compte bureau.
             </div>
 
             <label style={{ fontSize: 12, fontWeight: 500, color: "#888" }}>Email</label>

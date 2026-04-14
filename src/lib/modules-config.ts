@@ -20,7 +20,7 @@ export type ModuleConfig = {
   description: string;
 };
 
-export type OfficeProfileRole = "manager" | "admin" | "gestionnaire" | "collaborateur" | string;
+export type OfficeProfileRole = "manager" | "admin" | "gestionnaire" | "viewer" | "collaborateur" | string;
 
 export const ALL_MODULES: ModuleConfig[] = [
   { key: "planning", moduleId: "planning", label: "Planning", href: "/planning", description: "Horaires et présences" },
@@ -62,6 +62,38 @@ export function isGestionnaireRole(role: string | null | undefined) {
   return normalizeRole(role) === "gestionnaire";
 }
 
+export function isViewerRole(role: string | null | undefined) {
+  return normalizeRole(role) === "viewer";
+}
+
+export function isCollaborateurRole(role: string | null | undefined) {
+  return normalizeRole(role) === "collaborateur";
+}
+
+export function hasOfficeModuleAccess(profile: {
+  role: OfficeProfileRole | null | undefined;
+  allowed_modules?: ModuleAccessKey[] | null | undefined;
+}) {
+  if (isPrivilegedOfficeRole(profile.role)) return true;
+  return getVisibleModules(profile).length > 0;
+}
+
+export function isReadOnlyOfficeAccessRole(profile: {
+  role: OfficeProfileRole | null | undefined;
+  allowed_modules?: ModuleAccessKey[] | null | undefined;
+}) {
+  const allowedModules = normalizeAllowedModules(profile.allowed_modules);
+  return isViewerRole(profile.role) || (isCollaborateurRole(profile.role) && allowedModules.length > 0);
+}
+
+export function isLimitedOfficeAccessRole(profile: {
+  role: OfficeProfileRole | null | undefined;
+  allowed_modules?: ModuleAccessKey[] | null | undefined;
+}) {
+  const allowedModules = normalizeAllowedModules(profile.allowed_modules);
+  return isGestionnaireRole(profile.role) || isViewerRole(profile.role) || (isCollaborateurRole(profile.role) && allowedModules.length > 0);
+}
+
 export function getVisibleModules(profile: {
   role: OfficeProfileRole | null | undefined;
   allowed_modules?: ModuleAccessKey[] | null | undefined;
@@ -70,7 +102,7 @@ export function getVisibleModules(profile: {
     return ALL_MODULES;
   }
 
-  if (isGestionnaireRole(profile.role)) {
+  if (isLimitedOfficeAccessRole(profile)) {
     const allowedModules = normalizeAllowedModules(profile.allowed_modules);
     return ALL_MODULES.filter((moduleItem) => allowedModules.includes(moduleItem.key));
   }
@@ -81,4 +113,3 @@ export function getVisibleModules(profile: {
 export function getModuleConfigByKey(moduleKey: ModuleAccessKey) {
   return ALL_MODULES.find((moduleItem) => moduleItem.key === moduleKey) ?? null;
 }
-

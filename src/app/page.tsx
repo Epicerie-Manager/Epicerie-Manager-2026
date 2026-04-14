@@ -11,7 +11,7 @@ import AgendaCard from "@/components/dashboard/agenda-card";
 import type { ModuleAccessKey } from "@/lib/modules-config";
 import { moduleThemes } from "@/lib/theme";
 import { isAdminUser } from "@/lib/admin-access";
-import { getVisibleModules, isGestionnaireRole } from "@/lib/modules-config";
+import { getVisibleModules, isLimitedOfficeAccessRole } from "@/lib/modules-config";
 import type { InfoAnnouncement } from "@/lib/infos-data";
 import { absenceTypes } from "@/lib/absences-data";
 import { loadAbsenceRequests, getAbsencesUpdatedEventName, syncAbsencesFromSupabase } from "@/lib/absences-store";
@@ -275,11 +275,11 @@ export default function DashboardPage() {
     void checkAdmin();
   }, []);
 
-  const isSupplyManager = isGestionnaireRole(dashboardRole);
+  const hasLimitedDashboard = isLimitedOfficeAccessRole({ role: dashboardRole, allowed_modules: dashboardAllowedModules });
   const visibleModules = getVisibleModules({ role: dashboardRole, allowed_modules: dashboardAllowedModules });
 
   useEffect(() => {
-    if (isSupplyManager) return;
+    if (hasLimitedDashboard) return;
     const refreshAnnouncements = () => {
       setDashboardAnnouncements(loadInfoAnnouncements());
     };
@@ -292,12 +292,12 @@ export default function DashboardPage() {
     const eventName = getInfosUpdatedEventName();
     window.addEventListener(eventName, refreshAnnouncements);
     return () => window.removeEventListener(eventName, refreshAnnouncements);
-  }, [isSupplyManager]);
+  }, [hasLimitedDashboard]);
 
   useEffect(() => {
     if (!accessProfileResolved) return;
 
-    if (isSupplyManager) {
+    if (hasLimitedDashboard) {
       void loadLatestRupturesCountForToday()
         .then((count) => setRupturesTodayCount(count))
         .catch(() => setRupturesTodayCount(0));
@@ -356,7 +356,7 @@ export default function DashboardPage() {
       window.clearInterval(minuteTimer);
       listeners.forEach((eventName) => window.removeEventListener(eventName, handleRefreshAll));
     };
-  }, [accessProfileResolved, isSupplyManager]);
+  }, [accessProfileResolved, hasLimitedDashboard]);
 
   const today = now;
   const todayIso = today.toISOString().slice(0, 10);
@@ -696,7 +696,7 @@ export default function DashboardPage() {
     );
   }
 
-  if (isSupplyManager) {
+  if (hasLimitedDashboard) {
     const welcomeName = dashboardDisplayName || "Christelle";
     const moduleIcons: Record<string, React.ReactNode> = {
       planning: <IconCalendar />,
@@ -744,7 +744,7 @@ export default function DashboardPage() {
         <Card>
           <Kicker moduleKey="dashboard" label="Navigation" icon={<IconGrid />} />
           <h2 style={{ fontSize: "17px", fontWeight: 700, letterSpacing: "-0.02em", color: "#0f172a" }}>Accès modules</h2>
-          <p style={{ fontSize: "12px", color: "#64748b", marginTop: "3px", marginBottom: "10px" }}>Accès autorisé pour le rôle approvisionnement</p>
+          <p style={{ fontSize: "12px", color: "#64748b", marginTop: "3px", marginBottom: "10px" }}>Accès bureau limité aux modules autorisés</p>
 
           <NavCardGrid style={{ gridTemplateColumns: "repeat(auto-fit, minmax(260px, 1fr))" }}>
             {visibleModules.map((moduleItem) => (

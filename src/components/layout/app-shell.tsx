@@ -235,6 +235,16 @@ export function AppShell({ version, children }: AppShellProps) {
       setOfficeRole(resolvedRole);
       setAllowedModules(profile?.allowed_modules ?? []);
 
+      const allowedOfficeModules = getOfficeModuleAccess(resolvedRole, profile?.allowed_modules ?? [], resolvedAdmin);
+      if (!allowedOfficeModules.size) {
+        clearBrowserSessionState();
+        await supabase.auth.signOut();
+        setOfficeAccessResolved(true);
+        router.replace("/login");
+        router.refresh();
+        return;
+      }
+
       const passwordChanged = profile?.password_changed === true;
       if (!passwordChanged && pathname !== "/change-password") {
         router.replace("/change-password");

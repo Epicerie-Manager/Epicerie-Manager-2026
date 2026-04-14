@@ -1,6 +1,6 @@
 import {
   getVisibleModules,
-  isGestionnaireRole,
+  isLimitedOfficeAccessRole,
   isPrivilegedOfficeRole,
   type ModuleAccessKey,
 } from "@/lib/modules-config";
@@ -60,7 +60,7 @@ export function getOfficeModuleAccess(role: string | null | undefined, allowedMo
     return modules;
   }
 
-  if (isGestionnaireRole(role)) {
+  if (isLimitedOfficeAccessRole({ role, allowed_modules: allowedModules })) {
     const visibleModules = getVisibleModules({ role, allowed_modules: allowedModules });
     return new Set<OfficeShellModuleId>([
       "dashboard",

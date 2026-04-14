@@ -46,9 +46,11 @@ const JOURS = ["LUN","MAR","MER","JEU","VEN","SAM"];
 const JOURS_FULL = ["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
 const OFFICE_ROLE_OPTIONS = [
   { value: "collaborateur", label: "Collaborateur" },
+  { value: "viewer", label: "Viewer lecture seule" },
   { value: "gestionnaire", label: "Gestionnaire" },
   { value: "manager", label: "Manager" },
 ];
+const LIMITED_OFFICE_ROLE_VALUES = new Set(["collaborateur","viewer","gestionnaire"]);
 
 function compareEmployeesByName(a,b){
   return String(a?.n||"").localeCompare(String(b?.n||""),"fr");
@@ -251,7 +253,7 @@ const EditEmpModal=({emp,availableRayons,onSave,onClose,onResetPin,onResetPasswo
             </div>
           </div>
 
-          {d.profile_role === "gestionnaire" ? (
+          {LIMITED_OFFICE_ROLE_VALUES.has(d.profile_role || "collaborateur") ? (
             <div style={{marginBottom:18}}>
               <ModuleSelector
                 selectedModules={Array.isArray(d.allowed_modules) ? d.allowed_modules : []}
@@ -584,7 +586,7 @@ const NewEmpModal=({availableRayons,onSave,onClose})=>{
                 ))}
               </select>
               <div style={{fontSize:10,color:V.light,marginTop:6}}>
-                Le rôle gestionnaire active une sélection fine des modules bureau.
+                Collaborateur, viewer et gestionnaire peuvent recevoir un accès bureau limité module par module.
               </div>
             </div>
             <div>
@@ -601,7 +603,7 @@ const NewEmpModal=({availableRayons,onSave,onClose})=>{
             </div>
           </div>
 
-          {d.profile_role === "gestionnaire" ? (
+          {LIMITED_OFFICE_ROLE_VALUES.has(d.profile_role || "collaborateur") ? (
             <div style={{marginBottom:18}}>
               <ModuleSelector
                 selectedModules={Array.isArray(d.allowed_modules) ? d.allowed_modules : []}

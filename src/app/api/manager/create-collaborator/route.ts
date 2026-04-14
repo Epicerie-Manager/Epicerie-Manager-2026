@@ -18,6 +18,10 @@ type CreateCollaboratorBody = {
   allowed_modules?: string[];
 };
 
+function canPersistAllowedModules(profileRole: string) {
+  return ["gestionnaire", "viewer", "collaborateur"].includes(profileRole);
+}
+
 function createRouteSupabaseClient(request: NextRequest) {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
@@ -142,7 +146,7 @@ export async function POST(request: NextRequest) {
     const employeeRole = String(body.obs ?? "Collaborateur").trim();
     const employeeCycle = Array.isArray(body.cycle) ? body.cycle.slice(0, 5) : [];
     const profileRole = String(body.profile_role ?? "collaborateur").trim().toLowerCase() || "collaborateur";
-    const allowedModules = profileRole === "gestionnaire" ? normalizeAllowedModules(body.allowed_modules) : [];
+    const allowedModules = canPersistAllowedModules(profileRole) ? normalizeAllowedModules(body.allowed_modules) : [];
 
     if (employeeName.length < 2) {
       return NextResponse.json({ error: "Nom collaborateur invalide." }, { status: 400 });

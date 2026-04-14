@@ -5,6 +5,10 @@ import { createClient } from "@/lib/supabase";
 
 export type RhEmployeeType = "M" | "S" | "E";
 
+function canPersistAllowedModules(profileRole: string) {
+  return ["gestionnaire", "viewer", "collaborateur"].includes(String(profileRole ?? "").trim().toLowerCase());
+}
+
 export type RhEmployee = {
   id: number;
   dbId?: string;
@@ -439,10 +443,9 @@ export async function updateRhEmployeeInSupabase(employee: RhEmployee): Promise<
   };
   const profilePayload = {
     role: String(employee.profile_role ?? "collaborateur").trim() || "collaborateur",
-    allowed_modules:
-      String(employee.profile_role ?? "collaborateur").trim() === "gestionnaire"
-        ? normalizeAllowedModules(employee.allowed_modules)
-        : [],
+    allowed_modules: canPersistAllowedModules(String(employee.profile_role ?? "collaborateur"))
+      ? normalizeAllowedModules(employee.allowed_modules)
+      : [],
   };
 
   try {

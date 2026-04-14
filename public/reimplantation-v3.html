@@ -1,0 +1,1095 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Réimplantation — Épicerie Manager</title>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;font-family:'Segoe UI',Arial,sans-serif;font-size:13px;background:#f0f2f5;color:#1a1a2e}
+
+/* ══ APP SHELL ══ */
+.app{display:flex;flex-direction:column;height:100vh;overflow:hidden}
+
+/* ── Top nav (style Épicerie Manager) ── */
+.topnav{
+  flex-shrink:0;display:flex;align-items:center;gap:0;
+  background:#1a1a2e;color:#fff;
+  height:48px;padding:0;border-bottom:2px solid #378ADD;
+  position:relative;z-index:100;
+}
+.topnav-brand{
+  display:flex;align-items:center;gap:10px;
+  padding:0 18px;border-right:1px solid rgba(255,255,255,0.08);
+  height:100%;
+}
+.brand-icon{
+  width:32px;height:32px;border-radius:8px;
+  background:linear-gradient(135deg,#378ADD,#2050A0);
+  display:flex;align-items:center;justify-content:center;
+  font-size:16px;font-weight:900;color:#fff;
+}
+.brand-text{font-size:12px;font-weight:700;color:#fff;line-height:1.2}
+.brand-sub{font-size:9px;color:rgba(255,255,255,0.45);font-weight:400}
+.topnav-tabs{display:flex;height:100%;flex:1}
+.tnav-btn{
+  display:flex;align-items:center;gap:6px;
+  padding:0 16px;font-size:12px;font-weight:500;color:rgba(255,255,255,0.55);
+  border:none;background:transparent;cursor:pointer;
+  border-bottom:2px solid transparent;margin-bottom:-2px;
+  transition:all .15s;white-space:nowrap;
+}
+.tnav-btn:hover{color:rgba(255,255,255,0.85);background:rgba(255,255,255,0.04)}
+.tnav-btn.active{color:#fff;border-bottom-color:#378ADD;background:rgba(55,138,221,0.08)}
+.tnav-btn svg{opacity:.7}
+.tnav-btn.active svg{opacity:1}
+.topnav-right{
+  margin-left:auto;display:flex;align-items:center;gap:12px;
+  padding:0 18px;border-left:1px solid rgba(255,255,255,0.08);
+}
+.topnav-date{font-size:11px;color:rgba(255,255,255,0.45)}
+.topnav-user{font-size:11px;color:rgba(255,255,255,0.7);font-weight:600}
+
+/* ── Tab panels ── */
+.tab-panel{display:none;flex:1;overflow:hidden}
+.tab-panel.active{display:flex;flex-direction:column}
+
+/* ══ SHARED PANEL HEADER ══ */
+.panel-header{
+  flex-shrink:0;
+  background:#fff;border-bottom:1px solid #e4e6ea;
+  padding:14px 24px 12px;
+  display:flex;justify-content:space-between;align-items:flex-end;
+}
+.panel-badge{
+  font-size:9px;font-weight:700;letter-spacing:.6px;
+  color:#378ADD;text-transform:uppercase;margin-bottom:4px;
+}
+.panel-title{font-size:20px;font-weight:700;color:#1a1a2e;line-height:1}
+.panel-sub{font-size:11px;color:#888;margin-top:3px}
+.panel-actions{display:flex;gap:8px;align-items:center}
+.btn{
+  font-size:11px;font-weight:600;padding:6px 14px;border-radius:7px;
+  border:1px solid #d0d3da;background:#fff;cursor:pointer;
+  transition:all .14s;color:#444;white-space:nowrap;display:flex;align-items:center;gap:5px;
+}
+.btn:hover{background:#f5f6f8;border-color:#b0b3ba}
+.btn-primary{background:#378ADD;color:#fff;border-color:#378ADD}
+.btn-primary:hover{background:#2570c0;border-color:#2570c0}
+.btn-sm{padding:4px 10px;font-size:10px}
+
+/* ══════════════════════════════════════
+   GANTT TAB
+══════════════════════════════════════ */
+#tab-gantt{background:#fff}
+.gantt-scroll{flex:1;overflow:auto}
+.gantt-grid{display:grid;min-width:max-content}
+
+.gh-cell{
+  background:#F4F5F7;padding:5px 7px;
+  font-size:10px;font-weight:700;color:#555;
+  border-bottom:1px solid #d8dbe2;border-right:1px solid #e4e6ea;
+  white-space:nowrap;position:sticky;top:0;z-index:10;
+}
+.gh-cell.month{
+  text-align:center;font-size:11px;font-weight:700;color:#1a1a2e;
+  background:#ECEEF2;letter-spacing:.3px;
+}
+.gh-cell.day{
+  text-align:center;font-size:9px;font-weight:400;color:#999;
+  padding:4px 0;min-width:22px;background:#F4F5F7;
+}
+.gh-cell.day.weekend{color:#ccc;background:#F8F9FA}
+.gh-cell.day.today{background:#EBF4FF;color:#378ADD;font-weight:700}
+.gh-cell.day.major{font-weight:700;color:#555}
+
+.gr-cell{
+  padding:7px 9px;border-bottom:1px solid #f0f2f5;border-right:1px solid #f4f5f7;
+  display:flex;align-items:center;background:#fff;min-height:58px;
+}
+.gr-cell.alt{background:#FAFBFC}
+.gr-cell.day-cell{
+  padding:4px 0;position:relative;min-width:22px;justify-content:center;
+}
+.gr-cell.day-cell.weekend{background:rgba(0,0,0,0.008)}
+.gr-cell.day-cell.jun{background:rgba(55,138,221,0.018)}
+.gr-cell.day-cell.jun.alt{background:rgba(55,138,221,0.03)}
+.gr-cell.day-cell.today-col{background:rgba(55,138,221,0.07)!important}
+.gr-cell.month-sep{border-right:2px dashed #aaa!important}
+
+.badge{
+  display:inline-flex;align-items:center;
+  font-size:9px;font-weight:700;padding:2px 7px;border-radius:20px;white-space:nowrap;
+}
+.badge-nuit{background:#EEEDFE;color:#534AB7}
+.badge-jour{background:#FFF3CD;color:#856404}
+.badge-charge{background:#FCEBEB;color:#A32D2D;margin-left:4px}
+.badge-replan{background:#FFF3CD;color:#856404;margin-left:4px;border:1px dashed #D4A800}
+
+.rayon-name{font-weight:700;font-size:12px;line-height:1.35;color:#1a1a2e}
+.rayon-sub{font-size:10px;color:#888;line-height:1.3;margin-top:2px}
+.sect-chip{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:9px;font-weight:700;margin-top:4px;
+  padding:2px 6px;border-radius:20px;
+}
+
+.inplace{
+  width:100%;font-size:11px;padding:4px 8px;
+  border:1px solid #e4e6ea;border-radius:6px;
+  background:#fff;color:#222;outline:none;
+  font-family:inherit;transition:border-color .15s;
+}
+.inplace:focus{border-color:#378ADD;box-shadow:0 0 0 3px rgba(55,138,221,0.1)}
+
+.gantt-bar{
+  position:absolute;top:7px;bottom:7px;border-radius:8px;
+  display:flex;align-items:center;padding:0 9px;
+  font-size:9px;font-weight:700;color:rgba(255,255,255,0.95);
+  white-space:nowrap;overflow:hidden;z-index:2;cursor:pointer;
+  transition:filter .14s;
+  box-shadow:0 1px 4px rgba(0,0,0,0.18),inset 0 1px 0 rgba(255,255,255,0.18);
+}
+.gantt-bar:hover{filter:brightness(1.1)}
+.gantt-bar.replanified{border:2px dashed rgba(255,255,255,0.65)}
+.bar-charge-ring{
+  position:absolute;top:4px;bottom:4px;border-radius:9px;
+  border:2px solid #E24B4A;opacity:0.55;z-index:1;pointer-events:none;
+}
+.bar-badge{
+  position:absolute;right:5px;font-size:8px;font-weight:700;
+  color:white;padding:1px 4px;border-radius:3px;z-index:3;
+  background:rgba(0,0,0,0.25);
+}
+
+/* ══════════════════════════════════════
+   TABLEAU TAB
+══════════════════════════════════════ */
+#tab-tableau{background:#f0f2f5;overflow:auto}
+#tbl-inner{padding:20px 24px}
+
+.kpi-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:18px}
+.kpi-card{
+  background:#fff;border:1px solid #e4e6ea;border-radius:12px;
+  padding:14px 18px;border-top:3px solid transparent;
+}
+.kpi-card.c-blue{border-top-color:#378ADD}
+.kpi-card.c-gray{border-top-color:#888}
+.kpi-card.c-orange{border-top-color:#D85A30}
+.kpi-card.c-green{border-top-color:#1D9E75}
+.kpi-label{font-size:11px;color:#888;margin-bottom:5px;font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+.kpi-val{font-size:30px;font-weight:700;color:#1a1a2e;line-height:1}
+.kpi-val.orange{color:#D85A30}
+.kpi-val.green{color:#1D9E75}
+.prog-wrap{height:5px;background:#eee;border-radius:3px;margin-top:10px}
+.prog-fill{height:100%;border-radius:3px;background:#1D9E75;transition:width .4s}
+
+.filters-bar{
+  background:#fff;border:1px solid #e4e6ea;border-radius:10px;
+  padding:10px 16px;margin-bottom:14px;
+  display:flex;flex-wrap:wrap;gap:8px;align-items:center;
+}
+.fl{font-size:11px;color:#888;font-weight:600}
+.filt-btn{
+  font-size:11px;padding:4px 12px;border-radius:20px;
+  border:1px solid #d0d3da;background:transparent;color:#666;cursor:pointer;
+  transition:all .12s;font-weight:500;
+}
+.filt-btn:hover{border-color:#378ADD;color:#378ADD}
+.filt-btn.active{background:#1a1a2e;color:#fff;border-color:#1a1a2e}
+.divider{width:1px;height:20px;background:#e4e6ea;margin:0 4px}
+
+.tbl-card{background:#fff;border:1px solid #e4e6ea;border-radius:12px;overflow:hidden}
+table{width:100%;border-collapse:collapse}
+thead th{
+  text-align:left;padding:9px 12px;font-size:11px;font-weight:700;
+  color:#666;border-bottom:1px solid #e4e6ea;background:#F4F5F7;
+  white-space:nowrap;letter-spacing:.2px;
+}
+tbody tr{border-bottom:1px solid #f0f2f5;transition:background .1s}
+tbody tr:hover{background:#F8F9FC}
+tbody td{padding:9px 12px;vertical-align:middle}
+.hidden-row{display:none}
+
+.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:5px;flex-shrink:0}
+.date-str{font-size:12px;font-weight:700;color:#1a1a2e;white-space:nowrap}
+.date-moment{font-size:9px;padding:2px 6px;border-radius:20px;font-weight:700;margin-left:4px}
+.mn{background:#EEEDFE;color:#534AB7}
+.mj{background:#FFF3CD;color:#856404}
+
+.etat-sel{
+  font-size:11px;padding:5px 9px;border-radius:7px;
+  border:1px solid #d0d3da;background:#fafbfc;
+  cursor:pointer;font-weight:600;outline:none;min-width:96px;
+  transition:all .12s;
+}
+.ec{border-color:#D85A30!important;color:#D85A30!important;background:#FFF0EC!important}
+.ef{border-color:#1D9E75!important;color:#1D9E75!important;background:#E8F7F2!important}
+.tbl-inp{
+  width:100%;font-size:11px;padding:5px 9px;
+  border:1px solid #e4e6ea;border-radius:6px;
+  background:#fff;color:#222;outline:none;font-family:inherit;
+  transition:border-color .15s;
+}
+.tbl-inp:focus{border-color:#378ADD;box-shadow:0 0 0 3px rgba(55,138,221,0.1)}
+.tbl-btn{
+  font-size:11px;padding:5px 11px;white-space:nowrap;
+  border:1px solid #e4e6ea;border-radius:7px;
+  background:#fafbfc;cursor:pointer;font-weight:600;color:#555;
+  transition:all .12s;
+}
+.tbl-btn:hover{border-color:#378ADD;color:#378ADD;background:#EBF4FF}
+.tbl-btn.plan{border-color:#378ADD;color:#2570c0;background:#EBF4FF}
+.tbl-btn.plan:hover{background:#378ADD;color:#fff}
+
+/* ══════════════════════════════════════
+   CALENDRIER TAB (style PDF)
+══════════════════════════════════════ */
+#tab-cal{background:#f0f2f5;overflow:auto}
+.cal-inner{padding:20px 24px;max-width:860px}
+
+/* En-tête du doc */
+.cal-doc-header{
+  background:#1a1a2e;border-radius:14px;
+  padding:28px 32px;margin-bottom:24px;
+  display:flex;justify-content:space-between;align-items:flex-end;
+  color:#fff;
+}
+.cal-doc-logo{
+  display:flex;align-items:center;gap:12px;margin-bottom:16px;
+}
+.cal-doc-icon{
+  width:44px;height:44px;border-radius:10px;
+  background:#378ADD;display:flex;align-items:center;
+  justify-content:center;font-size:22px;
+}
+.cal-doc-brand{font-size:13px;font-weight:700;color:rgba(255,255,255,.7)}
+.cal-doc-title{font-size:26px;font-weight:700;color:#fff;line-height:1.1;margin-bottom:6px}
+.cal-doc-sub{font-size:13px;color:rgba(255,255,255,.55)}
+.cal-doc-stats{
+  display:flex;flex-direction:column;gap:8px;align-items:flex-end;
+}
+.cal-stat-pill{
+  font-size:11px;font-weight:700;padding:5px 14px;border-radius:20px;
+  background:rgba(255,255,255,0.12);color:rgba(255,255,255,.85);
+  border:1px solid rgba(255,255,255,0.15);white-space:nowrap;
+}
+
+/* Séparateur mois */
+.month-sep-header{
+  display:flex;align-items:center;gap:12px;margin:20px 0 10px;
+}
+.month-sep-label{
+  font-size:11px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;
+  color:#378ADD;white-space:nowrap;
+}
+.month-sep-line{flex:1;height:1px;background:#d0d3da}
+
+/* Card intervention */
+.interv-card{
+  background:#fff;border:1px solid #e4e6ea;border-radius:12px;
+  margin-bottom:10px;overflow:hidden;display:flex;
+  transition:box-shadow .14s;
+}
+.interv-card:hover{box-shadow:0 2px 12px rgba(0,0,0,0.06)}
+.interv-card.charge{border-color:#E24B4A}
+
+/* Bande couleur gauche */
+.interv-stripe{width:6px;flex-shrink:0;border-radius:0}
+
+/* Contenu principal */
+.interv-main{flex:1;padding:14px 18px;display:flex;align-items:center;gap:20px}
+
+/* Date */
+.interv-date-block{flex-shrink:0;min-width:120px}
+.interv-weekdays{font-size:10px;font-weight:600;color:#888;margin-bottom:2px}
+.interv-dates{font-size:16px;font-weight:700;color:#1a1a2e;line-height:1}
+.interv-arrow{font-size:13px;color:#aaa;font-weight:400;margin:0 2px}
+.interv-moment-pill{
+  display:inline-flex;align-items:center;gap:4px;
+  font-size:9px;font-weight:700;padding:3px 8px;border-radius:20px;
+  margin-top:5px;
+}
+.pill-nuit{background:#EEEDFE;color:#534AB7}
+.pill-jour{background:#FFF3CD;color:#856404}
+.pill-charge{background:#FCEBEB;color:#A32D2D;margin-left:4px}
+
+/* Séparateur vertical */
+.interv-divider{width:1px;height:50px;background:#f0f2f5;flex-shrink:0}
+
+/* Rayon info */
+.interv-rayon{flex:1}
+.interv-sector-chip{
+  display:inline-flex;align-items:center;gap:5px;
+  font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px;
+  margin-bottom:5px;
+}
+.interv-rayon-name{font-size:14px;font-weight:700;color:#1a1a2e;line-height:1.3}
+.interv-rayon-sub{font-size:11px;color:#888;margin-top:3px;line-height:1.4}
+
+/* Badges état/replan */
+.interv-badges{display:flex;gap:6px;margin-top:6px;flex-wrap:wrap}
+.ibadge{font-size:9px;font-weight:700;padding:2px 8px;border-radius:20px}
+.ib-todo{background:#F4F5F7;color:#666}
+.ib-cours{background:#FFF0EC;color:#D85A30;border:1px solid #FABDAD}
+.ib-fait{background:#E8F7F2;color:#1D9E75;border:1px solid #9FE1CB}
+.ib-replan{background:#FFF3CD;color:#856404;border:1px dashed #D4A800}
+.ib-charge{background:#FCEBEB;color:#A32D2D;border:1px solid #F7C1C1}
+
+/* Colonne droite : resp + notes */
+.interv-meta{
+  flex-shrink:0;min-width:180px;padding:14px 16px;
+  background:#FAFBFC;border-left:1px solid #f0f2f5;
+  display:flex;flex-direction:column;gap:8px;justify-content:center;
+}
+.meta-row{display:flex;flex-direction:column;gap:2px}
+.meta-label{font-size:9px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.4px}
+.meta-val{font-size:12px;font-weight:600;color:#1a1a2e}
+.meta-empty{font-size:11px;color:#ccc;font-style:italic}
+
+/* ══════════════════════════════════════
+   PLANS TAB
+══════════════════════════════════════ */
+#tab-plans{background:#f0f2f5;overflow:auto}
+.plans-inner{padding:20px 24px}
+.plans-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.plan-card{
+  background:#fff;border:1px solid #e4e6ea;border-radius:12px;overflow:hidden;
+}
+.plan-card-head{
+  padding:14px 18px;display:flex;align-items:center;gap:12px;border-bottom:1px solid #f0f2f5;
+}
+.plan-icon{
+  width:36px;height:36px;border-radius:9px;display:flex;align-items:center;
+  justify-content:center;font-size:18px;flex-shrink:0;
+}
+.plan-card-title{font-size:13px;font-weight:700;color:#1a1a2e}
+.plan-card-sub{font-size:10px;color:#888;margin-top:2px}
+.plan-cols-wrap{padding:12px;display:flex;gap:4px;flex-wrap:wrap}
+.pc{display:flex;flex-direction:column;gap:2px;min-width:70px;flex:1}
+.pc-head{
+  font-size:8.5px;font-weight:700;color:#fff;text-align:center;
+  padding:5px 3px;border-radius:4px 4px 0 0;white-space:nowrap;
+  overflow:hidden;text-overflow:ellipsis;
+}
+.pc-cell{
+  height:22px;border-radius:2px;display:flex;align-items:center;
+  justify-content:center;font-size:8px;color:rgba(0,0,0,0.6);font-weight:600;
+  padding:0 3px;text-align:center;
+}
+
+/* ══════════════════════════════════════
+   MODALS
+══════════════════════════════════════ */
+.overlay{
+  display:none;position:fixed;inset:0;background:rgba(15,20,40,0.55);
+  z-index:400;align-items:center;justify-content:center;
+}
+.overlay.open{display:flex}
+.modal-box{
+  background:#fff;border-radius:16px;padding:28px 30px;
+  width:94%;max-width:500px;max-height:90vh;overflow-y:auto;
+  box-shadow:0 12px 48px rgba(0,0,0,0.2);
+}
+.modal-box h3{font-size:16px;font-weight:700;color:#1a1a2e;margin-bottom:3px}
+.modal-sub{font-size:11px;color:#888;margin-bottom:20px}
+.modal-close{float:right;background:none;border:none;font-size:22px;color:#bbb;cursor:pointer;margin:-4px -4px 0 0}
+.modal-close:hover{color:#444}
+
+.edit-field{margin-bottom:16px}
+.edit-field label{display:block;font-size:11px;font-weight:700;color:#555;margin-bottom:5px;text-transform:uppercase;letter-spacing:.3px}
+.edit-field input,.edit-field select{
+  width:100%;font-size:12px;padding:8px 11px;
+  border:1px solid #d0d3da;border-radius:8px;
+  background:#fafbfc;color:#222;outline:none;font-family:inherit;
+  transition:border-color .15s;
+}
+.edit-field input:focus,.edit-field select:focus{
+  border-color:#378ADD;box-shadow:0 0 0 3px rgba(55,138,221,0.12);
+}
+.dates-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.extend-row{display:flex;gap:6px;margin-top:6px}
+.ext-btn{
+  font-size:11px;padding:5px 11px;border-radius:7px;
+  border:1px solid #d0d3da;background:#fafbfc;cursor:pointer;font-weight:600;
+  transition:all .12s;color:#444;
+}
+.ext-btn:hover{border-color:#378ADD;color:#378ADD;background:#EBF4FF}
+.replan-hint{font-size:10px;color:#856404;background:#FFF3CD;padding:6px 10px;border-radius:6px;margin-top:8px}
+.modal-actions{display:flex;gap:8px;justify-content:flex-end;margin-top:22px}
+
+.plan-cols-m{display:flex;gap:6px;flex-wrap:wrap}
+.pcm{display:flex;flex-direction:column;gap:2px;min-width:76px}
+.pcm-head{font-size:8.5px;font-weight:700;color:#fff;text-align:center;padding:5px 4px;border-radius:4px 4px 0 0;white-space:nowrap}
+.pcm-cell{height:22px;border-radius:2px;display:flex;align-items:center;justify-content:center;font-size:8px;color:rgba(0,0,0,.6)}
+
+/* Save toast */
+.toast{
+  position:fixed;bottom:20px;right:20px;
+  background:#1D9E75;color:#fff;
+  font-size:11px;font-weight:700;padding:8px 16px;border-radius:9px;
+  opacity:0;transition:opacity .2s;pointer-events:none;z-index:999;
+  box-shadow:0 3px 10px rgba(0,0,0,0.2);
+}
+.toast.show{opacity:1}
+
+/* ══ PRINT ══ */
+@media print{
+  @page{size:A3 landscape;margin:8mm 10mm}
+  .topnav,.panel-actions,#tab-tableau,#tab-plans,#tab-cal,
+  .toast,.overlay,.btn{display:none!important}
+  .app{height:auto;overflow:visible}
+  #tab-gantt{display:flex!important;height:auto;overflow:visible}
+  .panel-header{border-bottom:2px solid #378ADD;print-color-adjust:exact}
+  .gantt-scroll{overflow:visible}
+  .inplace{border:none;background:transparent;font-size:10px;padding:0}
+  .gr-cell{min-height:46px}
+  .gantt-bar{print-color-adjust:exact;-webkit-print-color-adjust:exact}
+}
+
+/* Print calendrier (popup) */
+.cal-print-only{display:none}
+</style>
+</head>
+<body>
+<div class="app">
+
+<!-- ══ TOP NAV ══ -->
+<nav class="topnav">
+  <div class="topnav-brand">
+    <div class="brand-icon">EM</div>
+    <div>
+      <div class="brand-text">Épicerie Manager</div>
+      <div class="brand-sub">Villebon 2 · v1.1</div>
+    </div>
+  </div>
+  <div class="topnav-tabs">
+    <button class="tnav-btn active" onclick="switchTab('gantt')">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="8" width="3" height="7"/><rect x="6" y="5" width="3" height="10"/><rect x="11" y="2" width="3" height="13"/></svg>
+      Gantt A3
+    </button>
+    <button class="tnav-btn" onclick="switchTab('tableau')">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="14" height="3" rx="1"/><rect x="1" y="6" width="14" height="3" rx="1"/><rect x="1" y="11" width="14" height="3" rx="1"/></svg>
+      Tableau
+    </button>
+    <button class="tnav-btn" onclick="switchTab('cal')">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="3" width="14" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="1.5"/><line x1="5" y1="1" x2="5" y2="5" stroke="currentColor" stroke-width="1.5"/><line x1="11" y1="1" x2="11" y2="5" stroke="currentColor" stroke-width="1.5"/><line x1="1" y1="7" x2="15" y2="7" stroke="currentColor" stroke-width="1"/></svg>
+      Calendrier
+    </button>
+    <button class="tnav-btn" onclick="switchTab('plans')">
+      <svg width="13" height="13" viewBox="0 0 16 16" fill="currentColor"><rect x="1" y="1" width="6" height="6" rx="1"/><rect x="9" y="1" width="6" height="6" rx="1"/><rect x="1" y="9" width="6" height="6" rx="1"/><rect x="9" y="9" width="6" height="6" rx="1"/></svg>
+      Plans rayon
+    </button>
+  </div>
+  <div class="topnav-right">
+    <span class="topnav-date" id="nav-date"></span>
+    <span class="topnav-user">Réimplantation 2026</span>
+  </div>
+</nav>
+
+<!-- ══ GANTT ══ -->
+<div id="tab-gantt" class="tab-panel active">
+  <div class="panel-header">
+    <div>
+      <div class="panel-badge">Planning réimplantation</div>
+      <div class="panel-title">Gantt — Épicerie Villebon 2</div>
+      <div class="panel-sub">Mai → Juin 2026 · Cliquer sur une barre pour modifier / replanifier</div>
+    </div>
+    <div class="panel-actions">
+      <button class="btn btn-primary" onclick="window.print()">
+        <svg width="12" height="12" viewBox="0 0 16 16" fill="currentColor"><path d="M4 1h8v4H4V1zM1 6h14v7H1V6zm3 2v4h8V8H4z"/></svg>
+        Imprimer A3
+      </button>
+    </div>
+  </div>
+  <div class="gantt-scroll">
+    <div class="gantt-grid" id="gantt-grid"></div>
+  </div>
+</div>
+
+<!-- ══ TABLEAU ══ -->
+<div id="tab-tableau" class="tab-panel">
+  <div id="tbl-inner">
+    <div style="margin-bottom:16px">
+      <div class="panel-badge">Suivi opérationnel</div>
+      <div class="panel-title">Tableau de gestion</div>
+      <div class="panel-sub">Responsables, états, notes — modifications synchronisées sur tous les onglets</div>
+    </div>
+    <div class="kpi-row">
+      <div class="kpi-card c-blue"><div class="kpi-label">Total</div><div class="kpi-val" id="kpi-total">12</div></div>
+      <div class="kpi-card c-gray"><div class="kpi-label">À faire</div><div class="kpi-val" id="kpi-todo">12</div></div>
+      <div class="kpi-card c-orange"><div class="kpi-label">En cours</div><div class="kpi-val orange" id="kpi-cours">0</div></div>
+      <div class="kpi-card c-green">
+        <div class="kpi-label">Faits</div>
+        <div class="kpi-val green" id="kpi-fait">0</div>
+        <div class="prog-wrap"><div class="prog-fill" id="prog-fill" style="width:0%"></div></div>
+      </div>
+    </div>
+    <div class="filters-bar">
+      <span class="fl">Secteur :</span>
+      <button class="filt-btn active" onclick="setF('sect','tous',this)">Tous</button>
+      <button class="filt-btn" onclick="setF('sect','sucree',this)">Sucrée</button>
+      <button class="filt-btn" onclick="setF('sect','salee',this)">Salée</button>
+      <button class="filt-btn" onclick="setF('sect','pdm',this)">PDM</button>
+      <button class="filt-btn" onclick="setF('sect','bio',this)">Bio / Diét.</button>
+      <div class="divider"></div>
+      <span class="fl">État :</span>
+      <button class="filt-btn active" onclick="setF('etat','tous',this)">Tous</button>
+      <button class="filt-btn" onclick="setF('etat','todo',this)">À faire</button>
+      <button class="filt-btn" onclick="setF('etat','cours',this)">En cours</button>
+      <button class="filt-btn" onclick="setF('etat','fait',this)">Faits ✓</button>
+    </div>
+    <div class="tbl-card">
+      <table>
+        <thead>
+          <tr>
+            <th style="width:220px">Rayon</th>
+            <th style="width:140px">Date</th>
+            <th style="width:105px">État</th>
+            <th style="width:120px">Responsable</th>
+            <th style="width:80px">Plan</th>
+            <th style="width:85px">Modifier</th>
+            <th>Notes</th>
+          </tr>
+        </thead>
+        <tbody id="tbl-body"></tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<!-- ══ CALENDRIER ══ -->
+<div id="tab-cal" class="tab-panel">
+  <div class="cal-inner">
+
+    <!-- En-tête style PDF -->
+    <div class="cal-doc-header">
+      <div>
+        <div class="cal-doc-logo">
+          <div class="cal-doc-icon">📋</div>
+          <div class="cal-doc-brand">Épicerie Manager — Villebon 2</div>
+        </div>
+        <div class="cal-doc-title">Réimplantation Épicerie</div>
+        <div class="cal-doc-sub" id="cal-doc-sub">Mai → Juin 2026 · 12 interventions</div>
+      </div>
+      <div class="cal-doc-stats">
+        <div class="cal-stat-pill" id="cstat-1">12 interventions</div>
+        <div class="cal-stat-pill" id="cstat-2">11 nuits · 1 journée</div>
+        <div class="cal-stat-pill" id="cstat-3">3 nuits chargées ⚠</div>
+        <button class="btn btn-primary btn-sm" style="margin-top:8px" onclick="printCal()">🖨 Imprimer calendrier</button>
+      </div>
+    </div>
+
+    <!-- Liste des interventions par mois -->
+    <div id="cal-list"></div>
+  </div>
+</div>
+
+<!-- ══ PLANS ══ -->
+<div id="tab-plans" class="tab-panel">
+  <div class="plans-inner">
+    <div style="margin-bottom:16px">
+      <div class="panel-badge">Réimplantation</div>
+      <div class="panel-title">Plans des rayons</div>
+      <div class="panel-sub">Organisation des linéaires par secteur</div>
+    </div>
+    <div class="plans-grid" id="plans-grid"></div>
+  </div>
+</div>
+
+</div>
+<div class="toast" id="toast">✓ Sauvegardé</div>
+
+<!-- ── Edit modal ── -->
+<div class="overlay" id="edit-overlay" onclick="if(event.target.id==='edit-overlay')closeEdit()">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closeEdit()">×</button>
+    <h3 id="em-title">Modifier l'intervention</h3>
+    <div class="modal-sub" id="em-sub"></div>
+    <div class="edit-field">
+      <label>Prolonger</label>
+      <div class="extend-row">
+        <button class="ext-btn" onclick="ext(1)">+1 jour</button>
+        <button class="ext-btn" onclick="ext(2)">+2 jours</button>
+        <button class="ext-btn" onclick="ext(3)">+3 jours</button>
+        <button class="ext-btn" onclick="ext(-1)">-1 jour</button>
+      </div>
+    </div>
+    <div class="edit-field">
+      <label>Replanifier</label>
+      <div class="dates-grid">
+        <div>
+          <div style="font-size:10px;color:#aaa;margin-bottom:4px">Date début</div>
+          <input type="date" id="em-start" min="2026-05-01" max="2026-07-15">
+        </div>
+        <div>
+          <div style="font-size:10px;color:#aaa;margin-bottom:4px">Date fin</div>
+          <input type="date" id="em-end" min="2026-05-01" max="2026-07-15">
+        </div>
+      </div>
+      <div class="replan-hint">↻ Les dates modifiées seront marquées "Replanifié" sur le Gantt et le calendrier</div>
+    </div>
+    <div class="edit-field">
+      <label>Responsable</label>
+      <input type="text" id="em-resp" placeholder="Prénom du responsable…">
+    </div>
+    <div class="edit-field">
+      <label>Notes</label>
+      <input type="text" id="em-notes" placeholder="Remarques, consignes…">
+    </div>
+    <div class="edit-field">
+      <label>État</label>
+      <select id="em-etat">
+        <option value="todo">À faire</option>
+        <option value="cours">En cours</option>
+        <option value="fait">Fait ✓</option>
+      </select>
+    </div>
+    <div class="modal-actions">
+      <button class="btn" onclick="closeEdit()">Annuler</button>
+      <button class="btn btn-primary" onclick="saveEdit()">✓ Enregistrer</button>
+    </div>
+  </div>
+</div>
+
+<!-- ── Plan modal ── -->
+<div class="overlay" id="plan-overlay" onclick="if(event.target.id==='plan-overlay')closePlan()">
+  <div class="modal-box">
+    <button class="modal-close" onclick="closePlan()">×</button>
+    <h3 id="pm-title"></h3>
+    <div class="modal-sub" id="pm-sub"></div>
+    <div id="pm-content"></div>
+  </div>
+</div>
+
+<script>
+// ── Données ──
+const COLORS={
+  sucree:{fill:'#378ADD',light:'#EBF4FF',text:'#0C3D7A',label:'Épicerie sucrée'},
+  salee: {fill:'#D85A30',light:'#FFF0EC',text:'#6B2810',label:'Épicerie salée'},
+  pdm:   {fill:'#1D9E75',light:'#E8F7F2',text:'#0A4A33',label:'Produits du monde'},
+  bio:   {fill:'#7F77DD',light:'#EEEDFE',text:'#332880',label:'Bio / Diét.'},
+};
+const ICONS={sucree:'🍬',salee:'🧂',pdm:'🌍',bio:'🌿'};
+const JOURS=['Dim','Lun','Mar','Mer','Jeu','Ven','Sam'];
+const MOIS_FR=['janvier','février','mars','avril','mai','juin','juillet','août','septembre','octobre','novembre','décembre'];
+const MOIS_FR_COURT=['Jan','Fév','Mar','Avr','Mai','Juin','Juil','Aoû','Sep','Oct','Nov','Déc'];
+
+const BASE=[
+  {id:0, isoStart:'2026-05-05',isoEnd:'2026-05-05',moment:'Jour',secteur:'sucree',rayon:'Compléments alimentaires',       sub:'Lancement journée',charge:false},
+  {id:1, isoStart:'2026-05-06',isoEnd:'2026-05-07',moment:'Nuit',secteur:'bio',   rayon:'Bio + épicerie salée + sucrée',  sub:'Grains, moulu, soluble, lait, thés, céréales',charge:false},
+  {id:2, isoStart:'2026-05-11',isoEnd:'2026-05-12',moment:'Nuit',secteur:'bio',   rayon:'Diététique',                     sub:'Minceur, naturelle, sportive, nutrition santé',charge:false},
+  {id:3, isoStart:'2026-05-28',isoEnd:'2026-05-29',moment:'Nuit',secteur:'pdm',   rayon:'Produits du monde',              sub:'Halal, casher, Asie, Italie, Espagne…',charge:false},
+  {id:4, isoStart:'2026-06-04',isoEnd:'2026-06-05',moment:'Nuit',secteur:'salee', rayon:'Animalerie',                     sub:'',charge:false},
+  {id:5, isoStart:'2026-06-08',isoEnd:'2026-06-09',moment:'Nuit',secteur:'sucree',rayon:'Biscuiterie + confiserie sucrée',sub:'Biscuits 22 éléments',charge:false},
+  {id:6, isoStart:'2026-06-09',isoEnd:'2026-06-10',moment:'Nuit',secteur:'sucree',rayon:'Chocolat + pâtisserie indus',    sub:'Tablettes, confiserie, savane, napolitain',charge:false},
+  {id:7, isoStart:'2026-06-11',isoEnd:'2026-06-12',moment:'Nuit',secteur:'sucree',rayon:'Café + aides culinaires',        sub:'Dosettes, moulu, grains, épices, vinaigre, sauces',charge:true},
+  {id:8, isoStart:'2026-06-15',isoEnd:'2026-06-16',moment:'Nuit',secteur:'sucree',rayon:'Viennoiserie + salé',            sub:'Pain de mie, conserves légumes, pâtes, sauces chaudes',charge:true},
+  {id:9, isoStart:'2026-06-18',isoEnd:'2026-06-19',moment:'Nuit',secteur:'salee', rayon:'Céréales + conserves + plats',   sub:'Panification, fruits au sirop, conserves poisson, potages, plats cuisinés',charge:true},
+  {id:10,isoStart:'2026-06-22',isoEnd:'2026-06-23',moment:'Nuit',secteur:'sucree',rayon:'Compotes + apéro',               sub:'Tartinables, chips apéritifs',charge:false},
+  {id:11,isoStart:'2026-06-23',isoEnd:'2026-06-24',moment:'Nuit',secteur:'sucree',rayon:'Thé + café soluble + pâtisserie',sub:'Lait, madeleines, quatre-quarts',charge:false},
+];
+
+const PLANS={
+  sucree:{title:'Plan Épicerie Sucrée',rayons:'Café, thés, céréales, biscuits, chocolat, confiserie, compotes',cols:[
+    {name:'Café / Thés',color:'#C07820',cells:['Dosettes','Moulu','Soluble','Grains','Thés','Infusions','Café soluble']},
+    {name:'Céréales',color:'#D4A820',cells:['Granola','Muesli','Corn flakes','Enfants','BIO','Porridge']},
+    {name:'Viennoiserie',color:'#D06030',cells:['Pain de mie','Biscottes','Tartines','Panification','BIO']},
+    {name:'Compotes/Conf.',color:'#A83050',cells:['Compotes','Confitures','Tartinables','C. dessert','Purée fruit']},
+    {name:'Biscuiterie',color:'#7040C0',cells:['Biscuits 22','Pâtisserie ind.','Crêpes','Gaufres','Savane']},
+    {name:'Chocolat/Conf.',color:'#B03070',cells:['Tablettes 7','Choco 10 él.','Confiserie','Bonbons','Base sucre']},
+  ]},
+  salee:{title:'Plan Épicerie Salée',rayons:'Apéro, conserves, pâtes, sauces, animalerie',cols:[
+    {name:'Apéro / Chips',color:'#C04020',cells:['Chips','Biscuits apéro','Cacahuètes','Mélanges','Bretzels']},
+    {name:'Conserves légumes',color:'#6A7A10',cells:['Tomates','Haricots','Petits pois','Maïs','Lentilles']},
+    {name:'Conserves poisson',color:'#2060A0',cells:['Thon','Sardines','Saumon','Maquereau','Crabe']},
+    {name:'Pâtes / Riz',color:'#B07020',cells:['Pâtes ali.','Riz','Semoule','Légumineuses','Quinoa']},
+    {name:'Sauces / Huiles',color:'#205080',cells:['Huiles','Vinaigrettes','Sauces chaudes','Aides culin.','Épices']},
+    {name:'Animalerie',color:'#505090',cells:['Chien','Chat','Rongeurs','Oiseaux','Aquario.']},
+  ]},
+  pdm:{title:'Plan Produits du Monde',rayons:'Halal, Casher, Asie, Amériques, Europe',cols:[
+    {name:'Halal',color:'#0E7855',cells:['Halal H3','Épices halal','Plats halal','Boissons']},
+    {name:'Casher',color:'#1A6E8E',cells:['Casher','Traiteur monde','Pains monde','Biscuits']},
+    {name:'Asie',color:'#0E6060',cells:['Asie H3','Sauces asie','Nouilles','Riz asie','Snacks']},
+    {name:'Amériques',color:'#1D5E9E',cells:['Tex Mex','USA / GB','Mexique','Canada']},
+    {name:'Europe',color:'#404090',cells:['Italie','Espagne','Portugal','Turquie','Pologne']},
+  ]},
+  bio:{title:'Plan Bio / Diététique',rayons:'Bio quotidien, diététique, compléments',cols:[
+    {name:'BIO Quotidien',color:'#5A52B0',cells:['Bio salé','Bio sucré','Épicerie BIO','Frais BIO','Boissons BIO']},
+    {name:'Diététique',color:'#7840A0',cells:['Minceur','Naturelle','Sportive','Nutrition santé','Sans gluten']},
+    {name:'Compléments',color:'#A030A0',cells:['Compl. ali.','BSA','Protéines','Vitamines','Oméga 3']},
+  ]},
+};
+
+// ── localStorage ──
+const LS='reimplantation_v3';
+function load(){
+  try{
+    const s=localStorage.getItem(LS);
+    if(s){const p=JSON.parse(s);return BASE.map((b,i)=>({...b,etat:p[i]?.etat||'todo',resp:p[i]?.resp||'',notes:p[i]?.notes||'',isoStart:p[i]?.isoStart||b.isoStart,isoEnd:p[i]?.isoEnd||b.isoEnd,replanified:p[i]?.replanified||false}));}
+  }catch(e){}
+  return BASE.map(b=>({...b,etat:'todo',resp:'',notes:'',replanified:false}));
+}
+function save(){
+  localStorage.setItem(LS,JSON.stringify(data.map(d=>({etat:d.etat,resp:d.resp,notes:d.notes,isoStart:d.isoStart,isoEnd:d.isoEnd,replanified:d.replanified}))));
+  const t=document.getElementById('toast');t.classList.add('show');clearTimeout(t._t);t._t=setTimeout(()=>t.classList.remove('show'),1800);
+}
+let data=load();
+let fSect='tous',fEtat='tous',editId=null;
+
+// ── Nav date ──
+function updateDate(){
+  const now=new Date();
+  document.getElementById('nav-date').textContent=JOURS[now.getDay()]+' '+now.getDate()+' '+MOIS_FR[now.getMonth()]+' '+now.getFullYear()+' · '+String(now.getHours()).padStart(2,'0')+':'+String(now.getMinutes()).padStart(2,'0');
+}
+updateDate();setInterval(updateDate,30000);
+
+// ── Tabs ──
+function switchTab(t){
+  ['gantt','tableau','cal','plans'].forEach((n,i)=>{
+    document.getElementById('tab-'+n).classList.toggle('active',n===t);
+    document.querySelectorAll('.tnav-btn')[i].classList.toggle('active',n===t);
+  });
+  if(t==='cal')renderCal();
+  if(t==='plans')renderPlans();
+}
+
+// ── Utils ──
+function esc(s){return(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')}
+function isoToD(iso){const p=iso.split('-');return p[2]+'/'+p[1]}
+function dayOff(iso){return Math.round((new Date(iso)-new Date('2026-05-01'))/86400000)}
+function isoToFr(iso){const d=new Date(iso);return JOURS[d.getDay()]+' '+d.getDate()+' '+MOIS_FR[d.getMonth()]}
+function isoToShort(iso){const d=new Date(iso);return d.getDate()+' '+MOIS_FR_COURT[d.getMonth()]}
+function addDays(iso,n){const d=new Date(iso);d.setDate(d.getDate()+n);return d.toISOString().split('T')[0]}
+
+// ══ GANTT ══
+const GS=new Date('2026-05-01'),TD=61,DPX=22;
+function buildGantt(){
+  const grid=document.getElementById('gantt-grid');
+  const COLS=[{w:56,l:'Moment'},{w:105,l:'Date'},{w:185,l:'Rayon'},{w:125,l:'Responsable'},{w:160,l:'Notes'}];
+  const fw=COLS.reduce((a,c)=>a+c.w,0);
+  grid.style.gridTemplateColumns=COLS.map(c=>c.w+'px').join(' ')+' '+Array(TD).fill(DPX+'px').join(' ');
+  grid.style.width=(fw+TD*DPX)+'px';
+  const todayOff=Math.round((new Date()-GS)/86400000);
+  let h='';
+  COLS.forEach(c=>{h+=`<div class="gh-cell" style="grid-row:1">${c.l}</div>`});
+  h+=`<div class="gh-cell month" style="grid-column:span 31;grid-row:1">MAI 2026</div>`;
+  h+=`<div class="gh-cell month" style="grid-column:span 30;grid-row:1">JUIN 2026</div>`;
+  COLS.forEach(()=>{h+=`<div class="gh-cell" style="grid-row:2"></div>`});
+  for(let d=0;d<TD;d++){
+    const dt=new Date(GS);dt.setDate(dt.getDate()+d);
+    const dom=dt.getDate(),dow=dt.getDay();
+    const we=dow===0||dow===6,tod=d===todayOff,maj=dom===1||dom%5===0,sep=d===30;
+    h+=`<div class="gh-cell day${we?' weekend':''}${tod?' today':''}${maj?' major':''}${sep?' month-sep':''}" style="grid-row:2">${dom}</div>`;
+  }
+  data.forEach((row,ri)=>{
+    const alt=ri%2===0?'':' alt';
+    const col=COLORS[row.secteur];
+    const sl={sucree:'Sucrée',salee:'Salée',pdm:'PDM',bio:'Bio/D.'}[row.secteur];
+    const dStr=row.isoStart===row.isoEnd?isoToD(row.isoStart):isoToD(row.isoStart)+' → '+isoToD(row.isoEnd);
+    const rTag=row.replanified?`<span class="badge badge-replan" style="font-size:8px;padding:1px 5px">↻</span>`:'';
+    const cTag=row.charge?`<span class="badge badge-charge">⚠</span>`:'';
+    // chip
+    const chip=`<div class="sect-chip" style="background:${col.light};color:${col.text}"><span style="width:6px;height:6px;border-radius:50%;background:${col.fill};display:inline-block"></span>${sl}</div>`;
+    h+=`<div class="gr-cell${alt}" style="grid-row:${ri+3}"><span class="badge ${row.moment==='Nuit'?'badge-nuit':'badge-jour'}">${row.moment}</span></div>`;
+    h+=`<div class="gr-cell${alt}" style="grid-row:${ri+3};font-size:11px;font-weight:700">${dStr}${rTag}</div>`;
+    h+=`<div class="gr-cell${alt}" style="grid-row:${ri+3}"><div><div class="rayon-name">${row.rayon} ${cTag}</div>${row.sub?`<div class="rayon-sub">${row.sub}</div>`:''} ${chip}</div></div>`;
+    h+=`<div class="gr-cell${alt}" style="grid-row:${ri+3}"><input class="inplace" type="text" placeholder="Prénom…" value="${esc(row.resp)}" oninput="data[${row.id}].resp=this.value;save();renderTable();renderCal()"/></div>`;
+    h+=`<div class="gr-cell${alt}" style="grid-row:${ri+3}"><input class="inplace" type="text" placeholder="Notes…" value="${esc(row.notes)}" oninput="data[${row.id}].notes=this.value;save();renderTable();renderCal()"/></div>`;
+    const bs=dayOff(row.isoStart),be=dayOff(row.isoEnd),bw=Math.max(be-bs+1,2)*DPX-3;
+    let etB='';
+    if(row.etat==='fait')etB=`<span class="bar-badge">✓</span>`;
+    if(row.etat==='cours')etB=`<span class="bar-badge">…</span>`;
+    for(let d=0;d<TD;d++){
+      const dt=new Date(GS);dt.setDate(dt.getDate()+d);
+      const we=dt.getDay()===0||dt.getDay()===6,jun=d>=31,sep=d===30,tod=d===todayOff;
+      let ex='';
+      if(d===bs){
+        ex=`${row.charge?`<div class="bar-charge-ring" style="left:-2px;width:${bw+4}px"></div>`:''}
+           <div class="gantt-bar${row.replanified?' replanified':''}" style="left:1px;width:${bw}px;background:${col.fill}" onclick="openEdit(${row.id})" title="Modifier / Replanifier">
+             ${sl}${row.resp?' · '+row.resp:''}${etB}
+           </div>`;
+      }
+      h+=`<div class="gr-cell day-cell${alt}${we?' weekend':''}${jun?' jun':''}${sep?' month-sep':''}${tod?' today-col':''}" style="grid-row:${ri+3};position:relative">${ex}</div>`;
+    }
+  });
+  const legItems=[...Object.values(COLORS).map(c=>`<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:#555;margin-right:14px"><span style="width:10px;height:10px;border-radius:3px;background:${c.fill};display:inline-block"></span>${c.label}</span>`),
+    `<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:#555;margin-right:14px"><span style="width:10px;height:10px;border-radius:3px;background:#FCEBEB;border:1px solid #E24B4A;display:inline-block"></span>Nuit chargée</span>`,
+    `<span style="display:inline-flex;align-items:center;gap:4px;font-size:10px;color:#555"><span style="width:10px;height:10px;border-radius:3px;background:#FFF3CD;border:1px dashed #D4A800;display:inline-block"></span>Replanifiée</span>`].join('');
+  h+=`<div style="grid-column:1/-1;padding:8px 14px;background:#F4F5F7;border-top:1px solid #d8dbe2;display:flex;align-items:center;flex-wrap:wrap;gap:4px">${legItems}</div>`;
+  grid.innerHTML=h;
+}
+
+// ══ EDIT MODAL ══
+function openEdit(id){
+  editId=id;const row=data[id];
+  document.getElementById('em-title').textContent=row.rayon;
+  document.getElementById('em-sub').textContent='Intervention · '+isoToFr(row.isoStart)+(row.isoStart!==row.isoEnd?' → '+isoToFr(row.isoEnd):'');
+  document.getElementById('em-start').value=row.isoStart;
+  document.getElementById('em-end').value=row.isoEnd;
+  document.getElementById('em-resp').value=row.resp;
+  document.getElementById('em-notes').value=row.notes;
+  document.getElementById('em-etat').value=row.etat;
+  document.getElementById('edit-overlay').classList.add('open');
+}
+function closeEdit(){document.getElementById('edit-overlay').classList.remove('open')}
+function ext(n){const e=document.getElementById('em-end');e.value=addDays(e.value,n)}
+function saveEdit(){
+  const row=data[editId];
+  const ns=document.getElementById('em-start').value,ne=document.getElementById('em-end').value;
+  row.isoStart=ns;row.isoEnd=ne;
+  row.replanified=ns!==BASE[editId].isoStart||ne!==BASE[editId].isoEnd;
+  row.resp=document.getElementById('em-resp').value;
+  row.notes=document.getElementById('em-notes').value;
+  row.etat=document.getElementById('em-etat').value;
+  save();buildGantt();renderTable();renderCal();closeEdit();
+}
+
+// ══ TABLEAU ══
+function renderTable(){
+  const tb=document.getElementById('tbl-body');tb.innerHTML='';
+  data.forEach(row=>{
+    const vis=(fSect==='tous'||row.secteur===fSect)&&(fEtat==='tous'||row.etat===fEtat);
+    const tr=document.createElement('tr');
+    if(!vis)tr.classList.add('hidden-row');
+    const col=COLORS[row.secteur];
+    const ds=row.isoStart===row.isoEnd?isoToD(row.isoStart):isoToD(row.isoStart)+' → '+isoToD(row.isoEnd);
+    const ec=row.etat==='cours'?' ec':row.etat==='fait'?' ef':'';
+    const rTag=row.replanified?`<span class="ibadge ib-replan">↻ Replanifié</span>`:'';
+    tr.innerHTML=`
+      <td><div style="display:flex;align-items:flex-start;gap:6px">
+        <span class="dot" style="background:${col.fill};margin-top:3px"></span>
+        <div><div class="rayon-name">${row.rayon}${row.charge?` <span class="badge badge-charge" style="font-size:8px">⚠</span>`:''}</div>
+        ${row.sub?`<div class="rayon-sub">${row.sub}</div>`:''}
+        <div style="font-size:9px;color:${col.fill};font-weight:700;margin-top:2px">${col.label}</div></div></div></td>
+      <td><div class="date-str">${ds}</div><span class="date-moment ${row.moment==='Nuit'?'mn':'mj'}">${row.moment}</span> ${rTag}</td>
+      <td><select class="etat-sel${ec}" onchange="chgEtat(${row.id},this)">
+        <option value="todo" ${row.etat==='todo'?'selected':''}>À faire</option>
+        <option value="cours" ${row.etat==='cours'?'selected':''}>En cours</option>
+        <option value="fait" ${row.etat==='fait'?'selected':''}>Fait ✓</option>
+      </select></td>
+      <td><input class="tbl-inp" type="text" placeholder="Prénom…" value="${esc(row.resp)}" oninput="data[${row.id}].resp=this.value;save();buildGantt();renderCal()"/></td>
+      <td><button class="tbl-btn plan" onclick="openPlan(${row.id})">Voir plan</button></td>
+      <td><button class="tbl-btn" onclick="openEdit(${row.id})">✏ Modifier</button></td>
+      <td><input class="tbl-inp" type="text" placeholder="Notes…" value="${esc(row.notes)}" oninput="data[${row.id}].notes=this.value;save();buildGantt();renderCal()"/></td>`;
+    document.getElementById('tbl-body').appendChild(tr);
+  });
+  updateKPIs();
+}
+function setF(t,v,btn){
+  document.querySelectorAll('.filt-btn').forEach(b=>{const oc=b.getAttribute('onclick')||'';if(oc.includes("'"+t+"'"))b.classList.toggle('active',b===btn)});
+  if(t==='sect')fSect=v;else fEtat=v;renderTable();
+}
+function chgEtat(id,sel){
+  data[id].etat=sel.value;
+  sel.className='etat-sel'+(sel.value==='cours'?' ec':sel.value==='fait'?' ef':'');
+  save();updateKPIs();buildGantt();if(fEtat!=='tous')renderTable();
+}
+function updateKPIs(){
+  document.getElementById('kpi-total').textContent=data.length;
+  document.getElementById('kpi-todo').textContent=data.filter(d=>d.etat==='todo').length;
+  document.getElementById('kpi-cours').textContent=data.filter(d=>d.etat==='cours').length;
+  const f=data.filter(d=>d.etat==='fait').length;
+  document.getElementById('kpi-fait').textContent=f;
+  document.getElementById('prog-fill').style.width=Math.round(f/data.length*100)+'%';
+}
+
+// ══ PLAN MODAL ══
+function openPlan(id){
+  const row=data[id],plan=PLANS[row.secteur];
+  document.getElementById('pm-title').textContent=plan.title;
+  document.getElementById('pm-sub').textContent=row.rayon+' · '+(row.isoStart===row.isoEnd?isoToFr(row.isoStart):isoToFr(row.isoStart)+' → '+isoToFr(row.isoEnd));
+  let h='<div class="plan-cols-m">';
+  plan.cols.forEach(c=>{
+    h+=`<div class="pcm"><div class="pcm-head" style="background:${c.color}">${c.name}</div>`;
+    c.cells.forEach((cl,i)=>{h+=`<div class="pcm-cell" style="background:${c.color}${i%2===0?'22':'38'}">${cl}</div>`});
+    h+='</div>';
+  });
+  h+='</div>';
+  document.getElementById('pm-content').innerHTML=h;
+  document.getElementById('plan-overlay').classList.add('open');
+}
+function closePlan(){document.getElementById('plan-overlay').classList.remove('open')}
+
+// ══ PLANS TAB ══
+function renderPlans(){
+  const grid=document.getElementById('plans-grid');
+  if(grid.children.length>0)return;
+  Object.entries(PLANS).forEach(([key,plan])=>{
+    const col=COLORS[key];
+    const card=document.createElement('div');card.className='plan-card';
+    let cols=plan.cols.map(c=>`<div class="pc"><div class="pc-head" style="background:${c.color}">${c.name}</div>${c.cells.map((cl,i)=>`<div class="pc-cell" style="background:${c.color}${i%2===0?'22':'38'}">${cl}</div>`).join('')}</div>`).join('');
+    card.innerHTML=`<div class="plan-card-head"><div class="plan-icon" style="background:${col.light}">${ICONS[key]}</div><div><div class="plan-card-title">${plan.title}</div><div class="plan-card-sub">${plan.rayons}</div></div></div><div class="plan-cols-wrap">${cols}</div>`;
+    grid.appendChild(card);
+  });
+}
+
+// ══ CALENDRIER (style PDF) ══
+function renderCal(){
+  const list=document.getElementById('cal-list');
+  list.innerHTML='';
+
+  // Grouper par mois
+  const byMonth={};
+  data.forEach(row=>{
+    const m=row.isoStart.substring(0,7);
+    if(!byMonth[m])byMonth[m]=[];
+    byMonth[m].push(row);
+  });
+
+  Object.entries(byMonth).forEach(([ym,rows])=>{
+    const [y,m]=ym.split('-');
+    const label=MOIS_FR[parseInt(m)-1].charAt(0).toUpperCase()+MOIS_FR[parseInt(m)-1].slice(1)+' '+y;
+
+    // Séparateur mois
+    const sep=document.createElement('div');
+    sep.className='month-sep-header';
+    sep.innerHTML=`<div class="month-sep-label">${label}</div><div class="month-sep-line"></div><span style="font-size:10px;color:#aaa;white-space:nowrap">${rows.length} intervention${rows.length>1?'s':''}</span>`;
+    list.appendChild(sep);
+
+    rows.forEach(row=>{
+      const col=COLORS[row.secteur];
+      const isMulti=row.isoStart!==row.isoEnd;
+      const dayStart=new Date(row.isoStart),dayEnd=new Date(row.isoEnd);
+      const wd1=JOURS[dayStart.getDay()],wd2=JOURS[dayEnd.getDay()];
+
+      // Badges état
+      const etatBadge={todo:'<span class="ibadge ib-todo">À faire</span>',cours:'<span class="ibadge ib-cours">En cours</span>',fait:'<span class="ibadge ib-fait">✓ Fait</span>'}[row.etat];
+      const chargeBadge=row.charge?'<span class="ibadge ib-charge">⚠ Nuit chargée</span>':'';
+      const replanBadge=row.replanified?'<span class="ibadge ib-replan">↻ Replanifié</span>':'';
+
+      const card=document.createElement('div');
+      card.className='interv-card'+(row.charge?' charge':'');
+      card.innerHTML=`
+        <div class="interv-stripe" style="background:${col.fill}"></div>
+        <div class="interv-main">
+
+          <!-- Date block -->
+          <div class="interv-date-block">
+            ${isMulti
+              ? `<div class="interv-weekdays">${wd1} → ${wd2}</div>
+                 <div class="interv-dates">
+                   <span>${dayStart.getDate()} ${MOIS_FR_COURT[dayStart.getMonth()]}</span>
+                   <span class="interv-arrow">→</span>
+                   <span>${dayEnd.getDate()} ${MOIS_FR_COURT[dayEnd.getMonth()]}</span>
+                 </div>`
+              : `<div class="interv-weekdays">${wd1}</div>
+                 <div class="interv-dates">${dayStart.getDate()} ${MOIS_FR_COURT[dayStart.getMonth()]}</div>`
+            }
+            <div style="margin-top:5px;display:flex;flex-wrap:wrap;gap:4px">
+              <span class="interv-moment-pill ${row.moment==='Nuit'?'pill-nuit':'pill-jour'}">${row.moment==='Nuit'?'🌙':'☀'} ${row.moment}</span>
+              ${chargeBadge?`<span class="interv-moment-pill pill-charge">⚠</span>`:''}
+            </div>
+          </div>
+
+          <div class="interv-divider"></div>
+
+          <!-- Rayon -->
+          <div class="interv-rayon">
+            <div class="interv-sector-chip" style="background:${col.light};color:${col.text}">
+              <span style="width:7px;height:7px;border-radius:50%;background:${col.fill};display:inline-block"></span>
+              ${col.label}
+            </div>
+            <div class="interv-rayon-name">${row.rayon}</div>
+            ${row.sub?`<div class="interv-rayon-sub">${row.sub}</div>`:''}
+            <div class="interv-badges" style="margin-top:7px">
+              ${etatBadge}${replanBadge}
+            </div>
+          </div>
+        </div>
+
+        <!-- Méta droite -->
+        <div class="interv-meta">
+          <div class="meta-row">
+            <div class="meta-label">Responsable</div>
+            ${row.resp?`<div class="meta-val">👤 ${row.resp}</div>`:`<div class="meta-empty">Non assigné</div>`}
+          </div>
+          <div class="meta-row">
+            <div class="meta-label">Notes</div>
+            ${row.notes?`<div class="meta-val" style="font-size:11px;font-weight:400;color:#444">${row.notes}</div>`:`<div class="meta-empty">—</div>`}
+          </div>
+          <button class="tbl-btn" style="font-size:10px;padding:4px 9px;margin-top:4px;width:100%;justify-content:center" onclick="openEdit(${row.id})">✏ Modifier</button>
+        </div>
+      `;
+      list.appendChild(card);
+    });
+  });
+
+  // Mise à jour stats header
+  const replan=data.filter(d=>d.replanified).length;
+  document.getElementById('cstat-1').textContent=data.length+' interventions';
+  document.getElementById('cstat-2').textContent=data.filter(d=>d.etat==='fait').length+' fait(s) · '+data.filter(d=>d.etat==='cours').length+' en cours';
+  document.getElementById('cstat-3').textContent='3 nuits chargées ⚠'+(replan?` · ${replan} replanifiée${replan>1?'s':''}` :'');
+}
+
+// ── Print calendrier ──
+function printCal(){
+  const css=`
+    <style>
+    @page{size:A3 portrait;margin:12mm}
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Segoe UI',Arial,sans-serif;font-size:12px;background:#fff;color:#1a1a2e;padding:0}
+    .cal-doc-header{background:#1a1a2e;border-radius:10px;padding:22px 28px;margin-bottom:20px;display:flex;justify-content:space-between;align-items:flex-end;color:#fff;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+    .cal-doc-title{font-size:22px;font-weight:700;color:#fff;margin-bottom:4px}
+    .cal-doc-sub{font-size:12px;color:rgba(255,255,255,.55)}
+    .cal-doc-brand{font-size:11px;color:rgba(255,255,255,.45);margin-bottom:10px}
+    .cal-stat-pill{font-size:10px;font-weight:700;padding:4px 12px;border-radius:20px;background:rgba(255,255,255,.12);color:rgba(255,255,255,.8);border:1px solid rgba(255,255,255,.15);display:inline-block;margin-left:6px}
+    .month-sep-header{display:flex;align-items:center;gap:10px;margin:16px 0 8px}
+    .month-sep-label{font-size:10px;font-weight:700;letter-spacing:.8px;text-transform:uppercase;color:#378ADD;white-space:nowrap;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+    .month-sep-line{flex:1;height:1px;background:#d0d3da}
+    .interv-card{background:#fff;border:1px solid #e4e6ea;border-radius:10px;margin-bottom:8px;overflow:hidden;display:flex;break-inside:avoid;print-color-adjust:exact;-webkit-print-color-adjust:exact}
+    .interv-card.charge{border-color:#E24B4A}
+    .interv-stripe{width:5px;flex-shrink:0}
+    .interv-main{flex:1;padding:12px 16px;display:flex;align-items:center;gap:18px}
+    .interv-date-block{flex-shrink:0;min-width:110px}
+    .interv-weekdays{font-size:9px;font-weight:600;color:#888;margin-bottom:2px}
+    .interv-dates{font-size:15px;font-weight:700;color:#1a1a2e;line-height:1}
+    .interv-arrow{font-size:12px;color:#aaa;margin:0 2px}
+    .interv-moment-pill{display:inline-flex;align-items:center;gap:3px;font-size:8px;font-weight:700;padding:2px 7px;border-radius:20px;margin-top:4px}
+    .pill-nuit{background:#EEEDFE;color:#534AB7}
+    .pill-jour{background:#FFF3CD;color:#856404}
+    .pill-charge{background:#FCEBEB;color:#A32D2D}
+    .interv-divider{width:1px;height:45px;background:#f0f2f5;flex-shrink:0}
+    .interv-rayon{flex:1}
+    .interv-sector-chip{display:inline-flex;align-items:center;gap:4px;font-size:8px;font-weight:700;padding:2px 7px;border-radius:20px;margin-bottom:4px}
+    .interv-rayon-name{font-size:13px;font-weight:700;color:#1a1a2e}
+    .interv-rayon-sub{font-size:10px;color:#888;margin-top:2px;line-height:1.4}
+    .interv-badges{display:flex;gap:5px;margin-top:5px;flex-wrap:wrap}
+    .ibadge{font-size:8px;font-weight:700;padding:2px 7px;border-radius:20px}
+    .ib-todo{background:#F4F5F7;color:#666}
+    .ib-cours{background:#FFF0EC;color:#D85A30;border:1px solid #FABDAD}
+    .ib-fait{background:#E8F7F2;color:#1D9E75;border:1px solid #9FE1CB}
+    .ib-replan{background:#FFF3CD;color:#856404;border:1px dashed #D4A800}
+    .ib-charge{background:#FCEBEB;color:#A32D2D}
+    .interv-meta{flex-shrink:0;min-width:160px;padding:12px 14px;background:#FAFBFC;border-left:1px solid #f0f2f5;display:flex;flex-direction:column;gap:7px;justify-content:center}
+    .meta-label{font-size:8px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px}
+    .meta-val{font-size:11px;font-weight:600;color:#1a1a2e}
+    .meta-empty{font-size:10px;color:#ccc;font-style:italic}
+    </style>
+  `;
+  const listHTML=document.getElementById('cal-list').innerHTML;
+  const headerHTML=`
+    <div class="cal-doc-header">
+      <div>
+        <div class="cal-doc-brand">Épicerie Manager — Villebon 2</div>
+        <div class="cal-doc-title">Réimplantation Épicerie</div>
+        <div class="cal-doc-sub">Mai → Juin 2026 · 12 interventions · 21 jours concernés</div>
+      </div>
+      <div>
+        <span class="cal-stat-pill">${data.filter(d=>d.etat==='fait').length} fait(s)</span>
+        <span class="cal-stat-pill">${data.filter(d=>d.etat==='cours').length} en cours</span>
+        <span class="cal-stat-pill">3 nuits chargées ⚠</span>
+      </div>
+    </div>`;
+  const win=window.open('','_blank');
+  win.document.write(`<!DOCTYPE html><html><head><title>Calendrier Réimplantation</title>${css}</head><body>${headerHTML}<div>${listHTML}</div></body></html>`);
+  win.document.close();
+  setTimeout(()=>win.print(),300);
+}
+
+// ── Init ──
+buildGantt();
+renderTable();
+</script>
+</body>
+</html>

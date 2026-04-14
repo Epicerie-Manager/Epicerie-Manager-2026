@@ -29,6 +29,16 @@ export const helpTutorials: HelpTutorial[] = [
     accent: "#1d4ed8",
     light: "#eff6ff",
   },
+  {
+    slug: "reimplantations",
+    title: "Reimplantations mai-juin",
+    audience: "Managers, direction, equipes magasin",
+    description:
+      "Planning visuel des reimplantations avec Gantt, tableau de suivi, calendrier et plans consultables directement depuis l'aide.",
+    htmlPath: "/reimplantation-v3.html",
+    accent: "#0f766e",
+    light: "#ecfdf5",
+  },
 ];
 
 export function getHelpTutorial(slug: string) {

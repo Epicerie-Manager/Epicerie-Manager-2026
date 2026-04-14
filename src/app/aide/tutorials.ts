@@ -35,7 +35,7 @@ export const helpTutorials: HelpTutorial[] = [
     audience: "Managers, direction, equipes magasin",
     description:
       "Planning visuel des reimplantations avec Gantt, tableau de suivi, calendrier et plans consultables directement depuis l'aide.",
-    htmlPath: "/reimplantation-v3.html",
+    htmlPath: "/reimplantation-v4.html",
     accent: "#0f766e",
     light: "#ecfdf5",
   },

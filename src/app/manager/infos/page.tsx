@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type {
   InfoAnnouncement,
@@ -335,6 +336,83 @@ export default function ManagerInfosPage() {
 
       {error ? <div style={{ ...shellCard(), color: "#b91c1c", fontSize: 13 }}>{error}</div> : null}
       {success ? <div style={{ ...shellCard(), color: "#166534", fontSize: 13 }}>{success}</div> : null}
+
+      <div style={shellCard()}>
+        <div style={{ display: "grid", gap: 14 }}>
+          <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
+            <div>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#0f766e" }}>
+                Reimplantations
+              </div>
+              <div style={{ marginTop: 4, fontSize: 13, color: "#6b7280", lineHeight: 1.5 }}>
+                Consulte le planning des reimplantations de mai et juin directement depuis l&apos;application manager.
+              </div>
+            </div>
+            <div style={{ borderRadius: 999, padding: "7px 10px", background: "#ecfdf5", color: "#0f766e", fontSize: 11, fontWeight: 800 }}>
+              HTML interactif
+            </div>
+          </div>
+
+          <div
+            style={{
+              borderRadius: 20,
+              padding: "14px",
+              border: "1px solid rgba(167, 243, 208, 0.85)",
+              background: "linear-gradient(180deg, #f0fdf4 0%, #ffffff 100%)",
+              display: "grid",
+              gap: 10,
+            }}
+          >
+            <div style={{ fontSize: 16, fontWeight: 800, letterSpacing: "-0.03em", color: "#111827" }}>
+              Planning reimplantation 2026
+            </div>
+            <div style={{ fontSize: 13, color: "#374151", lineHeight: 1.55 }}>
+              Vue Gantt, tableau de suivi, calendrier et plans rayons. Les ajustements faits dans cette page restent sauvegardés localement sur l&apos;appareil.
+            </div>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+              <a
+                href="/reimplantation-v4.html"
+                target="_blank"
+                rel="noreferrer"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  minHeight: 40,
+                  borderRadius: 999,
+                  padding: "0 14px",
+                  background: "#0f766e",
+                  color: "#fff",
+                  fontSize: 12,
+                  fontWeight: 800,
+                  textDecoration: "none",
+                }}
+              >
+                Ouvrir la page
+              </a>
+              <Link
+                href="/aide/reimplantations"
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  minHeight: 40,
+                  borderRadius: 999,
+                  padding: "0 14px",
+                  background: "#ffffff",
+                  color: "#0f766e",
+                  border: "1px solid #99f6e4",
+                  fontSize: 12,
+                  fontWeight: 800,
+                  textDecoration: "none",
+                }}
+              >
+                Ouvrir dans l&apos;aide
+              </Link>
+            </div>
+          </div>
+        </div>
+      </div>
 
       <div style={shellCard()}>
         <div style={{ display: "grid", gap: 14 }}>

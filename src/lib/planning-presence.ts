@@ -14,7 +14,7 @@ export type PlanningPresenceCounts = {
   scheduledCount: number;
 };
 
-const NON_COUNTED_PRESENCE_EMPLOYEE_NAMES = new Set(["ABDOU"]);
+const NON_COUNTED_PRESENCE_EMPLOYEE_NAMES = new Set(["ABDOU", "CHRISTELLE"]);
 
 export function isPlanningEmployeeCountedForPresence(
   employee: Pick<PlanningEmployee, "n">,

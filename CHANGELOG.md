@@ -21,6 +21,13 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v1.1.2 - 2026-04-16
+
+- Ruptures / Courbe equipe : ajout d'une vraie courbe d'evolution du pourcentage de ruptures restantes dans le temps, avec filtres `Semaine`, `Mois`, `Trimestre` et `Annee`, ainsi qu'un objectif visuel fixe a `10%`.
+- Ruptures / Comparaison collaborateurs : possibilite d'afficher un ou plusieurs collaborateurs en superposition sur la courbe equipe, pour comparer leur evolution a la moyenne de l'equipe sur la meme periode.
+- Ruptures / Lisibilite : ajout des pourcentages sur les courbes collaborateurs et compression visuelle des pics tres hauts pour eviter qu'une valeur atypique ecrase toute la lecture du graphe.
+- Ruptures / Stats secteurs : simplification de la zone equipe par secteur avec retrait du graphique redondant et remplacement des libelles techniques par des intitulés plus clairs.
+
 ## v1.1.1 - 2026-04-14
 
 - Ruptures / Import double : l'historique des imports est maintenant regroupe par jour avec lecture visuelle des statuts `Début de matinée` et `Fin de matinée` au lieu d'une simple liste brute d'imports recents.

@@ -183,7 +183,6 @@ export default function ManagerHomePage() {
               fontWeight: 800,
               letterSpacing: "-0.06em",
               lineHeight: 1.02,
-              whiteSpace: "nowrap",
             }}
           >
             Toute l&apos;équipe en un coup d&apos;œil.
@@ -194,7 +193,7 @@ export default function ManagerHomePage() {
         </div>
       </div>
 
-      <div style={{ display: "grid", gridTemplateColumns: "1.2fr 0.8fr", gap: 12 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 12 }}>
         <div style={metricTileStyle({ bg: "linear-gradient(180deg, #fffefd 0%, #f8f5ef 100%)", shadow: "0 14px 34px rgba(17,24,39,0.06)" })}>
           <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#9ca3af" }}>
             Ligne du jour

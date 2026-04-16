@@ -12,7 +12,6 @@ import type { ModuleAccessKey } from "@/lib/modules-config";
 import { moduleThemes } from "@/lib/theme";
 import { isAdminUser } from "@/lib/admin-access";
 import { getVisibleModules, isLimitedOfficeAccessRole } from "@/lib/modules-config";
-import type { InfoAnnouncement } from "@/lib/infos-data";
 import { absenceTypes } from "@/lib/absences-data";
 import { loadAbsenceRequests, getAbsencesUpdatedEventName, syncAbsencesFromSupabase } from "@/lib/absences-store";
 import { hasBrowserWindow } from "@/lib/browser-cache";
@@ -45,12 +44,6 @@ import { loadLatestRupturesCountForToday } from "@/lib/ruptures-store";
 import { getPlateauWeekFocusData } from "@/lib/plateau-data";
 import { createClient } from "@/lib/supabase";
 import { getOfficeProfileFirstName, loadCurrentOfficeProfile } from "@/lib/office-profile";
-import {
-  confirmAnnouncementReadingInSupabase,
-  getInfosUpdatedEventName,
-  loadInfoAnnouncements,
-  syncInfosFromSupabase,
-} from "@/lib/infos-store";
 
 type AlertTone = "yellow" | "red" | "blue";
 type RankStatus = "ok" | "warn" | "alert";
@@ -78,17 +71,9 @@ const statusStyles = {
 const PLANNING_DASHBOARD_CACHE_KEY = "epicerie-dashboard-presence-v1";
 const PLANNING_DASHBOARD_SYNC_TTL_MS = 30_000;
 let lastPlanningDashboardSyncAt = 0;
-const DASHBOARD_ANNOUNCEMENT_DISMISS_KEY = "epicerie-dashboard-announcements-seen-v1";
 
 const medals = ["🥇", "🥈", "🥉"];
 const WEEK_LABELS = ["LUN", "MAR", "MER", "JEU", "VEN", "SAM"];
-function normalizeDashboardIdentity(value: string) {
-  return value
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "");
-}
 
 function loadPresenceWidgetSnapshot(): PresenceWidgetSnapshot | null {
   if (!hasBrowserWindow()) return null;
@@ -116,27 +101,6 @@ function savePresenceWidgetSnapshot(snapshot: PresenceWidgetSnapshot) {
     window.localStorage.setItem(PLANNING_DASHBOARD_CACHE_KEY, JSON.stringify(snapshot));
   } catch {
     // Best-effort cache only.
-  }
-}
-
-function loadDashboardAnnouncementDismissals() {
-  if (!hasBrowserWindow()) return {} as Record<string, string>;
-  try {
-    const raw = window.localStorage.getItem(DASHBOARD_ANNOUNCEMENT_DISMISS_KEY);
-    if (!raw) return {};
-    const parsed = JSON.parse(raw) as Record<string, string>;
-    return parsed && typeof parsed === "object" ? parsed : {};
-  } catch {
-    return {};
-  }
-}
-
-function saveDashboardAnnouncementDismissals(nextValue: Record<string, string>) {
-  if (!hasBrowserWindow()) return;
-  try {
-    window.localStorage.setItem(DASHBOARD_ANNOUNCEMENT_DISMISS_KEY, JSON.stringify(nextValue));
-  } catch {
-    // Best-effort browser memory only.
   }
 }
 
@@ -216,9 +180,6 @@ export default function DashboardPage() {
   const [dashboardAllowedModules, setDashboardAllowedModules] = useState<ModuleAccessKey[]>([]);
   const [dashboardDisplayName, setDashboardDisplayName] = useState("");
   const [accessProfileResolved, setAccessProfileResolved] = useState(false);
-  const [dashboardProfileId, setDashboardProfileId] = useState("");
-  const [dashboardEmployeeId, setDashboardEmployeeId] = useState("");
-  const [dashboardAnnouncements, setDashboardAnnouncements] = useState<InfoAnnouncement[]>([]);
   const [dashboardMonthCursor, setDashboardMonthCursor] = useState(() => {
     const current = new Date();
     return new Date(current.getFullYear(), current.getMonth(), 1);
@@ -235,36 +196,11 @@ export default function DashboardPage() {
         setIsAdmin(false);
         setDashboardRole("");
         setDashboardDisplayName("");
-        setDashboardProfileId("");
-        setDashboardEmployeeId("");
         setAccessProfileResolved(true);
         return;
       }
 
       const profile = await loadCurrentOfficeProfile(supabase);
-
-      let resolvedEmployeeId = String(profile?.employee_id ?? "");
-      if (!resolvedEmployeeId) {
-        const identityCandidates = [
-          normalizeDashboardIdentity(String(profile?.full_name ?? "")),
-          normalizeDashboardIdentity(String((user.email ?? "").split("@")[0] ?? "")),
-        ].filter(Boolean);
-
-        if (identityCandidates.length) {
-          const { data: employees } = await supabase
-            .from("employees")
-            .select("id,name")
-            .limit(5000);
-
-          const matchedEmployee = ((employees ?? []) as Array<{ id: string | null; name: string | null }>).find(
-            (employee) => identityCandidates.includes(normalizeDashboardIdentity(String(employee.name ?? ""))),
-          );
-          resolvedEmployeeId = String(matchedEmployee?.id ?? "");
-        }
-      }
-
-      setDashboardProfileId(String(user.id ?? ""));
-      setDashboardEmployeeId(resolvedEmployeeId);
       setDashboardRole(String(profile?.role ?? ""));
       setDashboardAllowedModules(profile?.allowed_modules ?? []);
       setDashboardDisplayName(getOfficeProfileFirstName(String(profile?.full_name ?? user.email ?? "")));
@@ -277,22 +213,6 @@ export default function DashboardPage() {
 
   const hasLimitedDashboard = isLimitedOfficeAccessRole({ role: dashboardRole, allowed_modules: dashboardAllowedModules });
   const visibleModules = getVisibleModules({ role: dashboardRole, allowed_modules: dashboardAllowedModules });
-
-  useEffect(() => {
-    if (hasLimitedDashboard) return;
-    const refreshAnnouncements = () => {
-      setDashboardAnnouncements(loadInfoAnnouncements());
-    };
-
-    refreshAnnouncements();
-    void syncInfosFromSupabase().then((synced) => {
-      if (synced) refreshAnnouncements();
-    });
-
-    const eventName = getInfosUpdatedEventName();
-    window.addEventListener(eventName, refreshAnnouncements);
-    return () => window.removeEventListener(eventName, refreshAnnouncements);
-  }, [hasLimitedDashboard]);
 
   useEffect(() => {
     if (!accessProfileResolved) return;
@@ -484,20 +404,6 @@ export default function DashboardPage() {
       };
     });
   }, [planningOverrides, presenceThresholds, startOfToday, today, todayIso]);
-
-  const pendingDashboardAnnouncement = useMemo(() => {
-    if (!dashboardProfileId) return null;
-
-    const dismissals = loadDashboardAnnouncementDismissals();
-    return (
-      dashboardAnnouncements.find((announcement) => {
-        if (!announcement.confirmationRequired) return false;
-        if (!announcement.targetEmployeeIds.includes(dashboardProfileId)) return false;
-        const dismissalKey = `${dashboardProfileId}:${announcement.id}`;
-        return dismissals[dismissalKey] !== "confirmed";
-      }) ?? null
-    );
-  }, [dashboardAnnouncements, dashboardProfileId]);
 
   const monthlyPlanningDays = useMemo(() => {
     const year = dashboardMonthCursor.getFullYear();
@@ -765,26 +671,6 @@ export default function DashboardPage() {
         </Card>
       </div>
     );
-  }
-
-  async function confirmDashboardAnnouncement(announcementId: string) {
-    if (!dashboardProfileId) return;
-    const dismissals = loadDashboardAnnouncementDismissals();
-    dismissals[`${dashboardProfileId}:${announcementId}`] = "confirmed";
-    saveDashboardAnnouncementDismissals(dismissals);
-    try {
-      if (dashboardEmployeeId) {
-        await confirmAnnouncementReadingInSupabase(dashboardEmployeeId, announcementId);
-        const synced = await syncInfosFromSupabase();
-        if (synced) {
-          setDashboardAnnouncements(loadInfoAnnouncements());
-          return;
-        }
-      }
-    } catch (error) {
-      console.error("Impossible de confirmer le message bureau dans Supabase", error);
-    }
-    setDashboardAnnouncements((current) => [...current]);
   }
 
   return (
@@ -1343,88 +1229,6 @@ export default function DashboardPage() {
 
         </div>
       </div>
-
-      {pendingDashboardAnnouncement ? (
-        <div
-          role="presentation"
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(15,23,42,0.38)",
-            backdropFilter: "blur(3px)",
-            display: "grid",
-            placeItems: "center",
-            zIndex: 150,
-            padding: "20px",
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            style={{
-              width: "min(560px, 96vw)",
-              background: "#fffdf9",
-              borderRadius: "20px",
-              border: "1px solid #e8ecf1",
-              boxShadow: "0 24px 60px rgba(15,23,42,0.18)",
-              padding: "18px",
-              display: "grid",
-              gap: "12px",
-            }}
-          >
-            <Kicker moduleKey="admin" label="Message bureau" icon={<IconAlert />} />
-            <h2 style={{ marginTop: "6px", fontSize: "22px", color: "#0f172a" }}>
-              {pendingDashboardAnnouncement.title}
-            </h2>
-            <div style={{ fontSize: "12px", color: "#64748b" }}>
-              {pendingDashboardAnnouncement.date}
-            </div>
-            <div
-              style={{
-                borderRadius: "16px",
-                padding: "14px 16px",
-                background:
-                  pendingDashboardAnnouncement.priority === "urgent"
-                    ? "#fff1f2"
-                    : pendingDashboardAnnouncement.priority === "important"
-                      ? "#fff7ed"
-                      : "#fffbea",
-                border:
-                  pendingDashboardAnnouncement.priority === "urgent"
-                    ? "1px solid #fecdd3"
-                    : pendingDashboardAnnouncement.priority === "important"
-                      ? "1px solid #fed7aa"
-                      : "1px solid #fde68a",
-                color: "#334155",
-                fontSize: "14px",
-                lineHeight: 1.6,
-                whiteSpace: "pre-wrap",
-              }}
-            >
-              {pendingDashboardAnnouncement.content}
-            </div>
-            <div style={{ display: "flex", justifyContent: "flex-end" }}>
-              <button
-                type="button"
-                onClick={() => confirmDashboardAnnouncement(pendingDashboardAnnouncement.id)}
-                style={{
-                  minHeight: "42px",
-                  borderRadius: "999px",
-                  border: "1px solid #4f46e5",
-                  background: "#eef2ff",
-                  color: "#4338ca",
-                  fontSize: "13px",
-                  fontWeight: 700,
-                  padding: "0 16px",
-                  cursor: "pointer",
-                }}
-              >
-                OK, j&apos;ai lu
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
 
       {monthlyIssuePanel ? (
         <div

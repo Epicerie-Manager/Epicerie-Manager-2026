@@ -767,10 +767,10 @@ export default function InfosPage() {
 
         <Card style={{ border: "1px solid #e8ecf1", boxShadow: "0 1px 2px rgba(0,0,0,0.03), 0 8px 22px rgba(0,0,0,0.05)", background: "rgba(255,255,255,0.96)", gridColumn: "1 / -1", order: -1 }}>
           <Kicker moduleKey="infos" label="Annonces" />
-          <h2 style={{ marginTop: "6px", fontSize: "18px", color: "#0f172a" }}>Fil manager</h2>
+          <h2 style={{ marginTop: "6px", fontSize: "18px", color: "#0f172a" }}>Fil d&apos;informations</h2>
 
           <div style={{ marginTop: "10px", border: "1px solid #dbe3eb", borderRadius: "12px", padding: "10px", display: "grid", gap: "8px" }}>
-            <strong style={{ fontSize: "13px", color: "#0f172a" }}>Nouvelle annonce</strong>
+            <strong style={{ fontSize: "13px", color: "#0f172a" }}>Publication simple</strong>
             <div
               style={{
                 borderRadius: "10px",
@@ -782,7 +782,7 @@ export default function InfosPage() {
                 padding: "10px 12px",
               }}
             >
-              Les annonces publiées ici restent dans le fil d&apos;infos. Le message affiché directement à l&apos;ouverture est réservé au menu admin.
+              Cette zone sert à publier ou consulter des annonces dans le fil d&apos;infos. Les messages automatiques à l&apos;ouverture ne sont plus utilisés.
             </div>
             <input
               value={announcementTitle}

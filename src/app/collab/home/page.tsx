@@ -22,7 +22,7 @@ import {
   getTodayAndTomorrowIso,
   type CollabPlanningEntry,
 } from "@/lib/collab-data";
-import { confirmAnnouncementReadingInSupabase, getCollabInfosFromSupabase } from "@/lib/infos-store";
+import { getCollabInfosFromSupabase } from "@/lib/infos-store";
 import type { InfoAnnouncement, InfoCategory } from "@/lib/infos-data";
 
 function getCollabInfosDocumentsSeenKey(profileKey: string) {
@@ -150,6 +150,7 @@ function PlanningMoment({
 
 export default function CollabHomePage() {
   const router = useRouter();
+  const [bootstrapping, setBootstrapping] = useState(true);
   const [profile, setProfile] = useState<CollabProfile | null>(null);
   const [todayEntry, setTodayEntry] = useState<CollabPlanningEntry | null>(null);
   const [tomorrowEntry, setTomorrowEntry] = useState<CollabPlanningEntry | null>(null);
@@ -159,27 +160,26 @@ export default function CollabHomePage() {
   const [pendingAbsences, setPendingAbsences] = useState(0);
   const [loadError, setLoadError] = useState("");
   const [lastRefreshAt, setLastRefreshAt] = useState<Date | null>(null);
-  const [openingAnnouncementId, setOpeningAnnouncementId] = useState<string | null>(null);
 
   useEffect(() => {
     const load = async () => {
-      const collabProfile = await getCollabProfile();
-      if (!collabProfile || collabProfile.role !== "collaborateur") {
-        router.replace("/collab/login");
-        return;
-      }
-      if (collabProfile.first_login) {
-        router.replace("/collab/change-pin");
-        return;
-      }
-      if (!collabProfile.employee_id) {
-        setLoadError("Profil collaborateur incomplet.");
-        return;
-      }
-      setProfile(collabProfile);
-
-      const { today, tomorrow } = getTodayAndTomorrowIso();
       try {
+        const collabProfile = await getCollabProfile();
+        if (!collabProfile || collabProfile.role !== "collaborateur") {
+          router.replace("/collab/login");
+          return;
+        }
+        if (collabProfile.first_login) {
+          router.replace("/collab/change-pin");
+          return;
+        }
+        if (!collabProfile.employee_id) {
+          setLoadError("Profil collaborateur incomplet.");
+          return;
+        }
+        setProfile(collabProfile);
+
+        const { today, tomorrow } = getTodayAndTomorrowIso();
         const [planningRows, currentTgPlan, infoPayload, absences] = await Promise.all([
           getMyWeekPlanning(today, tomorrow),
           getCurrentTGPlan(),
@@ -210,6 +210,8 @@ export default function CollabHomePage() {
         setNewDocumentsCount(0);
         setPendingAbsences(0);
         setLoadError("Certaines informations collaborateur n'ont pas pu être chargées.");
+      } finally {
+        setBootstrapping(false);
       }
     };
 
@@ -221,13 +223,6 @@ export default function CollabHomePage() {
   const todayIso = getTodayAndTomorrowIso().today;
   const unreadAnnouncements = useMemo(
     () => announcements.filter((announcement) => !announcement.selfReceipt?.seenAt),
-    [announcements],
-  );
-  const pendingLoginAnnouncement = useMemo(
-    () =>
-      announcements.find(
-        (announcement) => announcement.confirmationRequired && !announcement.selfReceipt?.confirmedAt,
-      ) ?? null,
     [announcements],
   );
   const announcementCounts = useMemo(
@@ -266,32 +261,53 @@ export default function CollabHomePage() {
     <AnnouncementBubble label="Docs" count={newDocumentsCount} bg="#2563eb" color="#eff6ff" />
   ) : null;
 
-  if (!profile) return null;
+  if (bootstrapping) {
+    return (
+      <CollabPage>
+        <CollabHeader
+          title="Chargement de ton espace."
+          subtitle="Préparation du planning, des infos et de tes accès."
+        />
 
-  async function handleConfirmLoginAnnouncement() {
-    if (!profile || !profile.employee_id || !pendingLoginAnnouncement || openingAnnouncementId) return;
+        <SectionCard style={{ display: "grid", gap: 12 }}>
+          <div style={{ fontSize: 11, letterSpacing: "0.12em", textTransform: "uppercase", color: collabTheme.muted }}>
+            Initialisation
+          </div>
+          <div style={{ ...collabSerifTitleStyle({ fontSize: 28, lineHeight: 1.05 }) }}>
+            L&apos;application prépare ta journée.
+          </div>
+          <div style={{ fontSize: 14, color: collabTheme.muted, lineHeight: 1.6 }}>
+            Chargement du planning, des annonces et des raccourcis principaux.
+          </div>
+          <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(2, minmax(0, 1fr))" }}>
+            {["Planning", "Absences", "Plan TG", "Infos"].map((label) => (
+              <div
+                key={label}
+                style={{
+                  borderRadius: 18,
+                  border: `1px solid ${collabTheme.line}`,
+                  background: "#fffaf4",
+                  padding: "14px 12px",
+                  display: "grid",
+                  gap: 6,
+                }}
+              >
+                <div style={{ fontSize: 11, color: collabTheme.muted, textTransform: "uppercase", letterSpacing: "0.08em" }}>
+                  {label}
+                </div>
+                <div style={{ height: 12, borderRadius: 999, background: "rgba(184,158,125,0.18)" }} />
+                <div style={{ width: "72%", height: 10, borderRadius: 999, background: "rgba(184,158,125,0.12)" }} />
+              </div>
+            ))}
+          </div>
+        </SectionCard>
 
-    setOpeningAnnouncementId(pendingLoginAnnouncement.id);
-    try {
-      await confirmAnnouncementReadingInSupabase(profile.employee_id, pendingLoginAnnouncement.id);
-      const readAt = new Date().toISOString();
-      setAnnouncements((current) =>
-        current.map((announcement) =>
-          announcement.id === pendingLoginAnnouncement.id
-            ? {
-                ...announcement,
-                selfReceipt: {
-                  seenAt: announcement.selfReceipt?.seenAt ?? readAt,
-                  confirmedAt: readAt,
-                },
-              }
-            : announcement,
-        ),
-      );
-    } finally {
-      setOpeningAnnouncementId(null);
-    }
+        <CollabBottomNav />
+      </CollabPage>
+    );
   }
+
+  if (!profile) return null;
 
   async function handleSignOut() {
     await collabSignOut();
@@ -381,89 +397,6 @@ export default function CollabHomePage() {
           </SectionCard>
         ) : null}
       </div>
-
-      {pendingLoginAnnouncement ? (
-        <div
-          role="presentation"
-          style={{
-            position: "fixed",
-            inset: 0,
-            background: "rgba(26,20,16,0.56)",
-            backdropFilter: "blur(3px)",
-            display: "grid",
-            placeItems: "center",
-            padding: 18,
-            zIndex: 90,
-          }}
-        >
-          <div
-            role="dialog"
-            aria-modal="true"
-            style={{
-              width: "min(520px, 100%)",
-              borderRadius: 26,
-              background: "#fffaf4",
-              border: "1px solid rgba(229,226,221,0.9)",
-              boxShadow: "0 24px 60px rgba(26,20,16,0.24)",
-              padding: "18px 18px 20px",
-              display: "grid",
-              gap: 12,
-            }}
-          >
-            <div style={{ fontSize: 11, letterSpacing: "0.14em", textTransform: "uppercase", color: collabTheme.muted }}>
-              Message manager
-            </div>
-            <div style={{ ...collabSerifTitleStyle({ fontSize: 28, lineHeight: 1.05 }) }}>
-              {pendingLoginAnnouncement.title}
-            </div>
-            <div style={{ fontSize: 12, color: collabTheme.muted }}>
-              {pendingLoginAnnouncement.date}
-            </div>
-            <div
-              style={{
-                borderRadius: 18,
-                background:
-                  pendingLoginAnnouncement.priority === "urgent"
-                    ? "#fff1f2"
-                    : pendingLoginAnnouncement.priority === "important"
-                      ? "#fff7ed"
-                      : "#fff8d6",
-                border:
-                  pendingLoginAnnouncement.priority === "urgent"
-                    ? "1px solid #fecdd3"
-                    : pendingLoginAnnouncement.priority === "important"
-                      ? "1px solid #fed7aa"
-                      : "1px solid #fde68a",
-                padding: "14px 14px",
-                fontSize: 14,
-                color: "#3f3126",
-                lineHeight: 1.6,
-                whiteSpace: "pre-wrap",
-              }}
-            >
-              {pendingLoginAnnouncement.content}
-            </div>
-            <button
-              type="button"
-              onClick={() => void handleConfirmLoginAnnouncement()}
-              disabled={openingAnnouncementId === pendingLoginAnnouncement.id}
-              style={{
-                minHeight: 48,
-                borderRadius: 999,
-                border: "none",
-                background: collabTheme.black,
-                color: "#fffaf4",
-                fontSize: 14,
-                fontWeight: 700,
-                cursor: openingAnnouncementId === pendingLoginAnnouncement.id ? "not-allowed" : "pointer",
-                opacity: openingAnnouncementId === pendingLoginAnnouncement.id ? 0.75 : 1,
-              }}
-            >
-              {openingAnnouncementId === pendingLoginAnnouncement.id ? "Validation..." : "OK, j'ai lu"}
-            </button>
-          </div>
-        </div>
-      ) : null}
 
       <CollabBottomNav />
     </CollabPage>

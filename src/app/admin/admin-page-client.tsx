@@ -35,7 +35,7 @@ export type AdminJournalEntry = {
   items: string[];
 };
 
-type AdminAudienceTargeting = InfoAnnouncementTargeting | "dashboard";
+type AdminAudienceTargeting = InfoAnnouncementTargeting;
 
 const PRIORITY_META: Record<InfoAnnouncementPriority, { label: string; bg: string; text: string; border: string }> = {
   urgent: { label: "Urgent", bg: "#fff1f2", text: "#9f1239", border: "#fecdd3" },
@@ -90,15 +90,8 @@ function formatDateTimeLabel(value: string | null) {
   });
 }
 
-function getTargetingLabel(
-  announcement: InfoAnnouncement,
-  dashboardUsers: InfoAnnouncementAudience["dashboardUsers"],
-) {
-  const dashboardCount = dashboardUsers.filter((profile) => announcement.targetEmployeeIds.includes(profile.id)).length;
+function getTargetingLabel(announcement: InfoAnnouncement) {
   if (announcement.targeting === "employees") {
-    if (dashboardCount) {
-      return `${dashboardCount} compte${dashboardCount > 1 ? "s" : ""} bureau`;
-    }
     return `${announcement.recipients.length} collaborateur${announcement.recipients.length > 1 ? "s" : ""}`;
   }
   if (announcement.targeting === "rayons") {
@@ -133,9 +126,7 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
   const [publishAt, setPublishAt] = useState("");
   const [expiresAt, setExpiresAt] = useState("");
   const [targetEmployeeIds, setTargetEmployeeIds] = useState<string[]>([]);
-  const [targetDashboardUserIds, setTargetDashboardUserIds] = useState<string[]>([]);
   const [targetRayons, setTargetRayons] = useState<string[]>([]);
-  const [showOnLogin, setShowOnLogin] = useState(true);
   const [messageBusy, setMessageBusy] = useState(false);
   const [messageError, setMessageError] = useState("");
   const [messageSuccess, setMessageSuccess] = useState("");
@@ -196,14 +187,6 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
     return () => window.removeEventListener(eventName, refreshAnnouncements);
   }, [router]);
 
-  const loginMessages = useMemo(
-    () =>
-      announcements.filter(
-        (announcement) => announcement.confirmationRequired && isInfoAnnouncementActiveNow(announcement),
-      ),
-    [announcements],
-  );
-
   const activeMessages = useMemo(
     () => announcements.filter((announcement) => isInfoAnnouncementActiveNow(announcement)),
     [announcements],
@@ -212,11 +195,6 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
   const selectedEmployeesPreview = useMemo(
     () => audience.employees.filter((employee) => targetEmployeeIds.includes(employee.id)),
     [audience.employees, targetEmployeeIds],
-  );
-
-  const selectedDashboardUsersPreview = useMemo(
-    () => audience.dashboardUsers.filter((profile) => targetDashboardUserIds.includes(profile.id)),
-    [audience.dashboardUsers, targetDashboardUserIds],
   );
 
   const selectedRayonEmployeesPreview = useMemo(
@@ -230,12 +208,6 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
   function toggleEmployeeSelection(employeeId: string) {
     setTargetEmployeeIds((current) =>
       current.includes(employeeId) ? current.filter((id) => id !== employeeId) : [...current, employeeId],
-    );
-  }
-
-  function toggleDashboardUserSelection(profileId: string) {
-    setTargetDashboardUserIds((current) =>
-      current.includes(profileId) ? current.filter((id) => id !== profileId) : [...current, profileId],
     );
   }
 
@@ -259,17 +231,6 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
       setMessageError("Sélectionne au moins un collaborateur ciblé.");
       return;
     }
-    if (targeting === "dashboard" && targetDashboardUserIds.length === 0) {
-      setMessageError("Sélectionne au moins un destinataire bureau.");
-      return;
-    }
-    if (
-      targeting === "dashboard" &&
-      selectedDashboardUsersPreview.some((profile) => !profile.employeeId)
-    ) {
-      setMessageError("Chaque destinataire bureau doit etre relie a un collaborateur pour tracer le clic OK.");
-      return;
-    }
     if (targeting === "rayons" && targetRayons.length === 0) {
       setMessageError("Sélectionne au moins un rayon ciblé.");
       return;
@@ -290,10 +251,10 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
         priority,
         publishAt: nextPublishAt,
         expiresAt: nextExpiresAt,
-        targeting: targeting === "dashboard" ? "employees" : targeting,
-        targetEmployeeIds: targeting === "dashboard" ? targetDashboardUserIds : targetEmployeeIds,
+        targeting,
+        targetEmployeeIds,
         targetRayons,
-        confirmationRequired: showOnLogin,
+        confirmationRequired: false,
       });
       setAnnouncements(loadInfoAnnouncements());
       setTitle("");
@@ -303,14 +264,8 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
       setPublishAt("");
       setExpiresAt("");
       setTargetEmployeeIds([]);
-      setTargetDashboardUserIds([]);
       setTargetRayons([]);
-      setShowOnLogin(true);
-      setMessageSuccess(
-        showOnLogin
-          ? "Message publié. Il s'affichera à la connexion du collaborateur tant qu'il n'aura pas cliqué OK."
-          : "Message publié dans le fil d'informations.",
-      );
+      setMessageSuccess("Message publié dans le fil d'informations.");
     } catch (error) {
       setMessageError(error instanceof Error ? error.message : "Impossible de publier le message.");
     } finally {
@@ -441,7 +396,7 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
               Admin bureau
             </h1>
             <p style={{ margin: "8px 0 0", fontSize: 13, color: "#64748b", maxWidth: 760, lineHeight: 1.55 }}>
-              Espace réservé à {adminLabel || "l'administrateur"} pour diffuser des messages à la connexion,
+              Espace réservé à {adminLabel || "l'administrateur"} pour publier des annonces dans le fil d&apos;infos,
               relancer les synchronisations utiles et garder un petit journal des livraisons récentes.
             </p>
           </div>
@@ -455,10 +410,10 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
             }}
           >
             <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#475569" }}>
-              Messages à la connexion
+              Messages infos
             </div>
             <div style={{ marginTop: 6, fontSize: 13, color: "#0f172a", lineHeight: 1.45 }}>
-              Les messages avec validation obligatoire s&apos;ouvrent directement sur l&apos;accueil collaborateur.
+              Les annonces publiées ici restent dans le module Infos, sans popup automatique à l&apos;ouverture.
             </div>
           </div>
         </div>
@@ -466,18 +421,32 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
 
       <KPIRow>
         <KPI moduleKey="admin" value={activeMessages.length} label="Messages actifs" style={{ background: "linear-gradient(135deg,#fff7ed,#fffbf6)", border: "1px solid #fed7aa" }} valueColor="#c2410c" />
-        <KPI moduleKey="admin" value={loginMessages.length} label="À la connexion" style={{ background: "linear-gradient(135deg,#eef4ff,#fbfdff)", border: "1px solid #bfdbfe" }} valueColor="#1d4ed8" />
+        <KPI moduleKey="admin" value={announcements.length} label="Messages publiés" style={{ background: "linear-gradient(135deg,#eef4ff,#fbfdff)", border: "1px solid #bfdbfe" }} valueColor="#1d4ed8" />
         <KPI moduleKey="admin" value={audience.employees.length} label="Collaborateurs ciblables" style={{ background: "linear-gradient(135deg,#f0fdfa,#f8fffe)", border: "1px solid #99f6e4" }} valueColor="#0f766e" />
         <KPI moduleKey="admin" value={initialJournal.length} label="Entrées journal" style={{ background: "linear-gradient(135deg,#fdf4ff,#fcfaff)", border: "1px solid #e9d5ff" }} valueColor="#7c3aed" />
       </KPIRow>
 
-      <div style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1.2fr) minmax(320px, 0.8fr)" }}>
+      <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" }}>
         <Card style={shellCardStyle()}>
           <Kicker moduleKey="admin" label="Messages" />
-          <h2 style={{ marginTop: 6, fontSize: 18, color: "#0f172a" }}>Messages à la connexion</h2>
-            <p style={{ marginTop: 6, fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
-            Ici seulement, tu peux choisir entre un message classique dans le fil d&apos;infos ou un message affiché directement à l&apos;ouverture avec bouton OK.
-            </p>
+          <h2 style={{ marginTop: 6, fontSize: 18, color: "#0f172a" }}>Messages infos</h2>
+          <p style={{ marginTop: 6, fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
+            Les annonces créées ici restent consultables dans le fil d&apos;infos. Elles ne déclenchent plus de popup à la connexion.
+          </p>
+          <div
+            style={{
+              marginTop: 10,
+              borderRadius: 12,
+              border: "1px solid #dbeafe",
+              background: "#eff6ff",
+              color: "#1d4ed8",
+              fontSize: 12,
+              lineHeight: 1.5,
+              padding: "10px 12px",
+            }}
+          >
+            Utilise ce bloc pour publier une information terrain. Le reste de la page sert surtout à la maintenance et au suivi rapide.
+          </div>
 
           <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
             <input
@@ -515,7 +484,6 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
                 >
                   <option value="all">Toute l&apos;équipe</option>
                   <option value="employees">Collaborateurs ciblés</option>
-                  <option value="dashboard">Dashboard bureau</option>
                   <option value="rayons">Rayons ciblés</option>
                 </select>
               </label>
@@ -538,15 +506,6 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
                 />
               </label>
             </div>
-
-            <label style={{ display: "flex", alignItems: "center", gap: 8, fontSize: 13, color: "#334155" }}>
-              <input
-                type="checkbox"
-                checked={showOnLogin}
-                onChange={(event) => setShowOnLogin(event.target.checked)}
-              />
-              Message d&apos;ouverture avec clic OK obligatoire
-            </label>
 
             {targeting === "employees" ? (
               <div style={{ border: "1px solid #dbe3eb", borderRadius: 12, padding: 10, background: "#f8fafc" }}>
@@ -582,50 +541,6 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
                   <div style={{ marginTop: 8, fontSize: 11, color: "#64748b" }}>
                     Sélection : {selectedEmployeesPreview.slice(0, 4).map((employee) => employee.name).join(", ")}
                     {selectedEmployeesPreview.length > 4 ? ` +${selectedEmployeesPreview.length - 4}` : ""}
-                  </div>
-                ) : null}
-              </div>
-            ) : null}
-
-            {targeting === "dashboard" ? (
-              <div style={{ border: "1px solid #dbe3eb", borderRadius: 12, padding: 10, background: "#f8fafc" }}>
-                <div style={{ fontSize: 11, fontWeight: 700, color: "#64748b", letterSpacing: "0.06em", textTransform: "uppercase" }}>
-                  Destinataires bureau
-                </div>
-                <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 8 }}>
-                  {audience.dashboardUsers.map((profile) => {
-                    const active = targetDashboardUserIds.includes(profile.id);
-                    return (
-                      <button
-                        key={profile.id}
-                        type="button"
-                        onClick={() => toggleDashboardUserSelection(profile.id)}
-                        style={{
-                          minHeight: 30,
-                          borderRadius: 999,
-                          border: `1px solid ${active ? theme.color : "#dbe3eb"}`,
-                          background: active ? theme.light : "#fff",
-                          color: active ? theme.color : "#334155",
-                          padding: "0 10px",
-                          fontSize: 11,
-                          fontWeight: 700,
-                          cursor: "pointer",
-                        }}
-                        title={profile.email || profile.name}
-                      >
-                        {profile.name}
-                      </button>
-                    );
-                  })}
-                </div>
-                {selectedDashboardUsersPreview.length ? (
-                  <div style={{ marginTop: 8, fontSize: 11, color: "#64748b" }}>
-                    Sélection : {selectedDashboardUsersPreview.map((profile) => profile.name).join(", ")}
-                  </div>
-                ) : null}
-                {!audience.dashboardUsers.length ? (
-                  <div style={{ marginTop: 8, fontSize: 11, color: "#64748b" }}>
-                    Aucun autre compte bureau manager détecté pour l&apos;instant.
                   </div>
                 ) : null}
               </div>
@@ -769,17 +684,18 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
         </Card>
       </div>
 
-      <div style={{ display: "grid", gap: 14, gridTemplateColumns: "minmax(0, 1.2fr) minmax(320px, 0.8fr)" }}>
+      <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" }}>
         <Card style={shellCardStyle()}>
           <Kicker moduleKey="admin" label="Messages publiés" />
           <h2 style={{ marginTop: 6, fontSize: 18, color: "#0f172a" }}>Suivi rapide</h2>
+          <p style={{ marginTop: 6, fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
+            Lecture compacte des annonces encore actives, avec leur diffusion et leur niveau de lecture.
+          </p>
           <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
             {activeMessages.length ? (
               activeMessages.slice(0, 10).map((announcement) => {
                 const meta = PRIORITY_META[announcement.priority];
                 const seenCount = announcement.recipients.filter((recipient) => recipient.seenAt).length;
-                const confirmedCount = announcement.recipients.filter((recipient) => recipient.confirmedAt).length;
-
                 return (
                   <div
                     key={announcement.id}
@@ -797,11 +713,6 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
                           <span style={{ fontSize: 10, fontWeight: 700, borderRadius: 999, padding: "3px 8px", background: "#fff", color: meta.text }}>
                             {meta.label}
                           </span>
-                          {announcement.confirmationRequired ? (
-                            <span style={{ fontSize: 10, fontWeight: 700, borderRadius: 999, padding: "3px 8px", background: "#fff", color: "#1d4ed8" }}>
-                              Connexion + OK
-                            </span>
-                          ) : null}
                         </div>
                         <div style={{ marginTop: 4, fontSize: 11, color: "#64748b" }}>
                           {announcement.date}
@@ -813,16 +724,11 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
                         </p>
                         <div style={{ display: "flex", flexWrap: "wrap", gap: 6, marginTop: 10 }}>
                           <span style={{ fontSize: 10, fontWeight: 700, color: "#334155", padding: "3px 8px", borderRadius: 999, background: "#fff" }}>
-                            {getTargetingLabel(announcement, audience.dashboardUsers)}
+                            {getTargetingLabel(announcement)}
                           </span>
                           <span style={{ fontSize: 10, fontWeight: 700, color: "#334155", padding: "3px 8px", borderRadius: 999, background: "#fff" }}>
                             {seenCount}/{announcement.recipients.length} vus
                           </span>
-                          {announcement.confirmationRequired ? (
-                            <span style={{ fontSize: 10, fontWeight: 700, color: "#334155", padding: "3px 8px", borderRadius: 999, background: "#fff" }}>
-                              {confirmedCount}/{announcement.recipients.length} OK
-                            </span>
-                          ) : null}
                         </div>
                       </div>
                       <button

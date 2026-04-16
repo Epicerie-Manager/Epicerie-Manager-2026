@@ -268,7 +268,66 @@ export default function CollabInfosPage() {
     [announcements],
   );
 
-  if (!ready) return null;
+  if (!ready) {
+    return (
+      <CollabPage>
+        <CollabHeader
+          title="Chargement des infos."
+          subtitle="Récupération des annonces et des documents utiles."
+        />
+
+        <div style={{ display: "grid", gap: 16 }}>
+          <SectionCard>
+            <SectionTitle>Annonces</SectionTitle>
+            <div style={{ display: "grid", gap: 10 }}>
+              {[1, 2].map((index) => (
+                <div
+                  key={index}
+                  style={{
+                    borderRadius: 16,
+                    border: `1px solid ${collabTheme.line}`,
+                    background: "#fffaf4",
+                    padding: "12px",
+                    display: "grid",
+                    gap: 8,
+                  }}
+                >
+                  <div style={{ width: "38%", height: 11, borderRadius: 999, background: "rgba(184,158,125,0.18)" }} />
+                  <div style={{ width: "78%", height: 16, borderRadius: 999, background: "rgba(184,158,125,0.12)" }} />
+                  <div style={{ width: "92%", height: 10, borderRadius: 999, background: "rgba(184,158,125,0.1)" }} />
+                </div>
+              ))}
+            </div>
+          </SectionCard>
+
+          <SectionCard>
+            <SectionTitle>Documents</SectionTitle>
+            <div style={{ display: "grid", gap: 10 }}>
+              {[1, 2, 3].map((index) => (
+                <div
+                  key={index}
+                  style={{
+                    borderRadius: 14,
+                    border: `1px solid ${collabTheme.line}`,
+                    background: "#fffdf9",
+                    padding: "12px",
+                    display: "grid",
+                    gap: 7,
+                  }}
+                >
+                  <div style={{ width: "28%", height: 10, borderRadius: 999, background: "rgba(184,158,125,0.18)" }} />
+                  <div style={{ width: "84%", height: 14, borderRadius: 999, background: "rgba(184,158,125,0.12)" }} />
+                  <div style={{ width: "66%", height: 10, borderRadius: 999, background: "rgba(184,158,125,0.1)" }} />
+                </div>
+              ))}
+            </div>
+          </SectionCard>
+        </div>
+
+        <CollabBottomNav />
+      </CollabPage>
+    );
+  }
 
   return (
     <CollabPage>

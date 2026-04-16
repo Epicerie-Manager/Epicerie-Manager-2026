@@ -95,7 +95,7 @@ export default function ManagerTerrainLandingPage() {
         description="Ajoute ici une note simple ou une tache a faire depuis le telephone. Tout remonte aussi sur le dashboard."
       />
 
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
         <div style={metricTileStyle()}>
           <div style={{ fontSize: 11, color: "#6b7280" }}>Audits enregistrés</div>
           <div style={{ marginTop: 6, fontSize: 26, fontWeight: 800, color: "#111827" }}>{audits.length}</div>
@@ -127,7 +127,7 @@ export default function ManagerTerrainLandingPage() {
                 key={audit.id}
                 style={{
                   display: "grid",
-                  gridTemplateColumns: "1fr auto",
+                  gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))",
                   gap: 10,
                   alignItems: "center",
                   borderRadius: 22,

@@ -196,12 +196,17 @@ export async function deleteManagerNote(noteId: string) {
 
   try {
     const supabase = createClient();
-    const { error } = await supabase
+    const { data, error } = await supabase
       .from("manager_notes")
       .delete()
-      .eq("id", normalizedId);
+      .eq("id", normalizedId)
+      .select("id")
+      .maybeSingle();
 
     if (error) throw error;
+    if (!data?.id) {
+      throw new Error("Suppression non autorisee. Reappliquez le patch SQL des notes terrain.");
+    }
     dispatchManagerNotesUpdated();
   } catch (error) {
     throw normalizeManagerNotesError(error);

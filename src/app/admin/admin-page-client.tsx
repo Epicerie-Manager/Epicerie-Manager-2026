@@ -426,8 +426,8 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
         <KPI moduleKey="admin" value={initialJournal.length} label="Entrées journal" style={{ background: "linear-gradient(135deg,#fdf4ff,#fcfaff)", border: "1px solid #e9d5ff" }} valueColor="#7c3aed" />
       </KPIRow>
 
-      <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" }}>
-        <Card style={shellCardStyle()}>
+      <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", alignItems: "start" }}>
+        <Card style={{ ...shellCardStyle(), alignSelf: "start" }}>
           <Kicker moduleKey="admin" label="Messages" />
           <h2 style={{ marginTop: 6, fontSize: 18, color: "#0f172a" }}>Messages infos</h2>
           <p style={{ marginTop: 6, fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
@@ -616,7 +616,7 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
           </div>
         </Card>
 
-        <Card style={shellCardStyle()}>
+        <Card style={{ ...shellCardStyle(), alignSelf: "start" }}>
           <Kicker moduleKey="admin" label="Maintenance" />
           <h2 style={{ marginTop: 6, fontSize: 18, color: "#0f172a" }}>Relances rapides</h2>
           <p style={{ marginTop: 6, fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
@@ -684,8 +684,8 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
         </Card>
       </div>
 
-      <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))" }}>
-        <Card style={shellCardStyle()}>
+      <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", alignItems: "start" }}>
+        <Card style={{ ...shellCardStyle(), alignSelf: "start" }}>
           <Kicker moduleKey="admin" label="Messages publiés" />
           <h2 style={{ marginTop: 6, fontSize: 18, color: "#0f172a" }}>Suivi rapide</h2>
           <p style={{ marginTop: 6, fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
@@ -759,14 +759,23 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
           </div>
         </Card>
 
-        <Card style={shellCardStyle()}>
+        <Card style={{ ...shellCardStyle(), alignSelf: "start" }}>
           <Kicker moduleKey="admin" label="Journal" />
           <h2 style={{ marginTop: 6, fontSize: 18, color: "#0f172a" }}>Livraisons récentes</h2>
           <p style={{ marginTop: 6, fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
             Lecture rapide du changelog pour te souvenir de ce qui a été livré.
           </p>
 
-          <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+          <div
+            style={{
+              display: "grid",
+              gap: 10,
+              marginTop: 12,
+              maxHeight: "min(56vh, 560px)",
+              overflowY: "auto",
+              paddingRight: 4,
+            }}
+          >
             {initialJournal.length ? (
               initialJournal.map((entry) => (
                 <div key={`${entry.version}-${entry.date}`} style={{ borderRadius: 14, border: "1px solid #e2e8f0", background: "#fff", padding: "12px 14px" }}>

@@ -7,7 +7,7 @@ import { Kicker }      from "@/components/ui/kicker";
 import { KPI, KPIRow } from "@/components/ui/kpi";
 import { ProgressBar } from "@/components/ui/progress-bar";
 import { NavCard, NavCardGrid } from "@/components/ui/nav-card";
-import AgendaCard from "@/components/dashboard/agenda-card";
+import ManagerNotesCard from "@/components/dashboard/manager-notes-card";
 import type { ModuleAccessKey } from "@/lib/modules-config";
 import { moduleThemes } from "@/lib/theme";
 import { isAdminUser } from "@/lib/admin-access";
@@ -1269,7 +1269,7 @@ export default function DashboardPage() {
         {/* ─── COLONNE DROITE ──────────────────────── */}
         <div style={{ display: "flex", flexDirection: "column", gap: "14px" }}>
 
-          <AgendaCard calendarUrl="https://calendar.google.com" />
+          <ManagerNotesCard />
 
           {/* Balisage */}
           <Card>

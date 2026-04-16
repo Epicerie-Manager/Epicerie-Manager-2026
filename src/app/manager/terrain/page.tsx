@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import { loadRecentMetreAudits, type MetreAuditListItem } from "@/lib/followup-store";
+import ManagerNotesPanel from "@/components/manager/manager-notes-panel";
 
 function shellCard(): React.CSSProperties {
   return {
@@ -87,6 +88,12 @@ export default function ManagerTerrainLandingPage() {
           </div>
         </div>
       </div>
+
+      <ManagerNotesPanel
+        limit={6}
+        title="Notes et taches terrain"
+        description="Ajoute ici une note simple ou une tache a faire depuis le telephone. Tout remonte aussi sur le dashboard."
+      />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: 10 }}>
         <div style={metricTileStyle()}>

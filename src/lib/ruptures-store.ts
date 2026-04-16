@@ -106,6 +106,29 @@ export type RuptureSectorAverageSummary = {
   delayRate: number;
 };
 
+export type RuptureTimelinePoint = {
+  dateKey: string;
+  label: string;
+  totalRuptures: number;
+  remainingRuptures: number;
+  delayRate: number;
+  targetRate: number;
+};
+
+export type RuptureCollaboratorTimelinePoint = {
+  dateKey: string;
+  label: string;
+  assignedRuptures: number;
+  remainingRuptures: number;
+  delayRate: number | null;
+};
+
+export type RuptureCollaboratorTimeline = {
+  employeeId: string;
+  employeeName: string;
+  points: RuptureCollaboratorTimelinePoint[];
+};
+
 export type RupturesDashboardData = {
   employees: RuptureEmployee[];
   recentImports: RuptureImportRow[];
@@ -116,6 +139,8 @@ export type RupturesDashboardData = {
   latest: RuptureTeamSnapshot;
   collaboratorRows: RuptureCollaboratorRow[];
   historyRows: RuptureHistoryRow[];
+  timelinePoints: RuptureTimelinePoint[];
+  collaboratorTimelineRows: RuptureCollaboratorTimeline[];
   teamSectorRows: RuptureSectorAverageRow[];
   teamSectorSummary: RuptureSectorAverageSummary;
   rayonRows: RuptureRayonRow[];
@@ -661,6 +686,111 @@ function buildTeamSectorAverageRows(
   };
 }
 
+function buildTimelinePoints(
+  imports: RuptureImportRow[],
+  rowsByImportId: Map<string, ParsedRuptureRow[]>,
+  selectedDate: string,
+  range: RuptureHistoryRange,
+) {
+  const importsByDate = new Map<string, { matin?: RuptureImportRow; fin_matinee?: RuptureImportRow }>();
+
+  imports.forEach((item) => {
+    if (!isDateWithinRange(item.dateKey, selectedDate, range)) return;
+    const current = importsByDate.get(item.dateKey) ?? {};
+    current[item.period] = item;
+    importsByDate.set(item.dateKey, current);
+  });
+
+  return Array.from(importsByDate.entries())
+    .sort((left, right) => left[0].localeCompare(right[0]))
+    .map(([dateKey, bundle]) => {
+      const importRow = bundle.fin_matinee ?? bundle.matin ?? null;
+      const rows = importRow ? rowsByImportId.get(importRow.id) ?? [] : [];
+      const totalRuptures = rows.reduce((sum, row) => sum + row.totalATraiter, 0);
+      const remainingRuptures = rows.reduce((sum, row) => sum + row.sousResponsabiliteCollab, 0);
+      const delayRate = totalRuptures > 0 ? Number(((remainingRuptures / totalRuptures) * 100).toFixed(2)) : 0;
+
+      return {
+        dateKey,
+        label: formatRuptureDateLabel(dateKey),
+        totalRuptures,
+        remainingRuptures,
+        delayRate,
+        targetRate: 10,
+      } satisfies RuptureTimelinePoint;
+    });
+}
+
+function buildCollaboratorTimelineRows(
+  employees: RuptureEmployee[],
+  imports: RuptureImportRow[],
+  rowsByImportId: Map<string, ParsedRuptureRow[]>,
+  detailRowsByImportId: Map<string, RuptureDetailRow[]>,
+  selectedDate: string,
+  range: RuptureHistoryRange,
+) {
+  const importsByDate = new Map<string, { matin?: RuptureImportRow; fin_matinee?: RuptureImportRow }>();
+
+  imports.forEach((item) => {
+    if (!isDateWithinRange(item.dateKey, selectedDate, range)) return;
+    const current = importsByDate.get(item.dateKey) ?? {};
+    current[item.period] = item;
+    importsByDate.set(item.dateKey, current);
+  });
+
+  const sortedDates = Array.from(importsByDate.keys()).sort((left, right) => left.localeCompare(right));
+
+  return employees
+    .filter((employee) => employee.actif && employee.rupturesRayons.length > 0)
+    .map((employee) => {
+      const points = sortedDates.map((dateKey) => {
+        const bundle = importsByDate.get(dateKey) ?? {};
+        if (!bundle.matin) {
+          return {
+            dateKey,
+            label: formatRuptureDateLabel(dateKey),
+            assignedRuptures: 0,
+            remainingRuptures: 0,
+            delayRate: null,
+          } satisfies RuptureCollaboratorTimelinePoint;
+        }
+
+        const morningRows = rowsByImportId.get(bundle.matin.id) ?? [];
+        const finRows = bundle.fin_matinee ? rowsByImportId.get(bundle.fin_matinee.id) ?? [] : [];
+        const morningDetailRows = detailRowsByImportId.get(bundle.matin.id) ?? [];
+        const finDetailRows = bundle.fin_matinee ? detailRowsByImportId.get(bundle.fin_matinee.id) ?? [] : [];
+        const latestRows = finRows.length ? finRows : morningRows;
+        const latestDetailRows = finDetailRows.length ? finDetailRows : morningDetailRows;
+        const collaboratorRows = aggregateCollaboratorRows(
+          employees,
+          morningRows,
+          finRows,
+          latestRows,
+          morningDetailRows,
+          finDetailRows,
+          latestDetailRows,
+        );
+        const collaboratorRow = collaboratorRows.find((row) => row.employeeId === employee.id);
+        const assignedRuptures = collaboratorRow?.morningCollab ?? 0;
+        const remainingRuptures = collaboratorRow?.finCollab ?? collaboratorRow?.morningCollab ?? 0;
+
+        return {
+          dateKey,
+          label: formatRuptureDateLabel(dateKey),
+          assignedRuptures,
+          remainingRuptures,
+          delayRate: assignedRuptures > 0 ? Number(((remainingRuptures / assignedRuptures) * 100).toFixed(2)) : null,
+        } satisfies RuptureCollaboratorTimelinePoint;
+      });
+
+      return {
+        employeeId: employee.id,
+        employeeName: employee.name,
+        points,
+      } satisfies RuptureCollaboratorTimeline;
+    });
+}
+
 function mapLegacyImportToUi(row: DbLegacyImportRow): RuptureImportRow {
   const importedAt = String(row.imported_at);
   const commentaire = String(row.commentaire ?? "").toLowerCase();
@@ -1156,6 +1286,15 @@ export async function loadRupturesDashboard(selectedDate?: string, historyRange:
     latest: buildTeamSnapshot(latestImport, latestRows),
     collaboratorRows,
     historyRows: buildHistoryRows(
+      employees,
+      recentImports,
+      historyRowsByImportId,
+      historyDetailBundle.rowsByImportId,
+      effectiveDate,
+      historyRange,
+    ),
+    timelinePoints: buildTimelinePoints(recentImports, historyRowsByImportId, effectiveDate, historyRange),
+    collaboratorTimelineRows: buildCollaboratorTimelineRows(
       employees,
       recentImports,
       historyRowsByImportId,

@@ -21,6 +21,7 @@ import {
   reassignRuptureDetail,
   saveParsedRupturesImport,
   type RuptureCollaboratorRow,
+  type RuptureCollaboratorTimeline,
   type RuptureDetailRow,
   type RuptureHistoryRange,
   type RuptureHistoryRow,
@@ -30,6 +31,7 @@ import {
   type RuptureSectorAverageRow,
   type RuptureSectorAverageSummary,
   type RuptureTeamSnapshot,
+  type RuptureTimelinePoint,
   type RupturesDashboardData,
 } from "@/lib/ruptures-store";
 
@@ -94,6 +96,220 @@ function EmptyState({ text }: { text: string }) {
     <Card style={baseCardStyle}>
       <div style={{ fontSize: "13px", color: "#64748b" }}>{text}</div>
     </Card>
+  );
+}
+
+function formatDecimalLabel(value: number) {
+  return value.toFixed(1).replace(".", ",");
+}
+
+function RupturesTimelineChart({
+  points,
+  collaboratorTimelines,
+}: {
+  points: RuptureTimelinePoint[];
+  collaboratorTimelines: RuptureCollaboratorTimeline[];
+}) {
+  if (!points.length) return null;
+
+  const collaboratorPalette = ["#2563eb", "#7c3aed", "#0f766e", "#ea580c", "#be123c", "#4338ca"];
+  const width = 920;
+  const height = 260;
+  const padding = { top: 20, right: 24, bottom: 42, left: 42 };
+  const innerWidth = width - padding.left - padding.right;
+  const innerHeight = height - padding.top - padding.bottom;
+  const compactThreshold = 30;
+  const allRates = [
+    ...points.map((point) => point.delayRate),
+    ...collaboratorTimelines.flatMap((timeline) => timeline.points.map((point) => point.delayRate ?? 0)),
+    10,
+    compactThreshold,
+  ];
+  const maxRate = Math.max(...allRates);
+  const usesCompressedScale = maxRate > compactThreshold;
+  const overflowBandHeight = usesCompressedScale ? innerHeight * 0.28 : 0;
+  const mainBandHeight = innerHeight - overflowBandHeight;
+  const stepX = points.length > 1 ? innerWidth / (points.length - 1) : 0;
+  const toX = (index: number) => padding.left + stepX * index;
+  const toY = (value: number) => {
+    const safeValue = Math.max(0, value);
+    if (!usesCompressedScale) {
+      return padding.top + mainBandHeight - (Math.min(safeValue, compactThreshold) / compactThreshold) * mainBandHeight;
+    }
+    if (safeValue <= compactThreshold) {
+      return padding.top + overflowBandHeight + mainBandHeight - (safeValue / compactThreshold) * mainBandHeight;
+    }
+    const upperRange = Math.max(maxRate - compactThreshold, 1);
+    return padding.top + overflowBandHeight - ((Math.min(safeValue, maxRate) - compactThreshold) / upperRange) * overflowBandHeight;
+  };
+  const curvePath = points
+    .map((point, index) => `${index === 0 ? "M" : "L"} ${toX(index).toFixed(2)} ${toY(point.delayRate).toFixed(2)}`)
+    .join(" ");
+  const targetY = toY(10);
+  const latestPoint = points.at(-1) ?? null;
+  const bestRate = Math.min(...points.map((point) => point.delayRate));
+  const aboveTargetCount = points.filter((point) => point.delayRate > 10).length;
+
+  return (
+    <div
+      style={{
+        marginTop: "18px",
+        borderRadius: "22px",
+        border: "1px solid #e2e8f0",
+        background: "linear-gradient(180deg, #ffffff 0%, #fff7f7 100%)",
+        padding: "16px",
+      }}
+    >
+      <div style={{ display: "flex", justifyContent: "space-between", gap: "12px", alignItems: "start", flexWrap: "wrap" }}>
+        <div>
+          <div style={{ fontSize: "16px", fontWeight: 800, color: "#0f172a" }}>Courbe d&apos;évolution des ruptures</div>
+          <div style={{ marginTop: "4px", fontSize: "12px", color: "#64748b", lineHeight: 1.6 }}>
+            Suivi du taux de ruptures restantes dans le temps. Objectif: rester sous 10%.
+          </div>
+          {usesCompressedScale ? (
+            <div style={{ marginTop: "4px", fontSize: "11px", color: "#9a3412", fontWeight: 700 }}>
+              Echelle compacte active: les valeurs au-dessus de 30% sont compressées pour garder le graphe lisible.
+            </div>
+          ) : null}
+        </div>
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+            <span style={{ width: "18px", height: "3px", borderRadius: "999px", background: "#D40511" }} />
+            Taux reel
+          </span>
+          <span style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+            <span style={{ width: "18px", height: "0", borderTop: "2px dashed #16a34a" }} />
+            Objectif 10%
+          </span>
+          {collaboratorTimelines.map((timeline, index) => (
+            <span key={timeline.employeeId} style={{ display: "inline-flex", alignItems: "center", gap: "6px", fontSize: "11px", fontWeight: 700, color: "#475569" }}>
+              <span style={{ width: "18px", height: "3px", borderRadius: "999px", background: collaboratorPalette[index % collaboratorPalette.length] }} />
+              {timeline.employeeName}
+            </span>
+          ))}
+        </div>
+      </div>
+
+      <div style={{ marginTop: "16px", overflowX: "auto" }}>
+        <svg viewBox={`0 0 ${width} ${height}`} style={{ width: "100%", minWidth: "760px", height: "auto", display: "block" }} role="img" aria-label="Courbe du taux de ruptures dans le temps avec objectif de 10%">
+          {[0, 10, 20, compactThreshold, ...(usesCompressedScale ? [maxRate] : [])].map((value, index, array) => {
+            const deduped = array.indexOf(value) === index;
+            if (!deduped) return null;
+            const y = toY(value);
+            return (
+              <g key={value}>
+                <line x1={padding.left} y1={y} x2={width - padding.right} y2={y} stroke="#e2e8f0" strokeWidth="1" />
+                <text x={padding.left - 8} y={y + 4} textAnchor="end" fontSize="11" fill="#94a3b8">
+                  {value}%
+                </text>
+              </g>
+            );
+          })}
+
+          {usesCompressedScale ? (
+            <line
+              x1={padding.left}
+              y1={toY(compactThreshold)}
+              x2={width - padding.right}
+              y2={toY(compactThreshold)}
+              stroke="#cbd5e1"
+              strokeWidth="1.5"
+              strokeDasharray="4 6"
+            />
+          ) : null}
+
+          <line x1={padding.left} y1={targetY} x2={width - padding.right} y2={targetY} stroke="#16a34a" strokeWidth="2" strokeDasharray="6 6" />
+          <text x={width - padding.right} y={targetY - 8} textAnchor="end" fontSize="11" fill="#15803d" fontWeight="700">
+            Objectif 10%
+          </text>
+
+          <path d={curvePath} fill="none" stroke="#D40511" strokeWidth="3" strokeLinejoin="round" strokeLinecap="round" />
+
+          {collaboratorTimelines.map((timeline, timelineIndex) => {
+            const color = collaboratorPalette[timelineIndex % collaboratorPalette.length];
+            const collaboratorPath = timeline.points.reduce((path, point, index) => {
+              if (point.delayRate === null) return path;
+              const command = path ? "L" : "M";
+              return `${path}${path ? " " : ""}${command} ${toX(index).toFixed(2)} ${toY(point.delayRate).toFixed(2)}`;
+            }, "");
+
+            return collaboratorPath ? (
+              <g key={timeline.employeeId}>
+                <path d={collaboratorPath} fill="none" stroke={color} strokeWidth="2.5" strokeLinejoin="round" strokeLinecap="round" opacity="0.95" />
+                {timeline.points.map((point, index) =>
+                  point.delayRate === null ? null : (
+                    <g key={`${timeline.employeeId}-${point.dateKey}`}>
+                      <circle
+                        cx={toX(index)}
+                        cy={toY(point.delayRate)}
+                        r="4"
+                        fill={color}
+                        stroke="#fff"
+                        strokeWidth="1.5"
+                      />
+                      <text
+                        x={toX(index)}
+                        y={toY(point.delayRate) - 12 - (timelineIndex * 12)}
+                        textAnchor="middle"
+                        fontSize="10"
+                        fill={color}
+                        fontWeight="700"
+                      >
+                        {point.delayRate.toFixed(1).replace(".", ",")}%
+                      </text>
+                    </g>
+                  ),
+                )}
+              </g>
+            ) : null;
+          })}
+
+          {points.map((point, index) => {
+            const x = toX(index);
+            const y = toY(point.delayRate);
+            const aboveTarget = point.delayRate > 10;
+            const label = point.label.split(" ").slice(0, 2).join(" ");
+
+            return (
+              <g key={point.dateKey}>
+                <circle cx={x} cy={y} r="5" fill={aboveTarget ? "#D40511" : "#16a34a"} stroke="#fff" strokeWidth="2" />
+                <text x={x} y={height - 16} textAnchor="middle" fontSize="10" fill="#64748b">
+                  {label}
+                </text>
+                <text x={x} y={y - 12} textAnchor="middle" fontSize="10" fill={aboveTarget ? "#991b1b" : "#166534"} fontWeight="700">
+                  {point.delayRate.toFixed(1).replace(".", ",")}%
+                </text>
+              </g>
+            );
+          })}
+        </svg>
+      </div>
+
+      <div style={{ marginTop: "12px", display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))", gap: "10px" }}>
+        {[
+          {
+            label: "Derniere valeur",
+            value: `${latestPoint ? latestPoint.delayRate.toFixed(2).replace(".", ",") : "0"}%`,
+            color: (latestPoint?.delayRate ?? 0) <= 10 ? "#166534" : "#b91c1c",
+          },
+          {
+            label: "Meilleure journee",
+            value: `${bestRate.toFixed(2).replace(".", ",")}%`,
+            color: "#166534",
+          },
+          {
+            label: "Jours au-dessus de 10%",
+            value: `${aboveTargetCount}/${points.length}`,
+            color: "#D40511",
+          },
+        ].map((item) => (
+          <div key={item.label} style={{ borderRadius: "16px", border: "1px solid #e2e8f0", background: "#fff", padding: "12px 14px" }}>
+            <div style={{ fontSize: "11px", fontWeight: 700, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.05em" }}>{item.label}</div>
+            <div style={{ marginTop: "6px", fontSize: "20px", fontWeight: 800, color: item.color }}>{item.value}</div>
+          </div>
+        ))}
+      </div>
+    </div>
   );
 }
 
@@ -890,6 +1106,8 @@ function HistoricalView({
   onHistoryRangeChange,
   selectedDate,
   historyRows,
+  timelinePoints,
+  collaboratorTimelineRows,
   teamSectorRows,
   teamSectorSummary,
 }: {
@@ -897,9 +1115,33 @@ function HistoricalView({
   onHistoryRangeChange: (range: RuptureHistoryRange) => void;
   selectedDate: string;
   historyRows: RuptureHistoryRow[];
+  timelinePoints: RuptureTimelinePoint[];
+  collaboratorTimelineRows: RuptureCollaboratorTimeline[];
   teamSectorRows: RuptureSectorAverageRow[];
   teamSectorSummary: RuptureSectorAverageSummary;
 }) {
+  const [showCollaborators, setShowCollaborators] = useState(false);
+  const [selectedCollaboratorIds, setSelectedCollaboratorIds] = useState<string[]>([]);
+
+  const selectableCollaborators = useMemo(
+    () =>
+      historyRows
+        .filter((row) => row.dayCount > 0)
+        .map((row) => ({ employeeId: row.employeeId, employeeName: row.employeeName })),
+    [historyRows],
+  );
+
+  const validSelectedCollaboratorIds = useMemo(
+    () => selectedCollaboratorIds.filter((employeeId) => selectableCollaborators.some((row) => row.employeeId === employeeId)),
+    [selectableCollaborators, selectedCollaboratorIds],
+  );
+
+  const selectedCollaboratorTimelines = useMemo(
+    () =>
+      collaboratorTimelineRows.filter((timeline) => validSelectedCollaboratorIds.includes(timeline.employeeId)),
+    [collaboratorTimelineRows, validSelectedCollaboratorIds],
+  );
+
   const getDelayTone = (value: number) => {
     if (value <= 10) {
       return {
@@ -944,6 +1186,63 @@ function HistoricalView({
       <div style={{ fontSize: "11px", color: "#94a3b8", marginTop: "10px" }}>
         Période de référence autour du {formatRuptureDateLabel(selectedDate)}.
       </div>
+
+      <div style={{ marginTop: "12px", display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
+        <button type="button" onClick={() => setShowCollaborators((current) => !current)} style={softPillStyle(showCollaborators)}>
+          {showCollaborators ? "Masquer collaborateurs" : "Afficher collaborateurs"}
+        </button>
+        {showCollaborators ? (
+          <>
+            <select
+              defaultValue=""
+              onChange={(event) => {
+                const employeeId = event.target.value;
+                if (!employeeId) return;
+                setSelectedCollaboratorIds((current) => (current.includes(employeeId) ? current : [...current, employeeId]));
+                event.target.value = "";
+              }}
+              style={{ minHeight: "34px", minWidth: "220px", borderRadius: "10px", border: "1px solid #dbe3eb", background: "#fff", padding: "0 10px", fontSize: "12px", color: "#334155" }}
+            >
+              <option value="">Ajouter un collaborateur a la courbe</option>
+              {selectableCollaborators.map((row) => (
+                <option key={row.employeeId} value={row.employeeId} disabled={validSelectedCollaboratorIds.includes(row.employeeId)}>
+                  {row.employeeName}
+                </option>
+              ))}
+            </select>
+            {validSelectedCollaboratorIds.length ? validSelectedCollaboratorIds.map((employeeId) => {
+              const collaborator = selectableCollaborators.find((row) => row.employeeId === employeeId);
+              if (!collaborator) return null;
+              return (
+                <button
+                  key={employeeId}
+                  type="button"
+                  onClick={() => setSelectedCollaboratorIds((current) => current.filter((item) => item !== employeeId))}
+                  style={{
+                    minHeight: "30px",
+                    borderRadius: "999px",
+                    border: "1px solid #cbd5e1",
+                    background: "#fff",
+                    color: "#334155",
+                    padding: "0 10px",
+                    fontSize: "11px",
+                    fontWeight: 700,
+                    cursor: "pointer",
+                  }}
+                >
+                  {collaborator.employeeName} x
+                </button>
+              );
+            }) : (
+              <div style={{ fontSize: "11px", color: "#94a3b8" }}>
+                Ajoute un ou plusieurs collaborateurs pour comparer leur courbe a la moyenne equipe.
+              </div>
+            )}
+          </>
+        ) : null}
+      </div>
+
+      <RupturesTimelineChart points={timelinePoints} collaboratorTimelines={showCollaborators ? selectedCollaboratorTimelines : []} />
 
       <div style={{ display: "grid", gridTemplateColumns: "repeat(3, minmax(0, 1fr))", gap: "12px", marginTop: "14px", alignItems: "start" }}>
         {historyRows.length ? historyRows.map((row) => {
@@ -1088,9 +1387,9 @@ function HistoricalView({
           return (
             <>
         <div>
-          <div style={{ fontSize: "12px", fontWeight: 800, color: "#0f172a" }}>Moyenne équipe depuis le début de l&apos;année</div>
+          <div style={{ fontSize: "12px", fontWeight: 800, color: "#0f172a" }}>Vue équipe par secteur</div>
           <div style={{ marginTop: "6px", fontSize: "12px", color: "#64748b", lineHeight: 1.6 }}>
-            Basé sur les imports de fin de matinée déjà injectés. `rupt` = moyenne des ruptures totales, `reta` = moyenne des ruptures restantes à traiter, `tx retard` = reta / rupt.
+            Basé sur les imports de fin de matinée déjà injectés. On compare pour chaque secteur le volume moyen de ruptures et le volume moyen encore à traiter.
           </div>
         </div>
 
@@ -1108,7 +1407,7 @@ function HistoricalView({
             <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "760px" }}>
             <thead>
               <tr>
-                {["Secteur", "rupt", "reta", "tx retard"].map((heading) => (
+                {["Secteur", "Moyenne ruptures", "Moyenne restantes", "% restant"].map((heading) => (
                   <th
                     key={heading}
                     style={{
@@ -1136,10 +1435,10 @@ function HistoricalView({
                         {row.sectorLabel}
                       </td>
                       <td style={{ padding: "10px 12px", borderBottom: "1px solid #eef2f7", textAlign: "right", fontSize: "12px", color: "#0f172a" }}>
-                        {row.avgTotalRuptures.toFixed(1).replace(".", ",")}
+                        {formatDecimalLabel(row.avgTotalRuptures)}
                       </td>
                       <td style={{ padding: "10px 12px", borderBottom: "1px solid #eef2f7", textAlign: "right", fontSize: "12px", color: "#0f172a" }}>
-                        {row.avgRemainingRuptures.toFixed(1).replace(".", ",")}
+                        {formatDecimalLabel(row.avgRemainingRuptures)}
                       </td>
                       <td style={{ padding: "10px 12px", borderBottom: "1px solid #eef2f7", textAlign: "right" }}>
                         <span
@@ -1169,10 +1468,10 @@ function HistoricalView({
                     MOYENNE EQUIPE
                   </td>
                   <td style={{ padding: "12px", borderTop: "2px solid #dbe3eb", textAlign: "right", fontSize: "12px", fontWeight: 800, color: "#0f172a" }}>
-                    {teamSectorSummary.avgTotalRuptures.toFixed(1).replace(".", ",")}
+                    {formatDecimalLabel(teamSectorSummary.avgTotalRuptures)}
                   </td>
                   <td style={{ padding: "12px", borderTop: "2px solid #dbe3eb", textAlign: "right", fontSize: "12px", fontWeight: 800, color: "#0f172a" }}>
-                    {teamSectorSummary.avgRemainingRuptures.toFixed(1).replace(".", ",")}
+                    {formatDecimalLabel(teamSectorSummary.avgRemainingRuptures)}
                   </td>
                   <td style={{ padding: "12px", borderTop: "2px solid #dbe3eb", textAlign: "right" }}>
                     {(() => {
@@ -1428,6 +1727,8 @@ export default function RupturesPage() {
           onHistoryRangeChange={(range) => void handleChangeHistoryRange(range)}
           selectedDate={selectedDate}
           historyRows={dashboardData.historyRows}
+          timelinePoints={dashboardData.timelinePoints}
+          collaboratorTimelineRows={dashboardData.collaboratorTimelineRows}
           teamSectorRows={dashboardData.teamSectorRows}
           teamSectorSummary={dashboardData.teamSectorSummary}
         />

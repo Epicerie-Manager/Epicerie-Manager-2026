@@ -1,5 +1,5 @@
-import { NativePlanRayon } from "@/components/plan-rayon/native-plan-rayon";
+import { NativePlanRayonPage } from "@/components/plan-rayon/native-plan-rayon-page";
 
 export default function PlanDeRizPage() {
-  return <NativePlanRayon />;
+  return <NativePlanRayonPage />;
 }

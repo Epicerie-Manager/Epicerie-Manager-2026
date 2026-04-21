@@ -28,7 +28,7 @@ type AppShellProps = {
 };
 
 type ModuleNavItem = {
-  id: "dashboard" | "planning" | "exports" | "plantg" | "plateau" | "balisage" | "ruptures" | "absences" | "infos" | "aide" | "admin" | "rh" | "suivi";
+  id: "dashboard" | "planning" | "exports" | "plantg" | "planriz" | "plateau" | "balisage" | "ruptures" | "absences" | "infos" | "aide" | "admin" | "rh" | "suivi";
   label: string;
   desc: string;
   href: string;
@@ -39,6 +39,7 @@ const moduleItems: ModuleNavItem[] = [
   { id: "planning",  label: "Planning",   desc: "Horaires et présences", href: "/planning" },
   { id: "exports",   label: "Exports",    desc: "Impressions & planning", href: "/exports" },
   { id: "plantg",    label: "Plan TG",    desc: "Têtes de gondole",      href: "/plan-tg" },
+  { id: "planriz",   label: "Plan de rayon",desc: "Réimplantations & rayons", href: "/plan-de-rayon" },
   { id: "plateau",   label: "Plateaux",   desc: "Implantations terrain", href: "/plan-plateau" },
   { id: "balisage",  label: "Balisage",   desc: "Contrôle étiquetage",   href: "/stats" },
   { id: "ruptures",  label: "Ruptures",   desc: "Suivi des ruptures",    href: "/ruptures" },
@@ -89,6 +90,16 @@ const ICONS: Record<string, React.ReactNode> = {
       <path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" />
       <line x1="3" y1="6" x2="21" y2="6" />
       <path d="M16 10a4 4 0 01-8 0" />
+    </svg>
+  ),
+  planriz: (
+    <svg viewBox="0 0 24 24" style={iconStyle}>
+      <path d="M3 6h18" />
+      <path d="M6 3v6" />
+      <path d="M18 3v6" />
+      <rect x="3" y="6" width="18" height="14" rx="2" />
+      <path d="M8 11h8" />
+      <path d="M8 15h5" />
     </svg>
   ),
   plateau: (
@@ -189,7 +200,9 @@ export function AppShell({ version, children }: AppShellProps) {
   const [officeRole, setOfficeRole] = useState("");
   const [allowedModules, setAllowedModules] = useState<ModuleAccessKey[]>([]);
   const [officeAccessResolved, setOfficeAccessResolved] = useState(false);
+  const [isModulesMenuOpen, setIsModulesMenuOpen] = useState(false);
   const signingOutRef = useRef(false);
+  const modulesMenuRef = useRef<HTMLDivElement | null>(null);
 
   useEffect(() => {
     if (isCollabRoute || isPrintRoute || isManagerRoute) return;
@@ -330,6 +343,23 @@ export function AppShell({ version, children }: AppShellProps) {
     };
   }, [isCollabRoute, isManagerRoute, isPrintRoute, pathname, router]);
 
+  useEffect(() => {
+    setIsModulesMenuOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!isModulesMenuOpen) return;
+
+    const handlePointerDown = (event: PointerEvent) => {
+      if (!modulesMenuRef.current?.contains(event.target as Node)) {
+        setIsModulesMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("pointerdown", handlePointerDown);
+    return () => window.removeEventListener("pointerdown", handlePointerDown);
+  }, [isModulesMenuOpen]);
+
   const handleSignOut = async () => {
     if (isSigningOut || signingOutRef.current) return;
     signingOutRef.current = true;
@@ -361,6 +391,9 @@ export function AppShell({ version, children }: AppShellProps) {
     ? getOfficeModuleAccess(officeRole, allowedModules, isAdmin)
     : new Set<ModuleNavItem["id"]>(["dashboard"]);
   const visibleModuleItems = moduleItems.filter((item) => allowedModuleIds.has(item.id));
+  const dashboardItem = visibleModuleItems.find((item) => item.id === "dashboard") ?? moduleItems[0];
+  const activeNavItem = visibleModuleItems.find((item) => item.id === activeId) ?? activeModule;
+  const menuModuleItems = visibleModuleItems.filter((item) => item.id !== "dashboard" && item.id !== activeNavItem.id);
 
   return (
     <div
@@ -459,48 +492,167 @@ export function AppShell({ version, children }: AppShellProps) {
             style={{
               display: "flex",
               alignItems: "center",
-              gap: "2px",
-              overflowX: "auto",
-              flexShrink: 1,
+              gap: "8px",
+              flex: 1,
+              minWidth: 0,
             }}
             aria-label="Navigation modules"
           >
-            {visibleModuleItems.map((item) => {
-              const selected = item.id === activeId;
-              const theme    = moduleThemes[item.id];
-              return (
-                <Link
-                  key={item.id}
-                  href={item.href}
+            <Link
+              href={dashboardItem.href}
+              style={{
+                display: "inline-flex",
+                alignItems: "center",
+                gap: "6px",
+                padding: "6px 12px",
+                borderRadius: "999px",
+                textDecoration: "none",
+                whiteSpace: "nowrap",
+                fontSize: "13px",
+                fontWeight: dashboardItem.id === activeId ? 700 : 600,
+                background: dashboardItem.id === activeId ? moduleThemes[dashboardItem.id].medium : "#ffffff",
+                color: dashboardItem.id === activeId ? moduleThemes[dashboardItem.id].color : colors.textStrong,
+                border: "1px solid #dbe3eb",
+                boxShadow: dashboardItem.id === activeId ? "none" : "0 1px 2px rgba(15,23,42,0.04)",
+                flexShrink: 0,
+              }}
+            >
+              <span
+                style={{
+                  display: "inline-flex",
+                  width: "15px",
+                  height: "15px",
+                  color: dashboardItem.id === activeId ? moduleThemes[dashboardItem.id].color : colors.muted,
+                }}
+              >
+                {ICONS[dashboardItem.id]}
+              </span>
+              {dashboardItem.label}
+            </Link>
+
+            {activeNavItem.id !== "dashboard" ? (
+              <Link
+                href={activeNavItem.href}
+                style={{
+                  display: "inline-flex",
+                  alignItems: "center",
+                  gap: "6px",
+                  padding: "6px 12px",
+                  borderRadius: "999px",
+                  textDecoration: "none",
+                  whiteSpace: "nowrap",
+                  fontSize: "13px",
+                  fontWeight: 700,
+                  background: moduleThemes[activeNavItem.id].medium,
+                  color: moduleThemes[activeNavItem.id].color,
+                  flexShrink: 0,
+                }}
+              >
+                <span
+                  style={{
+                    display: "inline-flex",
+                    width: "15px",
+                    height: "15px",
+                    color: moduleThemes[activeNavItem.id].color,
+                  }}
+                >
+                  {ICONS[activeNavItem.id]}
+                </span>
+                {activeNavItem.label}
+              </Link>
+            ) : null}
+
+            {menuModuleItems.length ? (
+              <div ref={modulesMenuRef} style={{ position: "relative", flexShrink: 0 }}>
+                <button
+                  type="button"
+                  onClick={() => setIsModulesMenuOpen((current) => !current)}
                   style={{
                     display: "inline-flex",
                     alignItems: "center",
-                    gap: "6px",
-                    padding: "6px 12px",
+                    gap: "8px",
+                    minHeight: "34px",
+                    padding: "0 12px",
                     borderRadius: "999px",
-                    textDecoration: "none",
-                    whiteSpace: "nowrap",
+                    border: "1px solid #dbe3eb",
+                    background: isModulesMenuOpen ? "#eef5ff" : "#ffffff",
+                    color: "#334155",
+                    cursor: "pointer",
                     fontSize: "13px",
-                    fontWeight: selected ? 700 : 500,
-                    background: selected ? theme.medium : "transparent",
-                    color: selected ? theme.color : colors.muted,
-                    transition: "background 0.15s, color 0.15s",
+                    fontWeight: 700,
+                    boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
                   }}
+                  aria-haspopup="menu"
+                  aria-expanded={isModulesMenuOpen}
                 >
-                  <span
+                  Modules
+                  <span style={{ fontSize: "11px", color: "#64748b" }}>{isModulesMenuOpen ? "▲" : "▼"}</span>
+                </button>
+
+                {isModulesMenuOpen ? (
+                  <div
                     style={{
-                      display: "inline-flex",
-                      width: "15px",
-                      height: "15px",
-                      color: selected ? theme.color : colors.light,
+                      position: "absolute",
+                      top: "calc(100% + 10px)",
+                      left: 0,
+                      minWidth: "420px",
+                      maxWidth: "560px",
+                      padding: "12px",
+                      borderRadius: "20px",
+                      border: "1px solid rgba(210,222,234,0.9)",
+                      background: "rgba(255,255,255,0.98)",
+                      backdropFilter: "blur(16px)",
+                      WebkitBackdropFilter: "blur(16px)",
+                      boxShadow: "0 18px 40px rgba(15,23,42,0.16)",
+                      display: "grid",
+                      gridTemplateColumns: "repeat(2, minmax(180px, 1fr))",
+                      gap: "8px",
+                      zIndex: 120,
                     }}
+                    role="menu"
                   >
-                    {ICONS[item.id]}
-                  </span>
-                  {item.label}
-                </Link>
-              );
-            })}
+                    {menuModuleItems.map((item) => {
+                      const theme = moduleThemes[item.id];
+                      return (
+                        <Link
+                          key={item.id}
+                          href={item.href}
+                          onClick={() => setIsModulesMenuOpen(false)}
+                          style={{
+                            display: "grid",
+                            gridTemplateColumns: "18px 1fr",
+                            alignItems: "start",
+                            gap: "10px",
+                            padding: "10px 12px",
+                            borderRadius: "14px",
+                            textDecoration: "none",
+                            color: "#1e293b",
+                            background: "#ffffff",
+                            border: "1px solid #e2e8f0",
+                          }}
+                        >
+                          <span
+                            style={{
+                              display: "inline-flex",
+                              width: "18px",
+                              height: "18px",
+                              color: theme.color,
+                              marginTop: "1px",
+                            }}
+                          >
+                            {ICONS[item.id]}
+                          </span>
+                          <span style={{ display: "grid", gap: "2px" }}>
+                            <span style={{ fontSize: "13px", fontWeight: 800 }}>{item.label}</span>
+                            <span style={{ fontSize: "11px", color: "#64748b", lineHeight: 1.3 }}>{item.desc}</span>
+                          </span>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
           </nav>
 
           {/* Date + version */}

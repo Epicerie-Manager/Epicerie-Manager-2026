@@ -10,6 +10,7 @@ export type OfficeShellModuleId =
   | "planning"
   | "exports"
   | "plantg"
+  | "planriz"
   | "plateau"
   | "balisage"
   | "ruptures"
@@ -30,6 +31,7 @@ function getModuleIdFromAccessKey(moduleKey: ModuleAccessKey): OfficeShellModule
     balisage: "balisage",
     plateau: "plateau",
     plan_tg: "plantg",
+    plan_riz: "planriz",
     exports: "exports",
   };
 
@@ -43,6 +45,7 @@ export function getOfficeModuleAccess(role: string | null | undefined, allowedMo
       "planning",
       "exports",
       "plantg",
+      "planriz",
       "plateau",
       "balisage",
       "ruptures",
@@ -87,6 +90,14 @@ export function canAccessOfficePath(pathname: string, role: string | null | unde
   if (pathname === "/stats" || pathname.startsWith("/stats/")) return allowed.has("balisage");
   if (pathname === "/plan-plateau" || pathname.startsWith("/plan-plateau/")) return allowed.has("plateau");
   if (pathname === "/plan-tg" || pathname.startsWith("/plan-tg/")) return allowed.has("plantg");
+  if (
+    pathname === "/plan-de-rayon" ||
+    pathname.startsWith("/plan-de-rayon/") ||
+    pathname === "/plan-de-riz" ||
+    pathname.startsWith("/plan-de-riz/")
+  ) {
+    return allowed.has("planriz");
+  }
   if (pathname === "/exports" || pathname.startsWith("/exports/")) return allowed.has("exports");
   if (pathname === "/suivi" || pathname.startsWith("/suivi/")) return allowed.has("suivi");
   if (pathname === "/aide" || pathname.startsWith("/aide/")) return allowed.has("aide");

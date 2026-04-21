@@ -7,6 +7,7 @@ export const MODULE_ACCESS_KEYS = [
   "balisage",
   "plateau",
   "plan_tg",
+  "plan_riz",
   "exports",
 ] as const;
 
@@ -14,7 +15,7 @@ export type ModuleAccessKey = (typeof MODULE_ACCESS_KEYS)[number];
 
 export type ModuleConfig = {
   key: ModuleAccessKey;
-  moduleId: "planning" | "ruptures" | "absences" | "infos" | "rh" | "balisage" | "plateau" | "plantg" | "exports";
+  moduleId: "planning" | "ruptures" | "absences" | "infos" | "rh" | "balisage" | "plateau" | "plantg" | "planriz" | "exports";
   label: string;
   href: string;
   description: string;
@@ -31,6 +32,7 @@ export const ALL_MODULES: ModuleConfig[] = [
   { key: "balisage", moduleId: "balisage", label: "Balisage", href: "/stats", description: "Contrôle étiquetage" },
   { key: "plateau", moduleId: "plateau", label: "Plateaux", href: "/plan-plateau", description: "Implantations terrain" },
   { key: "plan_tg", moduleId: "plantg", label: "Plan TG", href: "/plan-tg", description: "Mécaniques rayon" },
+  { key: "plan_riz", moduleId: "planriz", label: "Plan de rayon", href: "/plan-de-rayon", description: "Réimplantations et plans rayon" },
   { key: "exports", moduleId: "exports", label: "Exports", href: "/exports", description: "Impressions et supports" },
 ];
 

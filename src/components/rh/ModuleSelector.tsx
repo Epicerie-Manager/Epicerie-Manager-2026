@@ -17,6 +17,7 @@ const MODULE_COLORS: Record<ModuleAccessKey, string> = {
   balisage: "#0f9f6e",
   plateau: "#c05a0c",
   plan_tg: "#b91c1c",
+  plan_riz: "#0a4f98",
   exports: "#475569",
 };
 

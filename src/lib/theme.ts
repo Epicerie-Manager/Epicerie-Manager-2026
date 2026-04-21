@@ -3,6 +3,7 @@ export type ModuleKey =
   | "planning"
   | "exports"
   | "plantg"
+  | "planriz"
   | "plateau"
   | "balisage"
   | "ruptures"
@@ -109,6 +110,14 @@ export const moduleThemes: Record<ModuleKey, ModuleTheme> = {
     gradient: "linear-gradient(135deg, #e9f9f0 0%, #f2fbf6 52%, #fbfefc 100%)",
     iconGradient: "linear-gradient(135deg, #dcf5e7, #b6e8cc)",
   },
+  planriz: {
+    color: "#0a4f98",
+    light: "#edf5ff",
+    medium: "#d6e7fb",
+    dark: "#083c74",
+    gradient: "linear-gradient(135deg, #edf5ff 0%, #f5f9ff 50%, #fcfdff 100%)",
+    iconGradient: "linear-gradient(135deg, #dbeafe, #bfdbfe)",
+  },
   plateau: {
     color: "#c05a0c",
     light: "#fef6ee",
@@ -187,6 +196,7 @@ export function getThemeByPathname(pathname: string): ModuleKey {
   if (pathname.startsWith("/exports")) return "exports";
   if (pathname.startsWith("/planning")) return "planning";
   if (pathname.startsWith("/plan-tg")) return "plantg";
+  if (pathname.startsWith("/plan-de-rayon") || pathname.startsWith("/plan-de-riz")) return "planriz";
   if (pathname.startsWith("/plan-plateau") || pathname.startsWith("/plateaux")) {
     return "plateau";
   }

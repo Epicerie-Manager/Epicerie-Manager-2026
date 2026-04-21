@@ -9,6 +9,7 @@ type ModuleHeaderProps = {
   description: string;
   kicker?: string;
   compact?: boolean;
+  showModuleKeyBadge?: boolean;
 };
 
 function HeaderIcon({ moduleKey, color }: { moduleKey: ModuleKey; color: string }) {
@@ -26,6 +27,9 @@ function HeaderIcon({ moduleKey, color }: { moduleKey: ModuleKey; color: string 
   }
   if (moduleKey === "plantg") {
     return <svg viewBox="0 0 24 24" style={style}><path d="M6 2L3 6v14a2 2 0 002 2h14a2 2 0 002-2V6l-3-4z" /><line x1="3" y1="6" x2="21" y2="6" /><path d="M16 10a4 4 0 01-8 0" /></svg>;
+  }
+  if (moduleKey === "planriz") {
+    return <svg viewBox="0 0 24 24" style={style}><path d="M3 6h18" /><path d="M6 3v6" /><path d="M18 3v6" /><rect x="3" y="6" width="18" height="14" rx="2" /><path d="M8 11h8" /><path d="M8 15h5" /></svg>;
   }
   if (moduleKey === "plateau") {
     return <svg viewBox="0 0 24 24" style={style}><polygon points="1 6 1 22 8 18 16 22 23 18 23 2 16 6 8 2 1 6" /><line x1="8" y1="2" x2="8" y2="18" /><line x1="16" y1="6" x2="16" y2="22" /></svg>;
@@ -57,6 +61,7 @@ export function ModuleHeader({
   description,
   kicker = "Vue manager",
   compact = false,
+  showModuleKeyBadge = true,
 }: ModuleHeaderProps) {
   const theme = moduleThemes[moduleKey];
 
@@ -90,21 +95,23 @@ export function ModuleHeader({
           </span>
           <Kicker moduleKey={moduleKey}>{kicker}</Kicker>
         </div>
-        <span
-          style={{
-            fontSize: "10px",
-            fontWeight: 700,
-            textTransform: "uppercase",
-            letterSpacing: "0.05em",
-            color: theme.dark,
-            background: `${theme.medium}`,
-            border: `1px solid ${theme.color}22`,
-            borderRadius: "999px",
-            padding: "3px 8px",
-          }}
-        >
-          {moduleKey.toUpperCase()}
-        </span>
+        {showModuleKeyBadge ? (
+          <span
+            style={{
+              fontSize: "10px",
+              fontWeight: 700,
+              textTransform: "uppercase",
+              letterSpacing: "0.05em",
+              color: theme.dark,
+              background: `${theme.medium}`,
+              border: `1px solid ${theme.color}22`,
+              borderRadius: "999px",
+              padding: "3px 8px",
+            }}
+          >
+            {moduleKey.toUpperCase()}
+          </span>
+        ) : null}
       </div>
       <h1
         style={{

@@ -773,6 +773,7 @@ export default function DashboardPage() {
               <NavCard moduleKey="planning" title="Planning"  description="Horaires et présences" icon={<IconCalendar />}    href="/planning" />
               <NavCard moduleKey="exports"  title="Exports"   description="Impressions & supports" icon={<IconFile />}        href="/exports" />
               <NavCard moduleKey="plantg"   title="Plan TG"   description="Mécaniques rayon"       icon={<IconShoppingBag />} href="/plan-tg"  />
+              <NavCard moduleKey="planriz"  title="Plan de rayon" description="Réimplantations et plans rayon" icon={<IconGrid />} href="/plan-de-rayon" />
               <NavCard moduleKey="plateau"  title="Plateaux"  description="Implantations terrain"  icon={<IconMap />}         href="/plan-plateau" />
               <NavCard moduleKey="balisage" title="Balisage"  description="Contrôle étiquetage"    icon={<IconCheck />}       href="/stats" />
               <NavCard moduleKey="ruptures" title="Ruptures" description={rupturesTodayCount ? `${rupturesTodayCount} rupture(s) équipe aujourd'hui` : "Suivi des ruptures du jour"} icon={<IconAlert />} href="/ruptures" />

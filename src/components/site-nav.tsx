@@ -9,6 +9,7 @@ const navigation: Array<{ href: string; label: string; key: ModuleKey }> = [
   { href: "/", label: "Accueil", key: "dashboard" },
   { href: "/planning", label: "Planning", key: "planning" },
   { href: "/plan-tg", label: "Plan TG", key: "plantg" },
+  { href: "/plan-de-rayon", label: "Plan de rayon", key: "planriz" },
   { href: "/plan-plateau", label: "Plateaux", key: "plateau" },
   { href: "/stats", label: "Stats", key: "balisage" },
 ];

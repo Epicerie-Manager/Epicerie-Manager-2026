@@ -2498,11 +2498,11 @@ function NativeMassPlanView({
             <div style={{ display: "grid", gridTemplateColumns: "repeat(2, minmax(0, 1fr))", gap: 10 }}>
               <label style={{ display: "grid", gap: 4 }}>
                 <span style={tinyLabelStyle}>Colonnes</span>
-                <input type="number" min={4} max={24} value={activeMassView.cols} onChange={(event) => updateGrid("cols", Math.max(4, Number(event.target.value) || 4))} style={inputStyle} />
+                <input type="number" min={4} max={50} value={activeMassView.cols} onChange={(event) => updateGrid("cols", Math.min(50, Math.max(4, Number(event.target.value) || 4)))} style={inputStyle} />
               </label>
               <label style={{ display: "grid", gap: 4 }}>
                 <span style={tinyLabelStyle}>Lignes</span>
-                <input type="number" min={4} max={24} value={activeMassView.rows} onChange={(event) => updateGrid("rows", Math.max(4, Number(event.target.value) || 4))} style={inputStyle} />
+                <input type="number" min={4} max={24} value={activeMassView.rows} onChange={(event) => updateGrid("rows", Math.min(24, Math.max(4, Number(event.target.value) || 4)))} style={inputStyle} />
               </label>
               <label style={{ display: "grid", gap: 4 }}>
                 <span style={tinyLabelStyle}>Largeur colonne</span>

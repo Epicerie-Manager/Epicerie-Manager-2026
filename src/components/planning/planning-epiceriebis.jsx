@@ -1568,7 +1568,7 @@ export default function PlanningApp(){
           width:"100%",
           maxWidth:2200,
           margin:"0 auto",
-          padding:"18px clamp(12px, 2vw, 18px)",
+          padding:"18px 0",
           boxSizing:"border-box",
         }}
       >

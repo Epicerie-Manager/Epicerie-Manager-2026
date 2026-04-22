@@ -1565,9 +1565,11 @@ export default function PlanningApp(){
       <div
         data-planning-screen
         style={{
-          width:"min(96vw, 2200px)",
+          width:"100%",
+          maxWidth:2200,
           margin:"0 auto",
           padding:"18px clamp(12px, 2vw, 18px)",
+          boxSizing:"border-box",
         }}
       >
 

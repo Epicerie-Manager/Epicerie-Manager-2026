@@ -1748,9 +1748,8 @@ function NativePlansView({
                 <div key={column.id} style={{ border: "1px solid #dbe3eb", borderRadius: 18, overflow: "hidden", background: "#fbfcfd" }}>
                   <div
                     style={{
-                      display: "grid",
-                      gridTemplateColumns: isEditUnlocked ? "26px 1fr 28px 26px 26px" : "26px 1fr",
-                      alignItems: "center",
+                      display: "flex",
+                      flexDirection: "column",
                       gap: 6,
                       background: column.color,
                       padding: "10px 8px",
@@ -1758,31 +1757,11 @@ function NativePlansView({
                       borderTopRightRadius: 18,
                     }}
                   >
-                    <button
-                      type="button"
-                      onClick={() => onMoveColumn(section, column.id, "left")}
-                      style={{
-                        ...smallButton("#fff", "rgba(0,0,0,0.16)"),
-                        border: "none",
-                        minWidth: 26,
-                        width: 26,
-                        minHeight: 26,
-                        height: 26,
-                        padding: 0,
-                        borderRadius: 8,
-                        fontSize: 12,
-                        lineHeight: 1,
-                        opacity: isEditUnlocked ? 1 : 0.45,
-                      }}
-                      disabled={!isEditUnlocked}
-                    >
-                      ←
-                    </button>
                     <input
                       value={column.name}
                       onChange={(event) => onUpdateColumn(section, column.id, { name: event.target.value })}
                       style={{
-                        flex: 1,
+                        width: "100%",
                         minHeight: 24,
                         borderRadius: 8,
                         border: "1px solid rgba(255,255,255,0.22)",
@@ -1796,58 +1775,90 @@ function NativePlansView({
                       }}
                       disabled={!isEditUnlocked}
                     />
-                    <input
-                      type="color"
-                      value={column.color}
-                      onChange={(event) => onUpdateColumn(section, column.id, { color: event.target.value })}
-                      style={{ width: 28, minWidth: 28, height: 26, border: "1px solid rgba(255,255,255,0.24)", borderRadius: 8, background: "rgba(255,255,255,0.12)", cursor: isEditUnlocked ? "pointer" : "not-allowed", opacity: isEditUnlocked ? 1 : 0.6, padding: 0 }}
-                      title="Modifier la couleur du rayon"
-                      disabled={!isEditUnlocked}
-                    />
-                    <button
-                      type="button"
-                      onClick={() => onMoveColumn(section, column.id, "right")}
-                      style={{
-                        ...smallButton("#fff", "rgba(0,0,0,0.16)"),
-                        border: "none",
-                        minWidth: 26,
-                        width: 26,
-                        minHeight: 26,
-                        height: 26,
-                        padding: 0,
-                        borderRadius: 8,
-                        fontSize: 12,
-                        lineHeight: 1,
-                        opacity: isEditUnlocked ? 1 : 0.45,
-                      }}
-                      disabled={!isEditUnlocked}
-                    >
-                      →
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => {
-                        if (!isEditUnlocked) return;
-                        if (!window.confirm(`Supprimer le rayon "${column.name}" ?`)) return;
-                        onRemoveColumn(section, column.id);
-                      }}
-                      style={{
-                        ...smallButton("#fff", "rgba(0,0,0,0.16)"),
-                        border: "none",
-                        minWidth: 26,
-                        width: 26,
-                        minHeight: 26,
-                        height: 26,
-                        padding: 0,
-                        borderRadius: 8,
-                        fontSize: 13,
-                        lineHeight: 1,
-                        opacity: isEditUnlocked ? 1 : 0.45,
-                      }}
-                      disabled={!isEditUnlocked}
-                    >
-                      ×
-                    </button>
+                    <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "nowrap" }}>
+                      <button
+                        type="button"
+                        onClick={() => onMoveColumn(section, column.id, "left")}
+                        style={{
+                          ...smallButton("#fff", "rgba(0,0,0,0.16)"),
+                          border: "none",
+                          minWidth: 26,
+                          width: 26,
+                          minHeight: 26,
+                          height: 26,
+                          padding: 0,
+                          borderRadius: 8,
+                          fontSize: 12,
+                          lineHeight: 1,
+                          opacity: isEditUnlocked ? 1 : 0.45,
+                        }}
+                        disabled={!isEditUnlocked}
+                      >
+                        ←
+                      </button>
+                      <input
+                        type="color"
+                        value={column.color}
+                        onChange={(event) => onUpdateColumn(section, column.id, { color: event.target.value })}
+                        style={{
+                          width: 28,
+                          minWidth: 28,
+                          height: 26,
+                          border: "1px solid rgba(255,255,255,0.24)",
+                          borderRadius: 8,
+                          background: "rgba(255,255,255,0.12)",
+                          cursor: isEditUnlocked ? "pointer" : "not-allowed",
+                          opacity: isEditUnlocked ? 1 : 0.6,
+                          padding: 0,
+                        }}
+                        title="Modifier la couleur du rayon"
+                        disabled={!isEditUnlocked}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => onMoveColumn(section, column.id, "right")}
+                        style={{
+                          ...smallButton("#fff", "rgba(0,0,0,0.16)"),
+                          border: "none",
+                          minWidth: 26,
+                          width: 26,
+                          minHeight: 26,
+                          height: 26,
+                          padding: 0,
+                          borderRadius: 8,
+                          fontSize: 12,
+                          lineHeight: 1,
+                          opacity: isEditUnlocked ? 1 : 0.45,
+                        }}
+                        disabled={!isEditUnlocked}
+                      >
+                        →
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (!isEditUnlocked) return;
+                          if (!window.confirm(`Supprimer le rayon "${column.name}" ?`)) return;
+                          onRemoveColumn(section, column.id);
+                        }}
+                        style={{
+                          ...smallButton("#fff", "rgba(0,0,0,0.16)"),
+                          border: "none",
+                          minWidth: 26,
+                          width: 26,
+                          minHeight: 26,
+                          height: 26,
+                          padding: 0,
+                          borderRadius: 8,
+                          fontSize: 13,
+                          lineHeight: 1,
+                          opacity: isEditUnlocked ? 1 : 0.45,
+                        }}
+                        disabled={!isEditUnlocked}
+                      >
+                        ×
+                      </button>
+                    </div>
                   </div>
                   <div style={{ display: "grid", gap: 8, padding: 12 }}>
                     {column.cells.map((cell, index) => (

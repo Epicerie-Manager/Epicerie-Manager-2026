@@ -192,6 +192,7 @@ export function AppShell({ version, children }: AppShellProps) {
   const isPrintRoute = pathname.startsWith("/exports/") && pathname.endsWith("/print");
   const activeId  = getThemeByPathname(pathname) as ModuleNavItem["id"];
   const activeModule = moduleItems.find((m) => m.id === activeId) ?? moduleItems[0];
+  const shellMaxWidth = activeId === "planning" ? "1940px" : "1580px";
   const [todayLabel, setTodayLabel] = useState("");
   const [timeLabel, setTimeLabel] = useState("");
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -422,7 +423,7 @@ export function AppShell({ version, children }: AppShellProps) {
       >
         <div
           style={{
-            maxWidth: "1580px",
+            maxWidth: shellMaxWidth,
             margin: "0 auto",
             padding: "0 20px",
             height: "56px",
@@ -724,7 +725,7 @@ export function AppShell({ version, children }: AppShellProps) {
       {/* ── CONTENU ────────────────────────────────── */}
       <main
         style={{
-          maxWidth: "1580px",
+          maxWidth: shellMaxWidth,
           margin: "0 auto",
           padding: "0 20px 32px",
         }}

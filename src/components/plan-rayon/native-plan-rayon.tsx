@@ -1735,10 +1735,10 @@ function NativePlansView({
               </div>
             </div>
 
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14, marginTop: 16 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", gap: 14, marginTop: 16, alignItems: "start" }}>
               {plan.columns.map((column) => (
-                <div key={column.id} style={{ border: "1px solid #dbe3eb", borderRadius: 18, overflow: "hidden", background: "#fbfcfd" }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, background: column.color, padding: 10 }}>
+                <div key={column.id} style={{ border: "1px solid #dbe3eb", borderRadius: 18, overflow: "visible", background: "#fbfcfd" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8, background: column.color, padding: "12px 10px 10px", overflow: "visible", borderTopLeftRadius: 18, borderTopRightRadius: 18 }}>
                     <button type="button" onClick={() => onMoveColumn(section, column.id, "left")} style={{ ...smallButton("#fff", "rgba(0,0,0,0.16)"), border: "none", minWidth: 32, opacity: isEditUnlocked ? 1 : 0.45 }} disabled={!isEditUnlocked}>
                       ←
                     </button>

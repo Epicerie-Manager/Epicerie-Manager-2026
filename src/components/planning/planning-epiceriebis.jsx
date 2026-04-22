@@ -573,7 +573,7 @@ const EditCellModal=({empName,date,currentStatut,currentHoraire,defaultHoraire,m
 
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",display:"flex",alignItems:"center",justifyContent:"center",zIndex:1000}} onClick={onClose}>
-      <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:20,width:480,maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 48px rgba(0,0,0,0.18)",overflow:"hidden"}}>
+      <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:20,width:"min(480px, calc(100vw - 24px))",maxHeight:"90vh",overflowY:"auto",boxShadow:"0 24px 48px rgba(0,0,0,0.18)",overflow:"hidden"}}>
         <div style={{background:V.mc,padding:"18px 24px",color:"#fff"}}>
           <div style={{fontSize:18,fontWeight:700}}>{empName}</div>
           <div style={{fontSize:13,opacity:0.8}}>{dn}</div>
@@ -581,7 +581,7 @@ const EditCellModal=({empName,date,currentStatut,currentHoraire,defaultHoraire,m
         <div style={{padding:24}}>
           {/* Statut */}
           <div style={{fontSize:12,color:V.muted,fontWeight:700,marginBottom:6}}>Statut</div>
-          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:6,marginBottom:18}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:6,marginBottom:18}}>
             {Object.entries(ST).map(([k,v])=>(
               <button key={k} onClick={()=>setS(k)} style={{
                 padding:"10px 6px",borderRadius:10,border:s===k?`2px solid ${v.c}`:`1px solid ${V.line}`,
@@ -1006,7 +1006,7 @@ const VueSemaine=({weekStart,overrides,triData,presenceThresholds,onEdit,readOnl
   const todayS=formatPlanningDate(new Date());
 
   return(
-    <div style={{display:"grid",gridTemplateColumns:"repeat(7,1fr)",gap:10}}>
+    <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(220px,1fr))",gap:10}}>
       {days.map(date=>{
         const dow=date.getDay();const isT=formatPlanningDate(date)===todayS;
         const presentEmployees=sortPlanningEmployees(EMPS.filter(e=>getStatus(e,date,overrides)==="PRESENT"));
@@ -1142,13 +1142,13 @@ const VueJour=({date,overrides,triData,binomes,presenceThresholds,onEdit,readOnl
         {isT&&<span style={{fontSize:11,fontWeight:700,color:"#fff",background:V.mc,padding:"4px 12px",borderRadius:8}}>Aujourd&apos;hui</span>}
         {alert&&<span style={{fontSize:11,fontWeight:700,color:getPlanningLevelColor(dayLevel),background:dayLevel==="critical"?"#fef2f2":"#fff7ed",padding:"4px 12px",borderRadius:8}}>{dayLevel==="critical"?"Seuil critique":"Sous-effectif"}</span>}
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:10,marginBottom:16}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:10,marginBottom:16}}>
         <KPI value={counts.morningCount} label="Matin" color={getPlanningLevelColor(morningLevel)} gradient={morningLevel==="ok"?V.mG:"linear-gradient(135deg,#fef1f2,#fff8f8)"}/>
         <KPI value={counts.afternoonCount} label="Après-midi" color={getPlanningLevelColor(afternoonLevel)} gradient={afternoonLevel==="ok"?"linear-gradient(135deg,#f5f2fe,#faf8ff)":"linear-gradient(135deg,#fff7ed,#fffaf5)"}/>
         <KPI value={grouped.presentStudents.length} label="Étudiants" color={grouped.presentStudents.length>0?V.cyan:"#9ca3af"} gradient={grouped.presentStudents.length>0?"linear-gradient(135deg,#effcfd,#f7feff)":"linear-gradient(135deg,#f5f7fa,#fafbfc)"}/>
         <KPI value={grouped.absRH.length+grouped.absCP.length+grouped.absMAL.length+grouped.absOther.length} label="Absents" color={V.red} gradient="linear-gradient(135deg,#fef1f2,#fff8f8)"/>
       </div>
-      <div style={{display:"grid",gridTemplateColumns:"1.4fr 1fr",gap:14}}>
+      <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(320px,1fr))",gap:14}}>
         <div>
           {renderTeamSection({label:"ÉQUIPE MATIN",employees:grouped.morning,students:grouped.morningStudents,triEnabled:true})}
           {renderTeamSection({label:"ÉQUIPE APRÈS-MIDI",employees:grouped.afternoon,students:grouped.afternoonStudents})}
@@ -1555,7 +1555,7 @@ export default function PlanningApp(){
 
   return(
     <div data-planning-root style={{fontFamily:"'Segoe UI',system-ui,sans-serif",color:V.body,minHeight:"100vh",background:`radial-gradient(circle at top left,rgba(29,95,160,0.06),transparent 24%),linear-gradient(180deg,#f9fbfd 0%,${V.bg} 100%)`}}>
-      <div data-planning-screen style={{maxWidth:1600,margin:"0 auto",padding:18}}>
+      <div data-planning-screen style={{maxWidth:1600,margin:"0 auto",padding:"18px clamp(12px, 2vw, 18px)"}}>
 
         {/* HEADER */}
         <Card style={{padding:"14px 22px",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>
@@ -1598,7 +1598,7 @@ export default function PlanningApp(){
 
         {/* KPIs */}
         {view==="mois"&&(
-          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12,marginBottom:14}}>
             <KPI
               value={monthMetrics.criticalDays.length}
               label="Jours critiques"
@@ -1630,7 +1630,7 @@ export default function PlanningApp(){
           </div>
         )}
         {view==="semaine"&&(
-          <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:12,marginBottom:14}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(180px,1fr))",gap:12,marginBottom:14}}>
             <KPI value={currentPresenceCounts.morningCount} label="Matin aujourd'hui" color={getPlanningLevelColor(getPlanningCountLevel(currentPresenceCounts.morningCount,"morning",presenceThresholds))} gradient={getPlanningCountLevel(currentPresenceCounts.morningCount,"morning",presenceThresholds)==="ok"?V.mG:"linear-gradient(135deg,#fef1f2,#fff8f8)"}/>
             <KPI value={currentPresenceCounts.afternoonCount} label="Après-midi" color={getPlanningLevelColor(getPlanningCountLevel(currentPresenceCounts.afternoonCount,"afternoon",presenceThresholds))} gradient={getPlanningCountLevel(currentPresenceCounts.afternoonCount,"afternoon",presenceThresholds)==="ok"?"linear-gradient(135deg,#f5f2fe,#faf8ff)":"linear-gradient(135deg,#fff7ed,#fffaf5)"}/>
             <KPI value={eCount} label="Étudiants" color={eCount>0?V.cyan:"#9ca3af"} gradient={eCount>0?"linear-gradient(135deg,#effcfd,#f7feff)":"linear-gradient(135deg,#f5f7fa,#fafbfc)"}/>
@@ -1649,7 +1649,7 @@ export default function PlanningApp(){
 
         {/* TRI CADDIE + BINÔMES (month view) */}
         {view==="mois"&&(
-          <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:14,marginTop:14}}>
+          <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(320px,1fr))",gap:14,marginTop:14}}>
             <Card style={{padding:18}}>
               <div style={{display:"flex",alignItems:"flex-start",justifyContent:"space-between",gap:10,flexWrap:"wrap"}}>
                 <div>

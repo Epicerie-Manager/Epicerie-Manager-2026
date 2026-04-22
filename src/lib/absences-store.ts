@@ -1,4 +1,5 @@
 import type { AbsenceRequest } from "@/lib/absences-data";
+import { assertOfficeModuleWriteAccess } from "@/lib/office-module-access";
 import { getPlanningMonthKey, syncPlanningFromSupabase } from "@/lib/planning-store";
 import { createClient } from "@/lib/supabase";
 
@@ -255,6 +256,7 @@ export async function createAbsenceRequestInSupabase(
   input: Omit<AbsenceRequest, "id" | "dbId" | "status"> & { status?: AbsenceRequest["status"] },
 ) {
   try {
+    await assertOfficeModuleWriteAccess("absences", "Action reservee aux profils pouvant modifier les absences.");
     const supabase = createClient();
     const employeeIdByName = await getEmployeeIdByName();
     const normalizedEmployee = input.employee.trim().toUpperCase();
@@ -298,6 +300,7 @@ export async function updateAbsenceStatusInSupabase(
   note?: string | null,
 ) {
   try {
+    await assertOfficeModuleWriteAccess("absences", "Action reservee aux profils pouvant modifier les absences.");
     const supabase = createClient();
     const employeeIdByName = await getEmployeeIdByName();
     const employeeNameById = new Map<string, string>();
@@ -312,10 +315,12 @@ export async function updateAbsenceStatusInSupabase(
         ...(typeof note === "string" ? { note: note.trim() || null } : {}),
       })
       .eq("id", dbId)
-      .select("*")
-      .single();
+      .select("*");
     if (error) throw error;
-    const mapped = mapRowToAbsenceRequest(data as Record<string, unknown>, 0, employeeNameById);
+    const updatedRow = Array.isArray(data) ? data[0] : data;
+    const mapped = updatedRow
+      ? mapRowToAbsenceRequest(updatedRow as Record<string, unknown>, 0, employeeNameById)
+      : null;
     if (mapped) {
       upsertAbsenceRequestSnapshot(mapped);
     }
@@ -340,6 +345,7 @@ export async function syncPlanningStatusToAbsenceInSupabase(input: {
   status: string;
 }) {
   try {
+    await assertOfficeModuleWriteAccess("absences", "Action reservee aux profils pouvant modifier les absences.");
     const supabase = createClient();
     const employeeIdByName = await getEmployeeIdByName();
     const normalizedEmployee = input.employeeName.trim().toUpperCase();
@@ -416,6 +422,7 @@ export async function syncPlanningStatusToAbsenceInSupabase(input: {
 
 export async function deleteAbsenceRequestInSupabase(dbId: string) {
   try {
+    await assertOfficeModuleWriteAccess("absences", "Action reservee aux profils pouvant modifier les absences.");
     const supabase = createClient();
     const { error } = await supabase.from("absences").delete().eq("id", dbId);
     if (error) throw error;

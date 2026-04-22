@@ -782,11 +782,18 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenc
   });
 
   return(
-    <div style={{overflowX:"auto"}} onMouseLeave={()=>setHoveredDayIso(null)}>
-      <table style={{borderCollapse:"collapse",width:"100%",minWidth:1200}}>
+    <div
+      style={{
+        overflowX:"auto",
+        width:"100%",
+        paddingBottom:4,
+      }}
+      onMouseLeave={()=>setHoveredDayIso(null)}
+    >
+      <table style={{borderCollapse:"collapse",width:"100%",minWidth:"max(1480px, 100%)"}}>
         <thead>
           <tr style={{background:"#f8fafc"}}>
-            <th style={{padding:"8px 8px",fontSize:11,fontWeight:700,color:V.light,textAlign:"left",borderBottom:`2px solid ${V.line}`,position:"sticky",left:0,background:"#f8fafc",zIndex:3,minWidth:85}}>Employé</th>
+            <th style={{padding:"8px 10px",fontSize:11,fontWeight:700,color:V.light,textAlign:"left",borderBottom:`2px solid ${V.line}`,position:"sticky",left:0,background:"#f8fafc",zIndex:3,minWidth:110}}>Employé</th>
             {dates.map(d=>{
               const dayIso=formatPlanningDate(d);
               const dow=d.getDay();const isWeekend=dow===0||dow===6;const isT=dayIso===todayS;
@@ -800,7 +807,7 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenc
                 borderTop:isT?"2px solid #16a34a":"2px solid transparent",
                 borderLeft:isT?"2px solid #16a34a":"none",
                 borderRight:isT?"2px solid #16a34a":"none",
-                minWidth:68,
+                minWidth:74,
                 color:isT?V.mc:isWeekend?V.mc+"90":V.light,
                 background:isHovered?"rgba(14,116,144,0.08)":"transparent",
                 boxShadow:isHovered?"inset 0 0 0 1px rgba(14,116,144,0.16)":"none",
@@ -808,12 +815,12 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenc
                 <div style={{fontSize:9,color:isT?V.mc:isWeekend?V.mc+"70":V.light,fontWeight:700}}>{JC_SHORT[dow]}</div>{d.getDate()}
               </th>);
             })}
-            <th style={{padding:"8px 4px",fontSize:10,fontWeight:700,color:V.mc,textAlign:"center",borderBottom:`2px solid ${V.line}`,position:"sticky",right:0,background:"#f8fafc",zIndex:3,minWidth:30}}>Jrs</th>
+            <th style={{padding:"8px 6px",fontSize:10,fontWeight:700,color:V.mc,textAlign:"center",borderBottom:`2px solid ${V.line}`,position:"sticky",right:0,background:"#f8fafc",zIndex:3,minWidth:40}}>Jrs</th>
           </tr>
         </thead>
         <tbody>
           <tr style={{background:"#f8fafc"}}>
-            <td style={{padding:"6px 8px",fontSize:10,fontWeight:800,borderTop:`2px solid ${V.line}`,borderBottom:`1px solid ${V.line}`,position:"sticky",left:0,background:"#f8fafc",zIndex:2,color:V.mc,minWidth:128}}>
+            <td style={{padding:"6px 10px",fontSize:10,fontWeight:800,borderTop:`2px solid ${V.line}`,borderBottom:`1px solid ${V.line}`,position:"sticky",left:0,background:"#f8fafc",zIndex:2,color:V.mc,minWidth:150}}>
               <div style={{display:"grid",gridTemplateColumns:"auto auto",columnGap:8,rowGap:3,alignItems:"center",lineHeight:1}}>
                 <span style={{gridRow:"1 / span 2",fontSize:10,fontWeight:800,color:V.mc}}>EFFECTIF</span>
                 <span style={{fontSize:9,fontWeight:800,color:V.mc}}>matin</span>
@@ -887,7 +894,7 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenc
                     : section;
                 return(
                   <tr key={emp.n} style={{opacity:emp.actif?1:0.5,background:rowBackground}}>
-                    <td style={{padding:"6px 8px",fontSize:11,fontWeight:700,borderBottom:`1px solid ${rowBorder}`,position:"sticky",left:0,background:isRowSelected?"#d8eafe":stickyBackground,zIndex:2,whiteSpace:"nowrap"}}>
+                    <td style={{padding:"6px 10px",fontSize:11,fontWeight:700,borderBottom:`1px solid ${rowBorder}`,position:"sticky",left:0,background:isRowSelected?"#d8eafe":stickyBackground,zIndex:2,whiteSpace:"nowrap",minWidth:150}}>
                       <button
                         type="button"
                         onClick={()=>setSelectedEmployeeName((current)=>current===emp.n?null:emp.n)}
@@ -1555,7 +1562,14 @@ export default function PlanningApp(){
 
   return(
     <div data-planning-root style={{fontFamily:"'Segoe UI',system-ui,sans-serif",color:V.body,minHeight:"100vh",background:`radial-gradient(circle at top left,rgba(29,95,160,0.06),transparent 24%),linear-gradient(180deg,#f9fbfd 0%,${V.bg} 100%)`}}>
-      <div data-planning-screen style={{maxWidth:1600,margin:"0 auto",padding:"18px clamp(12px, 2vw, 18px)"}}>
+      <div
+        data-planning-screen
+        style={{
+          width:"min(96vw, 2200px)",
+          margin:"0 auto",
+          padding:"18px clamp(12px, 2vw, 18px)",
+        }}
+      >
 
         {/* HEADER */}
         <Card style={{padding:"14px 22px",marginBottom:14,display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:10}}>

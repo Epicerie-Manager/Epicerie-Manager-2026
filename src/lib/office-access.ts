@@ -31,7 +31,7 @@ function getModuleIdFromAccessKey(moduleKey: ModuleAccessKey): OfficeShellModule
     balisage: "balisage",
     plateau: "plateau",
     plan_tg: "plantg",
-    plan_riz: "planriz",
+    plan_rayon: "planriz",
     exports: "exports",
   };
 

@@ -1,10 +1,15 @@
 "use client";
 
-import { ALL_MODULES, type ModuleAccessKey } from "@/lib/modules-config";
+import {
+  ALL_MODULES,
+  type ModuleAccessKey,
+  type ModulePermissionLevel,
+  type ModulePermissions,
+} from "@/lib/modules-config";
 
 type ModuleSelectorProps = {
-  selectedModules: ModuleAccessKey[];
-  onChange: (modules: ModuleAccessKey[]) => void;
+  value: ModulePermissions;
+  onChange: (modules: ModulePermissions) => void;
   disabled?: boolean;
 };
 
@@ -17,20 +22,28 @@ const MODULE_COLORS: Record<ModuleAccessKey, string> = {
   balisage: "#0f9f6e",
   plateau: "#c05a0c",
   plan_tg: "#b91c1c",
-  plan_riz: "#0a4f98",
+  plan_rayon: "#0a4f98",
   exports: "#475569",
 };
 
-export function ModuleSelector({ selectedModules, onChange, disabled = false }: ModuleSelectorProps) {
-  const toggleModule = (moduleKey: ModuleAccessKey) => {
-    if (disabled) return;
+const PERMISSION_OPTIONS: Array<{ value: ModulePermissionLevel; label: string }> = [
+  { value: "read", label: "Lecture" },
+  { value: "write", label: "Ecriture" },
+];
 
-    if (selectedModules.includes(moduleKey)) {
-      onChange(selectedModules.filter((item) => item !== moduleKey));
+export function ModuleSelector({ value, onChange, disabled = false }: ModuleSelectorProps) {
+  const updatePermission = (moduleKey: ModuleAccessKey, nextValue: ModulePermissionLevel | null) => {
+    if (disabled) return;
+    if (nextValue === null) {
+      const nextPermissions = { ...value };
+      delete nextPermissions[moduleKey];
+      onChange(nextPermissions);
       return;
     }
-
-    onChange([...selectedModules, moduleKey]);
+    onChange({
+      ...value,
+      [moduleKey]: nextValue,
+    });
   };
 
   return (
@@ -48,33 +61,68 @@ export function ModuleSelector({ selectedModules, onChange, disabled = false }: 
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 8 }}>
         {ALL_MODULES.map((moduleItem) => {
-          const active = selectedModules.includes(moduleItem.key);
+          const permission = value[moduleItem.key] ?? null;
+          const active = permission !== null;
           const color = MODULE_COLORS[moduleItem.key];
 
           return (
-            <label
+            <div
               key={moduleItem.key}
               style={{
-                display: "flex",
-                alignItems: "center",
-                gap: 8,
+                display: "grid",
+                gap: 10,
                 padding: "10px 12px",
                 borderRadius: 12,
                 border: `1px solid ${active ? color : "#dbe3eb"}`,
                 background: active ? `${color}12` : "#fafafa",
-                cursor: disabled ? "default" : "pointer",
                 transition: "all 0.2s ease",
               }}
             >
-              <input
-                type="checkbox"
-                checked={active}
-                onChange={() => toggleModule(moduleItem.key)}
-                disabled={disabled}
-                style={{ accentColor: color }}
-              />
-              <span style={{ fontSize: 12, fontWeight: 600, color: "#0f172a" }}>{moduleItem.label}</span>
-            </label>
+              <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                <span style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}>{moduleItem.label}</span>
+                <button
+                  type="button"
+                  onClick={() => updatePermission(moduleItem.key, null)}
+                  disabled={disabled || !active}
+                  style={{
+                    border: "none",
+                    background: "transparent",
+                    color: active ? "#64748b" : "#cbd5e1",
+                    fontSize: 11,
+                    fontWeight: 700,
+                    cursor: disabled || !active ? "default" : "pointer",
+                    padding: 0,
+                  }}
+                >
+                  Aucun
+                </button>
+              </div>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {PERMISSION_OPTIONS.map((option) => {
+                  const selected = permission === option.value;
+                  return (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => updatePermission(moduleItem.key, option.value)}
+                      disabled={disabled}
+                      style={{
+                        padding: "8px 10px",
+                        borderRadius: 10,
+                        border: `1px solid ${selected ? color : "#dbe3eb"}`,
+                        background: selected ? `${color}18` : "#ffffff",
+                        color: selected ? color : "#475569",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: disabled ? "default" : "pointer",
+                      }}
+                    >
+                      {option.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
           );
         })}
       </div>

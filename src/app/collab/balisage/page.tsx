@@ -17,7 +17,7 @@ import {
   parseBalisageMonthId,
 } from "@/lib/balisage-metrics";
 import { getCollabProfile, type CollabProfile } from "@/lib/collab-auth";
-import { isRhEmployeeExcludedFromBalisage } from "@/lib/rh-status";
+import { isRhEmployeeExcludedByNameFromBalisage, isRhEmployeeExcludedFromBalisage } from "@/lib/rh-status";
 import { createClient } from "@/lib/supabase";
 
 type BalisageTab = "Mon suivi" | "Vue équipe";
@@ -50,11 +50,13 @@ function getInitials(name: string) {
 
 function isTrackedEmployee(employee: EmployeeRow) {
   const upperType = String(employee.type ?? "").trim().toUpperCase();
+  const upperName = String(employee.name ?? "").trim().toUpperCase();
   return (
     Boolean(employee.actif) &&
     upperType !== "E" &&
     !upperType.includes("ETUD") &&
-    !isRhEmployeeExcludedFromBalisage(employee.observation ?? undefined, employee.type ?? undefined)
+    !isRhEmployeeExcludedFromBalisage(employee.observation ?? undefined, employee.type ?? undefined) &&
+    !isRhEmployeeExcludedByNameFromBalisage(upperName)
   );
 }
 

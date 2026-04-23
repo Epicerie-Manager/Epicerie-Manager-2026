@@ -1,5 +1,6 @@
 export type RhEmployeeRole = "COLLABORATEUR" | "COORDINATEUR" | "GESTIONNAIRE" | "DIRECTRICE";
 export type RhEmployeeType = "M" | "S" | "E";
+const BALISAGE_EXCLUDED_EMPLOYEE_NAMES = new Set(["ABDOU", "MASSIMO"]);
 
 export const RH_ROLE_META: Record<
   RhEmployeeRole,
@@ -46,6 +47,10 @@ function normalizeText(value: unknown) {
     .replace(/[\u0300-\u036f]/g, "")
     .trim()
     .toUpperCase();
+}
+
+export function isRhEmployeeExcludedByNameFromBalisage(name: unknown) {
+  return BALISAGE_EXCLUDED_EMPLOYEE_NAMES.has(normalizeText(name));
 }
 
 export function normalizeRhEmployeeRole(value: unknown, employeeType?: RhEmployeeType | string): RhEmployeeRole {

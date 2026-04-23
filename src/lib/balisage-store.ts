@@ -5,7 +5,7 @@ import {
 } from "@/lib/balisage-data";
 import { hasBrowserWindow, purgeLegacyCacheKeys } from "@/lib/browser-cache";
 import { assertOfficeModuleWriteAccess } from "@/lib/office-module-access";
-import { isRhEmployeeExcludedFromBalisage } from "@/lib/rh-status";
+import { isRhEmployeeExcludedByNameFromBalisage, isRhEmployeeExcludedFromBalisage } from "@/lib/rh-status";
 import { createClient } from "@/lib/supabase";
 
 const BALISAGE_STORAGE_KEY = "epicerie-manager-balisage-data-v1";
@@ -62,16 +62,41 @@ function isTrackedBalisageEmployee(employee: { type?: string | null; observation
 
 function createEmptyBalisageDataset(employeeRows: Array<{ name?: string | null; type?: string | null; observation?: string | null; rh_status?: string | null }>) {
   const trackedNames = employeeRows
-    .filter((employee) => isTrackedBalisageEmployee(employee))
+    .filter((employee) => isTrackedBalisageEmployee(employee) && !isRhEmployeeExcludedByNameFromBalisage(employee.name))
     .map((employee) => normalizeEmployeeName(employee.name))
     .filter(Boolean);
 
   return Object.fromEntries(
     balisageMonths.map((month) => [
       month.id,
-      trackedNames.map((name) => ({ name, total: 0, errorRate: null })),
+      trackedNames.map((name) => ({ name, total: 0, errorRate: null, lastUpdatedAt: null })),
     ]),
   ) as BalisageDataset;
+}
+
+async function fetchBalisageRowsWithFallback(supabase: ReturnType<typeof createClient>) {
+  const withUpdatedAt = await supabase
+    .from("balisage_mensuel")
+    .select("mois,employee_id,total_controles,taux_erreur,updated_at")
+    .limit(20000);
+
+  if (!withUpdatedAt.error) {
+    return withUpdatedAt;
+  }
+
+  const withoutUpdatedAt = await supabase
+    .from("balisage_mensuel")
+    .select("mois,employee_id,total_controles,taux_erreur")
+    .limit(20000);
+
+  if (withoutUpdatedAt.error) {
+    return withoutUpdatedAt;
+  }
+
+  return {
+    ...withoutUpdatedAt,
+    data: (withoutUpdatedAt.data ?? []).map((row) => ({ ...row, updated_at: null })),
+  };
 }
 
 export function loadBalisageData(): BalisageDataset {
@@ -121,14 +146,32 @@ export async function saveBalisageEntryToSupabase(
     const employeeId = employeeIdByName.get(name.trim().toUpperCase());
     if (!employeeId) return false;
 
-    const { error } = await supabase
+    const nowIso = new Date().toISOString();
+    const withUpdatedAt = await supabase
       .from("balisage_mensuel")
       .upsert(
-        { mois: monthId, employee_id: employeeId, total_controles: total, taux_erreur: errorRate },
+        {
+          mois: monthId,
+          employee_id: employeeId,
+          total_controles: total,
+          taux_erreur: errorRate,
+          updated_at: nowIso,
+        },
         { onConflict: "mois,employee_id" },
       );
 
-    if (error) throw error;
+    let finalError = withUpdatedAt.error;
+    if (finalError) {
+      const fallback = await supabase
+        .from("balisage_mensuel")
+        .upsert(
+          { mois: monthId, employee_id: employeeId, total_controles: total, taux_erreur: errorRate },
+          { onConflict: "mois,employee_id" },
+        );
+      finalError = fallback.error;
+    }
+
+    if (finalError) throw finalError;
     return true;
   } catch {
     return false;
@@ -156,10 +199,7 @@ export async function syncBalisageFromSupabase() {
       employeeRows.map((employee) => [String(employee.name ?? "").trim().toUpperCase(), String(employee.id)]),
     );
 
-    const { data: balisageRows, error: balisageError } = await supabase
-      .from("balisage_mensuel")
-      .select("mois,employee_id,total_controles,taux_erreur")
-      .limit(20000);
+    const { data: balisageRows, error: balisageError } = await fetchBalisageRowsWithFallback(supabase);
     if (balisageError) throw balisageError;
 
     const next = createEmptyBalisageDataset(employeeRows);
@@ -180,6 +220,7 @@ export async function syncBalisageFromSupabase() {
           row.taux_erreur === null || row.taux_erreur === undefined
             ? null
             : Number(row.taux_erreur),
+        lastUpdatedAt: typeof row.updated_at === "string" ? row.updated_at : null,
       };
       if (idx >= 0) next[monthId][idx] = mapped;
     });

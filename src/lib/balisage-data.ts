@@ -1,10 +1,11 @@
 import { defaultRhEmployees } from "@/lib/rh-store";
-import { isRhEmployeeExcludedFromBalisage } from "@/lib/rh-status";
+import { isRhEmployeeExcludedByNameFromBalisage, isRhEmployeeExcludedFromBalisage } from "@/lib/rh-status";
 
 export type BalisageEmployeeStat = {
   name: string;
   total: number;
   errorRate: number | null;
+  lastUpdatedAt?: string | null;
 };
 
 export const balisageObjective = 800;
@@ -26,7 +27,11 @@ export const balisageMonths = [
 
 function getTrackedBalisageEmployeeNames() {
   return defaultRhEmployees
-    .filter((employee) => employee.t !== "E" && !isRhEmployeeExcludedFromBalisage(employee.obs, employee.t))
+    .filter((employee) => (
+      employee.t !== "E" &&
+      !isRhEmployeeExcludedFromBalisage(employee.obs, employee.t) &&
+      !isRhEmployeeExcludedByNameFromBalisage(employee.n)
+    ))
     .map((employee) => employee.n.trim().toUpperCase());
 }
 
@@ -43,6 +48,7 @@ function buildMonthStats(
       name,
       total: override?.total ?? 0,
       errorRate: override?.errorRate ?? null,
+      lastUpdatedAt: null,
     };
   });
 }

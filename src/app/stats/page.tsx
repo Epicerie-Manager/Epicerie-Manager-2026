@@ -79,6 +79,17 @@ function DeltaIndicator({ delta }: { delta: number | null }) {
   );
 }
 
+function formatLastUpdateDate(value: string | null | undefined) {
+  if (!value) return "Jamais";
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return "Jamais";
+  return new Intl.DateTimeFormat("fr-FR", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  }).format(parsed);
+}
+
 export default function StatsPage() {
   const [activeMonthIndex, setActiveMonthIndex] = useState(() => getCurrentBalisageMonthIndex());
   const [sortBy, setSortBy] = useState<SortBy>("name");
@@ -300,10 +311,10 @@ export default function StatsPage() {
         <h2 style={{ marginTop: "6px", fontSize: "18px", color: "#0f172a" }}>Tableau mensuel editable</h2>
 
         <div style={{ overflowX: "auto", marginTop: "10px" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "860px" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", minWidth: "980px" }}>
             <thead>
               <tr>
-                {["Employe", "Total", "Avancement", "Taux erreur", "Statut", "Actions"].map((head) => (
+                {["Employe", "Total", "Avancement", "Taux erreur", "Dernière maj", "Statut", "Actions"].map((head) => (
                   <th
                     key={head}
                     style={{
@@ -339,6 +350,9 @@ export default function StatsPage() {
                     </td>
                     <td style={{ borderBottom: "1px solid #e2e8f0", padding: "8px 10px", fontSize: "12px", color: employee.actif ? "#0f172a" : "#64748b" }}>
                       {employee.errorRate === null ? "-" : `${employee.errorRate}%`}
+                    </td>
+                    <td style={{ borderBottom: "1px solid #e2e8f0", padding: "8px 10px", fontSize: "12px", color: employee.actif ? "#0f172a" : "#64748b", whiteSpace: "nowrap" }}>
+                      {formatLastUpdateDate(employee.lastUpdatedAt)}
                     </td>
                     <td style={{ borderBottom: "1px solid #e2e8f0", padding: "8px 10px" }}>
                       <span style={{

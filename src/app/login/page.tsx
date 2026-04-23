@@ -179,12 +179,7 @@ export default function LoginPage() {
             </div>
           </div>
           <div style={{ display: "grid", gap: 10 }}>
-            {[
-              "Connexion sécurisée au bureau manager",
-              "Accès au planning et aux validations",
-              "Saisie terrain et suivi collaborateur",
-              "Données synchronisées avec Supabase",
-            ].map((label) => (
+            {["Connexion sécurisée au bureau manager"].map((label) => (
               <div key={label} style={featureStyle()}>
                 <span
                   style={{

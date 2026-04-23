@@ -766,6 +766,8 @@ const UndoToast=({snapshot,busy,onUndo,onDismiss})=>{
    VUE MOIS — with hours displayed
    ═══════════════════════════════════════════════════════════ */
 const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenceThresholds,onEdit,readOnly})=>{
+  const stickyTopOffset = 0;
+  const stickySecondRowOffset = 34;
   const days=daysInMonth(year,month);
   const dates=Array.from({length:days},(_,i)=>new Date(year,month,i+1));
   const sections=getPlanningMonthSections(filter);
@@ -785,15 +787,18 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenc
     <div
       style={{
         overflowX:"auto",
+        overflowY:"auto",
         width:"100%",
+        maxHeight:"72vh",
         paddingBottom:4,
+        scrollbarGutter:"stable both-edges",
       }}
       onMouseLeave={()=>setHoveredDayIso(null)}
     >
       <table style={{borderCollapse:"collapse",width:"100%",minWidth:"max(1480px, 100%)"}}>
         <thead>
           <tr style={{background:"#f8fafc"}}>
-            <th style={{padding:"8px 10px",fontSize:11,fontWeight:700,color:V.light,textAlign:"left",borderBottom:`2px solid ${V.line}`,position:"sticky",left:0,background:"#f8fafc",zIndex:3,minWidth:110}}>Employé</th>
+            <th style={{padding:"8px 10px",fontSize:11,fontWeight:700,color:V.light,textAlign:"left",borderBottom:`2px solid ${V.line}`,position:"sticky",top:stickyTopOffset,left:0,background:"#f8fafc",zIndex:16,minWidth:170,width:170}}>Employé</th>
             {dates.map(d=>{
               const dayIso=formatPlanningDate(d);
               const dow=d.getDay();const isWeekend=dow===0||dow===6;const isT=dayIso===todayS;
@@ -803,24 +808,27 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenc
                 fontSize:10,
                 fontWeight:isT?800:700,
                 textAlign:"center",
+                position:"sticky",
+                top:stickyTopOffset,
+                zIndex:14,
                 borderBottom:isT?"2px solid #16a34a":`2px solid ${V.line}`,
                 borderTop:isT?"2px solid #16a34a":"2px solid transparent",
                 borderLeft:isT?"2px solid #16a34a":"none",
                 borderRight:isT?"2px solid #16a34a":"none",
                 minWidth:74,
                 color:isT?V.mc:isWeekend?V.mc+"90":V.light,
-                background:isHovered?"rgba(14,116,144,0.08)":"transparent",
+                background:isHovered?"#eef7ff":"#f8fafc",
                 boxShadow:isHovered?"inset 0 0 0 1px rgba(14,116,144,0.16)":"none",
               }}>
                 <div style={{fontSize:9,color:isT?V.mc:isWeekend?V.mc+"70":V.light,fontWeight:700}}>{JC_SHORT[dow]}</div>{d.getDate()}
               </th>);
             })}
-            <th style={{padding:"8px 6px",fontSize:10,fontWeight:700,color:V.mc,textAlign:"center",borderBottom:`2px solid ${V.line}`,position:"sticky",right:0,background:"#f8fafc",zIndex:3,minWidth:40}}>Jrs</th>
+            <th style={{padding:"8px 6px",fontSize:10,fontWeight:700,color:V.mc,textAlign:"center",borderBottom:`2px solid ${V.line}`,position:"sticky",top:stickyTopOffset,right:0,background:"#f8fafc",zIndex:16,minWidth:40}}>Jrs</th>
           </tr>
         </thead>
         <tbody>
           <tr style={{background:"#f8fafc"}}>
-            <td style={{padding:"6px 10px",fontSize:10,fontWeight:800,borderTop:`2px solid ${V.line}`,borderBottom:`1px solid ${V.line}`,position:"sticky",left:0,background:"#f8fafc",zIndex:2,color:V.mc,minWidth:150}}>
+            <td style={{padding:"6px 10px",fontSize:10,fontWeight:800,borderTop:`2px solid ${V.line}`,borderBottom:`1px solid ${V.line}`,position:"sticky",top:stickySecondRowOffset,left:0,background:"#f8fafc",zIndex:15,color:V.mc,minWidth:170,width:170}}>
               <div style={{display:"grid",gridTemplateColumns:"auto auto",columnGap:8,rowGap:3,alignItems:"center",lineHeight:1}}>
                 <span style={{gridRow:"1 / span 2",fontSize:10,fontWeight:800,color:V.mc}}>EFFECTIF</span>
                 <span style={{fontSize:9,fontWeight:800,color:V.mc}}>matin</span>
@@ -838,6 +846,9 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenc
               return(<td key={date.getDate()} onMouseEnter={()=>setHoveredDayIso(dayIso)} style={{
                 textAlign:"center",
                 padding:"4px 0",
+                position:"sticky",
+                top:stickySecondRowOffset,
+                zIndex:13,
                 borderTop:isT?"2px solid #16a34a":`2px solid ${V.line}`,
                 borderBottom:isT?"2px solid #16a34a":`1px solid ${V.line}`,
                 borderLeft:isT?"2px solid #16a34a":"none",
@@ -849,7 +860,7 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenc
                 <div style={{fontSize:10,fontWeight:800,color:getPlanningLevelColor(afternoonLevel),lineHeight:1.05,marginTop:4}}>{counts.afternoonCount}</div>
               </td>);
             })}
-            <td style={{borderTop:`2px solid ${V.line}`,borderBottom:`1px solid ${V.line}`,position:"sticky",right:0,background:"#f8fafc"}}/>
+            <td style={{borderTop:`2px solid ${V.line}`,borderBottom:`1px solid ${V.line}`,position:"sticky",top:stickySecondRowOffset,right:0,background:"#f8fafc",zIndex:15}}/>
           </tr>
           {sections.map((section)=>(
             <Fragment key={section.id}>
@@ -894,7 +905,7 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenc
                     : section;
                 return(
                   <tr key={emp.n} style={{opacity:emp.actif?1:0.5,background:rowBackground}}>
-                    <td style={{padding:"6px 10px",fontSize:11,fontWeight:700,borderBottom:`1px solid ${rowBorder}`,position:"sticky",left:0,background:isRowSelected?"#d8eafe":stickyBackground,zIndex:2,whiteSpace:"nowrap",minWidth:150}}>
+                    <td style={{padding:"6px 10px",fontSize:11,fontWeight:700,borderBottom:`1px solid ${rowBorder}`,position:"sticky",left:0,background:isRowSelected?"#d8eafe":stickyBackground,zIndex:2,whiteSpace:"nowrap",minWidth:170,width:170}}>
                       <button
                         type="button"
                         onClick={()=>setSelectedEmployeeName((current)=>current===emp.n?null:emp.n)}
@@ -915,6 +926,9 @@ const VueMois=({year,month,filter,overrides,triData,pendingAbsenceLookup,presenc
                         fontSize:"inherit",
                         fontWeight:700,
                         fontFamily:"inherit",
+                        whiteSpace:"nowrap",
+                        overflow:"hidden",
+                        textOverflow:"ellipsis",
                       }} title={`Statut RH : ${roleMeta.label}`}>
                         <RoleDot emp={emp} size={7} ringColor={rowBackground}/>
                         {emp.n}

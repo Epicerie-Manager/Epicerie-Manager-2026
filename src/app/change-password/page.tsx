@@ -58,11 +58,13 @@ function getStrengthMeta(value: string) {
 
 export default function ChangePasswordPage() {
   const router = useRouter();
+  const [currentPassword, setCurrentPassword] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [requiresCurrentPassword, setRequiresCurrentPassword] = useState(false);
 
   const passwordChecks = getPasswordChecks(password);
   const allPasswordChecksValid = passwordChecks.every((check) => check.valid);
@@ -114,6 +116,10 @@ export default function ChangePasswordPage() {
       setError("La confirmation du mot de passe ne correspond pas.");
       return;
     }
+    if (requiresCurrentPassword && !currentPassword.trim()) {
+      setError("Renseigne le mot de passe actuel pour valider le changement.");
+      return;
+    }
 
     setLoading(true);
     try {
@@ -126,10 +132,26 @@ export default function ChangePasswordPage() {
         return;
       }
 
+      if (requiresCurrentPassword) {
+        const { error: reauthError } = await supabase.auth.signInWithPassword({
+          email: user.email ?? "",
+          password: currentPassword,
+        });
+        if (reauthError) {
+          setError("Le mot de passe actuel est incorrect.");
+          return;
+        }
+      }
+
       const { error: updatePasswordError } = await supabase.auth.updateUser({
         password,
       });
       if (updatePasswordError) {
+        if (updatePasswordError.message.toLowerCase().includes("current password required")) {
+          setRequiresCurrentPassword(true);
+          setError("Pour ce compte, le mot de passe actuel est requis avant de definir le nouveau.");
+          return;
+        }
         setError(updatePasswordError.message);
         return;
       }
@@ -188,6 +210,25 @@ export default function ChangePasswordPage() {
 
         <label style={{ fontSize: "12px", color: "#475569", fontWeight: 600 }}>Nouveau mot de passe</label>
         <div style={{ display: "grid", gap: "8px" }}>
+          {requiresCurrentPassword ? (
+            <>
+              <label style={{ fontSize: "12px", color: "#475569", fontWeight: 600 }}>Mot de passe actuel</label>
+              <input
+                type={showPassword ? "text" : "password"}
+                required
+                value={currentPassword}
+                onChange={(event) => setCurrentPassword(event.target.value)}
+                style={{
+                  minHeight: "40px",
+                  width: "100%",
+                  borderRadius: "10px",
+                  border: "1px solid #dbe3eb",
+                  padding: "0 12px",
+                  fontSize: "14px",
+                }}
+              />
+            </>
+          ) : null}
           <div style={{ position: "relative" }}>
             <input
               type={showPassword ? "text" : "password"}

@@ -6,10 +6,12 @@ import {
   normalizeAllowedModules,
   normalizeModulePermissions,
 } from "@/lib/modules-config";
-import { getRhEmployeeDbStatus } from "@/lib/rh-status";
+import { getRhEmployeeDbStatus, getRhEmployeeRoleLabel } from "@/lib/rh-status";
 import { createAdminClient } from "@/lib/supabase-admin";
 
-type CreateCollaboratorBody = {
+type UpdateCollaboratorBody = {
+  dbId?: string;
+  profileId?: string;
   n?: string;
   t?: "M" | "S" | "E";
   hs?: string | null;
@@ -20,7 +22,6 @@ type CreateCollaboratorBody = {
   actif?: boolean;
   rayons?: string[];
   ruptures_rayons?: number[];
-  cycle?: string[];
   profile_role?: string;
   allowed_modules?: string[];
   module_permissions?: Record<string, string>;
@@ -39,9 +40,9 @@ function getErrorMessage(error: unknown) {
   if (error instanceof Error) return error.message;
   if (typeof error === "string") return error;
   if (typeof error === "object" && error && "message" in error) {
-    return String((error as { message?: unknown }).message ?? "Erreur lors de la creation du collaborateur.");
+    return String((error as { message?: unknown }).message ?? "Erreur lors de la mise a jour du collaborateur.");
   }
-  return "Erreur lors de la creation du collaborateur.";
+  return "Erreur lors de la mise a jour du collaborateur.";
 }
 
 function createRouteSupabaseClient(request: NextRequest) {
@@ -81,43 +82,6 @@ function normalizeEmployeeRayons(value: unknown) {
   return Array.from(new Set(rayons)).sort((a, b) => a.localeCompare(b, "fr"));
 }
 
-function buildEmailBase(name: string) {
-  const normalized = name
-    .toLowerCase()
-    .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
-    .replace(/[^a-z0-9\s.-]/g, " ")
-    .replace(/\s+/g, " ")
-    .trim();
-
-  const dotted = normalized
-    .split(" ")
-    .filter(Boolean)
-    .join(".")
-    .replace(/\.{2,}/g, ".")
-    .replace(/^-+|-+$/g, "")
-    .replace(/^\.+|\.+$/g, "");
-
-  return dotted || "collaborateur";
-}
-
-function isDuplicateEmailError(error: unknown) {
-  const message =
-    error instanceof Error
-      ? error.message
-      : typeof error === "object" && error && "message" in error
-        ? String((error as { message?: unknown }).message ?? "")
-        : String(error ?? "");
-
-  const normalized = message.toLowerCase();
-  return (
-    normalized.includes("already") ||
-    normalized.includes("exists") ||
-    normalized.includes("registered") ||
-    normalized.includes("duplicate")
-  );
-}
-
 function normalizeEmployeeRuptureRayons(value: unknown) {
   if (!Array.isArray(value)) return [];
   return Array.from(new Set(
@@ -127,47 +91,15 @@ function normalizeEmployeeRuptureRayons(value: unknown) {
   )).sort((a, b) => a - b);
 }
 
-async function createUserWithUniqueEmail(
-  supabaseAdmin: ReturnType<typeof createAdminClient>,
-  displayName: string,
-) {
-  const base = buildEmailBase(displayName);
-
-  for (let suffix = 0; suffix < 50; suffix += 1) {
-    const email = `${base}${suffix === 0 ? "" : suffix + 1}@ep.fr`;
-    const { data, error } = await supabaseAdmin.auth.admin.createUser({
-      email,
-      password: "000000",
-      email_confirm: true,
-      user_metadata: {
-        full_name: displayName,
-      },
-    });
-
-    if (!error && data.user) {
-      return { email, userId: data.user.id };
-    }
-
-    if (!isDuplicateEmailError(error)) {
-      throw error ?? new Error("Erreur création compte auth.");
-    }
-  }
-
-  throw new Error("Impossible de generer un email unique pour ce collaborateur.");
-}
-
 export async function POST(request: NextRequest) {
-  let createdEmployeeId: string | null = null;
-  let createdAuthUserId: string | null = null;
-  let createdProfileId: string | null = null;
-
   try {
-    const body = (await request.json()) as CreateCollaboratorBody;
+    const body = (await request.json()) as UpdateCollaboratorBody;
+    const employeeId = String(body.dbId ?? "").trim();
+    const profileId = String(body.profileId ?? "").trim();
     const employeeName = String(body.n ?? "").trim().toUpperCase();
     const employeeType = body.t ?? "M";
-    const employeeRole = String(body.rh_status ?? "Collaborateur").trim();
-    const employeeRhStatus = getRhEmployeeDbStatus(body.rh_status ?? employeeRole, employeeType);
-    const employeeCycle = Array.isArray(body.cycle) ? body.cycle.slice(0, 5) : [];
+    const employeeRoleLabel = getRhEmployeeRoleLabel(body.rh_status ?? "Collaborateur", employeeType);
+    const employeeRhStatus = getRhEmployeeDbStatus(body.rh_status ?? employeeRoleLabel, employeeType);
     const profileRole = String(body.profile_role ?? "collaborateur").trim().toLowerCase() || "collaborateur";
     const allowedModules = canPersistAllowedModules(profileRole) ? normalizeAllowedModules(body.allowed_modules) : [];
     const modulePermissions = canPersistAllowedModules(profileRole)
@@ -177,6 +109,10 @@ export async function POST(request: NextRequest) {
           module_permissions: normalizeModulePermissions(body.module_permissions),
         })
       : {};
+
+    if (!employeeId) {
+      return NextResponse.json({ error: "dbId manquant." }, { status: 400 });
+    }
 
     if (employeeName.length < 2) {
       return NextResponse.json({ error: "Nom collaborateur invalide." }, { status: 400 });
@@ -226,83 +162,58 @@ export async function POST(request: NextRequest) {
       horaire_standard: body.hs ?? null,
       horaire_mardi: body.hm ?? null,
       horaire_samedi: body.hsa ?? null,
-      observation: employeeRole,
+      observation: employeeRoleLabel,
       rh_status: employeeRhStatus,
       actif: body.actif !== false,
       tg_rayons: normalizeEmployeeRayons(body.rayons),
       ruptures_rayons: normalizeEmployeeRuptureRayons(body.ruptures_rayons),
     };
 
-    const { data: insertedEmployee, error: insertEmployeeError } = await supabaseAdmin
+    const { data: updatedEmployee, error: updateEmployeeError } = await supabaseAdmin
       .from("employees")
-      .insert(employeePayload)
+      .update(employeePayload)
+      .eq("id", employeeId)
       .select("id,name,type,horaire_standard,horaire_mardi,horaire_samedi,observation,rh_status,actif,tg_rayons,ruptures_rayons")
-      .single();
+      .maybeSingle();
 
-    if (insertEmployeeError || !insertedEmployee?.id) {
-      throw insertEmployeeError ?? new Error("Erreur creation employe.");
+    if (updateEmployeeError || !updatedEmployee) {
+      throw updateEmployeeError ?? new Error("Erreur mise a jour employe.");
     }
 
-    createdEmployeeId = String(insertedEmployee.id);
+    if (profileId) {
+      let profileUpdate = await supabaseAdmin
+        .from("profiles")
+        .update({
+          role: profileRole,
+          allowed_modules: Object.keys(modulePermissions).length > 0
+            ? Object.keys(modulePermissions)
+            : allowedModules,
+          module_permissions: modulePermissions,
+          full_name: employeeName,
+        })
+        .eq("id", profileId);
 
-    const { email, userId } = await createUserWithUniqueEmail(supabaseAdmin, employeeName);
-    createdAuthUserId = userId;
-
-    let profileInsert = await supabaseAdmin.from("profiles").upsert({
-      id: userId,
-      full_name: employeeName,
-      email,
-      role: profileRole,
-      employee_id: insertedEmployee.id,
-      first_login: true,
-      password_changed: false,
-      allowed_modules: Object.keys(modulePermissions).length > 0
-        ? Object.keys(modulePermissions)
-        : allowedModules,
-      module_permissions: modulePermissions,
-    }, { onConflict: "id" });
-    if (isMissingModulePermissionsColumnError(profileInsert.error)) {
-      profileInsert = await supabaseAdmin.from("profiles").upsert({
-        id: userId,
-        full_name: employeeName,
-        email,
-        role: profileRole,
-        employee_id: insertedEmployee.id,
-        first_login: true,
-        password_changed: false,
-        allowed_modules: Object.keys(modulePermissions).length > 0
-          ? Object.keys(modulePermissions)
-          : allowedModules,
-      }, { onConflict: "id" });
-    }
-
-    if (profileInsert.error) {
-      throw profileInsert.error;
-    }
-
-    createdProfileId = userId;
-
-    if (employeeCycle.length) {
-      const cyclePayload = employeeCycle.map((jour, index) => ({
-        employee_id: insertedEmployee.id,
-        semaine_cycle: index + 1,
-        jour_repos: String(jour ?? "LUN").trim().toUpperCase() || "LUN",
-      }));
-
-      const { error: cycleError } = await supabaseAdmin.from("cycle_repos").insert(cyclePayload);
-      if (cycleError) {
-        throw cycleError;
+      if (isMissingModulePermissionsColumnError(profileUpdate.error)) {
+        profileUpdate = await supabaseAdmin
+          .from("profiles")
+          .update({
+            role: profileRole,
+            allowed_modules: Object.keys(modulePermissions).length > 0
+              ? Object.keys(modulePermissions)
+              : allowedModules,
+            full_name: employeeName,
+          })
+          .eq("id", profileId);
       }
+
+      if (profileUpdate.error) throw profileUpdate.error;
     }
 
     return NextResponse.json({
       success: true,
-      email,
-      initialPin: "000000",
       employee: {
-        ...insertedEmployee,
-        profile_id: userId,
-        email,
+        ...updatedEmployee,
+        profile_id: profileId || null,
         profile_role: profileRole,
         allowed_modules: Object.keys(modulePermissions).length > 0
           ? Object.keys(modulePermissions)
@@ -311,21 +222,6 @@ export async function POST(request: NextRequest) {
       },
     });
   } catch (error) {
-    const supabaseAdmin = createAdminClient();
-
-    if (createdProfileId) {
-      await supabaseAdmin.from("profiles").delete().eq("id", createdProfileId);
-    }
-
-    if (createdAuthUserId) {
-      await supabaseAdmin.auth.admin.deleteUser(createdAuthUserId);
-    }
-
-    if (createdEmployeeId) {
-      await supabaseAdmin.from("cycle_repos").delete().eq("employee_id", createdEmployeeId);
-      await supabaseAdmin.from("employees").delete().eq("id", createdEmployeeId);
-    }
-
     return NextResponse.json(
       { error: getErrorMessage(error) },
       { status: 500 },

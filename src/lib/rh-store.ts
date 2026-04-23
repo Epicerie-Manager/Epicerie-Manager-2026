@@ -1,12 +1,19 @@
 import { hasBrowserWindow, purgeLegacyCacheKeys } from "@/lib/browser-cache";
-import { normalizeAllowedModules, type ModuleAccessKey } from "@/lib/modules-config";
-import { getRhEmployeeRoleLabel } from "@/lib/rh-status";
+import { assertOfficeModuleWriteAccess } from "@/lib/office-module-access";
+import {
+  getProfileModulePermissions,
+  normalizeAllowedModules,
+  normalizeModulePermissions,
+  type ModuleAccessKey,
+  type ModulePermissions,
+} from "@/lib/modules-config";
+import { getRhEmployeeDbStatus, getRhEmployeeResolvedRole, getRhEmployeeRoleLabel, RH_ROLE_META } from "@/lib/rh-status";
 import { createClient } from "@/lib/supabase";
 
 export type RhEmployeeType = "M" | "S" | "E";
 
 function canPersistAllowedModules(profileRole: string) {
-  return ["gestionnaire", "viewer", "collaborateur"].includes(String(profileRole ?? "").trim().toLowerCase());
+  return ["gestionnaire", "viewer", "collaborateur", "custom_access"].includes(String(profileRole ?? "").trim().toLowerCase());
 }
 
 export type RhEmployee = {
@@ -19,6 +26,7 @@ export type RhEmployee = {
   hm: string | null;
   hsa: string | null;
   obs: string;
+  rh_status?: string;
   actif: boolean;
   photo: string | null;
   rayons?: string[];
@@ -26,6 +34,7 @@ export type RhEmployee = {
   email?: string;
   profile_role?: string;
   allowed_modules?: ModuleAccessKey[];
+  module_permissions?: ModulePermissions;
 };
 
 export type CreateRhEmployeeResult = {
@@ -56,9 +65,10 @@ function canUseStorage() {
 function cloneEmployees(employees: RhEmployee[]) {
   return employees.map((employee) => ({
     ...employee,
-    obs: getRhEmployeeRoleLabel(employee.obs, employee.t),
+    obs: getRhEmployeeRoleLabel(employee.rh_status || employee.obs, employee.t),
     rayons: employee.rayons ? [...employee.rayons] : undefined,
     allowed_modules: employee.allowed_modules ? [...employee.allowed_modules] : [],
+    module_permissions: employee.module_permissions ? { ...employee.module_permissions } : {},
   }));
 }
 
@@ -107,6 +117,9 @@ function normalizeActionError(error: unknown) {
   ) {
     return "Action reservee aux managers.";
   }
+  if (normalized.includes("module_permissions") && (normalized.includes("column") || normalized.includes("schema cache"))) {
+    return "La base Supabase doit etre mise a jour pour les permissions bureau par module. Appliquez le patch SQL dedie.";
+  }
   if (normalized.includes("cycle_repos_semaine_cycle_check")) {
     return "La base Supabase n'accepte encore que 2 semaines de cycle. Il faut appliquer le patch SQL cycle_repos 5 semaines.";
   }
@@ -114,6 +127,11 @@ function normalizeActionError(error: unknown) {
     return "Connexion requise.";
   }
   return message || "Erreur Supabase.";
+}
+
+function isMissingModulePermissionsColumnError(error: { message?: string } | null | undefined) {
+  const message = String(error?.message ?? "").toLowerCase();
+  return message.includes("module_permissions") && (message.includes("column") || message.includes("schema cache"));
 }
 
 function normalizeEmployeeRayons(value: unknown) {
@@ -153,6 +171,7 @@ function mapEmployeeRowToRhEmployee(
     horaire_mardi: string | null;
     horaire_samedi: string | null;
     observation: string | null;
+    rh_status?: string | null;
     actif: boolean | null;
     tg_rayons?: string[] | null;
     ruptures_rayons?: number[] | null;
@@ -164,15 +183,18 @@ function mapEmployeeRowToRhEmployee(
     email: string | null;
     role: string | null;
     allowed_modules: ModuleAccessKey[];
+    module_permissions: ModulePermissions;
   }>,
 ): RhEmployee {
   const normalizedName = String(employee.name ?? "").trim().toUpperCase();
+  const resolvedRole = getRhEmployeeResolvedRole(employee.rh_status, employee.observation, String(employee.type ?? ""));
   const photo =
     photos?.byDbId.get(String(employee.id)) ??
     photos?.byName.get(normalizedName) ??
     null;
   const normalizedType = normalizeRhType(String(employee.type ?? ""));
   const profile = profileByEmployeeId?.get(String(employee.id));
+  const modulePermissions = profile?.module_permissions ?? {};
 
   return {
     id: index + 1,
@@ -183,14 +205,18 @@ function mapEmployeeRowToRhEmployee(
     hs: employee.horaire_standard ?? null,
     hm: employee.horaire_mardi ?? null,
     hsa: employee.horaire_samedi ?? null,
-    obs: getRhEmployeeRoleLabel(String(employee.observation ?? ""), normalizedType),
+    obs: RH_ROLE_META[resolvedRole].label,
+    rh_status: RH_ROLE_META[resolvedRole].label,
     actif: Boolean(employee.actif),
     photo,
     rayons: normalizeEmployeeRayons(employee.tg_rayons),
     ruptures_rayons: normalizeEmployeeRuptureRayons(employee.ruptures_rayons),
     email: String(profile?.email ?? "").trim(),
     profile_role: String(profile?.role ?? "collaborateur").trim(),
-    allowed_modules: profile?.allowed_modules ?? [],
+    allowed_modules: Object.keys(modulePermissions).length > 0
+      ? (Object.keys(modulePermissions) as ModuleAccessKey[])
+      : (profile?.allowed_modules ?? []),
+    module_permissions: modulePermissions,
   };
 }
 
@@ -281,24 +307,60 @@ export async function syncRhFromSupabase() {
     const photos = getPhotoLookup(cachedEmployees);
     const { data: employeeRows, error: employeeError } = await supabase
       .from("employees")
-      .select("id,name,type,horaire_standard,horaire_mardi,horaire_samedi,observation,actif,tg_rayons,ruptures_rayons")
+      .select("id,name,type,horaire_standard,horaire_mardi,horaire_samedi,observation,rh_status,actif,tg_rayons,ruptures_rayons")
       .limit(5000);
     if (employeeError) throw employeeError;
-    const { data: profileRows } = await supabase
-      .from("profiles")
-      .select("id,email,role,employee_id,allowed_modules")
-      .not("employee_id", "is", null)
-      .limit(5000);
+    type RhProfileRow = {
+      id: string;
+      email: string | null;
+      role: string | null;
+      employee_id: string | null;
+      allowed_modules: ModuleAccessKey[] | null;
+      module_permissions?: ModulePermissions | null;
+    };
+    let profileRows: RhProfileRow[] | null = null;
+    {
+      const profileRowsQuery = await supabase
+        .from("profiles")
+        .select("id,email,role,employee_id,allowed_modules,module_permissions")
+        .not("employee_id", "is", null)
+        .limit(5000);
+
+      if (isMissingModulePermissionsColumnError(profileRowsQuery.error)) {
+        const fallbackQuery = await supabase
+          .from("profiles")
+          .select("id,email,role,employee_id,allowed_modules")
+          .not("employee_id", "is", null)
+          .limit(5000);
+        if (fallbackQuery.error) throw fallbackQuery.error;
+        profileRows = (fallbackQuery.data ?? []) as unknown as RhProfileRow[];
+      } else {
+        if (profileRowsQuery.error) throw profileRowsQuery.error;
+        profileRows = (profileRowsQuery.data ?? []) as unknown as RhProfileRow[];
+      }
+    }
     const profileByEmployeeId = new Map(
-      (profileRows ?? []).map((profile) => [
-        String(profile.employee_id),
-        {
-          id: String(profile.id),
-          email: profile.email == null ? null : String(profile.email),
-          role: profile.role == null ? null : String(profile.role),
-          allowed_modules: normalizeAllowedModules(profile.allowed_modules),
-        },
-      ]),
+      (profileRows ?? []).map((profile) => {
+        const role = profile.role == null ? null : String(profile.role);
+        const allowedModules = normalizeAllowedModules(profile.allowed_modules);
+        const modulePermissions = getProfileModulePermissions({
+          role,
+          allowed_modules: allowedModules,
+          module_permissions: profile.module_permissions,
+        });
+        return [
+          String(profile.employee_id),
+          {
+            id: String(profile.id),
+            email: profile.email == null ? null : String(profile.email),
+            role,
+            allowed_modules: Object.keys(modulePermissions).length > 0
+              ? (Object.keys(modulePermissions) as ModuleAccessKey[])
+              : allowedModules,
+            module_permissions: modulePermissions,
+          },
+        ] as const;
+      }),
     );
     const mappedEmployees: RhEmployee[] = (employeeRows ?? []).map((employee, index) =>
       mapEmployeeRowToRhEmployee(employee, index, photos, profileByEmployeeId),
@@ -358,6 +420,7 @@ export async function createRhEmployeeInSupabase(
   employee: Omit<RhEmployee, "id"> & { cycle?: string[] },
 ): Promise<CreateRhEmployeeResult> {
   try {
+    await assertOfficeModuleWriteAccess("rh", "Action reservee aux profils pouvant modifier les fiches RH.");
     const response = await fetch("/api/manager/create-collaborator", {
       method: "POST",
       headers: {
@@ -378,6 +441,7 @@ export async function createRhEmployeeInSupabase(
         horaire_mardi: string | null;
         horaire_samedi: string | null;
         observation: string | null;
+        rh_status?: string | null;
         actif: boolean | null;
         tg_rayons?: string[] | null;
         ruptures_rayons?: number[] | null;
@@ -385,6 +449,7 @@ export async function createRhEmployeeInSupabase(
         email?: string | null;
         profile_role?: string | null;
         allowed_modules?: ModuleAccessKey[] | null;
+        module_permissions?: ModulePermissions | null;
       };
     };
 
@@ -392,7 +457,11 @@ export async function createRhEmployeeInSupabase(
       throw new Error(payload.error || "Erreur Supabase.");
     }
 
-    const cycle = Array.isArray(employee.cycle) ? employee.cycle : [];
+    const payloadPermissions = getProfileModulePermissions({
+      role: payload.employee.profile_role,
+      allowed_modules: normalizeAllowedModules(payload.employee.allowed_modules),
+      module_permissions: payload.employee.module_permissions,
+    });
     const nextEmployee = {
       ...mapEmployeeRowToRhEmployee(
         payload.employee,
@@ -405,17 +474,16 @@ export async function createRhEmployeeInSupabase(
               id: String(payload.employee.profile_id ?? ""),
               email: payload.employee.email == null ? null : String(payload.employee.email),
               role: payload.employee.profile_role == null ? null : String(payload.employee.profile_role),
-              allowed_modules: normalizeAllowedModules(payload.employee.allowed_modules),
+              allowed_modules: Object.keys(payloadPermissions).length > 0
+                ? (Object.keys(payloadPermissions) as ModuleAccessKey[])
+                : normalizeAllowedModules(payload.employee.allowed_modules),
+              module_permissions: payloadPermissions,
             },
           ],
         ]),
       ),
       photo: employee.photo ?? null,
     };
-    const employees = [...loadRhEmployees(), nextEmployee];
-    const cycles = loadRhCycles();
-    if (cycle.length) cycles[nextEmployee.n] = [...cycle];
-    writeRhCache(employees, cycles);
 
     return {
       employee: nextEmployee,
@@ -429,40 +497,51 @@ export async function createRhEmployeeInSupabase(
 
 export async function updateRhEmployeeInSupabase(employee: RhEmployee): Promise<RhEmployee> {
   if (!employee.dbId) throw new Error("Employe non synchronise.");
-  const supabase = createClient();
-  const payload = {
-    name: employee.n.trim().toUpperCase(),
-    type: normalizeRhTypeToDb(employee.t),
-    horaire_standard: employee.hs,
-    horaire_mardi: employee.hm,
-    horaire_samedi: employee.hsa,
-    observation: getRhEmployeeRoleLabel(employee.obs, employee.t),
-    actif: employee.actif,
-    tg_rayons: normalizeEmployeeRayons(employee.rayons) ?? [],
-    ruptures_rayons: normalizeEmployeeRuptureRayons(employee.ruptures_rayons),
-  };
-  const profilePayload = {
-    role: String(employee.profile_role ?? "collaborateur").trim() || "collaborateur",
-    allowed_modules: canPersistAllowedModules(String(employee.profile_role ?? "collaborateur"))
-      ? normalizeAllowedModules(employee.allowed_modules)
-      : [],
-  };
-
+  await assertOfficeModuleWriteAccess("rh", "Action reservee aux profils pouvant modifier les fiches RH.");
   try {
-      const { data: updatedEmployee, error } = await supabase
-        .from("employees")
-        .update(payload)
-        .eq("id", employee.dbId)
-        .select("id,name,type,horaire_standard,horaire_mardi,horaire_samedi,observation,actif,tg_rayons,ruptures_rayons")
-        .single();
-    if (error) throw error;
-    if (employee.profileId) {
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update(profilePayload)
-        .eq("id", employee.profileId);
-      if (profileError) throw profileError;
+    const response = await fetch("/api/manager/update-collaborator", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(employee),
+    });
+
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+      employee?: {
+        id: string;
+        name: string | null;
+        type: string | null;
+        horaire_standard: string | null;
+        horaire_mardi: string | null;
+        horaire_samedi: string | null;
+        observation: string | null;
+        rh_status?: string | null;
+        actif: boolean | null;
+        tg_rayons?: string[] | null;
+        ruptures_rayons?: number[] | null;
+        profile_id?: string | null;
+        email?: string | null;
+        profile_role?: string | null;
+        allowed_modules?: ModuleAccessKey[] | null;
+        module_permissions?: ModulePermissions | null;
+      };
+    };
+
+    if (!response.ok || !payload.employee) {
+      throw new Error(payload.error || "Erreur Supabase.");
     }
+
+    const profilePayload = {
+      role: String(payload.employee.profile_role ?? employee.profile_role ?? "collaborateur").trim() || "collaborateur",
+      allowed_modules: normalizeAllowedModules(payload.employee.allowed_modules ?? employee.allowed_modules),
+      module_permissions: getProfileModulePermissions({
+        role: payload.employee.profile_role ?? employee.profile_role,
+        allowed_modules: normalizeAllowedModules(payload.employee.allowed_modules ?? employee.allowed_modules),
+        module_permissions: payload.employee.module_permissions ?? employee.module_permissions,
+      }),
+    };
 
     const cachedEmployees = loadRhEmployees();
     const photos = getPhotoLookup(cachedEmployees);
@@ -472,17 +551,18 @@ export async function updateRhEmployeeInSupabase(employee: RhEmployee): Promise<
     );
     const nextEmployee = {
       ...mapEmployeeRowToRhEmployee(
-        updatedEmployee,
+        payload.employee,
         currentIndex,
         photos,
         new Map([
           [
-            String(updatedEmployee.id),
+            String(payload.employee.id),
             {
-              id: String(employee.profileId ?? ""),
+              id: String(payload.employee.profile_id ?? employee.profileId ?? ""),
               email: employee.email ?? null,
               role: profilePayload.role,
               allowed_modules: profilePayload.allowed_modules,
+              module_permissions: profilePayload.module_permissions,
             },
           ],
         ]),
@@ -490,9 +570,8 @@ export async function updateRhEmployeeInSupabase(employee: RhEmployee): Promise<
       id: employee.id,
       photo: employee.photo ?? null,
       rayons: employee.rayons ? [...employee.rayons] : undefined,
+      module_permissions: profilePayload.module_permissions,
     };
-    const nextEmployees = cachedEmployees.map((item) => (item.dbId === employee.dbId ? nextEmployee : item));
-    writeRhCache(nextEmployees, loadRhCycles());
     return nextEmployee;
   } catch (error) {
     throw new Error(normalizeActionError(error));
@@ -500,6 +579,7 @@ export async function updateRhEmployeeInSupabase(employee: RhEmployee): Promise<
 }
 
 export async function saveRhCycleInSupabase(employee: RhEmployee, cycle: string[]): Promise<string[]> {
+  await assertOfficeModuleWriteAccess("rh", "Action reservee aux profils pouvant modifier les fiches RH.");
   const supabase = createClient();
   const employeeDbId = employee.dbId ?? await getEmployeeDbIdByName(employee.n);
   const paddedCycle = Array.from({ length: 5 }, (_, index) => cycle[index] ?? "LUN");
@@ -519,9 +599,6 @@ export async function saveRhCycleInSupabase(employee: RhEmployee, cycle: string[
       if (insertError) throw insertError;
     }
 
-    const cycles = loadRhCycles();
-    cycles[employee.n] = normalizedCycle;
-    writeRhCache(loadRhEmployees(), cycles);
     return normalizedCycle;
   } catch (error) {
     throw new Error(normalizeActionError(error));

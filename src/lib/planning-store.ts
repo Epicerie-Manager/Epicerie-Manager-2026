@@ -3,6 +3,8 @@ import {
   purgeLegacyCacheByPrefixes,
   purgeLegacyCacheKeys,
 } from "@/lib/browser-cache";
+import { assertOfficeModuleWriteAccess } from "@/lib/office-module-access";
+import { isRhEmployeeExcludedFromPlanning } from "@/lib/rh-status";
 import { createClient } from "@/lib/supabase";
 
 export type PlanningOverrideEntry = {
@@ -96,6 +98,10 @@ function getPlanningDefaultStatus(employee: PlanningEmployee, date: Date) {
     if (employeeCycle[cycleWeek] === dayToCode(dow)) return "RH";
   }
   return "PRESENT";
+}
+
+function isPlanningVisibleEmployee(employee: { rh_status?: string | null; observation?: string | null; type?: string | null }) {
+  return !isRhEmployeeExcludedFromPlanning(employee.rh_status ?? employee.observation, employee.type ?? undefined);
 }
 
 function shouldKeepPlanningOverrideEntry(
@@ -487,14 +493,16 @@ export async function syncPlanningFromSupabase(monthKey = getPlanningMonthKey(ne
 
     const { data: employeeRows, error: employeeError } = await supabase
       .from("employees")
-      .select("id,name,type,horaire_standard,horaire_mardi,horaire_samedi,actif")
+      .select("id,name,type,horaire_standard,horaire_mardi,horaire_samedi,actif,observation,rh_status")
       .limit(5000);
     if (employeeError) throw employeeError;
     if (!employeeRows || employeeRows.length === 0) {
       throw new Error("Aucune donnée planning employee n'a été reçue depuis Supabase.");
     }
 
-    const mappedEmployees: PlanningEmployee[] = employeeRows.map((employee) => ({
+    const mappedEmployees: PlanningEmployee[] = employeeRows
+      .filter((employee) => isPlanningVisibleEmployee(employee))
+      .map((employee) => ({
       dbId: String(employee.id),
       n: String(employee.name ?? "").trim().toUpperCase(),
       t: normalizeRhType(String(employee.type ?? "")),
@@ -510,8 +518,9 @@ export async function syncPlanningFromSupabase(monthKey = getPlanningMonthKey(ne
     } else {
       planningEmployees = mappedEmployees;
     }
+    const visibleEmployeeRows = employeeRows.filter((employee) => isPlanningVisibleEmployee(employee));
     const employeeNameById = new Map(
-      employeeRows.map((employee) => [String(employee.id), String(employee.name ?? "").trim().toUpperCase()]),
+      visibleEmployeeRows.map((employee) => [String(employee.id), String(employee.name ?? "").trim().toUpperCase()]),
     );
 
     const { data: cycleRows } = await supabase
@@ -783,6 +792,7 @@ async function fetchPlanningEntriesForCells(supabase: ReturnType<typeof createCl
 }
 
 export async function undoLastPlanningAction(snapshotId?: string) {
+  await assertOfficeModuleWriteAccess("planning", "Action reservee aux profils pouvant modifier le planning.");
   cleanupExpiredPlanningUndo();
   const targetIndex = snapshotId
     ? planningUndoStack.findIndex((snapshot) => snapshot.id === snapshotId)
@@ -841,6 +851,7 @@ export async function savePlanningOverridesToSupabase(
   mutations: PlanningOverrideMutation[],
   nextOverrides: PlanningOverrides,
 ) {
+  await assertOfficeModuleWriteAccess("planning", "Action reservee aux profils pouvant modifier le planning.");
   const supabase = createClient();
 
   try {
@@ -936,6 +947,7 @@ export async function savePlanningTriPairToSupabase(
   nextTriData: PlanningTriData,
   monthKey = getPlanningMonthKey(new Date()),
 ) {
+  await assertOfficeModuleWriteAccess("planning", "Action reservee aux profils pouvant modifier le planning.");
   const supabase = createClient();
 
   try {
@@ -979,6 +991,7 @@ export async function savePlanningBinomeToSupabase(
   nextBinomes: PlanningBinomes,
   monthKey = getPlanningMonthKey(new Date()),
 ) {
+  await assertOfficeModuleWriteAccess("planning", "Action reservee aux profils pouvant modifier le planning.");
   const supabase = createClient();
 
   try {

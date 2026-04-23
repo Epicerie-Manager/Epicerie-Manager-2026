@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
+import { canWriteOfficeModule, normalizeAllowedModules, normalizeModulePermissions } from "@/lib/modules-config";
 import { createAdminClient } from "@/lib/supabase-admin";
 
 function createRouteSupabaseClient(request: NextRequest) {
@@ -25,6 +26,11 @@ function createRouteSupabaseClient(request: NextRequest) {
   });
 }
 
+function isMissingModulePermissionsColumnError(error: { message?: string } | null | undefined) {
+  const message = String(error?.message ?? "").toLowerCase();
+  return message.includes("module_permissions") && (message.includes("column") || message.includes("schema cache"));
+}
+
 export async function POST(request: NextRequest) {
   try {
     const body = (await request.json()) as { employee_id?: string };
@@ -44,17 +50,29 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Connexion requise." }, { status: 401 });
     }
 
-    const { data: profile, error: profileError } = await supabase
+    let profileQuery = await supabase
       .from("profiles")
-      .select("role")
+      .select("role,allowed_modules,module_permissions")
       .eq("id", user.id)
       .maybeSingle();
+    if (isMissingModulePermissionsColumnError(profileQuery.error)) {
+      profileQuery = await supabase
+        .from("profiles")
+        .select("role,allowed_modules")
+        .eq("id", user.id)
+        .maybeSingle();
+    }
+    const { data: profile, error: profileError } = profileQuery;
 
     if (profileError) {
       throw profileError;
     }
 
-    if (String(profile?.role ?? "").toLowerCase() !== "manager") {
+    if (!canWriteOfficeModule({
+      role: String(profile?.role ?? ""),
+      allowed_modules: normalizeAllowedModules(profile?.allowed_modules),
+      module_permissions: normalizeModulePermissions(profile?.module_permissions),
+    }, "rh")) {
       return NextResponse.json({ error: "Action reservee aux managers." }, { status: 403 });
     }
 

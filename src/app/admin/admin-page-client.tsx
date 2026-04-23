@@ -5,8 +5,10 @@ import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Kicker } from "@/components/ui/kicker";
 import { KPI, KPIRow } from "@/components/ui/kpi";
+import { ModuleSelector } from "@/components/rh/ModuleSelector";
 import { moduleThemes } from "@/lib/theme";
 import { isAdminUser } from "@/lib/admin-access";
+import { ALL_MODULES, type ModulePermissions } from "@/lib/modules-config";
 import {
   type InfoAnnouncement,
   type InfoAnnouncementAudience,
@@ -33,6 +35,35 @@ export type AdminJournalEntry = {
   version: string;
   date: string;
   items: string[];
+};
+
+type AdminOfficeEmployee = {
+  id: string;
+  name: string;
+  actif: boolean;
+  rh_status: string;
+  type: string;
+};
+
+type AdminOfficeProfile = {
+  id: string;
+  full_name: string;
+  email: string;
+  role: string;
+  employee_id: string | null;
+  allowed_modules: string[];
+  module_permissions: ModulePermissions;
+  password_changed: boolean;
+  has_office_access: boolean;
+};
+
+type OfficeAccessFormState = {
+  profileId: string | null;
+  employeeId: string | null;
+  fullName: string;
+  email: string;
+  role: "manager" | "custom_access" | "viewer";
+  modulePermissions: ModulePermissions;
 };
 
 type AdminAudienceTargeting = InfoAnnouncementTargeting;
@@ -112,6 +143,46 @@ function formatMaintenanceTimestamp(value: string | null) {
   });
 }
 
+const EMPTY_OFFICE_FORM: OfficeAccessFormState = {
+  profileId: null,
+  employeeId: null,
+  fullName: "",
+  email: "",
+  role: "custom_access",
+  modulePermissions: {},
+};
+
+function getOfficeRoleLabel(role: string) {
+  if (role === "manager") return "Manager complet";
+  if (role === "viewer") return "Lecture seule";
+  if (role === "gestionnaire") return "Gestionnaire";
+  return "Accès personnalisé";
+}
+
+function buildReadOnlyPermissions(current: ModulePermissions) {
+  return Object.fromEntries(
+    Object.keys(current).map((moduleKey) => [moduleKey, "read"]),
+  ) as ModulePermissions;
+}
+
+function getRhStatusLabel(value: string) {
+  const normalized = String(value ?? "").trim().toUpperCase();
+  if (normalized === "COORDINATEUR") return "Coordinateur";
+  if (normalized === "GESTIONNAIRE") return "Gestionnaire";
+  if (normalized === "DIRECTRICE") return "Directrice";
+  return "Collaborateur";
+}
+
+function getModulePermissionsStats(value: ModulePermissions) {
+  let read = 0;
+  let write = 0;
+  Object.values(value).forEach((level) => {
+    if (level === "write") write += 1;
+    if (level === "read") read += 1;
+  });
+  return { read, write, total: read + write };
+}
+
 export function AdminPageClient({ initialJournal }: { initialJournal: AdminJournalEntry[] }) {
   const router = useRouter();
   const theme = moduleThemes.admin;
@@ -140,6 +211,16 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
     balisage: { ...INITIAL_RESULT },
     thresholds: { ...INITIAL_RESULT },
   });
+  const [officeEmployees, setOfficeEmployees] = useState<AdminOfficeEmployee[]>([]);
+  const [officeProfiles, setOfficeProfiles] = useState<AdminOfficeProfile[]>([]);
+  const [officeBusy, setOfficeBusy] = useState(false);
+  const [officeError, setOfficeError] = useState("");
+  const [officeSuccess, setOfficeSuccess] = useState("");
+  const [officeForm, setOfficeForm] = useState<OfficeAccessFormState>(EMPTY_OFFICE_FORM);
+  const [resettingOfficeProfileId, setResettingOfficeProfileId] = useState<string | null>(null);
+  const [officeEmployeeQuery, setOfficeEmployeeQuery] = useState("");
+  const [officeProfileQuery, setOfficeProfileQuery] = useState("");
+  const [showModuleMatrix, setShowModuleMatrix] = useState(true);
 
   useEffect(() => {
     const refreshAnnouncements = () => {
@@ -173,6 +254,9 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
       void syncInfosFromSupabase().then((synced) => {
         if (synced) refreshAnnouncements();
       });
+      void loadOfficeAccess().catch((error) => {
+        setOfficeError(error instanceof Error ? error.message : "Impossible de charger les accès bureau.");
+      });
 
       try {
         setAudience(await getInfoAnnouncementAudience());
@@ -204,6 +288,192 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
       ),
     [audience.employees, targetRayons],
   );
+
+  const officeAccessProfiles = useMemo(
+    () => officeProfiles.filter((profile) => profile.has_office_access),
+    [officeProfiles],
+  );
+
+  const officeProfilesByEmployeeId = useMemo(
+    () =>
+      new Map(
+        officeAccessProfiles
+          .filter((profile) => profile.employee_id)
+          .map((profile) => [String(profile.employee_id), profile] as const),
+      ),
+    [officeAccessProfiles],
+  );
+
+  const officeFormEmployeeOptions = useMemo(
+    () => [...officeEmployees].sort((a, b) => a.name.localeCompare(b.name, "fr-FR")),
+    [officeEmployees],
+  );
+
+  const filteredOfficeFormEmployeeOptions = useMemo(() => {
+    const query = officeEmployeeQuery.trim().toLowerCase();
+    if (!query) return officeFormEmployeeOptions;
+    return officeFormEmployeeOptions.filter((employee) => {
+      const statusLabel = getRhStatusLabel(employee.rh_status).toLowerCase();
+      return employee.name.toLowerCase().includes(query) || statusLabel.includes(query);
+    });
+  }, [officeEmployeeQuery, officeFormEmployeeOptions]);
+
+  const filteredOfficeAccessProfiles = useMemo(() => {
+    const query = officeProfileQuery.trim().toLowerCase();
+    if (!query) return officeAccessProfiles;
+    return officeAccessProfiles.filter((profile) => {
+      const linkedEmployee = officeEmployees.find((employee) => employee.id === profile.employee_id);
+      const roleLabel = getOfficeRoleLabel(profile.role).toLowerCase();
+      return (
+        profile.full_name.toLowerCase().includes(query) ||
+        profile.email.toLowerCase().includes(query) ||
+        roleLabel.includes(query) ||
+        (linkedEmployee?.name.toLowerCase().includes(query) ?? false)
+      );
+    });
+  }, [officeProfileQuery, officeAccessProfiles, officeEmployees]);
+
+  async function loadOfficeAccess() {
+    const response = await fetch("/api/admin/office-access", { cache: "no-store" });
+    const payload = (await response.json().catch(() => ({}))) as {
+      error?: string;
+      employees?: AdminOfficeEmployee[];
+      profiles?: AdminOfficeProfile[];
+    };
+
+    if (!response.ok) {
+      throw new Error(payload.error || "Impossible de charger les accès bureau.");
+    }
+
+    setOfficeEmployees(payload.employees ?? []);
+    setOfficeProfiles(payload.profiles ?? []);
+  }
+
+  function hydrateOfficeForm(profile: AdminOfficeProfile) {
+    const nextRole = profile.role === "manager" ? "manager" : profile.role === "viewer" ? "viewer" : "custom_access";
+    setOfficeForm({
+      profileId: profile.id,
+      employeeId: profile.employee_id,
+      fullName: profile.full_name,
+      email: profile.email,
+      role: nextRole,
+      modulePermissions: profile.role === "manager"
+        ? {}
+        : nextRole === "viewer"
+          ? buildReadOnlyPermissions(profile.module_permissions)
+          : profile.module_permissions,
+    });
+    setOfficeError("");
+    setOfficeSuccess("");
+  }
+
+  function startOfficeFormFromEmployee(employeeId: string | null) {
+    if (!employeeId) {
+      setOfficeForm((current) => ({
+        ...EMPTY_OFFICE_FORM,
+        fullName: current.profileId ? "" : current.fullName,
+        email: current.profileId ? "" : current.email,
+      }));
+      setOfficeError("");
+      setOfficeSuccess("");
+      return;
+    }
+
+    const employee = officeEmployees.find((entry) => entry.id === employeeId);
+    if (!employee) return;
+
+    const existingProfile = officeProfilesByEmployeeId.get(employeeId);
+    if (existingProfile) {
+      hydrateOfficeForm(existingProfile);
+      return;
+    }
+
+    setOfficeForm({
+      profileId: null,
+      employeeId,
+      fullName: employee.name,
+      email: "",
+      role: "custom_access",
+      modulePermissions: {},
+    });
+    setOfficeError("");
+    setOfficeSuccess("");
+  }
+
+  async function submitOfficeAccess() {
+    setOfficeBusy(true);
+    setOfficeError("");
+    setOfficeSuccess("");
+    try {
+      const normalizedPermissions = officeForm.role === "manager"
+        ? {}
+        : officeForm.role === "viewer"
+          ? buildReadOnlyPermissions(officeForm.modulePermissions)
+          : officeForm.modulePermissions;
+      const payload = {
+        employeeId: officeForm.employeeId,
+        fullName: officeForm.fullName,
+        email: officeForm.email,
+        role: officeForm.role,
+        module_permissions: normalizedPermissions,
+      };
+      const response = await fetch(
+        officeForm.profileId
+          ? `/api/admin/office-access/${officeForm.profileId}`
+          : "/api/admin/office-access",
+        {
+          method: officeForm.profileId ? "PATCH" : "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        },
+      );
+      const result = (await response.json().catch(() => ({}))) as {
+        error?: string;
+        employees?: AdminOfficeEmployee[];
+        profiles?: AdminOfficeProfile[];
+      };
+      if (!response.ok) {
+        throw new Error(result.error || "Impossible d'enregistrer l'accès bureau.");
+      }
+      if (result.employees && result.profiles) {
+        setOfficeEmployees(result.employees);
+        setOfficeProfiles(result.profiles);
+      } else {
+        await loadOfficeAccess();
+      }
+      setOfficeSuccess(officeForm.profileId ? "Accès bureau mis à jour." : "Accès bureau créé.");
+      setOfficeForm(EMPTY_OFFICE_FORM);
+    } catch (error) {
+      setOfficeError(error instanceof Error ? error.message : "Impossible d'enregistrer l'accès bureau.");
+    } finally {
+      setOfficeBusy(false);
+    }
+  }
+
+  async function handleResetOfficePassword(profile: AdminOfficeProfile) {
+    setResettingOfficeProfileId(profile.id);
+    setOfficeError("");
+    setOfficeSuccess("");
+    try {
+      const response = await fetch("/api/manager/reset-office-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          profile_id: profile.id,
+          employee_name: profile.full_name,
+        }),
+      });
+      const payload = (await response.json().catch(() => ({}))) as { error?: string; temporaryPassword?: string };
+      if (!response.ok) {
+        throw new Error(payload.error || "Impossible de réinitialiser le mot de passe.");
+      }
+      setOfficeSuccess(`Mot de passe temporaire : ${payload.temporaryPassword ?? ""}`);
+    } catch (error) {
+      setOfficeError(error instanceof Error ? error.message : "Impossible de réinitialiser le mot de passe.");
+    } finally {
+      setResettingOfficeProfileId(null);
+    }
+  }
 
   function toggleEmployeeSelection(employeeId: string) {
     setTargetEmployeeIds((current) =>
@@ -426,7 +696,330 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
         <KPI moduleKey="admin" value={initialJournal.length} label="Entrées journal" style={{ background: "linear-gradient(135deg,#fdf4ff,#fcfaff)", border: "1px solid #e9d5ff" }} valueColor="#7c3aed" />
       </KPIRow>
 
-      <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", alignItems: "start" }}>
+      <div
+        style={{
+          marginTop: 2,
+          fontSize: 11,
+          fontWeight: 800,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          color: "#64748b",
+        }}
+      >
+        Gestion des acces bureau
+      </div>
+      <div style={{ display: "grid", gap: 18, gridTemplateColumns: "repeat(auto-fit, minmax(460px, 1fr))", alignItems: "stretch" }}>
+        <Card style={{ ...shellCardStyle(), alignSelf: "start" }}>
+          <Kicker moduleKey="admin" label="Accès bureau" />
+          <h2 style={{ marginTop: 6, fontSize: 18, color: "#0f172a" }}>Créer ou modifier un accès</h2>
+          <p style={{ marginTop: 6, fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
+            Ici, tu gères les accès bureau séparément du RH. Tu peux donner un accès à n&apos;importe quelle fiche RH, ou créer un compte externe qui n&apos;appartient pas à l&apos;équipe.
+          </p>
+
+          <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+            <label style={{ display: "grid", gap: 4, fontSize: 11, color: "#64748b" }}>
+              <span>Recherche RH</span>
+              <input
+                value={officeEmployeeQuery}
+                onChange={(event) => setOfficeEmployeeQuery(event.target.value)}
+                placeholder="Ex: abdou, coordinateur..."
+                style={{ minHeight: 38, borderRadius: 10, border: "1px solid #dbe3eb", padding: "0 12px", fontSize: 13 }}
+              />
+            </label>
+
+            <label style={{ display: "grid", gap: 4, fontSize: 11, color: "#64748b" }}>
+              <span>Personne concernée</span>
+              <select
+                value={officeForm.employeeId ?? ""}
+                onChange={(event) => startOfficeFormFromEmployee(event.target.value || null)}
+                style={{ minHeight: 38, borderRadius: 10, border: "1px solid #dbe3eb", padding: "0 10px", fontSize: 13, color: "#0f172a" }}
+              >
+                <option value="">Personne externe à l&apos;équipe (pas dans RH)</option>
+                {filteredOfficeFormEmployeeOptions.map((employee) => (
+                  <option key={employee.id} value={employee.id}>
+                    {employee.name} · Statut RH : {getRhStatusLabel(employee.rh_status)}
+                    {officeProfilesByEmployeeId.has(employee.id) ? " · accès bureau existant" : ""}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <div style={{ fontSize: 11, color: "#64748b", marginTop: -6 }}>
+              {filteredOfficeFormEmployeeOptions.length} profil(s) RH trouvé(s)
+            </div>
+
+            <label style={{ display: "grid", gap: 4, fontSize: 11, color: "#64748b" }}>
+              <span>Nom bureau</span>
+              <input
+                value={officeForm.fullName}
+                onChange={(event) => setOfficeForm((current) => ({ ...current, fullName: event.target.value }))}
+                placeholder="Ex: Camille Durand"
+                style={{ minHeight: 38, borderRadius: 10, border: "1px solid #dbe3eb", padding: "0 12px", fontSize: 13 }}
+              />
+            </label>
+
+            <label style={{ display: "grid", gap: 4, fontSize: 11, color: "#64748b" }}>
+              <span>Email bureau</span>
+              <input
+                value={officeForm.email}
+                onChange={(event) => setOfficeForm((current) => ({ ...current, email: event.target.value }))}
+                placeholder="prenom@ep.fr"
+                style={{ minHeight: 38, borderRadius: 10, border: "1px solid #dbe3eb", padding: "0 12px", fontSize: 13 }}
+              />
+            </label>
+
+            <label style={{ display: "grid", gap: 4, fontSize: 11, color: "#64748b" }}>
+              <span>Niveau d&apos;accès bureau</span>
+              <select
+                value={officeForm.role}
+                onChange={(event) => {
+                  const nextRole = event.target.value as OfficeAccessFormState["role"];
+                  setOfficeForm((current) => ({
+                    ...current,
+                    role: nextRole,
+                    modulePermissions: nextRole === "manager"
+                      ? {}
+                      : nextRole === "viewer"
+                        ? buildReadOnlyPermissions(current.modulePermissions)
+                        : current.modulePermissions,
+                  }));
+                }}
+                style={{ minHeight: 38, borderRadius: 10, border: "1px solid #dbe3eb", padding: "0 10px", fontSize: 13, color: "#0f172a" }}
+              >
+                <option value="custom_access">Accès par modules</option>
+                <option value="viewer">Lecture seule</option>
+                <option value="manager">Accès complet manager</option>
+              </select>
+            </label>
+
+            {officeForm.employeeId ? (
+              <div style={{ borderRadius: 12, border: "1px solid #dbeafe", background: "#f8fbff", color: "#334155", fontSize: 12, lineHeight: 1.5, padding: "10px 12px" }}>
+                Cette personne vient des fichiers RH. Tu peux donc lui ajouter un accès bureau même si son statut RH est <strong>{getRhStatusLabel(officeEmployees.find((employee) => employee.id === officeForm.employeeId)?.rh_status ?? "")}</strong>.
+              </div>
+            ) : (
+              <div style={{ borderRadius: 12, border: "1px solid #fed7aa", background: "#fff7ed", color: "#9a3412", fontSize: 12, lineHeight: 1.5, padding: "10px 12px" }}>
+                Compte externe : utile pour une directrice, un autre manager ou une personne qui n&apos;existe pas dans les fichiers RH.
+              </div>
+            )}
+
+            {officeForm.role !== "manager" ? (
+              <div style={{ display: "grid", gap: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+                  <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b", letterSpacing: "0.06em", textTransform: "uppercase" }}>
+                    Modules autorisés
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setShowModuleMatrix((current) => !current)}
+                    style={{
+                      minHeight: 28,
+                      borderRadius: 999,
+                      border: "1px solid #dbe3eb",
+                      background: "#fff",
+                      color: "#475569",
+                      fontSize: 11,
+                      fontWeight: 700,
+                      padding: "0 10px",
+                      cursor: "pointer",
+                    }}
+                  >
+                    {showModuleMatrix ? "Masquer détail" : "Afficher détail"}
+                  </button>
+                </div>
+                <div style={{ fontSize: 12, color: "#64748b" }}>
+                  Lecture: <strong>{getModulePermissionsStats(officeForm.modulePermissions).read}</strong> · Ecriture:{" "}
+                  <strong>{getModulePermissionsStats(officeForm.modulePermissions).write}</strong>
+                </div>
+                {showModuleMatrix ? (
+                  <ModuleSelector
+                    value={officeForm.role === "viewer" ? buildReadOnlyPermissions(officeForm.modulePermissions) : officeForm.modulePermissions}
+                    onChange={(modules) => setOfficeForm((current) => ({
+                      ...current,
+                      modulePermissions: current.role === "viewer" ? buildReadOnlyPermissions(modules) : modules,
+                    }))}
+                    disabled={officeBusy}
+                  />
+                ) : null}
+              </div>
+            ) : (
+              <div style={{ borderRadius: 12, border: "1px solid #dbeafe", background: "#eff6ff", color: "#1d4ed8", fontSize: 12, lineHeight: 1.5, padding: "10px 12px" }}>
+                Le rôle manager garde l'accès complet à tous les modules bureau.
+              </div>
+            )}
+
+            {officeError ? (
+              <div style={{ borderRadius: 12, border: "1px solid #fecaca", background: "#fef2f2", color: "#991b1b", fontSize: 12, padding: "10px 12px" }}>
+                {officeError}
+              </div>
+            ) : null}
+            {officeSuccess ? (
+              <div style={{ borderRadius: 12, border: "1px solid #bbf7d0", background: "#f0fdf4", color: "#166534", fontSize: 12, padding: "10px 12px" }}>
+                {officeSuccess}
+              </div>
+            ) : null}
+
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => void submitOfficeAccess()}
+                disabled={officeBusy}
+                style={{
+                  minHeight: 40,
+                  borderRadius: 10,
+                  border: `1px solid ${theme.color}`,
+                  background: theme.light,
+                  color: theme.color,
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: officeBusy ? "not-allowed" : "pointer",
+                  opacity: officeBusy ? 0.7 : 1,
+                  padding: "0 14px",
+                }}
+              >
+                {officeBusy ? "Enregistrement..." : officeForm.profileId ? "Mettre à jour" : "Créer l'accès"}
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setOfficeForm(EMPTY_OFFICE_FORM);
+                  setOfficeError("");
+                  setOfficeSuccess("");
+                }}
+                disabled={officeBusy}
+                style={{
+                  minHeight: 40,
+                  borderRadius: 10,
+                  border: "1px solid #dbe3eb",
+                  background: "#fff",
+                  color: "#475569",
+                  fontWeight: 700,
+                  fontSize: 13,
+                  cursor: officeBusy ? "not-allowed" : "pointer",
+                  padding: "0 14px",
+                }}
+              >
+                Réinitialiser le formulaire
+              </button>
+            </div>
+          </div>
+        </Card>
+
+        <Card style={{ ...shellCardStyle(), alignSelf: "start" }}>
+          <Kicker moduleKey="admin" label="Comptes bureau" />
+          <h2 style={{ marginTop: 6, fontSize: 18, color: "#0f172a" }}>Accès existants</h2>
+          <p style={{ marginTop: 6, fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
+            Liste des profils qui ont réellement un accès au dashboard bureau. Les profils RH sans modules n'apparaissent pas ici.
+          </p>
+
+          <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+            <input
+              value={officeProfileQuery}
+              onChange={(event) => setOfficeProfileQuery(event.target.value)}
+              placeholder="Rechercher un accès (nom, email, rôle...)"
+              style={{ minHeight: 38, borderRadius: 10, border: "1px solid #dbe3eb", padding: "0 12px", fontSize: 13 }}
+            />
+            {filteredOfficeAccessProfiles.length ? filteredOfficeAccessProfiles.map((profile) => {
+              const linkedEmployee = officeEmployees.find((employee) => employee.id === profile.employee_id) ?? null;
+              const moduleSummary = profile.role === "manager"
+                ? "Tous les modules"
+                : Object.entries(profile.module_permissions)
+                    .map(([moduleKey, level]) => {
+                      const moduleLabel = ALL_MODULES.find((moduleItem) => moduleItem.key === moduleKey)?.label ?? moduleKey;
+                      return `${moduleLabel} (${level === "write" ? "écriture" : "lecture"})`;
+                    })
+                    .join(", ");
+
+              return (
+                <div key={profile.id} style={{ borderRadius: 14, border: "1px solid #e2e8f0", background: "#fff", padding: "12px 14px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "start", flexWrap: "wrap" }}>
+                    <div style={{ minWidth: 0, flex: 1 }}>
+                      <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
+                        <strong style={{ fontSize: 13, color: "#0f172a" }}>{profile.full_name}</strong>
+                        <span style={{ fontSize: 10, fontWeight: 700, borderRadius: 999, padding: "3px 8px", background: "#f8fafc", color: "#334155" }}>
+                          {getOfficeRoleLabel(profile.role)}
+                        </span>
+                        {linkedEmployee ? (
+                          <span style={{ fontSize: 10, fontWeight: 700, borderRadius: 999, padding: "3px 8px", background: "#ecfeff", color: "#0f766e" }}>
+                            Fiche RH liée · {linkedEmployee.name}
+                          </span>
+                        ) : (
+                          <span style={{ fontSize: 10, fontWeight: 700, borderRadius: 999, padding: "3px 8px", background: "#fff7ed", color: "#c2410c" }}>
+                            Personne externe à l'équipe
+                          </span>
+                        )}
+                      </div>
+                      <div style={{ marginTop: 4, fontSize: 12, color: "#64748b" }}>{profile.email}</div>
+                      <div style={{ marginTop: 8, fontSize: 12, color: "#475569", lineHeight: 1.55 }}>
+                        {moduleSummary || "Aucun module configuré"}
+                      </div>
+                      {linkedEmployee ? (
+                        <div style={{ marginTop: 6, fontSize: 11, color: "#64748b" }}>
+                          Statut RH : {getRhStatusLabel(linkedEmployee.rh_status)}
+                        </div>
+                      ) : null}
+                    </div>
+                    <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                      <button
+                        type="button"
+                        onClick={() => hydrateOfficeForm(profile)}
+                        style={{
+                          minHeight: 34,
+                          borderRadius: 10,
+                          border: "1px solid #dbe3eb",
+                          background: "#fff",
+                          color: "#334155",
+                          padding: "0 12px",
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: "pointer",
+                        }}
+                      >
+                        Modifier
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => void handleResetOfficePassword(profile)}
+                        disabled={resettingOfficeProfileId === profile.id}
+                        style={{
+                          minHeight: 34,
+                          borderRadius: 10,
+                          border: `1px solid ${theme.color}`,
+                          background: theme.light,
+                          color: theme.color,
+                          padding: "0 12px",
+                          fontSize: 12,
+                          fontWeight: 700,
+                          cursor: resettingOfficeProfileId === profile.id ? "not-allowed" : "pointer",
+                          opacity: resettingOfficeProfileId === profile.id ? 0.7 : 1,
+                        }}
+                      >
+                        {resettingOfficeProfileId === profile.id ? "Reset..." : "Reset mot de passe"}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              );
+            }) : (
+              <div style={{ borderRadius: 14, border: "1px solid #dbe3eb", background: "#f8fafc", padding: 14, fontSize: 12, color: "#64748b" }}>
+                {officeAccessProfiles.length ? "Aucun résultat pour cette recherche." : "Aucun accès bureau configuré pour le moment."}
+              </div>
+            )}
+          </div>
+        </Card>
+      </div>
+
+      <div
+        style={{
+          marginTop: 2,
+          fontSize: 11,
+          fontWeight: 800,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          color: "#64748b",
+        }}
+      >
+        Communication et maintenance
+      </div>
+      <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", alignItems: "start" }}>
         <Card style={{ ...shellCardStyle(), alignSelf: "start" }}>
           <Kicker moduleKey="admin" label="Messages" />
           <h2 style={{ marginTop: 6, fontSize: 18, color: "#0f172a" }}>Messages infos</h2>
@@ -684,7 +1277,19 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
         </Card>
       </div>
 
-      <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(320px, 1fr))", alignItems: "start" }}>
+      <div
+        style={{
+          marginTop: 2,
+          fontSize: 11,
+          fontWeight: 800,
+          letterSpacing: "0.08em",
+          textTransform: "uppercase",
+          color: "#64748b",
+        }}
+      >
+        Suivi et historique
+      </div>
+      <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", alignItems: "start" }}>
         <Card style={{ ...shellCardStyle(), alignSelf: "start" }}>
           <Kicker moduleKey="admin" label="Messages publiés" />
           <h2 style={{ marginTop: 6, fontSize: 18, color: "#0f172a" }}>Suivi rapide</h2>

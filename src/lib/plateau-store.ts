@@ -1,4 +1,5 @@
 import { hasBrowserWindow } from "@/lib/browser-cache";
+import { assertOfficeModuleWriteAccess } from "@/lib/office-module-access";
 import { createClient } from "@/lib/supabase";
 import { plateauTimelineOperations } from "@/lib/plateau-data";
 
@@ -319,6 +320,7 @@ export async function savePlateauAssetsToSupabase(
   if (!uploads.length) return [];
 
   try {
+    await assertOfficeModuleWriteAccess("plateau", "Action reservee aux profils pouvant modifier le module Plateau.");
     const supabase = createClient();
     const {
       data: { user },
@@ -412,6 +414,7 @@ export async function savePlateauAssetsToSupabase(
 
 export async function savePlateauExcelToSupabase(upload: PlateauExcelUpload): Promise<PlateauExcelSource> {
   try {
+    await assertOfficeModuleWriteAccess("plateau", "Action reservee aux profils pouvant modifier le module Plateau.");
     const supabase = createClient();
     const {
       data: { user },
@@ -455,6 +458,7 @@ export async function savePlateauExcelToSupabase(upload: PlateauExcelUpload): Pr
 
 export async function removePlateauExcelFromSupabase(weekNumber: number) {
   try {
+    await assertOfficeModuleWriteAccess("plateau", "Action reservee aux profils pouvant modifier le module Plateau.");
     const supabase = createClient();
     const filePath = buildExcelStoragePath(weekNumber);
 
@@ -476,6 +480,7 @@ export async function removePlateauExcelFromSupabase(weekNumber: number) {
 
 export async function removePlateauAssetFromSupabase(weekNumber: number, plateauKey: PlateauAssetKey) {
   try {
+    await assertOfficeModuleWriteAccess("plateau", "Action reservee aux profils pouvant modifier le module Plateau.");
     const supabase = createClient();
     const { data, error } = await supabase
       .from("plateau_assets")
@@ -515,6 +520,7 @@ export async function savePlateauNoteToSupabase(
   note: string,
 ) {
   try {
+    await assertOfficeModuleWriteAccess("plateau", "Action reservee aux profils pouvant modifier le module Plateau.");
     const supabase = createClient();
     const {
       data: { user },

@@ -2,11 +2,13 @@
 
 import { useEffect, useMemo, useState } from "react";
 import {
+  canWriteOfficeModule,
   getVisibleModules,
   hasOfficeModuleAccess,
   isPrivilegedOfficeRole,
   isReadOnlyOfficeAccessRole,
   normalizeAllowedModules,
+  type ModulePermissions,
   type ModuleAccessKey,
 } from "@/lib/modules-config";
 import { loadCurrentOfficeProfile, type OfficeProfile } from "@/lib/office-profile";
@@ -18,16 +20,19 @@ export type UserRoleInfo = {
   isReadOnly: boolean;
   hasDashboardAccess: boolean;
   allowedModules: ModuleAccessKey[];
+  modulePermissions: ModulePermissions;
   canAccessModule: (moduleId: string) => boolean;
+  canWriteModule: (moduleId: string) => boolean;
 };
 
-export function buildUserRole(profile: Pick<OfficeProfile, "role" | "allowed_modules"> | null): UserRoleInfo {
+export function buildUserRole(profile: Pick<OfficeProfile, "role" | "allowed_modules" | "module_permissions"> | null): UserRoleInfo {
   const role = String(profile?.role ?? "").trim();
   const allowedModules = normalizeAllowedModules(profile?.allowed_modules ?? []);
+  const modulePermissions = profile?.module_permissions ?? {};
   const isManager = isPrivilegedOfficeRole(role);
-  const isReadOnly = isReadOnlyOfficeAccessRole({ role, allowed_modules: allowedModules });
-  const hasDashboardAccess = hasOfficeModuleAccess({ role, allowed_modules: allowedModules });
-  const visibleModules = getVisibleModules({ role, allowed_modules: allowedModules });
+  const isReadOnly = isReadOnlyOfficeAccessRole({ role, allowed_modules: allowedModules, module_permissions: modulePermissions });
+  const hasDashboardAccess = hasOfficeModuleAccess({ role, allowed_modules: allowedModules, module_permissions: modulePermissions });
+  const visibleModules = getVisibleModules({ role, allowed_modules: allowedModules, module_permissions: modulePermissions });
 
   return {
     role,
@@ -35,9 +40,17 @@ export function buildUserRole(profile: Pick<OfficeProfile, "role" | "allowed_mod
     isReadOnly,
     hasDashboardAccess,
     allowedModules,
+    modulePermissions,
     canAccessModule(moduleId: string) {
       if (isManager) return true;
       return visibleModules.some((moduleItem) => moduleItem.key === moduleId);
+    },
+    canWriteModule(moduleId: string) {
+      if (!allowedModules.includes(moduleId as ModuleAccessKey) && !isManager) return false;
+      return canWriteOfficeModule(
+        { role, allowed_modules: allowedModules, module_permissions: modulePermissions },
+        moduleId as ModuleAccessKey,
+      );
     },
   };
 }

@@ -13,6 +13,7 @@ import {
 } from "@/lib/infos-data";
 import { isAdminUser } from "@/lib/admin-access";
 import { hasBrowserWindow, purgeLegacyCacheKeys } from "@/lib/browser-cache";
+import { assertOfficeModuleWriteAccess } from "@/lib/office-module-access";
 import { createClient } from "@/lib/supabase";
 import { tgRayons } from "@/lib/tg-data";
 
@@ -592,6 +593,7 @@ export async function addDocumentToSupabase(
   file?: File,
 ): Promise<InfoItem> {
   try {
+    await assertOfficeModuleWriteAccess("infos", "Action reservee aux profils pouvant modifier le module Infos.");
     const supabase = createClient();
     const url = "";
     let filePath: string | null = null;
@@ -664,6 +666,7 @@ export async function addDocumentToSupabase(
 
 export async function removeDocumentFromSupabase(itemId: string): Promise<void> {
   try {
+    await assertOfficeModuleWriteAccess("infos", "Action reservee aux profils pouvant modifier le module Infos.");
     const supabase = createClient();
     const { data, error } = await supabase
       .from("documents")
@@ -701,6 +704,7 @@ export async function removeDocumentFromSupabase(itemId: string): Promise<void> 
 export async function addAnnouncementToSupabase(input: CreateInfoAnnouncementInput): Promise<InfoAnnouncement> {
   let createdAnnouncementId = "";
   try {
+    await assertOfficeModuleWriteAccess("infos", "Action reservee aux profils pouvant modifier le module Infos.");
     const supabase = createClient();
     const targetEmployeeIds = Array.from(new Set(input.targetEmployeeIds.filter(Boolean)));
     const targetRayons = Array.from(
@@ -772,6 +776,7 @@ export async function addAnnouncementToSupabase(input: CreateInfoAnnouncementInp
 
 export async function removeAnnouncementFromSupabase(id: string): Promise<void> {
   try {
+    await assertOfficeModuleWriteAccess("infos", "Action reservee aux profils pouvant modifier le module Infos.");
     const supabase = createClient();
     const { error } = await supabase
       .from("annonces")

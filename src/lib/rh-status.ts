@@ -1,51 +1,43 @@
-export type RhEmployeeRole = "COORDINATEUR" | "COLLABORATEUR" | "GESTIONNAIRE" | "ETUDIANT" | "STAGIAIRE" | "AUTRE";
+export type RhEmployeeRole = "COLLABORATEUR" | "COORDINATEUR" | "GESTIONNAIRE" | "DIRECTRICE";
 export type RhEmployeeType = "M" | "S" | "E";
 
 export const RH_ROLE_META: Record<
   RhEmployeeRole,
   { label: string; color: string; bg: string; border: string }
 > = {
-  COORDINATEUR: {
-    label: "Coordinateur",
-    color: "#0f766e",
-    bg: "#ccfbf1",
-    border: "#5eead4",
-  },
   COLLABORATEUR: {
     label: "Collaborateur",
     color: "#1d4ed8",
     bg: "#dbeafe",
     border: "#93c5fd",
   },
+  COORDINATEUR: {
+    label: "Coordinateur",
+    color: "#0f766e",
+    bg: "#ccfbf1",
+    border: "#5eead4",
+  },
   GESTIONNAIRE: {
     label: "Gestionnaire",
-    color: "#b91c1c",
-    bg: "#fee2e2",
-    border: "#fca5a5",
-  },
-  ETUDIANT: {
-    label: "Etudiant",
     color: "#7c3aed",
     bg: "#ede9fe",
     border: "#c4b5fd",
   },
-  STAGIAIRE: {
-    label: "Stagiaire",
-    color: "#d97706",
-    bg: "#fef3c7",
-    border: "#fcd34d",
-  },
-  AUTRE: {
-    label: "Autre",
-    color: "#475569",
-    bg: "#e2e8f0",
-    border: "#cbd5e1",
+  DIRECTRICE: {
+    label: "Directrice",
+    color: "#7c2d12",
+    bg: "#ffedd5",
+    border: "#fdba74",
   },
 };
 
-export const RH_ROLE_OPTIONS = Object.entries(RH_ROLE_META).map(([id, meta]) => ({
-  id: id as RhEmployeeRole,
-  ...meta,
+export const RH_ROLE_OPTIONS = ([
+  "COLLABORATEUR",
+  "COORDINATEUR",
+  "GESTIONNAIRE",
+] as RhEmployeeRole[]).map((id) => ({
+  id,
+  ...RH_ROLE_META[id],
 }));
 
 function normalizeText(value: unknown) {
@@ -58,21 +50,33 @@ function normalizeText(value: unknown) {
 
 export function normalizeRhEmployeeRole(value: unknown, employeeType?: RhEmployeeType | string): RhEmployeeRole {
   const normalized = normalizeText(value);
-  const normalizedType = normalizeText(employeeType);
-
-  if (normalized.includes("COORD")) return "COORDINATEUR";
-  if (normalized.includes("GESTION")) return "GESTIONNAIRE";
-  if (normalized.includes("STAG")) return "STAGIAIRE";
-  if (normalized.includes("ETUD")) return "ETUDIANT";
-  if (normalized.includes("COLLAB") || normalized.includes("EMPLOY")) return "COLLABORATEUR";
-  if (normalized.includes("AUTRE")) return "AUTRE";
-  if (normalizedType === "E" || normalizedType.includes("ETUD")) return "ETUDIANT";
+  if (normalized.includes("DIRECTION") || normalized.includes("DIRECTR")) return "DIRECTRICE";
+  if (normalized.includes("GEST")) return "GESTIONNAIRE";
+  if (normalized.includes("COORD") || normalized.includes("RESP") || normalized.includes("RAYON")) return "COORDINATEUR";
   return "COLLABORATEUR";
+}
+
+export function getRhEmployeeDbStatus(value: unknown, employeeType?: RhEmployeeType | string) {
+  const role = normalizeRhEmployeeRole(value, employeeType);
+  return role;
 }
 
 export function getRhEmployeeRoleMeta(value: unknown, employeeType?: RhEmployeeType | string) {
   const role = normalizeRhEmployeeRole(value, employeeType);
   return { id: role, ...RH_ROLE_META[role] };
+}
+
+export function getRhEmployeeResolvedRole(
+  rhStatusValue: unknown,
+  observationValue?: unknown,
+  employeeType?: RhEmployeeType | string,
+): RhEmployeeRole {
+  const normalizedStatus = normalizeText(rhStatusValue);
+  if (normalizedStatus) {
+    return normalizeRhEmployeeRole(rhStatusValue, employeeType);
+  }
+
+  return normalizeRhEmployeeRole(observationValue, employeeType);
 }
 
 export function getRhEmployeeRoleLabel(value: unknown, employeeType?: RhEmployeeType | string) {
@@ -87,7 +91,12 @@ export function isRhEmployeeOfficeRole(value: unknown, employeeType?: RhEmployee
   return normalizeRhEmployeeRole(value, employeeType) === "GESTIONNAIRE";
 }
 
+export function isRhEmployeeExcludedFromPlanning(value: unknown, employeeType?: RhEmployeeType | string) {
+  const normalized = normalizeText(value);
+  return normalized.includes("DIRECTION") || normalized.includes("DIRECTR");
+}
+
 export function isRhEmployeeExcludedFromBalisage(value: unknown, employeeType?: RhEmployeeType | string) {
   const role = normalizeRhEmployeeRole(value, employeeType);
-  return role === "COORDINATEUR" || role === "GESTIONNAIRE";
+  return role === "GESTIONNAIRE" || isRhEmployeeExcludedFromPlanning(value, employeeType);
 }

@@ -1,9 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { ModuleSelector } from "@/components/rh/ModuleSelector";
 import { Avatar } from "@/components/ui/avatar";
-import { buildTemporaryOfficePassword } from "@/lib/temporary-password";
 import {
   createRhEmployeeInSupabase,
   defaultRhCycles,
@@ -12,6 +10,7 @@ import {
   loadRhCycles,
   loadRhEmployees,
   renameRhCycleCache,
+  saveRhEmployees,
   saveRhCycleInSupabase,
   syncRhFromSupabase,
   updateRhEmployeeInSupabase,
@@ -44,13 +43,6 @@ const V = {
 const TYPE_LABELS = { M:{l:"Matin",c:V.blue,bg:"#eff6ff"}, S:{l:"Après-midi",c:V.purple,bg:"#f5f3ff"}, E:{l:"Étudiant",c:"#9ca3af",bg:"#f5f7f9"} };
 const JOURS = ["LUN","MAR","MER","JEU","VEN","SAM"];
 const JOURS_FULL = ["Lundi","Mardi","Mercredi","Jeudi","Vendredi","Samedi"];
-const OFFICE_ROLE_OPTIONS = [
-  { value: "collaborateur", label: "Collaborateur" },
-  { value: "viewer", label: "Viewer lecture seule" },
-  { value: "gestionnaire", label: "Gestionnaire" },
-  { value: "manager", label: "Manager" },
-];
-const LIMITED_OFFICE_ROLE_VALUES = new Set(["collaborateur","viewer","gestionnaire"]);
 
 function compareEmployeesByName(a,b){
   return String(a?.n||"").localeCompare(String(b?.n||""),"fr");
@@ -67,6 +59,32 @@ function parseRupturesRayonsInput(value){
 
 function formatRupturesRayonsInput(value){
   return Array.isArray(value) ? value.join(", ") : "";
+}
+
+function getRhProfileUi(roleValue, typeValue){
+  const role = getRhEmployeeRoleMeta(roleValue, typeValue);
+  const isGestionnaire = role.id === "GESTIONNAIRE";
+  return {
+    role,
+    showType: !isGestionnaire,
+    showDetailedHours: !isGestionnaire,
+    showTerrainAssignments: !isGestionnaire,
+    showRuptures: !isGestionnaire,
+    showCycle: true,
+    showPlanningTypeBadge: !isGestionnaire,
+    standardHoursLabel: isGestionnaire ? "Horaire standard" : "Standard (Lun/Mer/Jeu/Ven)",
+    hoursHelp: isGestionnaire
+      ? "La gestionnaire garde un horaire standard et son cycle de repos. Elle n'est pas affectée aux rayons ni aux modules terrain."
+      : "Ces horaires sont ceux utilisés par défaut dans le planning. Des modifications ponctuelles peuvent être faites depuis le planning (par jour ou par mois).",
+  };
+}
+
+function getRhRoleValue(employee){
+  return employee?.rh_status ?? employee?.obs ?? "Collaborateur";
+}
+
+function applyRhProfilePreset(current, nextRoleLabel){
+  return { ...current, rh_status: nextRoleLabel };
 }
 
 /* ═══════════════════════════════════════════════════════════
@@ -106,12 +124,11 @@ const RoleBadge=({value,type,size="md"})=>{
 /* ═══════════════════════════════════════════════════════════
    EDIT EMPLOYEE MODAL
    ═══════════════════════════════════════════════════════════ */
-const EditEmpModal=({emp,availableRayons,onSave,onClose,onResetPin,onResetPassword,busy})=>{
-  const [d,setD]=useState({...emp});
+const EditEmpModal=({emp,availableRayons,onSave,onClose,onResetPin,busy})=>{
+  const [d,setD]=useState({...emp,module_permissions:emp.module_permissions||{}});
   const upd=(k,v)=>setD(p=>({...p,[k]:v}));
-  const roleMeta=getRhEmployeeRoleMeta(d.obs,d.t);
-  const temporaryPassword = buildTemporaryOfficePassword(d.n);
-  const canResetOfficePassword = Boolean(d.profileId);
+  const profileUi=getRhProfileUi(getRhRoleValue(d),d.t);
+  const roleMeta=profileUi.role;
   const toggleRayon=(rayon)=>{
     const current = Array.isArray(d.rayons) ? d.rayons : [];
     if(current.includes(rayon)){
@@ -131,35 +148,13 @@ const EditEmpModal=({emp,availableRayons,onSave,onClose,onResetPin,onResetPasswo
 
   const handleTypeChange=(value)=>{
     setD((current)=>{
-      const currentRole=getRhEmployeeRoleMeta(current.obs,current.t).id;
-      const nextRole=
-        value==="E"&&currentRole==="COLLABORATEUR"
-          ? getRhEmployeeRoleLabel("ETUDIANT",value)
-          : value!=="E"&&currentRole==="ETUDIANT"
-            ? getRhEmployeeRoleLabel("COLLABORATEUR",value)
-            : getRhEmployeeRoleLabel(current.obs,value);
       return {
         ...current,
         t:value,
         hs:value==="E"?null:(current.hs||"3h50-11h20"),
         hm:value==="E"?null:(current.hm||"3h00-10h30"),
         hsa:value==="E"?(current.hsa||"14h-21h30"):current.hsa,
-        obs:nextRole,
       };
-    });
-  };
-
-  const handleProfileRoleChange=(value)=>{
-    setD((current)=>{
-      const next = { ...current, profile_role:value };
-      const currentRhRole = getRhEmployeeRoleMeta(current.obs,current.t).id;
-      if(value==="gestionnaire" && currentRhRole==="COLLABORATEUR"){
-        next.obs = getRhEmployeeRoleLabel("GESTIONNAIRE", current.t);
-      }
-      if(value!=="gestionnaire" && currentRhRole==="GESTIONNAIRE"){
-        next.obs = getRhEmployeeRoleLabel("COLLABORATEUR", current.t);
-      }
-      return next;
     });
   };
 
@@ -202,23 +197,30 @@ const EditEmpModal=({emp,availableRayons,onSave,onClose,onResetPin,onResetPasswo
               <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Nom</label>
               <input value={d.n} onChange={e=>upd("n",e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.line}`,fontSize:14,fontWeight:700,outline:"none",boxSizing:"border-box"}}/>
             </div>
+            {profileUi.showType ? (
+              <div>
+                <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Type</label>
+                <select value={d.t} onChange={e=>handleTypeChange(e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.line}`,fontSize:14,fontWeight:700,outline:"none",color:TYPE_LABELS[d.t]?.c||V.body}}>
+                  <option value="M">Matin</option>
+                  <option value="S">Après-midi</option>
+                  <option value="E">Étudiant</option>
+                </select>
+              </div>
+            ) : (
+              <div style={{padding:"10px 12px",borderRadius:10,border:`1px solid ${V.line}`,background:"#f8fafc",alignSelf:"end"}}>
+                <div style={{fontSize:10,color:V.light,fontWeight:700,marginBottom:4}}>Profil bureau d&apos;équipe</div>
+                <div style={{fontSize:13,fontWeight:700,color:V.body}}>Gestionnaire</div>
+              </div>
+            )}
             <div>
-              <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Type</label>
-              <select value={d.t} onChange={e=>handleTypeChange(e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.line}`,fontSize:14,fontWeight:700,outline:"none",color:TYPE_LABELS[d.t]?.c||V.body}}>
-                <option value="M">Matin</option>
-                <option value="S">Après-midi</option>
-                <option value="E">Étudiant</option>
-              </select>
-            </div>
-            <div>
-              <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Observation / statut RH</label>
-              <select value={getRhEmployeeRoleLabel(d.obs,d.t)} onChange={e=>upd("obs",e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${roleMeta.border}`,fontSize:13,fontWeight:700,outline:"none",boxSizing:"border-box",color:roleMeta.color}}>
+              <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Statut RH</label>
+              <select value={getRhEmployeeRoleLabel(getRhRoleValue(d),d.t)} onChange={e=>setD((current)=>applyRhProfilePreset(current,e.target.value))} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${roleMeta.border}`,fontSize:13,fontWeight:700,outline:"none",boxSizing:"border-box",color:roleMeta.color}}>
                 {RH_ROLE_OPTIONS.map((role)=>(
                   <option key={role.id} value={role.label}>{role.label}</option>
                 ))}
               </select>
               <div style={{marginTop:6}}>
-                <RoleBadge value={d.obs} type={d.t}/>
+                <RoleBadge value={getRhRoleValue(d)} type={d.t}/>
               </div>
             </div>
             <div>
@@ -228,113 +230,90 @@ const EditEmpModal=({emp,availableRayons,onSave,onClose,onResetPin,onResetPasswo
                 <button onClick={()=>upd("actif",false)} style={{flex:1,padding:"8px",borderRadius:8,border:!d.actif?`2px solid ${V.red}`:`1px solid ${V.line}`,background:!d.actif?"#fef2f2":"#fafafa",color:!d.actif?V.red:V.light,fontSize:12,fontWeight:700,cursor:"pointer"}}>Inactif</button>
               </div>
             </div>
-            <div>
-              <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Accès bureau</label>
-              <select value={d.profile_role || "collaborateur"} onChange={e=>handleProfileRoleChange(e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.line}`,fontSize:14,fontWeight:700,outline:"none",boxSizing:"border-box"}}>
-                {OFFICE_ROLE_OPTIONS.map((role)=>(
-                  <option key={role.value} value={role.value}>{role.label}</option>
-                ))}
-              </select>
-              <div style={{fontSize:10,color:V.light,marginTop:6}}>
-                Définit le type d&apos;accès à l&apos;application bureau.
+            {profileUi.showRuptures ? (
+              <div>
+                <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Rayons ruptures</label>
+                <input
+                  value={formatRupturesRayonsInput(d.ruptures_rayons)}
+                  onChange={e=>upd("ruptures_rayons",parseRupturesRayonsInput(e.target.value))}
+                  placeholder="Ex: 130, 631, 633"
+                  style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.line}`,fontSize:14,fontWeight:700,outline:"none",boxSizing:"border-box"}}
+                />
+                <div style={{fontSize:10,color:V.light,marginTop:6}}>
+                  Numéros de rayons séparés par des virgules. Utilisés pour le module ruptures.
+                </div>
               </div>
-            </div>
-            <div>
-              <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Rayons ruptures</label>
-              <input
-                value={formatRupturesRayonsInput(d.ruptures_rayons)}
-                onChange={e=>upd("ruptures_rayons",parseRupturesRayonsInput(e.target.value))}
-                placeholder="Ex: 130, 631, 633"
-                style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.line}`,fontSize:14,fontWeight:700,outline:"none",boxSizing:"border-box"}}
-              />
-              <div style={{fontSize:10,color:V.light,marginTop:6}}>
-                Numéros de rayons séparés par des virgules. Utilisés pour le module ruptures.
+            ) : (
+              <div style={{padding:"10px 12px",borderRadius:10,border:`1px dashed ${V.line}`,background:"#fcfcfd",alignSelf:"end"}}>
+                <div style={{fontSize:10,color:V.light,fontWeight:700,marginBottom:4}}>Profil allégé</div>
+                <div style={{fontSize:12,color:V.muted,lineHeight:1.4}}>Pas de type, pas de rayons et pas d&apos;affectation terrain pour une gestionnaire.</div>
               </div>
-            </div>
+            )}
           </div>
-
-          {LIMITED_OFFICE_ROLE_VALUES.has(d.profile_role || "collaborateur") ? (
-            <div style={{marginBottom:18}}>
-              <ModuleSelector
-                selectedModules={Array.isArray(d.allowed_modules) ? d.allowed_modules : []}
-                onChange={(modules)=>upd("allowed_modules",modules)}
-                disabled={busy}
-              />
-            </div>
+          {profileUi.showTerrainAssignments ? (
+            <>
+              <div style={{fontSize:12,color:V.muted,fontWeight:700,marginBottom:8}}>RAYONS RESPONSABLE TG/GB</div>
+              <div style={{padding:"14px",borderRadius:14,background:"#f8fafc",border:`1px solid ${V.line}`,marginBottom:18}}>
+                <div style={{display:"grid",gap:6,maxHeight:170,overflowY:"auto",paddingRight:4}}>
+                  {availableRayons.map((rayon)=> {
+                    const checked = Array.isArray(d.rayons) && d.rayons.includes(rayon);
+                    return (
+                      <label key={rayon} style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:V.body,cursor:"pointer"}}>
+                        <input type="checkbox" checked={checked} onChange={()=>toggleRayon(rayon)} style={{accentColor:V.mc}}/>
+                        <span>{rayon}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+                <div style={{fontSize:10,color:V.light,marginTop:8}}>
+                  Cette affectation définit le responsable par défaut des rayons dans le module Plan TG.
+                </div>
+              </div>
+            </>
           ) : null}
-
-          <div style={{fontSize:12,color:V.muted,fontWeight:700,marginBottom:8}}>RAYONS RESPONSABLE TG/GB</div>
-          <div style={{padding:"14px",borderRadius:14,background:"#f8fafc",border:`1px solid ${V.line}`,marginBottom:18}}>
-            <div style={{display:"grid",gap:6,maxHeight:170,overflowY:"auto",paddingRight:4}}>
-              {availableRayons.map((rayon)=> {
-                const checked = Array.isArray(d.rayons) && d.rayons.includes(rayon);
-                return (
-                  <label key={rayon} style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:V.body,cursor:"pointer"}}>
-                    <input type="checkbox" checked={checked} onChange={()=>toggleRayon(rayon)} style={{accentColor:V.mc}}/>
-                    <span>{rayon}</span>
-                  </label>
-                );
-              })}
-            </div>
-            <div style={{fontSize:10,color:V.light,marginTop:8}}>
-              Cette affectation définit le responsable par défaut des rayons dans le module Plan TG.
-            </div>
-          </div>
 
           {/* Horaires par défaut */}
           <div style={{fontSize:12,color:V.muted,fontWeight:700,marginBottom:8}}>HORAIRES PAR DÉFAUT</div>
           <div style={{padding:"16px",borderRadius:14,background:"#f8fafc",border:`1px solid ${V.line}`,marginBottom:18}}>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
+            <div style={{display:"grid",gridTemplateColumns:profileUi.showDetailedHours?"1fr 1fr 1fr":"1fr",gap:12}}>
               <div>
-                <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Standard (Lun/Mer/Jeu/Ven)</label>
+                <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>{profileUi.standardHoursLabel}</label>
                 <input value={d.hs||""} onChange={e=>upd("hs",e.target.value)} placeholder="Ex: 3h50-11h20"
                   style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.mc}25`,fontSize:14,fontWeight:700,outline:"none",boxSizing:"border-box",color:V.mc}}/>
               </div>
-              <div>
-                <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Mardi</label>
-                <input value={d.hm||""} onChange={e=>upd("hm",e.target.value)} placeholder="Ex: 3h00-10h30"
-                  style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.amber}25`,fontSize:14,fontWeight:700,outline:"none",boxSizing:"border-box",color:V.amber}}/>
-              </div>
-              <div>
-                <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Samedi</label>
-                <input value={d.hsa||""} onChange={e=>upd("hsa",e.target.value)} placeholder="Ex: 14h-21h30"
-                  style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.purple}25`,fontSize:14,fontWeight:700,outline:"none",boxSizing:"border-box",color:V.purple}}/>
-              </div>
+              {profileUi.showDetailedHours ? (
+                <>
+                  <div>
+                    <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Mardi</label>
+                    <input value={d.hm||""} onChange={e=>upd("hm",e.target.value)} placeholder="Ex: 3h00-10h30"
+                      style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.amber}25`,fontSize:14,fontWeight:700,outline:"none",boxSizing:"border-box",color:V.amber}}/>
+                  </div>
+                  <div>
+                    <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Samedi</label>
+                    <input value={d.hsa||""} onChange={e=>upd("hsa",e.target.value)} placeholder="Ex: 14h-21h30"
+                      style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.purple}25`,fontSize:14,fontWeight:700,outline:"none",boxSizing:"border-box",color:V.purple}}/>
+                  </div>
+                </>
+              ) : null}
             </div>
             <div style={{fontSize:10,color:V.light,marginTop:8}}>
-              Ces horaires sont ceux utilisés par défaut dans le planning. Des modifications ponctuelles peuvent être faites depuis le planning (par jour ou par mois).
+              {profileUi.hoursHelp}
             </div>
           </div>
         </div>
         <div style={{padding:"14px 24px",borderTop:`1px solid ${V.line}`,background:"#fff",display:"flex",gap:8,justifyContent:"flex-end",flexShrink:0}}>
-          <div style={{marginRight:"auto",display:"grid",gap:8}}>
-            <div style={{display:"flex",alignItems:"center",gap:8,flexWrap:"wrap"}}>
-              <button
-                onClick={()=>onResetPin?.(d)}
-                disabled={busy||!d.dbId}
-                style={{
-                  padding:"10px 16px",borderRadius:10,border:`1px solid ${V.line}`,
-                  background:"#f8fafc",color:V.body,cursor:busy||!d.dbId?"not-allowed":"pointer",
-                  fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:8,opacity:busy||!d.dbId?0.6:1,
-                }}
-              >
-                {IC.key(V.body,14)} Réinitialiser le PIN
-              </button>
-              <button
-                onClick={()=>onResetPassword?.(d)}
-                disabled={busy||!canResetOfficePassword}
-                style={{
-                  padding:"10px 16px",borderRadius:10,border:`1px solid ${V.mc}25`,
-                  background:"#f0fdfa",color:V.mc,cursor:busy||!canResetOfficePassword?"not-allowed":"pointer",
-                  fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:8,opacity:busy||!canResetOfficePassword?0.6:1,
-                }}
-              >
-                {IC.key(V.mc,14)} Réinitialiser le mot de passe
-              </button>
-            </div>
-            <div style={{fontSize:11,color:V.light}}>
-              Mot de passe temporaire : <strong style={{color:V.mc,fontWeight:700}}>{temporaryPassword}</strong>
-            </div>
+          <div style={{marginRight:"auto"}}>
+            <button
+              onClick={()=>onResetPin?.(d)}
+              disabled={busy||!d.dbId}
+              style={{
+                padding:"10px 16px",borderRadius:10,border:`1px solid ${V.line}`,
+                background:"#f8fafc",color:V.body,cursor:busy||!d.dbId?"not-allowed":"pointer",
+                fontSize:13,fontWeight:700,display:"flex",alignItems:"center",gap:8,opacity:busy||!d.dbId?0.6:1,
+              }}
+            >
+              {IC.key(V.body,14)} Réinitialiser le PIN
+            </button>
           </div>
           <button onClick={onClose} disabled={busy} style={{padding:"10px 20px",borderRadius:10,border:`1px solid ${V.line}`,background:"#fafafa",color:V.muted,cursor:busy?"not-allowed":"pointer",fontSize:13,opacity:busy?0.6:1}}>Annuler</button>
           <button onClick={()=>onSave(d)} disabled={busy} style={{padding:"10px 24px",borderRadius:10,border:"none",background:V.mc,color:"#fff",cursor:busy?"not-allowed":"pointer",fontSize:13,fontWeight:700,opacity:busy?0.7:1}}>Enregistrer</button>
@@ -367,36 +346,6 @@ const ResetPinModal=({employee,onCancel,onConfirm,busy})=>{
         <div style={{padding:"14px 24px",borderTop:`1px solid ${V.line}`,display:"flex",gap:8,justifyContent:"flex-end"}}>
           <button onClick={onCancel} disabled={busy} style={{padding:"10px 20px",borderRadius:10,border:`1px solid ${V.line}`,background:"#fafafa",color:V.muted,cursor:busy?"not-allowed":"pointer",fontSize:13,opacity:busy?0.6:1}}>Annuler</button>
           <button onClick={onConfirm} disabled={busy} style={{padding:"10px 18px",borderRadius:10,border:`1px solid ${V.mc}25`,background:V.mG,color:V.mc,cursor:busy?"not-allowed":"pointer",fontSize:13,fontWeight:700,opacity:busy?0.7:1}}>Réinitialiser le PIN</button>
-        </div>
-      </div>
-    </div>
-  );
-};
-
-const ResetPasswordModal=({employee,onCancel,onConfirm,busy})=>{
-  if(!employee) return null;
-  const temporaryPassword = buildTemporaryOfficePassword(employee.n);
-  return(
-    <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,zIndex:1100}} onClick={busy?undefined:onCancel}>
-      <div onClick={e=>e.stopPropagation()} style={{background:"#fff",borderRadius:20,width:"min(460px, calc(100vw - 32px))",boxShadow:"0 24px 48px rgba(0,0,0,0.18)",overflow:"hidden"}}>
-        <div style={{padding:"20px 24px",borderBottom:`1px solid ${V.line}`,background:"#fcfffe"}}>
-          <div style={{display:"flex",alignItems:"center",gap:10}}>
-            <div style={{width:42,height:42,borderRadius:14,background:V.mM,display:"flex",alignItems:"center",justifyContent:"center"}}>{IC.key(V.mc,18)}</div>
-            <div>
-              <div style={{fontSize:16,fontWeight:700,color:V.text}}>Réinitialiser le mot de passe</div>
-              <div style={{fontSize:12,color:V.muted,marginTop:2}}>Accès bureau temporaire</div>
-            </div>
-          </div>
-        </div>
-        <div style={{padding:"20px 24px",fontSize:14,lineHeight:1.6,color:V.body}}>
-          Réinitialiser le mot de passe bureau de <strong>{employee.n}</strong> ?
-          <div style={{marginTop:8,color:V.muted}}>
-            Le mot de passe temporaire sera <strong style={{color:V.mc}}>{temporaryPassword}</strong> et la prochaine connexion repassera par le changement de mot de passe.
-          </div>
-        </div>
-        <div style={{padding:"14px 24px",borderTop:`1px solid ${V.line}`,display:"flex",gap:8,justifyContent:"flex-end"}}>
-          <button onClick={onCancel} disabled={busy} style={{padding:"10px 20px",borderRadius:10,border:`1px solid ${V.line}`,background:"#fafafa",color:V.muted,cursor:busy?"not-allowed":"pointer",fontSize:13,opacity:busy?0.6:1}}>Annuler</button>
-          <button onClick={onConfirm} disabled={busy} style={{padding:"10px 18px",borderRadius:10,border:`1px solid ${V.mc}25`,background:V.mG,color:V.mc,cursor:busy?"not-allowed":"pointer",fontSize:13,fontWeight:700,opacity:busy?0.7:1}}>Réinitialiser le mot de passe</button>
         </div>
       </div>
     </div>
@@ -466,16 +415,16 @@ const NewEmpModal=({availableRayons,onSave,onClose})=>{
     hm:"3h00-10h30",
     hsa:null,
     obs:"Collaborateur",
+    rh_status:"Collaborateur",
     actif:true,
     photo:null,
     rayons:[],
     ruptures_rayons:[],
-    profile_role:"collaborateur",
-    allowed_modules:[],
   });
   const [cycle,setCycle]=useState(["LUN","LUN","LUN","LUN","LUN"]);
   const upd=(k,v)=>setD(p=>({...p,[k]:v}));
-  const roleMeta=getRhEmployeeRoleMeta(d.obs,d.t);
+  const profileUi=getRhProfileUi(getRhRoleValue(d),d.t);
+  const roleMeta=profileUi.role;
   const toggleRayon=(rayon)=>{
     const current = Array.isArray(d.rayons) ? d.rayons : [];
     if(current.includes(rayon)){
@@ -487,20 +436,12 @@ const NewEmpModal=({availableRayons,onSave,onClose})=>{
 
   const handleTypeChange=(value)=>{
     setD((current)=>{
-      const currentRole=getRhEmployeeRoleMeta(current.obs,current.t).id;
-      const nextRole=
-        value==="E"&&currentRole==="COLLABORATEUR"
-          ? getRhEmployeeRoleLabel("ETUDIANT",value)
-          : value!=="E"&&currentRole==="ETUDIANT"
-            ? getRhEmployeeRoleLabel("COLLABORATEUR",value)
-            : getRhEmployeeRoleLabel(current.obs,value);
       return {
         ...current,
         t:value,
         hs:value==="E"?null:(current.hs||"3h50-11h20"),
         hm:value==="E"?null:(current.hm||"3h00-10h30"),
         hsa:value==="E"?(current.hsa||"14h-21h30"):current.hsa,
-        obs:nextRole,
       };
     });
   };
@@ -514,20 +455,6 @@ const NewEmpModal=({availableRayons,onSave,onClose})=>{
   };
 
   const canSave = d.n.trim().length > 1;
-
-  const handleProfileRoleChange=(value)=>{
-    setD((current)=>{
-      const next = { ...current, profile_role:value };
-      const currentRhRole = getRhEmployeeRoleMeta(current.obs,current.t).id;
-      if(value==="gestionnaire" && currentRhRole==="COLLABORATEUR"){
-        next.obs = getRhEmployeeRoleLabel("GESTIONNAIRE", current.t);
-      }
-      if(value!=="gestionnaire" && currentRhRole==="GESTIONNAIRE"){
-        next.obs = getRhEmployeeRoleLabel("COLLABORATEUR", current.t);
-      }
-      return next;
-    });
-  };
 
   return(
     <div style={{position:"fixed",inset:0,background:"rgba(0,0,0,0.35)",display:"flex",alignItems:"center",justifyContent:"center",padding:16,overflowY:"auto",zIndex:1000}} onClick={onClose}>
@@ -552,23 +479,30 @@ const NewEmpModal=({availableRayons,onSave,onClose})=>{
               <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Nom</label>
               <input value={d.n} onChange={e=>upd("n",e.target.value.toUpperCase())} placeholder="Ex: NOUVEL EMPLOYE" style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.line}`,fontSize:14,fontWeight:700,outline:"none",boxSizing:"border-box"}}/>
             </div>
+            {profileUi.showType ? (
+              <div>
+                <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Type</label>
+                <select value={d.t} onChange={e=>handleTypeChange(e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.line}`,fontSize:14,fontWeight:700,outline:"none",color:TYPE_LABELS[d.t]?.c||V.body}}>
+                  <option value="M">Matin</option>
+                  <option value="S">Apres-midi</option>
+                  <option value="E">Etudiant</option>
+                </select>
+              </div>
+            ) : (
+              <div style={{padding:"10px 12px",borderRadius:10,border:`1px solid ${V.line}`,background:"#f8fafc",alignSelf:"end"}}>
+                <div style={{fontSize:10,color:V.light,fontWeight:700,marginBottom:4}}>Profil bureau d&apos;équipe</div>
+                <div style={{fontSize:13,fontWeight:700,color:V.body}}>Gestionnaire</div>
+              </div>
+            )}
             <div>
-              <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Type</label>
-              <select value={d.t} onChange={e=>handleTypeChange(e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.line}`,fontSize:14,fontWeight:700,outline:"none",color:TYPE_LABELS[d.t]?.c||V.body}}>
-                <option value="M">Matin</option>
-                <option value="S">Apres-midi</option>
-                <option value="E">Etudiant</option>
-              </select>
-            </div>
-            <div>
-              <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Observation / statut RH</label>
-              <select value={getRhEmployeeRoleLabel(d.obs,d.t)} onChange={e=>upd("obs",e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${roleMeta.border}`,fontSize:13,fontWeight:700,outline:"none",boxSizing:"border-box",color:roleMeta.color}}>
+              <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Statut RH</label>
+              <select value={getRhEmployeeRoleLabel(getRhRoleValue(d),d.t)} onChange={e=>setD((current)=>applyRhProfilePreset(current,e.target.value))} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${roleMeta.border}`,fontSize:13,fontWeight:700,outline:"none",boxSizing:"border-box",color:roleMeta.color}}>
                 {RH_ROLE_OPTIONS.map((role)=>(
                   <option key={role.id} value={role.label}>{role.label}</option>
                 ))}
               </select>
               <div style={{marginTop:6}}>
-                <RoleBadge value={d.obs} type={d.t}/>
+                <RoleBadge value={getRhRoleValue(d)} type={d.t}/>
               </div>
             </div>
             <div>
@@ -578,72 +512,70 @@ const NewEmpModal=({availableRayons,onSave,onClose})=>{
                 <button onClick={()=>upd("actif",false)} style={{flex:1,padding:"8px",borderRadius:8,border:!d.actif?`2px solid ${V.red}`:`1px solid ${V.line}`,background:!d.actif?"#fef2f2":"#fafafa",color:!d.actif?V.red:V.light,fontSize:12,fontWeight:700,cursor:"pointer"}}>Inactif</button>
               </div>
             </div>
-            <div>
-              <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Accès bureau</label>
-              <select value={d.profile_role} onChange={e=>handleProfileRoleChange(e.target.value)} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.line}`,fontSize:14,fontWeight:700,outline:"none",boxSizing:"border-box"}}>
-                {OFFICE_ROLE_OPTIONS.map((role)=>(
-                  <option key={role.value} value={role.value}>{role.label}</option>
-                ))}
-              </select>
-              <div style={{fontSize:10,color:V.light,marginTop:6}}>
-                Collaborateur, viewer et gestionnaire peuvent recevoir un accès bureau limité module par module.
+            {profileUi.showRuptures ? (
+              <div>
+                <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Rayons ruptures</label>
+                <input
+                  value={formatRupturesRayonsInput(d.ruptures_rayons)}
+                  onChange={e=>upd("ruptures_rayons",parseRupturesRayonsInput(e.target.value))}
+                  placeholder="Ex: 130, 631, 633"
+                  style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.line}`,fontSize:14,fontWeight:700,outline:"none",boxSizing:"border-box"}}
+                />
+                <div style={{fontSize:10,color:V.light,marginTop:6}}>
+                  Numéros de rayons séparés par des virgules. Utilisés pour le module ruptures.
+                </div>
               </div>
-            </div>
-            <div>
-              <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Rayons ruptures</label>
-              <input
-                value={formatRupturesRayonsInput(d.ruptures_rayons)}
-                onChange={e=>upd("ruptures_rayons",parseRupturesRayonsInput(e.target.value))}
-                placeholder="Ex: 130, 631, 633"
-                style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.line}`,fontSize:14,fontWeight:700,outline:"none",boxSizing:"border-box"}}
-              />
-              <div style={{fontSize:10,color:V.light,marginTop:6}}>
-                Numéros de rayons séparés par des virgules. Utilisés pour le module ruptures.
+            ) : (
+              <div style={{padding:"10px 12px",borderRadius:10,border:`1px dashed ${V.line}`,background:"#fcfcfd",alignSelf:"end"}}>
+                <div style={{fontSize:10,color:V.light,fontWeight:700,marginBottom:4}}>Profil allégé</div>
+                <div style={{fontSize:12,color:V.muted,lineHeight:1.4}}>Pas de type, pas de rayons et pas d&apos;affectation terrain pour une gestionnaire.</div>
               </div>
-            </div>
+            )}
           </div>
-
-          {LIMITED_OFFICE_ROLE_VALUES.has(d.profile_role || "collaborateur") ? (
-            <div style={{marginBottom:18}}>
-              <ModuleSelector
-                selectedModules={Array.isArray(d.allowed_modules) ? d.allowed_modules : []}
-                onChange={(modules)=>upd("allowed_modules",modules)}
-              />
-            </div>
-          ) : null}
 
           <div style={{fontSize:12,color:V.muted,fontWeight:700,marginBottom:8}}>HORAIRES PAR DEFAUT</div>
           <div style={{padding:"16px",borderRadius:14,background:"#f8fafc",border:`1px solid ${V.line}`,marginBottom:18}}>
-            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:12}}>
+            <div style={{display:"grid",gridTemplateColumns:profileUi.showDetailedHours?"1fr 1fr 1fr":"1fr",gap:12}}>
               <div>
-                <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Standard</label>
+                <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>{profileUi.standardHoursLabel}</label>
                 <input value={d.hs||""} onChange={e=>upd("hs",e.target.value)} disabled={d.t==="E"} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.mc}25`,fontSize:14,fontWeight:700,outline:"none",boxSizing:"border-box",color:V.mc,opacity:d.t==="E"?0.5:1}}/>
               </div>
-              <div>
-                <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Mardi</label>
-                <input value={d.hm||""} onChange={e=>upd("hm",e.target.value)} disabled={d.t==="E"} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.amber}25`,fontSize:14,fontWeight:700,outline:"none",boxSizing:"border-box",color:V.amber,opacity:d.t==="E"?0.5:1}}/>
-              </div>
-              <div>
-                <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Samedi</label>
-                <input value={d.hsa||""} onChange={e=>upd("hsa",e.target.value)} placeholder="Ex: 14h-21h30" style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.purple}25`,fontSize:14,fontWeight:700,outline:"none",boxSizing:"border-box",color:V.purple}}/>
-              </div>
+              {profileUi.showDetailedHours ? (
+                <>
+                  <div>
+                    <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Mardi</label>
+                    <input value={d.hm||""} onChange={e=>upd("hm",e.target.value)} disabled={d.t==="E"} style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.amber}25`,fontSize:14,fontWeight:700,outline:"none",boxSizing:"border-box",color:V.amber,opacity:d.t==="E"?0.5:1}}/>
+                  </div>
+                  <div>
+                    <label style={{fontSize:11,color:V.muted,fontWeight:600,display:"block",marginBottom:3}}>Samedi</label>
+                    <input value={d.hsa||""} onChange={e=>upd("hsa",e.target.value)} placeholder="Ex: 14h-21h30" style={{width:"100%",padding:"10px 12px",borderRadius:10,border:`2px solid ${V.purple}25`,fontSize:14,fontWeight:700,outline:"none",boxSizing:"border-box",color:V.purple}}/>
+                  </div>
+                </>
+              ) : null}
+            </div>
+            <div style={{fontSize:10,color:V.light,marginTop:8}}>
+              {profileUi.hoursHelp}
             </div>
           </div>
 
-          <div style={{fontSize:12,color:V.muted,fontWeight:700,marginBottom:8}}>RAYONS RESPONSABLE TG/GB</div>
-          <div style={{padding:"14px",borderRadius:14,background:"#f8fafc",border:`1px solid ${V.line}`,marginBottom:18}}>
-            <div style={{display:"grid",gap:6,maxHeight:170,overflowY:"auto",paddingRight:4}}>
-              {availableRayons.map((rayon)=> {
-                const checked = Array.isArray(d.rayons) && d.rayons.includes(rayon);
-                return (
-                  <label key={rayon} style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:V.body,cursor:"pointer"}}>
-                    <input type="checkbox" checked={checked} onChange={()=>toggleRayon(rayon)} style={{accentColor:V.mc}}/>
-                    <span>{rayon}</span>
-                  </label>
-                );
-              })}
-            </div>
-          </div>
+          {profileUi.showTerrainAssignments ? (
+            <>
+              <div style={{fontSize:12,color:V.muted,fontWeight:700,marginBottom:8}}>RAYONS RESPONSABLE TG/GB</div>
+              <div style={{padding:"14px",borderRadius:14,background:"#f8fafc",border:`1px solid ${V.line}`,marginBottom:18}}>
+                <div style={{display:"grid",gap:6,maxHeight:170,overflowY:"auto",paddingRight:4}}>
+                  {availableRayons.map((rayon)=> {
+                    const checked = Array.isArray(d.rayons) && d.rayons.includes(rayon);
+                    return (
+                      <label key={rayon} style={{display:"flex",alignItems:"center",gap:8,fontSize:12,color:V.body,cursor:"pointer"}}>
+                        <input type="checkbox" checked={checked} onChange={()=>toggleRayon(rayon)} style={{accentColor:V.mc}}/>
+                        <span>{rayon}</span>
+                      </label>
+                    );
+                  })}
+                </div>
+              </div>
+            </>
+          ) : null}
 
           <div style={{fontSize:12,color:V.muted,fontWeight:700,marginBottom:8}}>CYCLE REPOS (5 SEMAINES)</div>
           <div style={{display:"grid",gap:8}}>
@@ -675,7 +607,8 @@ const NewEmpModal=({availableRayons,onSave,onClose})=>{
    ═══════════════════════════════════════════════════════════ */
 const EmpCard=({emp,cycle,onEditEmp,onEditCycle})=>{
   const tl=TYPE_LABELS[emp.t];
-  const roleMeta=getRhEmployeeRoleMeta(emp.obs,emp.t);
+  const profileUi=getRhProfileUi(getRhRoleValue(emp),emp.t);
+  const roleMeta=profileUi.role;
   return(
     <Card style={{padding:0,overflow:"hidden",opacity:emp.actif?1:0.55}}>
       {/* Header */}
@@ -684,8 +617,10 @@ const EmpCard=({emp,cycle,onEditEmp,onEditCycle})=>{
         <div style={{flex:1}}>
           <div style={{display:"flex",alignItems:"center",gap:8}}>
             <span style={{fontSize:16,fontWeight:700,color:V.text}}>{emp.n}</span>
-            <span style={{fontSize:10,fontWeight:700,color:tl.c,background:tl.bg,padding:"2px 10px",borderRadius:8,border:`1px solid ${tl.c}15`}}>{tl.l}</span>
-            <RoleBadge value={emp.obs} type={emp.t}/>
+            {profileUi.showPlanningTypeBadge ? (
+              <span style={{fontSize:10,fontWeight:700,color:tl.c,background:tl.bg,padding:"2px 10px",borderRadius:8,border:`1px solid ${tl.c}15`}}>{tl.l}</span>
+            ) : null}
+            <RoleBadge value={getRhRoleValue(emp)} type={emp.t}/>
             {!emp.actif&&<span style={{fontSize:10,fontWeight:700,color:V.red,background:"#fef2f2",padding:"2px 10px",borderRadius:8}}>Inactif</span>}
           </div>
           <div style={{fontSize:12,color:V.muted,marginTop:1}}>Statut RH : <span style={{fontWeight:700,color:roleMeta.color}}>{roleMeta.label}</span></div>
@@ -699,8 +634,10 @@ const EmpCard=({emp,cycle,onEditEmp,onEditCycle})=>{
         <div style={{display:"flex",gap:8}}>
           {[
             {l:"Standard",v:emp.hs,c:V.mc},
-            {l:"Mardi",v:emp.hm,c:V.amber},
-            {l:"Samedi",v:emp.hsa||emp.hs,c:V.purple},
+            ...(profileUi.showDetailedHours ? [
+              {l:"Mardi",v:emp.hm,c:V.amber},
+              {l:"Samedi",v:emp.hsa||emp.hs,c:V.purple},
+            ] : []),
           ].map(h=>h.v?(
             <div key={h.l} style={{flex:1,padding:"6px 10px",borderRadius:8,background:`${h.c}08`,border:`1px solid ${h.c}15`,textAlign:"center"}}>
               <div style={{fontSize:9,fontWeight:700,color:h.c,marginBottom:2}}>{h.l}</div>
@@ -764,7 +701,7 @@ const CycleOverview=({emps,cycles,onEditCycle})=>{
                 <tr key={emp.n} style={{background:"#fff"}} onMouseEnter={e=>e.currentTarget.style.background="#fafbfc"} onMouseLeave={e=>e.currentTarget.style.background="#fff"}>
                   <td style={{padding:"10px 14px",fontSize:13,fontWeight:700,borderBottom:`1px solid ${V.line}`,position:"sticky",left:0,background:"inherit",zIndex:2}}>
                     <div style={{display:"flex",alignItems:"center",gap:6}}>
-                      <span style={{width:8,height:8,borderRadius:99,background:getRhEmployeeRoleMeta(emp.obs,emp.t).color}}/>{emp.n}
+                      <span style={{width:8,height:8,borderRadius:99,background:getRhEmployeeRoleMeta(getRhRoleValue(emp),emp.t).color}}/>{emp.n}
                     </div>
                   </td>
                   {cy.map((jour,i)=>{
@@ -828,7 +765,6 @@ export default function RHModule(){
   const [error,setError]=useState("");
   const [success,setSuccess]=useState("");
   const [resetPinFor,setResetPinFor]=useState(null);
-  const [resetPasswordFor,setResetPasswordFor]=useState(null);
   const availableRayons = useMemo(
     ()=>[...tgRayons]
       .filter((rayon)=>rayon.active)
@@ -848,6 +784,24 @@ export default function RHModule(){
   const refreshFromStores = () => {
     const refreshedAssignments = loadTgDefaultAssignments();
     setEmps(attachTgRayonsToEmployees(loadRhEmployees(), refreshedAssignments));
+    setCycles(loadRhCycles());
+    setTgRayons(loadTgRayons());
+    setTgAssignments(refreshedAssignments);
+  };
+
+  const replaceEmployeeLocally = (nextEmployee, previousName) => {
+    const currentEmployees = loadRhEmployees();
+    const nextEmployees = currentEmployees
+      .map((employee) => (employee.dbId === nextEmployee.dbId ? nextEmployee : employee))
+      .sort(compareEmployeesByName);
+    saveRhEmployees(nextEmployees);
+
+    if (previousName && previousName !== nextEmployee.n) {
+      renameRhCycleCache(previousName, nextEmployee.n);
+    }
+
+    const refreshedAssignments = loadTgDefaultAssignments();
+    setEmps(attachTgRayonsToEmployees(nextEmployees, refreshedAssignments));
     setCycles(loadRhCycles());
     setTgRayons(loadTgRayons());
     setTgAssignments(refreshedAssignments);
@@ -889,29 +843,14 @@ export default function RHModule(){
   }, []);
 
   const saveEmp=async(updated)=>{
-    let previousName = updated.n;
     setBusy(true);
     setError("");
     setSuccess("");
     try {
-      const current = emps.find((item)=>item.id===updated.id);
-      previousName = current?.n ?? updated.n;
-      const synced = await updateRhEmployeeInSupabase(updated);
-      setEmps((p)=>p.map((employee)=>employee.id===updated.id?{...synced,rayons:updated.rayons}:employee));
-
-      if (previousName !== synced.n) {
-        setCycles((p)=>{
-          const next = { ...p };
-          const existing = next[previousName];
-          if (existing) {
-            delete next[previousName];
-            next[synced.n] = existing;
-          }
-          return next;
-        });
-        renameRhCycleCache(previousName, synced.n);
-      }
-
+      const previousName = editEmp?.n || updated.n;
+      const savedEmployee = await updateRhEmployeeInSupabase(updated);
+      replaceEmployeeLocally(savedEmployee, previousName);
+      await syncRhFromSupabase();
       refreshFromStores();
       setEditEmp(null);
     } catch (err) {
@@ -931,8 +870,9 @@ export default function RHModule(){
     setError("");
     setSuccess("");
     try {
-      const syncedCycle = await saveRhCycleInSupabase(employee,newCycle);
-      setCycles((p)=>({...p,[name]:syncedCycle}));
+      await saveRhCycleInSupabase(employee,newCycle);
+      await syncRhFromSupabase();
+      setCycles((p)=>({...p,[name]:newCycle}));
       setEditCycleFor(null);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur Supabase.");
@@ -953,14 +893,8 @@ export default function RHModule(){
         n: name,
         cycle: payload.cycle,
       });
-      const nextEmp = created.employee;
-      setEmps((current)=>(
-        current.some((item)=>item.dbId===nextEmp.dbId)
-          ? current.map((item)=>item.dbId===nextEmp.dbId?{...nextEmp,rayons:payload.rayons}:item)
-          : [...current,{...nextEmp,rayons:payload.rayons}]
-      ));
-      setCycles((current)=>({ ...current, [name]: payload.cycle }));
-      setSuccess(`Collaborateur cree. Identifiant : ${created.email}. PIN initial : ${created.initialPin}`);
+      await syncRhFromSupabase();
+      setSuccess(`Fiche RH créée pour ${name}. PIN initial : ${created.initialPin}.`);
       refreshFromStores();
       setNewEmpOpen(false);
     } catch (err) {
@@ -972,14 +906,6 @@ export default function RHModule(){
 
   const requestResetPin=(employee)=>{
     setResetPinFor(employee);
-    setResetPasswordFor(null);
-    setError("");
-    setSuccess("");
-  };
-
-  const requestResetPassword=(employee)=>{
-    setResetPasswordFor(employee);
-    setResetPinFor(null);
     setError("");
     setSuccess("");
   };
@@ -1009,37 +935,10 @@ export default function RHModule(){
     }
   };
 
-  const confirmResetPassword=async()=>{
-    if(!resetPasswordFor?.profileId || busy) return;
-    setBusy(true);
-    setError("");
-    setSuccess("");
-    try{
-      const response = await fetch("/api/manager/reset-office-password",{
-        method:"POST",
-        headers:{"Content-Type":"application/json"},
-        body:JSON.stringify({
-          profile_id:resetPasswordFor.profileId,
-          employee_name:resetPasswordFor.n,
-        }),
-      });
-      const payload = await response.json().catch(()=>({}));
-      if(!response.ok){
-        throw new Error(payload?.error || "Erreur lors de la reinitialisation du mot de passe");
-      }
-      setSuccess(`Mot de passe réinitialisé pour ${resetPasswordFor.n}. Temporaire : ${payload?.temporaryPassword || buildTemporaryOfficePassword(resetPasswordFor.n)}.`);
-      setResetPasswordFor(null);
-      setEditEmp(null);
-    }catch(err){
-      setError(err instanceof Error ? err.message : "Erreur lors de la reinitialisation du mot de passe");
-    }finally{
-      setBusy(false);
-    }
-  };
-
-  const mCount=emps.filter(e=>e.t==="M"&&e.actif).length;
-  const sCount=emps.filter(e=>e.t==="S"&&e.actif).length;
-  const eCount=emps.filter(e=>e.t==="E"&&e.actif).length;
+  const terrainEmployees = emps.filter((employee)=>getRhEmployeeRoleMeta(getRhRoleValue(employee),employee.t).id!=="GESTIONNAIRE");
+  const mCount=terrainEmployees.filter(e=>e.t==="M"&&e.actif).length;
+  const sCount=terrainEmployees.filter(e=>e.t==="S"&&e.actif).length;
+  const eCount=terrainEmployees.filter(e=>e.t==="E"&&e.actif).length;
   const inactifCount=emps.filter(e=>!e.actif).length;
 
   return(
@@ -1132,11 +1031,10 @@ export default function RHModule(){
       </div>
 
       {/* MODALS */}
-        {editEmp&&<EditEmpModal emp={editEmp} availableRayons={availableRayons} onSave={saveEmp} onClose={()=>setEditEmp(null)} onResetPin={requestResetPin} onResetPassword={requestResetPassword} busy={busy}/>}
+        {editEmp&&<EditEmpModal emp={editEmp} availableRayons={availableRayons} onSave={saveEmp} onClose={()=>setEditEmp(null)} onResetPin={requestResetPin} busy={busy}/>}
       {editCycleFor&&<EditCycleModal empName={editCycleFor} cycle={cycles[editCycleFor]||["LUN","LUN","LUN","LUN","LUN"]} onSave={c=>saveCycle(editCycleFor,c)} onClose={()=>setEditCycleFor(null)} busy={busy}/>}
       {newEmpOpen&&<NewEmpModal availableRayons={availableRayons} onSave={createEmp} onClose={()=>setNewEmpOpen(false)}/>}
         {resetPinFor&&<ResetPinModal employee={resetPinFor} onCancel={()=>setResetPinFor(null)} onConfirm={confirmResetPin} busy={busy}/>}
-        {resetPasswordFor&&<ResetPasswordModal employee={resetPasswordFor} onCancel={()=>setResetPasswordFor(null)} onConfirm={confirmResetPassword} busy={busy}/>}
     </div>
   );
 }

@@ -4,6 +4,7 @@ import {
   type BalisageEmployeeStat,
 } from "@/lib/balisage-data";
 import { hasBrowserWindow, purgeLegacyCacheKeys } from "@/lib/browser-cache";
+import { assertOfficeModuleWriteAccess } from "@/lib/office-module-access";
 import { isRhEmployeeExcludedFromBalisage } from "@/lib/rh-status";
 import { createClient } from "@/lib/supabase";
 
@@ -54,12 +55,12 @@ function normalizeEmployeeName(value: unknown) {
   return String(value ?? "").trim().toUpperCase();
 }
 
-function isTrackedBalisageEmployee(employee: { type?: string | null; observation?: string | null }) {
+function isTrackedBalisageEmployee(employee: { type?: string | null; observation?: string | null; rh_status?: string | null }) {
   const type = normalizeEmployeeName(employee.type);
-  return type !== "ETUDIANT" && !isRhEmployeeExcludedFromBalisage(employee.observation, type);
+  return type !== "ETUDIANT" && !isRhEmployeeExcludedFromBalisage(employee.rh_status ?? employee.observation, type);
 }
 
-function createEmptyBalisageDataset(employeeRows: Array<{ name?: string | null; type?: string | null; observation?: string | null }>) {
+function createEmptyBalisageDataset(employeeRows: Array<{ name?: string | null; type?: string | null; observation?: string | null; rh_status?: string | null }>) {
   const trackedNames = employeeRows
     .filter((employee) => isTrackedBalisageEmployee(employee))
     .map((employee) => normalizeEmployeeName(employee.name))
@@ -104,6 +105,7 @@ export async function saveBalisageEntryToSupabase(
 ): Promise<boolean> {
   if (!hasBrowserWindow()) return false;
   try {
+    await assertOfficeModuleWriteAccess("balisage", "Action reservee aux profils pouvant modifier le balisage.");
     const supabase = createClient();
 
     // Si le cache est vide (page rechargée sans sync), on le recharge
@@ -140,7 +142,7 @@ export async function syncBalisageFromSupabase() {
     const supabase = createClient();
     const { data: employeeRows, error: employeeError } = await supabase
       .from("employees")
-      .select("id,name,type,observation")
+      .select("id,name,type,observation,rh_status")
       .limit(5000);
     if (employeeError) throw employeeError;
     if (!employeeRows || employeeRows.length === 0) return false;

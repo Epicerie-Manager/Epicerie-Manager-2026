@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase";
+import { assertOfficeModuleWriteAccess } from "@/lib/office-module-access";
 import {
   defaultPresenceThresholds,
   normalizePresenceThresholds,
@@ -111,6 +112,7 @@ export async function savePresenceThresholdsToSupabase(input: PresenceThresholds
   const normalized = normalizePresenceThresholds(input);
 
   try {
+    await assertOfficeModuleWriteAccess("planning", "Action reservee aux profils pouvant modifier les seuils de presence.");
     const supabase = createClient();
     const { error } = await supabase
       .from("presence_thresholds")

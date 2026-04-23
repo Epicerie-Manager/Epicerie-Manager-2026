@@ -21,12 +21,28 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v1.2.0 - 2026-04-23
+
+- RH / Fiches employes : refonte du flux de creation et d'edition pour les statuts `Collaborateur`, `Coordinateur` et `Gestionnaire`, avec affichage conditionnel des sections utiles selon le statut.
+- Admin / Acces bureau : ajout d'un espace de gestion dedie pour creer ou modifier les acces bureau (comptes lies RH et comptes externes), avec permissions module par module en lecture/ecriture.
+- Planning / Vue mois : correction du rendu sticky (entete dates + effectifs) et stabilisation de la lisibilite pendant le scroll, sans refonte de la structure du tableau.
+- Absences / Validation : correction de l'erreur `Cannot coerce the result to a single JSON object` lors de l'approbation manager.
+- Balisage / Tableau mensuel editable : ajout de la colonne `Derniere maj` et exclusion metier d'`ABDOU` et `MASSIMO` du controle balisage.
+- Connexion / Ecran d'accueil manager : simplification du bloc de promesses fonctionnelles pour conserver uniquement `Connexion securisee au bureau manager`.
+
 ## v1.1.2 - 2026-04-16
 
 - Ruptures / Courbe equipe : ajout d'une vraie courbe d'evolution du pourcentage de ruptures restantes dans le temps, avec filtres `Semaine`, `Mois`, `Trimestre` et `Annee`, ainsi qu'un objectif visuel fixe a `10%`.
 - Ruptures / Comparaison collaborateurs : possibilite d'afficher un ou plusieurs collaborateurs en superposition sur la courbe equipe, pour comparer leur evolution a la moyenne de l'equipe sur la meme periode.
 - Ruptures / Lisibilite : ajout des pourcentages sur les courbes collaborateurs et compression visuelle des pics tres hauts pour eviter qu'une valeur atypique ecrase toute la lecture du graphe.
 - Ruptures / Stats secteurs : simplification de la zone equipe par secteur avec retrait du graphique redondant et remplacement des libelles techniques par des intitulés plus clairs.
+- Securite / Audit Supabase : activation de la protection contre les mots de passe compromis (HaveIBeenPwned) dans les parametres d'authentification.
+- Securite / RLS : correction de la policy `audit_logs` qui donnait un acces total (lecture, ecriture, suppression) a tous les utilisateurs, y compris le role `public` ; les logs sont maintenant en lecture seule pour les authentifies et en ecriture pour le manager uniquement, sans possibilite de modification ni suppression.
+- Securite / RLS : correction des policies des tables `ruptures_detail`, `ruptures_imports` et `ruptures_synthese` qui etaient exposees au role `public` au lieu de `authenticated`.
+- Securite / Fonctions SQL : ajout de `search_path = public` sur les 6 fonctions critiques (`verify_collab_pin`, `handle_new_user`, `is_collaborateur`, `set_updated_at`, `set_updated_at_manager_mobile_access`, `touch_employee_followups_updated_at`) pour empecher les attaques par injection de schema.
+- Performance / RLS : suppression d'environ 40 policies dupliquees sur 15 tables (anciennes policies `Ecriture manager X` / `Lecture X` conservees par erreur lors de migrations precedentes), reduisant le nombre de policies evaluees par requete.
+- Performance / RLS : migration de 16 policies pour wrapper les appels `auth.uid()` dans `(select auth.uid())`, evitant la reevaluation de la fonction pour chaque ligne scannee.
+- Performance / Index : ajout de 20 index sur les cles etrangeres non indexees (`absences`, `binomes_repos`, `tri_caddie`, `planning_entries`, `balisage_mensuel`, `profiles`, `plans_tg_entries`, `plateau_operations`, etc.).
 
 ## v1.1.1 - 2026-04-14
 

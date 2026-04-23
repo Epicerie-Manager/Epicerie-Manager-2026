@@ -21,6 +21,11 @@ Ce fichier suit les evolutions visibles et fonctionnelles du projet `Epicerie Ma
 
 ## Historique
 
+## v1.2.1 - 2026-04-23
+
+- Admin / Bureau : refonte ergonomique locale du menu admin avec nouveau header, KPI plus lisibles, colonne gauche dediee a la creation d'acces et a la publication de messages, colonne droite dediee aux acces existants et a la maintenance.
+- Admin / Bureau : ajout d'un repere visuel de build `1.2.1` dans l'interface pour verifier immediatement que la bonne version locale est chargee.
+
 ## v1.2.0 - 2026-04-23
 
 - RH / Fiches employes : refonte du flux de creation et d'edition pour les statuts `Collaborateur`, `Coordinateur` et `Gestionnaire`, avec affichage conditionnel des sections utiles selon le statut.

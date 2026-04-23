@@ -11,6 +11,7 @@ type ModuleSelectorProps = {
   value: ModulePermissions;
   onChange: (modules: ModulePermissions) => void;
   disabled?: boolean;
+  compact?: boolean;
 };
 
 const MODULE_COLORS: Record<ModuleAccessKey, string> = {
@@ -31,7 +32,7 @@ const PERMISSION_OPTIONS: Array<{ value: ModulePermissionLevel; label: string }>
   { value: "write", label: "Ecriture" },
 ];
 
-export function ModuleSelector({ value, onChange, disabled = false }: ModuleSelectorProps) {
+export function ModuleSelector({ value, onChange, disabled = false, compact = false }: ModuleSelectorProps) {
   const updatePermission = (moduleKey: ModuleAccessKey, nextValue: ModulePermissionLevel | null) => {
     if (disabled) return;
     if (nextValue === null) {
@@ -50,16 +51,16 @@ export function ModuleSelector({ value, onChange, disabled = false }: ModuleSele
     <div>
       <div
         style={{
-          fontSize: 11,
+          fontSize: compact ? 10 : 11,
           color: "#64748b",
           fontWeight: 600,
           display: "block",
-          marginBottom: 8,
+          marginBottom: compact ? 6 : 8,
         }}
       >
         Modules autorisés
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 8 }}>
+      <div style={{ display: "grid", gridTemplateColumns: compact ? "repeat(auto-fill, minmax(156px, 1fr))" : "repeat(auto-fill, minmax(180px, 1fr))", gap: compact ? 6 : 8 }}>
         {ALL_MODULES.map((moduleItem) => {
           const permission = value[moduleItem.key] ?? null;
           const active = permission !== null;
@@ -70,8 +71,8 @@ export function ModuleSelector({ value, onChange, disabled = false }: ModuleSele
               key={moduleItem.key}
               style={{
                 display: "grid",
-                gap: 10,
-                padding: "10px 12px",
+                gap: compact ? 8 : 10,
+                padding: compact ? "8px 10px" : "10px 12px",
                 borderRadius: 12,
                 border: `1px solid ${active ? color : "#dbe3eb"}`,
                 background: active ? `${color}12` : "#fafafa",
@@ -79,7 +80,7 @@ export function ModuleSelector({ value, onChange, disabled = false }: ModuleSele
               }}
             >
               <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                <span style={{ fontSize: 12, fontWeight: 700, color: "#0f172a" }}>{moduleItem.label}</span>
+                <span style={{ fontSize: compact ? 11 : 12, fontWeight: 700, color: "#0f172a" }}>{moduleItem.label}</span>
                 <button
                   type="button"
                   onClick={() => updatePermission(moduleItem.key, null)}
@@ -88,7 +89,7 @@ export function ModuleSelector({ value, onChange, disabled = false }: ModuleSele
                     border: "none",
                     background: "transparent",
                     color: active ? "#64748b" : "#cbd5e1",
-                    fontSize: 11,
+                    fontSize: compact ? 10 : 11,
                     fontWeight: 700,
                     cursor: disabled || !active ? "default" : "pointer",
                     padding: 0,
@@ -97,7 +98,7 @@ export function ModuleSelector({ value, onChange, disabled = false }: ModuleSele
                   Aucun
                 </button>
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: compact ? 6 : 8 }}>
                 {PERMISSION_OPTIONS.map((option) => {
                   const selected = permission === option.value;
                   return (
@@ -107,12 +108,12 @@ export function ModuleSelector({ value, onChange, disabled = false }: ModuleSele
                       onClick={() => updatePermission(moduleItem.key, option.value)}
                       disabled={disabled}
                       style={{
-                        padding: "8px 10px",
+                        padding: compact ? "7px 8px" : "8px 10px",
                         borderRadius: 10,
                         border: `1px solid ${selected ? color : "#dbe3eb"}`,
                         background: selected ? `${color}18` : "#ffffff",
                         color: selected ? color : "#475569",
-                        fontSize: 12,
+                        fontSize: compact ? 11 : 12,
                         fontWeight: 700,
                         cursor: disabled ? "default" : "pointer",
                       }}

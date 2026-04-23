@@ -4,7 +4,6 @@ import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/card";
 import { Kicker } from "@/components/ui/kicker";
-import { KPI, KPIRow } from "@/components/ui/kpi";
 import { ModuleSelector } from "@/components/rh/ModuleSelector";
 import { moduleThemes } from "@/lib/theme";
 import { isAdminUser } from "@/lib/admin-access";
@@ -93,11 +92,12 @@ const INITIAL_RESULT: MaintenanceResult = { status: "idle", message: "", ranAt: 
 
 function shellCardStyle(): React.CSSProperties {
   return {
-    border: "1px solid #e8ecf1",
-    boxShadow: "0 1px 2px rgba(0,0,0,0.03), 0 8px 22px rgba(0,0,0,0.05)",
+    border: "1px solid #eef2f7",
+    boxShadow: "0 2px 8px rgba(15,23,42,0.04), 0 20px 48px rgba(15,23,42,0.08)",
     background: "rgba(255,255,255,0.96)",
     position: "relative",
     overflow: "hidden",
+    borderRadius: 28,
   };
 }
 
@@ -152,6 +152,8 @@ const EMPTY_OFFICE_FORM: OfficeAccessFormState = {
   modulePermissions: {},
 };
 
+const ADMIN_UI_BUILD = "1.2.1";
+
 function getOfficeRoleLabel(role: string) {
   if (role === "manager") return "Manager complet";
   if (role === "viewer") return "Lecture seule";
@@ -181,6 +183,31 @@ function getModulePermissionsStats(value: ModulePermissions) {
     if (level === "read") read += 1;
   });
   return { read, write, total: read + write };
+}
+
+function sectionEyebrow(label: string, background: string, color: string): React.CSSProperties {
+  return {
+    display: "inline-flex",
+    alignItems: "center",
+    minHeight: 26,
+    padding: "0 10px",
+    borderRadius: 999,
+    background,
+    color,
+    fontSize: 10,
+    fontWeight: 800,
+    letterSpacing: "0.08em",
+    textTransform: "uppercase",
+  };
+}
+
+function kpiCardStyle(border: string, background: string): React.CSSProperties {
+  return {
+    ...shellCardStyle(),
+    border,
+    background,
+    minHeight: 112,
+  };
 }
 
 export function AdminPageClient({ initialJournal }: { initialJournal: AdminJournalEntry[] }) {
@@ -657,59 +684,107 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
   }
 
   return (
-    <section style={{ display: "grid", gap: 14, marginTop: 20 }}>
-      <Card style={shellCardStyle()}>
-        <div style={{ display: "flex", alignItems: "start", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <div>
-            <Kicker moduleKey="admin" label="Menu privé" />
-            <h1 style={{ margin: "6px 0 0", fontSize: 24, lineHeight: 1.1, color: "#0f172a" }}>
+    <section style={{ display: "grid", gap: 24, marginTop: 20 }}>
+      <Card style={{ ...shellCardStyle(), padding: 30 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) auto", gap: 24, alignItems: "start" }}>
+          <div style={{ display: "grid", gap: 12 }}>
+            <div style={{ display: "flex", gap: 8, flexWrap: "wrap", alignItems: "center" }}>
+              <span style={sectionEyebrow("Menu privé", "#eef2ff", "#4f46e5")}>Menu privé</span>
+              <span style={sectionEyebrow(`Build ${ADMIN_UI_BUILD}`, "#fff7ed", "#c2410c")}>Build {ADMIN_UI_BUILD}</span>
+            </div>
+            <h1 style={{ margin: 0, fontSize: 40, fontWeight: 800, lineHeight: 1.02, letterSpacing: "-0.045em", color: "#0f172a" }}>
               Admin bureau
             </h1>
-            <p style={{ margin: "8px 0 0", fontSize: 13, color: "#64748b", maxWidth: 760, lineHeight: 1.55 }}>
-              Espace réservé à {adminLabel || "l'administrateur"} pour publier des annonces dans le fil d&apos;infos,
-              relancer les synchronisations utiles et garder un petit journal des livraisons récentes.
+            <p style={{ margin: 0, maxWidth: 760, fontSize: 14, lineHeight: 1.65, color: "#64748b" }}>
+              Espace réservé à {adminLabel || "l&apos;administrateur"} pour publier des annonces, gérer les accès bureau,
+              relancer les synchronisations clés et suivre l&apos;historique des livraisons.
             </p>
           </div>
+
           <div
             style={{
-              borderRadius: 16,
-              padding: "10px 12px",
-              background: "linear-gradient(135deg,#f5f3ff,#eef4ff)",
-              border: "1px solid #dbeafe",
-              minWidth: 220,
+              minWidth: 290,
+              display: "grid",
+              gap: 14,
+              padding: 16,
+              borderRadius: 24,
+              border: "1px solid #e2e8f0",
+              background: "#ffffff",
             }}
           >
-            <div style={{ fontSize: 11, fontWeight: 700, letterSpacing: "0.08em", textTransform: "uppercase", color: "#475569" }}>
-              Messages infos
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12 }}>
+              <div>
+                <div style={{ fontSize: 16, fontWeight: 800, color: "#0f172a" }}>{adminLabel || "Administrateur"}</div>
+                <div style={{ marginTop: 4, fontSize: 11, color: "#94a3b8" }}>Version locale identifiée · build {ADMIN_UI_BUILD}</div>
+              </div>
+              <div
+                style={{
+                  width: 46,
+                  height: 46,
+                  borderRadius: 999,
+                  background: "#f8fafc",
+                  border: "1px solid #dbeafe",
+                  color: "#4f46e5",
+                  display: "grid",
+                  placeItems: "center",
+                  fontSize: 14,
+                  fontWeight: 800,
+                }}
+              >
+                {(adminLabel || "AD").split(" ").map((chunk) => chunk[0]).slice(0, 2).join("")}
+              </div>
             </div>
-            <div style={{ marginTop: 6, fontSize: 13, color: "#0f172a", lineHeight: 1.45 }}>
-              Les annonces publiées ici restent dans le module Infos, sans popup automatique à l&apos;ouverture.
+            <div
+              style={{
+                borderRadius: 18,
+                border: "1px solid #dbeafe",
+                background: "linear-gradient(135deg,#f5f3ff,#eef4ff)",
+                padding: 14,
+                display: "grid",
+                gap: 6,
+              }}
+            >
+              <div style={{ fontSize: 11, fontWeight: 800, textTransform: "uppercase", letterSpacing: "0.08em", color: "#475569" }}>
+                Messages infos
+              </div>
+              <div style={{ fontSize: 13, lineHeight: 1.55, color: "#0f172a" }}>
+                Les annonces publiées ici restent dans le module Infos, sans popup automatique à l&apos;ouverture.
+              </div>
             </div>
           </div>
         </div>
       </Card>
 
-      <KPIRow>
-        <KPI moduleKey="admin" value={activeMessages.length} label="Messages actifs" style={{ background: "linear-gradient(135deg,#fff7ed,#fffbf6)", border: "1px solid #fed7aa" }} valueColor="#c2410c" />
-        <KPI moduleKey="admin" value={announcements.length} label="Messages publiés" style={{ background: "linear-gradient(135deg,#eef4ff,#fbfdff)", border: "1px solid #bfdbfe" }} valueColor="#1d4ed8" />
-        <KPI moduleKey="admin" value={audience.employees.length} label="Collaborateurs ciblables" style={{ background: "linear-gradient(135deg,#f0fdfa,#f8fffe)", border: "1px solid #99f6e4" }} valueColor="#0f766e" />
-        <KPI moduleKey="admin" value={initialJournal.length} label="Entrées journal" style={{ background: "linear-gradient(135deg,#fdf4ff,#fcfaff)", border: "1px solid #e9d5ff" }} valueColor="#7c3aed" />
-      </KPIRow>
-
-      <div
-        style={{
-          marginTop: 2,
-          fontSize: 11,
-          fontWeight: 800,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          color: "#64748b",
-        }}
-      >
-        Gestion des acces bureau
+      <div style={{ display: "grid", gap: 16, gridTemplateColumns: "repeat(4, minmax(0,1fr))" }}>
+        <Card style={{ ...kpiCardStyle("1px solid #fed7aa", "linear-gradient(135deg,#fff7ed,#fffaf4)"), padding: 22 }}>
+          <div style={{ display: "grid", gap: 8 }}>
+            <div style={{ fontSize: 36, fontWeight: 800, lineHeight: 1, color: "#c2410c" }}>{activeMessages.length}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#64748b" }}>Messages actifs</div>
+          </div>
+        </Card>
+        <Card style={{ ...kpiCardStyle("1px solid #bfdbfe", "linear-gradient(135deg,#eef4ff,#fbfdff)"), padding: 22 }}>
+          <div style={{ display: "grid", gap: 8 }}>
+            <div style={{ fontSize: 36, fontWeight: 800, lineHeight: 1, color: "#2563eb" }}>{announcements.length}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#64748b" }}>Messages publiés</div>
+          </div>
+        </Card>
+        <Card style={{ ...kpiCardStyle("1px solid #99f6e4", "linear-gradient(135deg,#f0fdfa,#f8fffe)"), padding: 22 }}>
+          <div style={{ display: "grid", gap: 8 }}>
+            <div style={{ fontSize: 36, fontWeight: 800, lineHeight: 1, color: "#0f766e" }}>{audience.employees.length}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#64748b" }}>Collab. ciblables</div>
+          </div>
+        </Card>
+        <Card style={{ ...kpiCardStyle("1px solid #e9d5ff", "linear-gradient(135deg,#fdf4ff,#fcfaff)"), padding: 22 }}>
+          <div style={{ display: "grid", gap: 8 }}>
+            <div style={{ fontSize: 36, fontWeight: 800, lineHeight: 1, color: "#7c3aed" }}>{initialJournal.length}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: "#64748b" }}>Entrées journal</div>
+          </div>
+        </Card>
       </div>
-      <div style={{ display: "grid", gap: 18, gridTemplateColumns: "repeat(auto-fit, minmax(460px, 1fr))", alignItems: "stretch" }}>
-        <Card style={{ ...shellCardStyle(), alignSelf: "start" }}>
+
+      <div style={{ display: "grid", gridTemplateColumns: "1.08fr 0.92fr", gap: 22, alignItems: "start" }}>
+        <div style={{ display: "grid", gap: 24 }}>
+          <Card style={{ ...shellCardStyle(), padding: 22 }}>
           <Kicker moduleKey="admin" label="Accès bureau" />
           <h2 style={{ marginTop: 6, fontSize: 18, color: "#0f172a" }}>Créer ou modifier un accès</h2>
           <p style={{ marginTop: 6, fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
@@ -717,79 +792,83 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
           </p>
 
           <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
-            <label style={{ display: "grid", gap: 4, fontSize: 11, color: "#64748b" }}>
-              <span>Recherche RH</span>
-              <input
-                value={officeEmployeeQuery}
-                onChange={(event) => setOfficeEmployeeQuery(event.target.value)}
-                placeholder="Ex: abdou, coordinateur..."
-                style={{ minHeight: 38, borderRadius: 10, border: "1px solid #dbe3eb", padding: "0 12px", fontSize: 13 }}
-              />
-            </label>
+            <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(2, minmax(0,1fr))" }}>
+              <label style={{ display: "grid", gap: 4, fontSize: 11, color: "#64748b" }}>
+                <span>Recherche RH</span>
+                <input
+                  value={officeEmployeeQuery}
+                  onChange={(event) => setOfficeEmployeeQuery(event.target.value)}
+                  placeholder="Ex: abdou, coordinateur..."
+                  style={{ minHeight: 40, borderRadius: 12, border: "1px solid #dbe3eb", padding: "0 12px", fontSize: 13 }}
+                />
+              </label>
 
-            <label style={{ display: "grid", gap: 4, fontSize: 11, color: "#64748b" }}>
-              <span>Personne concernée</span>
-              <select
-                value={officeForm.employeeId ?? ""}
-                onChange={(event) => startOfficeFormFromEmployee(event.target.value || null)}
-                style={{ minHeight: 38, borderRadius: 10, border: "1px solid #dbe3eb", padding: "0 10px", fontSize: 13, color: "#0f172a" }}
-              >
-                <option value="">Personne externe à l&apos;équipe (pas dans RH)</option>
-                {filteredOfficeFormEmployeeOptions.map((employee) => (
-                  <option key={employee.id} value={employee.id}>
-                    {employee.name} · Statut RH : {getRhStatusLabel(employee.rh_status)}
-                    {officeProfilesByEmployeeId.has(employee.id) ? " · accès bureau existant" : ""}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <div style={{ fontSize: 11, color: "#64748b", marginTop: -6 }}>
+              <label style={{ display: "grid", gap: 4, fontSize: 11, color: "#64748b" }}>
+                <span>Personne concernée</span>
+                <select
+                  value={officeForm.employeeId ?? ""}
+                  onChange={(event) => startOfficeFormFromEmployee(event.target.value || null)}
+                  style={{ minHeight: 40, borderRadius: 12, border: "1px solid #dbe3eb", padding: "0 10px", fontSize: 13, color: "#0f172a" }}
+                >
+                  <option value="">Personne externe à l&apos;équipe (pas dans RH)</option>
+                  {filteredOfficeFormEmployeeOptions.map((employee) => (
+                    <option key={employee.id} value={employee.id}>
+                      {employee.name} · Statut RH : {getRhStatusLabel(employee.rh_status)}
+                      {officeProfilesByEmployeeId.has(employee.id) ? " · accès bureau existant" : ""}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <div style={{ fontSize: 11, color: "#64748b", marginTop: -2 }}>
               {filteredOfficeFormEmployeeOptions.length} profil(s) RH trouvé(s)
             </div>
 
-            <label style={{ display: "grid", gap: 4, fontSize: 11, color: "#64748b" }}>
-              <span>Nom bureau</span>
-              <input
-                value={officeForm.fullName}
-                onChange={(event) => setOfficeForm((current) => ({ ...current, fullName: event.target.value }))}
-                placeholder="Ex: Camille Durand"
-                style={{ minHeight: 38, borderRadius: 10, border: "1px solid #dbe3eb", padding: "0 12px", fontSize: 13 }}
-              />
-            </label>
+            <div style={{ display: "grid", gap: 10, gridTemplateColumns: "1.05fr 1.05fr 0.9fr" }}>
+              <label style={{ display: "grid", gap: 4, fontSize: 11, color: "#64748b" }}>
+                <span>Nom bureau</span>
+                <input
+                  value={officeForm.fullName}
+                  onChange={(event) => setOfficeForm((current) => ({ ...current, fullName: event.target.value }))}
+                  placeholder="Ex: Camille Durand"
+                  style={{ minHeight: 40, borderRadius: 12, border: "1px solid #dbe3eb", padding: "0 12px", fontSize: 13 }}
+                />
+              </label>
 
-            <label style={{ display: "grid", gap: 4, fontSize: 11, color: "#64748b" }}>
-              <span>Email bureau</span>
-              <input
-                value={officeForm.email}
-                onChange={(event) => setOfficeForm((current) => ({ ...current, email: event.target.value }))}
-                placeholder="prenom@ep.fr"
-                style={{ minHeight: 38, borderRadius: 10, border: "1px solid #dbe3eb", padding: "0 12px", fontSize: 13 }}
-              />
-            </label>
+              <label style={{ display: "grid", gap: 4, fontSize: 11, color: "#64748b" }}>
+                <span>Email bureau</span>
+                <input
+                  value={officeForm.email}
+                  onChange={(event) => setOfficeForm((current) => ({ ...current, email: event.target.value }))}
+                  placeholder="prenom@ep.fr"
+                  style={{ minHeight: 40, borderRadius: 12, border: "1px solid #dbe3eb", padding: "0 12px", fontSize: 13 }}
+                />
+              </label>
 
-            <label style={{ display: "grid", gap: 4, fontSize: 11, color: "#64748b" }}>
-              <span>Niveau d&apos;accès bureau</span>
-              <select
-                value={officeForm.role}
-                onChange={(event) => {
-                  const nextRole = event.target.value as OfficeAccessFormState["role"];
-                  setOfficeForm((current) => ({
-                    ...current,
-                    role: nextRole,
-                    modulePermissions: nextRole === "manager"
-                      ? {}
-                      : nextRole === "viewer"
-                        ? buildReadOnlyPermissions(current.modulePermissions)
-                        : current.modulePermissions,
-                  }));
-                }}
-                style={{ minHeight: 38, borderRadius: 10, border: "1px solid #dbe3eb", padding: "0 10px", fontSize: 13, color: "#0f172a" }}
-              >
-                <option value="custom_access">Accès par modules</option>
-                <option value="viewer">Lecture seule</option>
-                <option value="manager">Accès complet manager</option>
-              </select>
-            </label>
+              <label style={{ display: "grid", gap: 4, fontSize: 11, color: "#64748b" }}>
+                <span>Niveau d&apos;accès bureau</span>
+                <select
+                  value={officeForm.role}
+                  onChange={(event) => {
+                    const nextRole = event.target.value as OfficeAccessFormState["role"];
+                    setOfficeForm((current) => ({
+                      ...current,
+                      role: nextRole,
+                      modulePermissions: nextRole === "manager"
+                        ? {}
+                        : nextRole === "viewer"
+                          ? buildReadOnlyPermissions(current.modulePermissions)
+                          : current.modulePermissions,
+                    }));
+                  }}
+                  style={{ minHeight: 40, borderRadius: 12, border: "1px solid #dbe3eb", padding: "0 10px", fontSize: 13, color: "#0f172a" }}
+                >
+                  <option value="custom_access">Accès par modules</option>
+                  <option value="viewer">Lecture seule</option>
+                  <option value="manager">Accès complet manager</option>
+                </select>
+              </label>
+            </div>
 
             {officeForm.employeeId ? (
               <div style={{ borderRadius: 12, border: "1px solid #dbeafe", background: "#f8fbff", color: "#334155", fontSize: 12, lineHeight: 1.5, padding: "10px 12px" }}>
@@ -802,7 +881,7 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
             )}
 
             {officeForm.role !== "manager" ? (
-              <div style={{ display: "grid", gap: 8 }}>
+              <div style={{ display: "grid", gap: 6 }}>
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
                   <span style={{ fontSize: 11, fontWeight: 700, color: "#64748b", letterSpacing: "0.06em", textTransform: "uppercase" }}>
                     Modules autorisés
@@ -825,7 +904,7 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
                     {showModuleMatrix ? "Masquer détail" : "Afficher détail"}
                   </button>
                 </div>
-                <div style={{ fontSize: 12, color: "#64748b" }}>
+                <div style={{ fontSize: 11, color: "#64748b" }}>
                   Lecture: <strong>{getModulePermissionsStats(officeForm.modulePermissions).read}</strong> · Ecriture:{" "}
                   <strong>{getModulePermissionsStats(officeForm.modulePermissions).write}</strong>
                 </div>
@@ -837,6 +916,7 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
                       modulePermissions: current.role === "viewer" ? buildReadOnlyPermissions(modules) : modules,
                     }))}
                     disabled={officeBusy}
+                    compact
                   />
                 ) : null}
               </div>
@@ -857,18 +937,18 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
               </div>
             ) : null}
 
-            <div style={{ display: "flex", gap: 8 }}>
+            <div style={{ display: "flex", gap: 10, marginTop: 2 }}>
               <button
                 type="button"
                 onClick={() => void submitOfficeAccess()}
                 disabled={officeBusy}
                 style={{
-                  minHeight: 40,
-                  borderRadius: 10,
+                  minHeight: 44,
+                  borderRadius: 12,
                   border: `1px solid ${theme.color}`,
-                  background: theme.light,
-                  color: theme.color,
-                  fontWeight: 700,
+                  background: theme.color,
+                  color: "#fff",
+                  fontWeight: 800,
                   fontSize: 13,
                   cursor: officeBusy ? "not-allowed" : "pointer",
                   opacity: officeBusy ? 0.7 : 1,
@@ -886,8 +966,8 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
                 }}
                 disabled={officeBusy}
                 style={{
-                  minHeight: 40,
-                  borderRadius: 10,
+                  minHeight: 44,
+                  borderRadius: 12,
                   border: "1px solid #dbe3eb",
                   background: "#fff",
                   color: "#475569",
@@ -900,22 +980,24 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
                 Réinitialiser le formulaire
               </button>
             </div>
-          </div>
-        </Card>
+            </div>
+          </Card>
+        </div>
 
-        <Card style={{ ...shellCardStyle(), alignSelf: "start" }}>
-          <Kicker moduleKey="admin" label="Comptes bureau" />
-          <h2 style={{ marginTop: 6, fontSize: 18, color: "#0f172a" }}>Accès existants</h2>
-          <p style={{ marginTop: 6, fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
-            Liste des profils qui ont réellement un accès au dashboard bureau. Les profils RH sans modules n'apparaissent pas ici.
-          </p>
+        <div style={{ display: "grid", gap: 20 }}>
+          <Card style={{ ...shellCardStyle(), padding: 22, alignSelf: "start", minHeight: 640 }}>
+            <Kicker moduleKey="admin" label="Comptes bureau" />
+            <h2 style={{ marginTop: 6, fontSize: 22, color: "#0f172a" }}>Accès existants</h2>
+            <p style={{ marginTop: 6, fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
+              Liste des profils qui ont réellement un accès au dashboard bureau. Les profils RH sans modules n'apparaissent pas ici.
+            </p>
 
           <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
             <input
               value={officeProfileQuery}
               onChange={(event) => setOfficeProfileQuery(event.target.value)}
               placeholder="Rechercher un accès (nom, email, rôle...)"
-              style={{ minHeight: 38, borderRadius: 10, border: "1px solid #dbe3eb", padding: "0 12px", fontSize: 13 }}
+              style={{ minHeight: 40, borderRadius: 12, border: "1px solid #dbe3eb", padding: "0 12px", fontSize: 13 }}
             />
             {filteredOfficeAccessProfiles.length ? filteredOfficeAccessProfiles.map((profile) => {
               const linkedEmployee = officeEmployees.find((employee) => employee.id === profile.employee_id) ?? null;
@@ -929,11 +1011,11 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
                     .join(", ");
 
               return (
-                <div key={profile.id} style={{ borderRadius: 14, border: "1px solid #e2e8f0", background: "#fff", padding: "12px 14px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", gap: 12, alignItems: "start", flexWrap: "wrap" }}>
+                <div key={profile.id} style={{ borderRadius: 16, border: "1px solid #e2e8f0", background: "#fff", padding: "12px 14px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", gap: 10, alignItems: "start", flexWrap: "wrap" }}>
                     <div style={{ minWidth: 0, flex: 1 }}>
                       <div style={{ display: "flex", flexWrap: "wrap", gap: 6, alignItems: "center" }}>
-                        <strong style={{ fontSize: 13, color: "#0f172a" }}>{profile.full_name}</strong>
+                          <strong style={{ fontSize: 14, color: "#0f172a" }}>{profile.full_name}</strong>
                         <span style={{ fontSize: 10, fontWeight: 700, borderRadius: 999, padding: "3px 8px", background: "#f8fafc", color: "#334155" }}>
                           {getOfficeRoleLabel(profile.role)}
                         </span>
@@ -947,8 +1029,8 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
                           </span>
                         )}
                       </div>
-                      <div style={{ marginTop: 4, fontSize: 12, color: "#64748b" }}>{profile.email}</div>
-                      <div style={{ marginTop: 8, fontSize: 12, color: "#475569", lineHeight: 1.55 }}>
+                      <div style={{ marginTop: 4, fontSize: 11, color: "#64748b" }}>{profile.email}</div>
+                      <div style={{ marginTop: 7, fontSize: 11, color: "#475569", lineHeight: 1.5 }}>
                         {moduleSummary || "Aucun module configuré"}
                       </div>
                       {linkedEmployee ? (
@@ -962,8 +1044,8 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
                         type="button"
                         onClick={() => hydrateOfficeForm(profile)}
                         style={{
-                          minHeight: 34,
-                          borderRadius: 10,
+                          minHeight: 36,
+                          borderRadius: 12,
                           border: "1px solid #dbe3eb",
                           background: "#fff",
                           color: "#334155",
@@ -980,10 +1062,10 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
                         onClick={() => void handleResetOfficePassword(profile)}
                         disabled={resettingOfficeProfileId === profile.id}
                         style={{
-                          minHeight: 34,
-                          borderRadius: 10,
+                          minHeight: 36,
+                          borderRadius: 12,
                           border: `1px solid ${theme.color}`,
-                          background: theme.light,
+                          background: "#eef2ff",
                           color: theme.color,
                           padding: "0 12px",
                           fontSize: 12,
@@ -1004,27 +1086,16 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
               </div>
             )}
           </div>
-        </Card>
+          </Card>
+        </div>
       </div>
 
-      <div
-        style={{
-          marginTop: 2,
-          fontSize: 11,
-          fontWeight: 800,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          color: "#64748b",
-        }}
-      >
-        Communication et maintenance
-      </div>
-      <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(420px, 1fr))", alignItems: "start" }}>
-        <Card style={{ ...shellCardStyle(), alignSelf: "start" }}>
+      <div style={{ display: "grid", gap: 24, gridTemplateColumns: "1.08fr 0.92fr 0.98fr", alignItems: "start" }}>
+        <Card style={{ ...shellCardStyle(), padding: 26, alignSelf: "start" }}>
           <Kicker moduleKey="admin" label="Messages" />
-          <h2 style={{ marginTop: 6, fontSize: 18, color: "#0f172a" }}>Messages infos</h2>
+          <h2 style={{ marginTop: 6, fontSize: 22, color: "#0f172a" }}>Publier un message info</h2>
           <p style={{ marginTop: 6, fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
-            Les annonces créées ici restent consultables dans le fil d&apos;infos. Elles ne déclenchent plus de popup à la connexion.
+            Crée un message terrain puis suis au même endroit ceux qui sont encore actifs.
           </p>
           <div
             style={{
@@ -1038,7 +1109,7 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
               padding: "10px 12px",
             }}
           >
-            Utilise ce bloc pour publier une information terrain. Le reste de la page sert surtout à la maintenance et au suivi rapide.
+            Ce message restera visible dans le fil Infos, sans popup automatique à la connexion.
           </div>
 
           <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
@@ -1046,22 +1117,22 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
               value={title}
               onChange={(event) => setTitle(event.target.value)}
               placeholder="Titre du message"
-              style={{ minHeight: 38, borderRadius: 10, border: "1px solid #dbe3eb", padding: "0 12px", fontSize: 13 }}
+              style={{ minHeight: 42, borderRadius: 12, border: "1px solid #dbe3eb", padding: "0 12px", fontSize: 13 }}
             />
             <textarea
               value={content}
               onChange={(event) => setContent(event.target.value)}
-              placeholder="Contenu du message"
+              placeholder="Contenu du message..."
               rows={4}
               style={{ borderRadius: 12, border: "1px solid #dbe3eb", padding: "10px 12px", fontSize: 13, resize: "vertical" }}
             />
-            <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))" }}>
+            <div style={{ display: "grid", gap: 10, gridTemplateColumns: "repeat(auto-fit, minmax(170px, 1fr))" }}>
               <label style={{ display: "grid", gap: 4, fontSize: 11, color: "#64748b" }}>
                 <span>Priorité</span>
                 <select
                   value={priority}
                   onChange={(event) => setPriority(event.target.value as InfoAnnouncementPriority)}
-                  style={{ minHeight: 38, borderRadius: 10, border: "1px solid #dbe3eb", padding: "0 10px", fontSize: 13, color: "#0f172a" }}
+                  style={{ minHeight: 40, borderRadius: 12, border: "1px solid #dbe3eb", padding: "0 10px", fontSize: 13, color: "#0f172a" }}
                 >
                   <option value="normal">Info</option>
                   <option value="important">Important</option>
@@ -1073,7 +1144,7 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
                 <select
                   value={targeting}
                   onChange={(event) => setTargeting(event.target.value as AdminAudienceTargeting)}
-                  style={{ minHeight: 38, borderRadius: 10, border: "1px solid #dbe3eb", padding: "0 10px", fontSize: 13, color: "#0f172a" }}
+                  style={{ minHeight: 40, borderRadius: 12, border: "1px solid #dbe3eb", padding: "0 10px", fontSize: 13, color: "#0f172a" }}
                 >
                   <option value="all">Toute l&apos;équipe</option>
                   <option value="employees">Collaborateurs ciblés</option>
@@ -1086,7 +1157,7 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
                   type="datetime-local"
                   value={publishAt}
                   onChange={(event) => setPublishAt(event.target.value)}
-                  style={{ minHeight: 38, borderRadius: 10, border: "1px solid #dbe3eb", padding: "0 10px", fontSize: 13, color: "#0f172a" }}
+                  style={{ minHeight: 40, borderRadius: 12, border: "1px solid #dbe3eb", padding: "0 10px", fontSize: 13, color: "#0f172a" }}
                 />
               </label>
               <label style={{ display: "grid", gap: 4, fontSize: 11, color: "#64748b" }}>
@@ -1095,7 +1166,7 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
                   type="datetime-local"
                   value={expiresAt}
                   onChange={(event) => setExpiresAt(event.target.value)}
-                  style={{ minHeight: 38, borderRadius: 10, border: "1px solid #dbe3eb", padding: "0 10px", fontSize: 13, color: "#0f172a" }}
+                  style={{ minHeight: 40, borderRadius: 12, border: "1px solid #dbe3eb", padding: "0 10px", fontSize: 13, color: "#0f172a" }}
                 />
               </label>
             </div>
@@ -1193,12 +1264,12 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
               onClick={() => void handleCreateMessage()}
               disabled={messageBusy}
               style={{
-                minHeight: 40,
-                borderRadius: 10,
+                minHeight: 46,
+                borderRadius: 12,
                 border: `1px solid ${theme.color}`,
-                background: theme.light,
-                color: theme.color,
-                fontWeight: 700,
+                background: theme.color,
+                color: "#fff",
+                fontWeight: 800,
                 fontSize: 13,
                 cursor: messageBusy ? "not-allowed" : "pointer",
                 opacity: messageBusy ? 0.7 : 1,
@@ -1207,98 +1278,21 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
               {messageBusy ? "Publication..." : "Publier le message"}
             </button>
           </div>
-        </Card>
 
-        <Card style={{ ...shellCardStyle(), alignSelf: "start" }}>
-          <Kicker moduleKey="admin" label="Maintenance" />
-          <h2 style={{ marginTop: 6, fontSize: 18, color: "#0f172a" }}>Relances rapides</h2>
-          <p style={{ marginTop: 6, fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
-            Outils simples pour forcer une resynchronisation sans passer dans Supabase.
-          </p>
-
-          <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
-            {[
-              { id: "all" as const, label: "Tout resynchroniser", detail: "Planning, absences, infos, RH, balisage, seuils" },
-              { id: "planning" as const, label: "Planning", detail: "Horaires, tri caddie et binômes" },
-              { id: "absences" as const, label: "Absences", detail: "Demandes et statuts" },
-              { id: "infos" as const, label: "Infos", detail: "Annonces et documents" },
-              { id: "rh" as const, label: "RH", detail: "Fiches et statuts" },
-              { id: "balisage" as const, label: "Balisage", detail: "Suivi mensuel" },
-              { id: "thresholds" as const, label: "Seuils", detail: "Seuils de présence" },
-            ].map((action) => {
-              const result = maintenanceResults[action.id];
-              const tone =
-                result.status === "error"
-                  ? { bg: "#fef2f2", border: "#fecaca", text: "#991b1b" }
-                  : result.status === "success"
-                    ? { bg: "#f0fdf4", border: "#bbf7d0", text: "#166534" }
-                    : result.status === "running"
-                      ? { bg: "#eff6ff", border: "#bfdbfe", text: "#1d4ed8" }
-                      : { bg: "#fff", border: "#dbe3eb", text: "#334155" };
-
-              return (
-                <div key={action.id} style={{ borderRadius: 12, border: `1px solid ${tone.border}`, background: tone.bg, padding: "10px 12px" }}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: 12 }}>
-                    <div>
-                      <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>{action.label}</div>
-                      <div style={{ marginTop: 3, fontSize: 11, color: "#64748b" }}>{action.detail}</div>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => void runMaintenance(action.id)}
-                      disabled={result.status === "running"}
-                      style={{
-                        minHeight: 34,
-                        borderRadius: 999,
-                        border: `1px solid ${theme.color}`,
-                        background: result.status === "running" ? "#fff" : theme.light,
-                        color: theme.color,
-                        padding: "0 12px",
-                        fontSize: 12,
-                        fontWeight: 700,
-                        cursor: result.status === "running" ? "not-allowed" : "pointer",
-                        opacity: result.status === "running" ? 0.75 : 1,
-                        whiteSpace: "nowrap",
-                      }}
-                    >
-                      {result.status === "running" ? "En cours..." : "Lancer"}
-                    </button>
-                  </div>
-                  {result.message ? (
-                    <div style={{ marginTop: 8, fontSize: 11, color: tone.text, lineHeight: 1.45 }}>
-                      {result.message}
-                      {result.ranAt ? ` · ${formatMaintenanceTimestamp(result.ranAt)}` : ""}
-                    </div>
-                  ) : null}
+          <div style={{ marginTop: 22, display: "grid", gap: 10 }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", gap: 12, flexWrap: "wrap" }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.08em", textTransform: "uppercase", color: "#64748b" }}>
+                  Messages publiés
                 </div>
-              );
-            })}
-          </div>
-        </Card>
-      </div>
-
-      <div
-        style={{
-          marginTop: 2,
-          fontSize: 11,
-          fontWeight: 800,
-          letterSpacing: "0.08em",
-          textTransform: "uppercase",
-          color: "#64748b",
-        }}
-      >
-        Suivi et historique
-      </div>
-      <div style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(360px, 1fr))", alignItems: "start" }}>
-        <Card style={{ ...shellCardStyle(), alignSelf: "start" }}>
-          <Kicker moduleKey="admin" label="Messages publiés" />
-          <h2 style={{ marginTop: 6, fontSize: 18, color: "#0f172a" }}>Suivi rapide</h2>
-          <p style={{ marginTop: 6, fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
-            Lecture compacte des annonces encore actives, avec leur diffusion et leur niveau de lecture.
-          </p>
-          <div style={{ display: "grid", gap: 10, marginTop: 12 }}>
+                <div style={{ marginTop: 2, fontSize: 12, color: "#64748b" }}>
+                  Lecture compacte des annonces encore actives.
+                </div>
+              </div>
+              <div style={{ fontSize: 12, color: "#64748b" }}>{activeMessages.length} actif(s)</div>
+            </div>
             {activeMessages.length ? (
-              activeMessages.slice(0, 10).map((announcement) => {
+              activeMessages.slice(0, 6).map((announcement) => {
                 const meta = PRIORITY_META[announcement.priority];
                 const seenCount = announcement.recipients.filter((recipient) => recipient.seenAt).length;
                 return (
@@ -1364,9 +1358,76 @@ export function AdminPageClient({ initialJournal }: { initialJournal: AdminJourn
           </div>
         </Card>
 
-        <Card style={{ ...shellCardStyle(), alignSelf: "start" }}>
+        <Card style={{ ...shellCardStyle(), padding: 26, alignSelf: "start" }}>
+          <Kicker moduleKey="admin" label="Maintenance" />
+          <h2 style={{ marginTop: 6, fontSize: 22, color: "#0f172a" }}>Relances rapides</h2>
+          <p style={{ marginTop: 6, fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
+            Outils simples pour forcer une resynchronisation sans passer dans Supabase.
+          </p>
+
+          <div style={{ marginTop: 12, display: "grid", gap: 10 }}>
+            {[
+              { id: "all" as const, label: "Tout resynchroniser", detail: "Planning, absences, infos, RH, balisage, seuils" },
+              { id: "planning" as const, label: "Planning", detail: "Horaires, tri caddie et binômes" },
+              { id: "absences" as const, label: "Absences", detail: "Demandes et statuts" },
+              { id: "infos" as const, label: "Infos", detail: "Annonces et documents" },
+              { id: "rh" as const, label: "RH", detail: "Fiches et statuts" },
+              { id: "balisage" as const, label: "Balisage", detail: "Suivi mensuel" },
+              { id: "thresholds" as const, label: "Seuils", detail: "Seuils de présence" },
+            ].map((action) => {
+              const result = maintenanceResults[action.id];
+              const tone =
+                result.status === "error"
+                  ? { bg: "#fef2f2", border: "#fecaca", text: "#991b1b" }
+                  : result.status === "success"
+                    ? { bg: "#f0fdf4", border: "#bbf7d0", text: "#166534" }
+                    : result.status === "running"
+                      ? { bg: "#eff6ff", border: "#bfdbfe", text: "#1d4ed8" }
+                      : { bg: "#fff", border: "#dbe3eb", text: "#334155" };
+
+              return (
+                <div key={action.id} style={{ borderRadius: 16, border: `1px solid ${tone.border}`, background: tone.bg, padding: "12px 14px" }}>
+                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "start", gap: 12 }}>
+                    <div>
+                      <div style={{ fontSize: 13, fontWeight: 700, color: "#0f172a" }}>{action.label}</div>
+                      <div style={{ marginTop: 3, fontSize: 11, color: "#64748b" }}>{action.detail}</div>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => void runMaintenance(action.id)}
+                      disabled={result.status === "running"}
+                      style={{
+                        minHeight: 36,
+                        borderRadius: 999,
+                        border: `1px solid ${theme.color}`,
+                        background: result.status === "running" ? "#fff" : theme.light,
+                        color: theme.color,
+                        padding: "0 12px",
+                        fontSize: 12,
+                        fontWeight: 700,
+                        cursor: result.status === "running" ? "not-allowed" : "pointer",
+                        opacity: result.status === "running" ? 0.75 : 1,
+                        whiteSpace: "nowrap",
+                      }}
+                    >
+                      {result.status === "running" ? "En cours..." : "Lancer"}
+                    </button>
+                  </div>
+                  {result.message ? (
+                    <div style={{ marginTop: 8, fontSize: 11, color: tone.text, lineHeight: 1.45 }}>
+                      {result.message}
+                      {result.ranAt ? ` · ${formatMaintenanceTimestamp(result.ranAt)}` : ""}
+                    </div>
+                  ) : null}
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+
+        <Card style={{ ...shellCardStyle(), padding: 26, alignSelf: "start", minHeight: 620 }}>
           <Kicker moduleKey="admin" label="Journal" />
-          <h2 style={{ marginTop: 6, fontSize: 18, color: "#0f172a" }}>Livraisons récentes</h2>
+          <h2 style={{ marginTop: 6, fontSize: 22, color: "#0f172a" }}>Livraisons récentes</h2>
           <p style={{ marginTop: 6, fontSize: 12, color: "#64748b", lineHeight: 1.5 }}>
             Lecture rapide du changelog pour te souvenir de ce qui a été livré.
           </p>

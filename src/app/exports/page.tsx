@@ -163,6 +163,17 @@ export default function ExportsPage() {
           iconBg="#eff6ff"
           href="/exports/tg"
         />
+        <ExportCard
+          emoji="🗂️"
+          title="Plan de rayon"
+          description="Imprimer le planning de réimplantation ou le calendrier du module plan rayon."
+          chips={["Planning", "Calendrier", "A3 paysage"]}
+          badgeLabel="Disponible"
+          badgeBg="#dcfce7"
+          badgeColor="#15803d"
+          iconBg="#eef2ff"
+          href="/exports/plan-rayon"
+        />
       </div>
     </div>
   );

@@ -29,10 +29,12 @@ type HoverCardState = { left: number; top: number; element: MassElement } | null
 
 export function MassPlanCanvas(props: Props) {
   const wrapperRef = useRef<HTMLDivElement | null>(null);
+  const scrollRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLDivElement | null>(null);
   const [lasso, setLasso] = useState<LassoRect | null>(null);
   const [contextMenu, setContextMenu] = useState<ContextMenuState>(null);
   const [hoverCard, setHoverCard] = useState<HoverCardState>(null);
+  const [panning, setPanning] = useState(false);
   const lassoStart = useRef<{ x: number; y: number } | null>(null);
   const lassoRectRef = useRef<LassoRect | null>(null);
 
@@ -149,11 +151,40 @@ export function MassPlanCanvas(props: Props) {
   function handleCanvasMouseDown(event: ReactMouseEvent) {
     setContextMenu(null);
     setHoverCard(null);
+    event.preventDefault();
+
+    const clickedCanvasBackground =
+      event.target === canvasRef.current || !((event.target as HTMLElement).closest("[data-canvas-item='true']"));
+
+    if (props.zoom > 1 && clickedCanvasBackground && scrollRef.current) {
+      const scrollEl = scrollRef.current;
+      const startX = event.clientX;
+      const startY = event.clientY;
+      const startScrollLeft = scrollEl.scrollLeft;
+      const startScrollTop = scrollEl.scrollTop;
+      setPanning(true);
+
+      const onMove = (moveEvent: MouseEvent) => {
+        scrollEl.scrollLeft = startScrollLeft - (moveEvent.clientX - startX);
+        scrollEl.scrollTop = startScrollTop - (moveEvent.clientY - startY);
+      };
+
+      const onUp = () => {
+        document.removeEventListener("mousemove", onMove);
+        document.removeEventListener("mouseup", onUp);
+        setPanning(false);
+      };
+
+      document.addEventListener("mousemove", onMove);
+      document.addEventListener("mouseup", onUp);
+      return;
+    }
+
     if (!props.canWrite) {
       props.onClearSelection();
       return;
     }
-    event.preventDefault();
+
     if (event.target !== canvasRef.current) {
       if (!(event.target as HTMLElement).closest("[data-canvas-item='true']")) return;
     }
@@ -205,7 +236,7 @@ export function MassPlanCanvas(props: Props) {
   return (
     <div ref={wrapperRef} style={wrapperStyle}>
       <div style={toolbarHintStyle}>{props.gridEnabled ? "Grille 40px active" : "Placement libre"}</div>
-      <div style={scrollStyle}>
+      <div ref={scrollRef} style={scrollStyle(props.zoom > 1, panning)}>
         <div style={{ transform: `scale(${props.zoom})`, transformOrigin: "top left", width: props.canvasW, height: props.canvasH }}>
           <div
             ref={canvasRef}
@@ -493,11 +524,12 @@ const toolbarHintStyle: CSSProperties = {
   color: "#6b7a99",
 };
 
-const scrollStyle: CSSProperties = {
+const scrollStyle = (grabbable: boolean, panning: boolean): CSSProperties => ({
   flex: 1,
   overflow: "auto",
   padding: 32,
-};
+  cursor: grabbable ? (panning ? "grabbing" : "grab") : "default",
+});
 
 const canvasStyle = (w: number, h: number, gridEnabled: boolean): CSSProperties => ({
   position: "relative",

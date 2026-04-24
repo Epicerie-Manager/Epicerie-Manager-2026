@@ -29,6 +29,16 @@ const COLLAB_HEADER_KEYS = {
 type CollaboratorField = typeof COLLAB_HEADER_KEYS[keyof typeof COLLAB_HEADER_KEYS];
 
 type HeaderMap = Record<CollaboratorField, number>;
+type DetailField =
+  | "cug"
+  | "ean"
+  | "libelleProduit"
+  | "marche"
+  | "matricule"
+  | "fournisseur"
+  | "cause"
+  | "statut";
+type DetailHeaderMap = Record<DetailField, number>;
 
 function cellToString(value: unknown) {
   return String(value ?? "").trim();
@@ -82,6 +92,31 @@ async function readSheetRows(file: File) {
 function isDetailFileHeader(headerRow: (string | number | null)[]) {
   const headers = headerRow.map(normalizeHeader);
   return headers.includes("cug") && headers.includes("matricule") && headers.includes("libelleproduit");
+}
+
+function buildDetailHeaderMap(headerRow: (string | number | null)[]) {
+  const headers = headerRow.map(normalizeHeader);
+  const findIndex = (candidates: string[]) => headers.findIndex((header) => candidates.includes(header));
+  const mapping = {
+    cug: findIndex(["cug"]),
+    ean: findIndex(["ean", "codeean"]),
+    libelleProduit: findIndex(["libelleproduit", "libellearticle", "produit", "designation"]),
+    marche: findIndex(["marche", "rayon", "rayonnum", "numerorayon"]),
+    matricule: findIndex(["matricule", "matriculesource", "collaborateurmatricule"]),
+    fournisseur: findIndex(["fournisseur"]),
+    cause: findIndex(["cause", "libellecause"]),
+    statut: findIndex(["statut", "etat", "statutrupture"]),
+  } satisfies Partial<DetailHeaderMap>;
+
+  const missing = Object.entries(mapping)
+    .filter(([, index]) => typeof index !== "number" || index < 0)
+    .map(([field]) => field);
+
+  if (missing.length) {
+    throw new Error("Le fichier détail ruptures ne contient pas toutes les colonnes attendues.");
+  }
+
+  return mapping as DetailHeaderMap;
 }
 
 function resolveEmployeeByMatricule(
@@ -236,9 +271,15 @@ export async function inspectRuptureDetailFile(file: File): Promise<RuptureDetai
     throw new Error("Le second fichier n'est pas reconnu. Attendu: Gestion des ruptures, liste des ruptures.");
   }
 
+  const headerMap = buildDetailHeaderMap(rows[0] ?? []);
+
   const rowCount = rows
     .slice(1)
-    .filter((row) => cellToString(row[0]) || cellToString(row[3]) || cellToString(row[5]))
+    .filter((row) =>
+      cellToString(row[headerMap.cug]) ||
+      cellToString(row[headerMap.libelleProduit]) ||
+      cellToString(row[headerMap.matricule]),
+    )
     .length;
 
   return { rowCount };
@@ -249,23 +290,24 @@ export async function parseRuptureDetailFile(file: File, employees: RuptureEmplo
   if (!rows.length || !isDetailFileHeader(rows[0] ?? [])) {
     throw new Error("Le second fichier n'est pas reconnu. Attendu: Gestion des ruptures, liste des ruptures.");
   }
+  const headerMap = buildDetailHeaderMap(rows[0] ?? []);
 
   return rows
     .slice(1)
     .map((row) => {
-      const libelleProduit = cellToString(row[3]);
-      const matriculeSource = cellToString(row[5]).toUpperCase() || null;
+      const libelleProduit = cellToString(row[headerMap.libelleProduit]);
+      const matriculeSource = cellToString(row[headerMap.matricule]).toUpperCase() || null;
       const employeeId = resolveEmployeeByMatricule(matriculeSource ?? "", libelleProduit, employees);
 
       return {
-        cug: cellToString(row[0]) || null,
-        ean: cellToString(row[2]) || null,
+        cug: cellToString(row[headerMap.cug]) || null,
+        ean: cellToString(row[headerMap.ean]) || null,
         libelleProduit,
-        marche: cellToString(row[4]) ? cellToInteger(row[4]) : null,
+        marche: cellToString(row[headerMap.marche]) ? cellToInteger(row[headerMap.marche]) : null,
         matriculeSource,
-        fournisseur: cellToString(row[7]) || null,
-        cause: cellToString(row[9]) || null,
-        statut: cellToString(row[11]),
+        fournisseur: cellToString(row[headerMap.fournisseur]) || null,
+        cause: cellToString(row[headerMap.cause]) || null,
+        statut: cellToString(row[headerMap.statut]),
         isBio: /\bBIO\b/i.test(libelleProduit),
         employeeId,
       } satisfies Omit<RuptureDetailRow, "id" | "importId">;

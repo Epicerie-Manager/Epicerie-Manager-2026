@@ -10,16 +10,21 @@ import { MassPlanCanvas } from "@/components/plan-rayon/mass-plan/mass-plan-canv
 import { MassPlanInspector } from "@/components/plan-rayon/mass-plan/mass-plan-inspector";
 import { DeletePlanModal, ImportPlanModal, NewPlanModal } from "@/components/plan-rayon/mass-plan/mass-plan-modals";
 import { MassPlanSidebar } from "@/components/plan-rayon/mass-plan/mass-plan-sidebar";
+import { PlanRayonConfirmModal } from "@/components/plan-rayon/confirm-modal";
 import type { DragLibraryPayload, MassElement, MassPlan, RayonLibItem } from "@/components/plan-rayon/mass-plan/mass-plan-types";
 import { GRID, PLAN_TITLE_BAR_HEIGHT } from "@/components/plan-rayon/mass-plan/mass-plan-types";
+import { getDefaultTextModuleStyle } from "@/lib/mass-plan-text";
 
 const DEFAULT_PLAN_WIDTH = 1200;
 const DEFAULT_PLAN_HEIGHT = 1200;
+const MASS_PLAN_DIRTY_STORAGE_KEY = "plan-rayon-mass-plan-dirty";
 
 function buildDefaultSize(payload: DragLibraryPayload) {
   if (payload.kind === "structure") {
+    if (payload.size) return payload.size;
     if (payload.elementType === "alley-h") return { w: GRID * 4, h: GRID };
     if (payload.elementType === "alley-v") return { w: GRID, h: GRID * 4 };
+    if (payload.elementType === "text") return { w: GRID * 4, h: GRID * 2 };
     return { w: GRID * 2, h: GRID };
   }
   const rows = Math.max(2, payload.rayon.elem_count);
@@ -30,6 +35,7 @@ export function MassPlanView() {
   const supabase = useMemo(() => createClient(), []);
   const { profile, loading: roleLoading, canWriteModule } = useUserRole();
   const canWrite = canWriteModule("plan_rayon");
+  const fullscreenRef = useRef<HTMLDivElement | null>(null);
   const [plans, setPlans] = useState<MassPlan[]>([]);
   const [activePlanId, setActivePlanId] = useState<string | null>(null);
   const [elements, setElements] = useState<MassElement[]>([]);
@@ -49,11 +55,17 @@ export function MassPlanView() {
   const [canvasDraft, setCanvasDraft] = useState({ width: String(DEFAULT_PLAN_WIDTH), height: String(DEFAULT_PLAN_HEIGHT) });
   const [toast, setToast] = useState("");
   const [history, setHistory] = useState<MassElement[][]>([]);
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [pendingSwitchPlanId, setPendingSwitchPlanId] = useState<string | null>(null);
   const signedUrlCache = useRef(new Map<string, string>());
   const resizeDebounceRef = useRef<number | null>(null);
 
   const activePlan = plans.find((plan) => plan.id === activePlanId) ?? null;
-  const selectedElement = selectedIds.size === 1 ? elements.find((element) => selectedIds.has(element.id)) ?? null : null;
+  const selectedElements = useMemo(
+    () => elements.filter((element) => selectedIds.has(element.id)),
+    [elements, selectedIds],
+  );
+  const selectedElement = selectedElements.length === 1 ? selectedElements[0] ?? null : null;
   const importablePlans = plans.filter((plan) => plan.id !== activePlanId);
 
   useEffect(() => {
@@ -68,11 +80,35 @@ export function MassPlanView() {
   }, [toast]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.sessionStorage.setItem(MASS_PLAN_DIRTY_STORAGE_KEY, dirty ? "1" : "0");
+    window.dispatchEvent(new CustomEvent("plan-rayon:mass-plan-dirty", { detail: { dirty } }));
+  }, [dirty]);
+
+  useEffect(() => {
+    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
+      if (!dirty) return;
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [dirty]);
+
+  useEffect(() => {
     return () => {
       if (resizeDebounceRef.current) {
         window.clearTimeout(resizeDebounceRef.current);
       }
     };
+  }, []);
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      setIsFullscreen(document.fullscreenElement === fullscreenRef.current);
+    };
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => document.removeEventListener("fullscreenchange", handleFullscreenChange);
   }, []);
 
   useEffect(() => {
@@ -147,12 +183,7 @@ export function MassPlanView() {
     setHistory((current) => [...current.slice(-19), next.map((element) => ({ ...element }))]);
   }
 
-  async function switchPlan(planId: string) {
-    if (planId === activePlanId) return;
-    if (dirty) {
-      const proceed = window.confirm("Ce plan a des modifications non sauvegardées. Changer de plan maintenant ?");
-      if (!proceed) return;
-    }
+  async function loadPlan(planId: string) {
     setLoading(true);
     try {
       const nextElements = await hydrateElements(await loadMassPlanElements(supabase, planId));
@@ -168,6 +199,15 @@ export function MassPlanView() {
     }
   }
 
+  async function switchPlan(planId: string) {
+    if (planId === activePlanId) return;
+    if (dirty) {
+      setPendingSwitchPlanId(planId);
+      return;
+    }
+    await loadPlan(planId);
+  }
+
   function handleDropLibrary(payload: DragLibraryPayload, x: number, y: number) {
     if (!activePlan) return;
     pushHistory(elements);
@@ -177,12 +217,25 @@ export function MassPlanView() {
       plan_id: activePlan.id,
       rayon_plan_id: payload.kind === "rayon" ? payload.rayon.id : null,
       element_type: payload.kind === "rayon" ? "rayon" : payload.elementType,
-      label: payload.kind === "rayon" ? payload.rayon.name : payload.elementType === "alley-h" || payload.elementType === "alley-v" ? "ALLÉE" : payload.elementType === "tete-gondole" ? "TG" : "GB",
+      label:
+        payload.kind === "rayon"
+          ? payload.rayon.name
+          : payload.label ??
+            (payload.elementType === "alley-h" || payload.elementType === "alley-v"
+              ? "ALLÉE"
+              : payload.elementType === "text"
+                ? "Texte"
+              : payload.elementType === "tete-gondole"
+                ? "TG"
+                : "GB"),
       x,
       y: Math.max(PLAN_TITLE_BAR_HEIGHT, y),
       w: size.w,
       h: size.h,
-      color: payload.kind === "rayon" ? payload.rayon.color : payload.elementType === "alley-h" || payload.elementType === "alley-v" ? "#d1d5db" : "#475569",
+      color:
+        payload.kind === "rayon"
+          ? payload.rayon.color
+          : payload.color ?? (payload.elementType === "alley-h" || payload.elementType === "alley-v" ? "#d1d5db" : payload.elementType === "text" ? "#1f2b4d" : "#475569"),
       rotated: payload.kind === "rayon",
       z_index: elements.length + 1,
       rayon_name: payload.kind === "rayon" ? payload.rayon.name : undefined,
@@ -190,6 +243,12 @@ export function MassPlanView() {
       rayon_elem_count: payload.kind === "rayon" ? payload.rayon.elem_count : undefined,
       rayon_facing_url: payload.kind === "rayon" ? payload.rayon.facing_signed_url ?? null : null,
       rayon_universe_name: payload.kind === "rayon" ? payload.rayon.universe_name : undefined,
+      text_style:
+        payload.kind === "structure" && payload.elementType === "text"
+          ? getDefaultTextModuleStyle({
+              textColor: payload.color ?? "#1f2b4d",
+            })
+          : null,
     };
     setElements((current) => [...current, next]);
     setSelectedIds(new Set([next.id]));
@@ -210,6 +269,39 @@ export function MassPlanView() {
     if (!selectedElement) return;
     pushHistory(elements);
     patchElements([selectedElement.id], (element) => ({ ...element, ...patch }));
+  }
+
+  function setSelectedRotation(rotated: boolean) {
+    if (!selectedIds.size) return;
+    pushHistory(elements);
+    const ids = Array.from(selectedIds);
+    patchElements(ids, (element) => ({ ...element, rotated }));
+    setSelectedIds(new Set(ids));
+  }
+
+  function setSelectedColor(color: string) {
+    const ids = elements
+      .filter(
+        (element) =>
+          selectedIds.has(element.id) &&
+          element.element_type !== "alley-h" &&
+          element.element_type !== "alley-v",
+      )
+      .map((element) => element.id);
+    if (!ids.length) return;
+    pushHistory(elements);
+    patchElements(ids, (element) => ({
+      ...element,
+      color,
+      text_style:
+        element.element_type === "text"
+          ? {
+              ...(element.text_style ?? getDefaultTextModuleStyle()),
+              textColor: color,
+            }
+          : element.text_style ?? null,
+    }));
+    setSelectedIds(new Set(selectedIds));
   }
 
   function deleteSelected() {
@@ -236,6 +328,24 @@ export function MassPlanView() {
     setDirty(true);
   }
 
+  function duplicateSelected() {
+    if (!selectedIds.size) return;
+    const selection = elements.filter((element) => selectedIds.has(element.id));
+    if (!selection.length) return;
+    pushHistory(elements);
+    const topBase = Math.max(0, ...elements.map((element) => element.z_index));
+    const duplicates = selection.map((element, index) => ({
+      ...element,
+      id: `local-${Date.now()}-${index}-${Math.random().toString(36).slice(2, 7)}`,
+      x: Math.max(0, Math.min((activePlan?.canvas_w ?? 4000) - element.w, element.x + GRID)),
+      y: Math.max(PLAN_TITLE_BAR_HEIGHT, Math.min((activePlan?.canvas_h ?? 3000) - element.h, element.y + GRID)),
+      z_index: topBase + index + 1,
+    }));
+    setElements((current) => [...current, ...duplicates]);
+    setSelectedIds(new Set(duplicates.map((element) => element.id)));
+    setDirty(true);
+  }
+
   function toggleRotation(elementId: string) {
     pushHistory(elements);
     patchElements([elementId], (element) => ({ ...element, rotated: !element.rotated }));
@@ -247,6 +357,26 @@ export function MassPlanView() {
     const top = Math.max(0, ...elements.map((element) => element.z_index)) + 1;
     patchElements([elementId], (element) => ({ ...element, z_index: top }));
     setSelectedIds(new Set([elementId]));
+  }
+
+  function toggleRotationSelected() {
+    if (!selectedIds.size) return;
+    pushHistory(elements);
+    const ids = Array.from(selectedIds);
+    patchElements(ids, (element) => ({ ...element, rotated: !element.rotated }));
+    setSelectedIds(new Set(ids));
+  }
+
+  function bringSelectedToFront() {
+    if (!selectedIds.size) return;
+    pushHistory(elements);
+    const ids = Array.from(selectedIds);
+    const topBase = Math.max(0, ...elements.map((element) => element.z_index));
+    patchElements(ids, (element, index) => ({
+      ...element,
+      z_index: topBase + index + 1,
+    }));
+    setSelectedIds(new Set(ids));
   }
 
   function deleteElementById(elementId: string) {
@@ -419,11 +549,32 @@ export function MassPlanView() {
     resizeCanvas(safeWidth, safeHeight);
   }
 
+  async function toggleFullscreen() {
+    const container = fullscreenRef.current;
+    if (!container) return;
+    try {
+      if (document.fullscreenElement === container) {
+        await document.exitFullscreen();
+        return;
+      }
+      await container.requestFullscreen();
+    } catch {
+      setToast("Impossible d'activer le plein écran.");
+    }
+  }
+
+  async function confirmSwitchPlan() {
+    if (!pendingSwitchPlanId) return;
+    const nextPlanId = pendingSwitchPlanId;
+    setPendingSwitchPlanId(null);
+    await loadPlan(nextPlanId);
+  }
+
   return (
-    <div style={{ display: "grid", gap: 16 }}>
-      <Card static style={{ padding: 14, display: "grid", gap: 14 }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 10, flexWrap: "wrap" }}>
+    <div ref={fullscreenRef} style={rootStyle(isFullscreen)}>
+      <Card static style={headerCardStyle(isFullscreen)}>
+        <div style={headerMainRowStyle(isFullscreen)}>
+          <div style={headerLeftGroupStyle}>
             <span style={eyebrowStyle}>Plan de masse magasin :</span>
             <select value={activePlanId ?? ""} onChange={(event) => void switchPlan(event.target.value)} style={selectStyle} disabled={loading || roleLoading}>
               {plans.map((plan) => (
@@ -442,11 +593,48 @@ export function MassPlanView() {
               </>
             ) : null}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          {activePlan ? (
+            <div style={canvasSizeSlotStyle(isFullscreen)}>
+              {!isFullscreen ? (
+                <div style={{ fontSize: 12, color: "#64748b" }}>
+                  {`Canvas : ${activePlan.canvas_w} × ${activePlan.canvas_h}px`}
+                </div>
+              ) : null}
+              <div style={canvasSizeGroupStyle}>
+                <input
+                  type="number"
+                  value={canvasDraft.width}
+                  step={GRID}
+                  onChange={(event) => setCanvasDraft((current) => ({ ...current, width: event.target.value }))}
+                  onBlur={() => commitCanvasDraft(canvasDraft.width, canvasDraft.height)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") commitCanvasDraft(canvasDraft.width, canvasDraft.height);
+                  }}
+                  style={sizeInputStyle}
+                />
+                <span style={{ color: "#94a3b8" }}>×</span>
+                <input
+                  type="number"
+                  value={canvasDraft.height}
+                  step={GRID}
+                  onChange={(event) => setCanvasDraft((current) => ({ ...current, height: event.target.value }))}
+                  onBlur={() => commitCanvasDraft(canvasDraft.width, canvasDraft.height)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") commitCanvasDraft(canvasDraft.width, canvasDraft.height);
+                  }}
+                  style={sizeInputStyle}
+                />
+              </div>
+            </div>
+          ) : null}
+          <div style={headerRightGroupStyle}>
             <button type="button" onClick={() => setZoom((current) => Math.max(0.5, Number((current - 0.15).toFixed(2))))} style={iconButtonStyle}>−</button>
             <div style={zoomStyle}>{Math.round(zoom * 100)}%</div>
             <button type="button" onClick={() => setZoom((current) => Math.min(1.8, Number((current + 0.15).toFixed(2))))} style={iconButtonStyle}>+</button>
             <button type="button" onClick={() => setZoom(1)} style={iconButtonStyle}>⊡</button>
+            <button type="button" onClick={() => void toggleFullscreen()} style={focusButtonStyle(isFullscreen)}>
+              {isFullscreen ? "⤢ Quitter" : "⛶ Plein écran"}
+            </button>
             <button type="button" onClick={() => setGridEnabled((current) => !current)} style={iconToggleStyle(gridEnabled)}>⊞ Grille</button>
             <button type="button" onClick={undoLast} disabled={!history.length} style={ghostButtonStyle}>↩ Annuler</button>
             <button type="button" onClick={() => { pushHistory(elements); setElements([]); setSelectedIds(new Set()); setDirty(true); }} disabled={!canWrite || !elements.length} style={ghostButtonStyle}>🗑 Vider</button>
@@ -455,42 +643,9 @@ export function MassPlanView() {
             </button>
           </div>
         </div>
-
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 12, flexWrap: "wrap" }}>
-          <div style={{ fontSize: 12, color: "#64748b" }}>
-            {activePlan ? `Canvas : ${activePlan.canvas_w} × ${activePlan.canvas_h}px` : "Aucun plan chargé"}
-          </div>
-          {activePlan ? (
-            <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-              <input
-                type="number"
-                value={canvasDraft.width}
-                step={GRID}
-                onChange={(event) => setCanvasDraft((current) => ({ ...current, width: event.target.value }))}
-                onBlur={() => commitCanvasDraft(canvasDraft.width, canvasDraft.height)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") commitCanvasDraft(canvasDraft.width, canvasDraft.height);
-                }}
-                style={sizeInputStyle}
-              />
-              <span style={{ color: "#94a3b8" }}>×</span>
-              <input
-                type="number"
-                value={canvasDraft.height}
-                step={GRID}
-                onChange={(event) => setCanvasDraft((current) => ({ ...current, height: event.target.value }))}
-                onBlur={() => commitCanvasDraft(canvasDraft.width, canvasDraft.height)}
-                onKeyDown={(event) => {
-                  if (event.key === "Enter") commitCanvasDraft(canvasDraft.width, canvasDraft.height);
-                }}
-                style={sizeInputStyle}
-              />
-            </div>
-          ) : null}
-        </div>
       </Card>
 
-      <div style={workspaceStyle}>
+      <div style={workspaceStyle(isFullscreen)}>
         <MassPlanSidebar canWrite={canWrite} library={library} />
         <MassPlanCanvas
           planName={activePlan?.name ?? "Plan de masse"}
@@ -506,14 +661,26 @@ export function MassPlanView() {
           onPatchElements={patchElements}
           onClearSelection={() => setSelectedIds(new Set())}
           onDuplicateElement={duplicateElement}
+          onDuplicateSelected={duplicateSelected}
           onToggleRotation={toggleRotation}
+          onToggleRotationSelected={toggleRotationSelected}
           onBringToFront={bringToFront}
+          onBringSelectedToFront={bringSelectedToFront}
           onDeleteElement={deleteElementById}
+          onDeleteSelected={deleteSelected}
         />
-        <MassPlanInspector selected={selectedElement} canWrite={canWrite} onPatch={patchSelected} onDelete={deleteSelected} />
+        <MassPlanInspector
+          selected={selectedElement}
+          selectedElements={selectedElements}
+          canWrite={canWrite}
+          onPatch={patchSelected}
+          onSetSelectedRotation={setSelectedRotation}
+          onSetSelectedColor={setSelectedColor}
+          onDelete={deleteSelected}
+        />
       </div>
 
-      <div style={statusBarStyle}>
+      <div style={statusBarStyle(isFullscreen)}>
         <span style={statusItemStyle}>Plan : <strong>{activePlan?.name ?? "—"}</strong></span>
         <span style={statusItemStyle}>Éléments : <strong>{elements.length}</strong></span>
         <span style={statusItemStyle}>Sélection : <strong>{selectedIds.size}</strong></span>
@@ -553,19 +720,93 @@ export function MassPlanView() {
         onSubmit={() => void handleImportPlan()}
       />
 
+      <PlanRayonConfirmModal
+        open={Boolean(pendingSwitchPlanId)}
+        title="Changer de plan sans sauvegarder ?"
+        description="Ce plan contient des modifications non sauvegardées. Si vous continuez, elles seront perdues pour cette session."
+        confirmLabel="Changer de plan"
+        onClose={() => setPendingSwitchPlanId(null)}
+        onConfirm={() => void confirmSwitchPlan()}
+      />
+
       <div style={toastStyle(Boolean(toast))}>{toast}</div>
     </div>
   );
 }
 
-const workspaceStyle: CSSProperties = {
+const rootStyle = (fullscreen: boolean): CSSProperties => ({
+  display: "grid",
+  gap: 16,
+  background: fullscreen ? "#f8fafc" : "transparent",
+  minHeight: fullscreen ? "100vh" : undefined,
+  padding: fullscreen ? 16 : 0,
+  overflow: fullscreen ? "auto" : undefined,
+});
+
+const headerCardStyle = (fullscreen: boolean): CSSProperties => ({
+  padding: 14,
+  display: "grid",
+  gap: 14,
+  overflow: "visible",
+  position: fullscreen ? "sticky" : "relative",
+  top: fullscreen ? 0 : undefined,
+  zIndex: fullscreen ? 20 : undefined,
+});
+
+const headerMainRowStyle = (fullscreen: boolean): CSSProperties => ({
   display: "flex",
-  minHeight: "70vh",
+  alignItems: fullscreen ? "flex-start" : "center",
+  justifyContent: "space-between",
+  gap: 12,
+  flexWrap: "wrap",
+});
+
+const headerLeftGroupStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 10,
+  flexWrap: "wrap",
+  minWidth: 0,
+  flex: "1 1 520px",
+};
+
+const canvasSizeSlotStyle = (fullscreen: boolean): CSSProperties => ({
+  display: "flex",
+  alignItems: "center",
+  justifyContent: "center",
+  gap: 10,
+  flex: fullscreen ? "0 1 auto" : "1 1 240px",
+  minWidth: 0,
+});
+
+const headerRightGroupStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  flexWrap: "wrap",
+  justifyContent: "flex-end",
+  flex: "1 1 420px",
+};
+
+const canvasSizeGroupStyle: CSSProperties = {
+  display: "flex",
+  alignItems: "center",
+  gap: 8,
+  flexWrap: "wrap",
+  padding: "6px 10px",
+  borderRadius: 12,
+  background: "#f8fafc",
+  border: "1px solid #e6eaf0",
+};
+
+const workspaceStyle = (fullscreen: boolean): CSSProperties => ({
+  display: "flex",
+  minHeight: fullscreen ? "calc(100vh - 168px)" : "70vh",
   overflow: "hidden",
   borderRadius: 18,
   border: "1px solid #e6eaf0",
   background: "#fff",
-};
+});
 
 const eyebrowStyle: CSSProperties = {
   fontSize: 12,
@@ -624,6 +865,17 @@ const ghostButtonStyle: CSSProperties = {
   fontWeight: 700,
 };
 
+const focusButtonStyle = (active: boolean): CSSProperties => ({
+  minHeight: 32,
+  padding: "0 12px",
+  borderRadius: 8,
+  border: `1px solid ${active ? "#93c5fd" : "#d5d9e6"}`,
+  background: active ? "#eff6ff" : "#fff",
+  color: active ? "#1d4ed8" : "#475569",
+  fontSize: 12,
+  fontWeight: 700,
+});
+
 const dangerGhostStyle = (enabled: boolean): CSSProperties => ({
   minHeight: 32,
   padding: "0 12px",
@@ -658,7 +910,7 @@ const sizeInputStyle: CSSProperties = {
   fontSize: 12,
 };
 
-const statusBarStyle: CSSProperties = {
+const statusBarStyle = (fullscreen: boolean): CSSProperties => ({
   minHeight: 28,
   borderRadius: 12,
   background: "#1a1a2e",
@@ -669,7 +921,8 @@ const statusBarStyle: CSSProperties = {
   padding: "0 16px",
   fontSize: 11,
   fontWeight: 600,
-};
+  marginBottom: fullscreen ? 0 : undefined,
+});
 
 const statusItemStyle: CSSProperties = {
   display: "inline-flex",

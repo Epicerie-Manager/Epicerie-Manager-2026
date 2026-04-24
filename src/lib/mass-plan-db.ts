@@ -2,6 +2,7 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MassElement, MassPlan, RayonLibItem } from "@/components/plan-rayon/mass-plan/mass-plan-types";
+import { encodeTextModule, parseTextModule } from "@/lib/mass-plan-text";
 
 const STORE_KEY = "villebon-2";
 const FACING_BUCKET = "rayon-facings";
@@ -81,23 +82,28 @@ export async function loadMassPlanElements(supabase: SupabaseClient, planId: str
 
   return (elementRows ?? []).map((row) => {
     const rayon = row.rayon_plan_id ? rayonMap.get(String(row.rayon_plan_id)) : null;
+    const isText = row.element_type === "text";
+    const textModule = isText ? parseTextModule(row.label ? String(row.label) : null, row.color ? String(row.color) : null) : null;
     return {
       id: String(row.id),
       plan_id: String(row.plan_id),
       rayon_plan_id: row.rayon_plan_id ? String(row.rayon_plan_id) : null,
       element_type: row.element_type as MassElement["element_type"],
-      label: row.label ? String(row.label) : rayon?.name ?? null,
+      label: isText ? textModule?.content ?? "Texte" : row.label ? String(row.label) : rayon?.name ?? null,
       x: Number(row.x ?? 0),
       y: Number(row.y ?? 0),
       w: Number(row.w ?? 120),
       h: Number(row.h ?? 80),
-      color: row.color ? String(row.color) : rayon?.color ?? null,
+      color: isText
+        ? (textModule?.style.textColor ?? (row.color ? String(row.color) : null))
+        : row.color ? String(row.color) : rayon?.color ?? null,
       rotated: Boolean(row.rotated),
       z_index: Number(row.z_index ?? 1),
       rayon_name: rayon?.name,
       rayon_color: rayon?.color ?? undefined,
       rayon_elem_count: rayon?.elem_count,
       rayon_facing_url: rayon?.facing_image_url ?? null,
+      text_style: textModule?.style ?? null,
     } satisfies MassElement;
   });
 }
@@ -117,12 +123,12 @@ export async function saveMassPlanElements(
       plan_id: planId,
       rayon_plan_id: element.rayon_plan_id,
       element_type: element.element_type,
-      label: element.label,
+      label: element.element_type === "text" ? encodeTextModule(element.label, element.text_style) : element.label,
       x: Math.round(element.x),
       y: Math.round(element.y),
       w: Math.round(element.w),
       h: Math.round(element.h),
-      color: element.color,
+      color: element.element_type === "text" ? element.text_style?.textColor ?? element.color : element.color,
       rotated: element.rotated,
       z_index: index + 1,
     }));

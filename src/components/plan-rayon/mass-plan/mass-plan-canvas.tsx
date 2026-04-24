@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState, type CSSProperties, type DragEvent, type MouseEvent as ReactMouseEvent } from "react";
-import type { DragLibraryPayload, MassElement } from "@/components/plan-rayon/mass-plan/mass-plan-types";
+import type { DragLibraryPayload, MassElement, TextModuleStyle } from "@/components/plan-rayon/mass-plan/mass-plan-types";
 import { GRID, PLAN_TITLE_BAR_HEIGHT } from "@/components/plan-rayon/mass-plan/mass-plan-types";
+import { getTextModuleFontFamily, getTextModuleStyle } from "@/lib/mass-plan-text";
 
 type Props = {
   planName: string;
@@ -18,13 +19,17 @@ type Props = {
   onPatchElements: (ids: string[], updater: (element: MassElement, index: number) => MassElement) => void;
   onClearSelection: () => void;
   onDuplicateElement: (elementId: string) => void;
+  onDuplicateSelected: () => void;
   onToggleRotation: (elementId: string) => void;
+  onToggleRotationSelected: () => void;
   onBringToFront: (elementId: string) => void;
+  onBringSelectedToFront: () => void;
   onDeleteElement: (elementId: string) => void;
+  onDeleteSelected: () => void;
 };
 
 type LassoRect = { x: number; y: number; w: number; h: number };
-type ContextMenuState = { x: number; y: number; elementId: string } | null;
+type ContextMenuState = { x: number; y: number; elementId: string | null; selectionCount: number } | null;
 type HoverCardState = { left: number; top: number; element: MassElement } | null;
 
 export function MassPlanCanvas(props: Props) {
@@ -40,9 +45,21 @@ export function MassPlanCanvas(props: Props) {
 
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
+      const target = event.target as HTMLElement | null;
+      const isEditing =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        target?.isContentEditable;
       if (event.key === "Escape") {
         setContextMenu(null);
         props.onClearSelection();
+        return;
+      }
+      if (isEditing || !props.canWrite || !props.selectedIds.size) return;
+      if (event.key === "Delete" || event.key === "Backspace") {
+        event.preventDefault();
+        setContextMenu(null);
+        props.onDeleteSelected();
       }
     };
     const onPointerDown = () => setContextMenu(null);
@@ -103,6 +120,7 @@ export function MassPlanCanvas(props: Props) {
 
   function startDrag(event: ReactMouseEvent, target: MassElement, resize = false) {
     if (!props.canWrite) return;
+    if (event.button !== 0) return;
     event.stopPropagation();
     event.preventDefault();
     const initialPoint = toCanvasPoint(event.clientX, event.clientY);
@@ -149,6 +167,7 @@ export function MassPlanCanvas(props: Props) {
   }
 
   function handleCanvasMouseDown(event: ReactMouseEvent) {
+    if (event.button !== 0) return;
     setContextMenu(null);
     setHoverCard(null);
     event.preventDefault();
@@ -266,14 +285,33 @@ export function MassPlanCanvas(props: Props) {
                 selected={props.selectedIds.has(element.id)}
                 multiSelected={props.selectedIds.size > 1 && props.selectedIds.has(element.id)}
                 canWrite={props.canWrite}
-                onSelect={() => props.onSelectIds(new Set([element.id]))}
+                onSelect={(event) => {
+                  if ((event.ctrlKey || event.metaKey) && props.canWrite) {
+                    const next = new Set(props.selectedIds);
+                    if (next.has(element.id)) {
+                      next.delete(element.id);
+                    } else {
+                      next.add(element.id);
+                    }
+                    props.onSelectIds(next);
+                    return false;
+                  }
+                  props.onSelectIds(new Set([element.id]));
+                  return true;
+                }}
                 onMouseDown={startDrag}
                 onContextMenu={(event) => {
                   if (!props.canWrite) return;
                   event.preventDefault();
                   setHoverCard(null);
-                  props.onSelectIds(new Set([element.id]));
-                  setContextMenu({ x: event.clientX, y: event.clientY, elementId: element.id });
+                  const selectionCount = props.selectedIds.has(element.id) ? props.selectedIds.size : 1;
+                  if (!props.selectedIds.has(element.id)) props.onSelectIds(new Set([element.id]));
+                  setContextMenu({
+                    x: event.clientX,
+                    y: event.clientY,
+                    elementId: selectionCount === 1 ? element.id : null,
+                    selectionCount,
+                  });
                 }}
                 onHoverChange={setHoverCard}
               />
@@ -285,10 +323,29 @@ export function MassPlanCanvas(props: Props) {
       </div>
       {contextMenu ? (
         <div style={contextMenuStyle(contextMenu.x, contextMenu.y)} onPointerDown={(event) => event.stopPropagation()}>
-          <button type="button" onClick={() => { props.onDuplicateElement(contextMenu.elementId); setContextMenu(null); }} style={contextItemStyle(false)}>⧉ Dupliquer</button>
-          <button type="button" onClick={() => { props.onToggleRotation(contextMenu.elementId); setContextMenu(null); }} style={contextItemStyle(false)}>↺ Rotation label</button>
-          <button type="button" onClick={() => { props.onBringToFront(contextMenu.elementId); setContextMenu(null); }} style={contextItemStyle(false)}>↥ Premier plan</button>
-          <button type="button" onClick={() => { props.onDeleteElement(contextMenu.elementId); setContextMenu(null); }} style={contextItemStyle(true)}>⌫ Supprimer</button>
+          {contextMenu.selectionCount === 1 && contextMenu.elementId ? (
+            <>
+              <button type="button" onClick={() => { props.onDuplicateElement(contextMenu.elementId!); setContextMenu(null); }} style={contextItemStyle(false)}>⧉ Dupliquer</button>
+              <button type="button" onClick={() => { props.onToggleRotation(contextMenu.elementId!); setContextMenu(null); }} style={contextItemStyle(false)}>↺ Rotation label</button>
+              <button type="button" onClick={() => { props.onBringToFront(contextMenu.elementId!); setContextMenu(null); }} style={contextItemStyle(false)}>↥ Premier plan</button>
+              <button type="button" onClick={() => { props.onDeleteElement(contextMenu.elementId!); setContextMenu(null); }} style={contextItemStyle(true)}>⌫ Supprimer</button>
+            </>
+          ) : (
+            <>
+              <button type="button" onClick={() => { props.onDuplicateSelected(); setContextMenu(null); }} style={contextItemStyle(false)}>
+                ⧉ Dupliquer la sélection ({contextMenu.selectionCount})
+              </button>
+              <button type="button" onClick={() => { props.onToggleRotationSelected(); setContextMenu(null); }} style={contextItemStyle(false)}>
+                ↺ Rotation label
+              </button>
+              <button type="button" onClick={() => { props.onBringSelectedToFront(); setContextMenu(null); }} style={contextItemStyle(false)}>
+                ↥ Premier plan
+              </button>
+              <button type="button" onClick={() => { props.onDeleteSelected(); setContextMenu(null); }} style={contextItemStyle(true)}>
+                ⌫ Supprimer la sélection ({contextMenu.selectionCount})
+              </button>
+            </>
+          )}
         </div>
       ) : null}
       {hoverCard ? <HoverCard hoverCard={hoverCard} /> : null}
@@ -312,21 +369,23 @@ function ElementBlock({
   selected: boolean;
   multiSelected: boolean;
   canWrite: boolean;
-  onSelect: () => void;
+  onSelect: (event: ReactMouseEvent) => boolean;
   onMouseDown: (event: React.MouseEvent, element: MassElement, resize?: boolean) => void;
   onContextMenu: (event: ReactMouseEvent) => void;
   onHoverChange: (state: HoverCardState) => void;
 }) {
   const isRayon = element.element_type === "rayon";
+  const isText = element.element_type === "text";
   const elementColor = element.color ?? element.rayon_color ?? "#0a4f98";
+  const textModuleStyle = getTextModuleStyle(element);
   const cols = Math.max(1, Math.round(element.w / GRID));
   const rows = Math.max(1, Math.round(element.h / GRID));
   const elems = cols * rows;
-  const small = cols < 4 && !element.rotated;
-  const textColor = getElementTextColor(element.element_type, elementColor);
-  const name = element.rayon_name ?? element.label ?? "";
-  const showFullName = !element.rotated && cols >= 4;
-  const shouldShowHoverCard = Boolean(name) && !showFullName;
+  const small = cols < 4 && !element.rotated && !isText;
+  const textColor = isText ? textModuleStyle?.textColor ?? "#1f2b4d" : getElementTextColor(element.element_type, elementColor);
+  const name = element.label ?? element.rayon_name ?? "";
+  const showFullName = isText || (!element.rotated && cols >= 4);
+  const shouldShowHoverCard = Boolean(name) && !showFullName && !isText;
 
   return (
     <div
@@ -338,18 +397,30 @@ function ElementBlock({
       }}
       onMouseLeave={() => onHoverChange(null)}
       onMouseDown={(event) => {
+        if (event.button !== 0) return;
         onHoverChange(null);
-        onSelect();
+        const shouldStartDrag = onSelect(event);
+        if (!shouldStartDrag) {
+          event.preventDefault();
+          event.stopPropagation();
+          return;
+        }
         onMouseDown(event, element, false);
       }}
       style={elementStyle(element, selected, multiSelected, elementColor, textColor)}
       title={small ? name : undefined}
     >
       {isRayon ? <div style={dividerLayerStyle(elementColor, cols, rows)} /> : null}
-      <div style={innerStyle(element.rotated)}>
-        <div style={labelStyle(textColor, showFullName)}>{small ? getInitials(name) : name}</div>
-        {isRayon ? <div style={subLabelStyle(textColor)}>{elems} éléments</div> : null}
-      </div>
+      {isText ? (
+        <div style={textBoxInnerStyle(textModuleStyle)}>
+          {renderTextModuleLines(name, textModuleStyle)}
+        </div>
+      ) : (
+        <div style={innerStyle(element.rotated)}>
+          <div style={labelStyle(textColor, showFullName, isText)}>{small ? getInitials(name) : name}</div>
+          {isRayon ? <div style={subLabelStyle(textColor)}>{elems} éléments</div> : null}
+        </div>
+      )}
       {selected && canWrite ? (
         <div
           onMouseDown={(event) => onMouseDown(event, element, true)}
@@ -363,12 +434,14 @@ function ElementBlock({
 }
 
 function HoverCard({ hoverCard }: { hoverCard: NonNullable<HoverCardState> }) {
-  const name = hoverCard.element.rayon_name ?? hoverCard.element.label ?? "Élément";
+  const name = hoverCard.element.label ?? hoverCard.element.rayon_name ?? "Élément";
   const isRayon = hoverCard.element.element_type === "rayon";
   const meta = isRayon
     ? `${hoverCard.element.rayon_elem_count ?? Math.max(1, Math.round(hoverCard.element.w / GRID) * Math.round(hoverCard.element.h / GRID))} éléments`
     : hoverCard.element.element_type === "alley-h" || hoverCard.element.element_type === "alley-v"
       ? "Allée"
+      : hoverCard.element.element_type === "text"
+        ? "Zone de texte"
       : hoverCard.element.element_type === "tete-gondole"
         ? "Tête de gondole"
         : "Gondole basse";
@@ -447,6 +520,18 @@ function getInitials(value: string) {
   return words.map((word) => word[0]?.toUpperCase() ?? "").join("");
 }
 
+function renderTextModuleLines(value: string, style: TextModuleStyle | null) {
+  const lines = value.split(/\r?\n/).filter((line) => line.trim().length > 0);
+  if (!lines.length) {
+    return <div style={textLineStyle(style)}>{style?.bulletMode ? "• Texte" : "Texte"}</div>;
+  }
+  return lines.map((line, index) => (
+    <div key={`${index}-${line}`} style={textLineStyle(style)}>
+      {style?.bulletMode ? `• ${line}` : line}
+    </div>
+  ));
+}
+
 function getContrastColor(color: string) {
   const hex = color.replace("#", "");
   const full = hex.length === 3 ? hex.split("").map((char) => `${char}${char}`).join("") : hex;
@@ -460,6 +545,7 @@ function getContrastColor(color: string) {
 
 function getElementTextColor(type: MassElement["element_type"], color: string) {
   if (type === "rayon") return color;
+  if (type === "text") return color;
   if (type === "alley-h" || type === "alley-v") return "#7c8698";
   return getContrastColor(color);
 }
@@ -467,12 +553,24 @@ function getElementTextColor(type: MassElement["element_type"], color: string) {
 function elementStyle(element: MassElement, selected: boolean, multiSelected: boolean, color: string, textColor: string): CSSProperties {
   const isRayon = element.element_type === "rayon";
   const isAlley = element.element_type === "alley-h" || element.element_type === "alley-v";
+  const isText = element.element_type === "text";
+  const textModuleStyle = getTextModuleStyle(element);
   const background = isRayon
     ? `${color}1f`
+    : isText
+      ? textModuleStyle?.backgroundColor ?? "#ffffff"
     : isAlley
       ? "repeating-linear-gradient(45deg, rgba(0,0,0,0.03) 0px, rgba(0,0,0,0.03) 4px, transparent 4px, transparent 12px)"
       : color;
-  const border = isRayon ? `2px solid ${color}` : isAlley ? "1px dashed #b9c0cb" : "none";
+  const border = isRayon
+    ? `2px solid ${color}`
+    : isText
+      ? textModuleStyle?.borderStyle === "none"
+        ? "none"
+        : `1px ${textModuleStyle?.borderStyle ?? "dashed"} ${textModuleStyle?.borderColor ?? "#cbd5e1"}`
+      : isAlley
+        ? "1px dashed #b9c0cb"
+        : "none";
   return {
     position: "absolute",
     left: element.x,
@@ -599,18 +697,51 @@ const innerStyle = (rotated: boolean): CSSProperties => ({
   ...(rotated ? { writingMode: "vertical-rl", textOrientation: "mixed", transform: "rotate(180deg)" } : {}),
 });
 
-const labelStyle = (color: string, expanded: boolean): CSSProperties => ({
-  fontSize: expanded ? 11 : 10,
+const labelStyle = (color: string, expanded: boolean, isText = false): CSSProperties => ({
+  fontSize: isText ? (expanded ? 14 : 12) : expanded ? 11 : 10,
   fontWeight: 800,
   lineHeight: 1.2,
-  textTransform: "uppercase",
-  letterSpacing: "0.04em",
+  textTransform: isText ? "none" : "uppercase",
+  letterSpacing: isText ? "0" : "0.04em",
   color,
   textAlign: "center",
   paddingInline: 4,
   whiteSpace: expanded ? "normal" : "nowrap",
   wordBreak: expanded ? "break-word" : "normal",
   textWrap: expanded ? "balance" : "nowrap",
+});
+
+const textBoxInnerStyle = (style: TextModuleStyle | null): CSSProperties => ({
+  position: "absolute",
+  inset: 0,
+  display: "flex",
+  flexDirection: "column",
+  justifyContent: "center",
+  alignItems:
+    style?.textAlign === "left"
+      ? "flex-start"
+      : style?.textAlign === "right"
+        ? "flex-end"
+        : "center",
+  gap: 4,
+  padding: style?.padding ?? 14,
+  pointerEvents: "none",
+  userSelect: "none",
+  WebkitUserSelect: "none",
+  fontFamily: getTextModuleFontFamily(style?.fontFamily ?? "dm-sans"),
+  fontSize: style?.fontSize ?? 18,
+  fontWeight: style?.fontWeight ?? 700,
+  lineHeight: style?.lineHeight ?? 1.35,
+  textAlign: style?.textAlign ?? "center",
+  color: style?.textColor ?? "#1f2b4d",
+  whiteSpace: "pre-wrap",
+  wordBreak: "break-word",
+  overflowWrap: "anywhere",
+});
+
+const textLineStyle = (style: TextModuleStyle | null): CSSProperties => ({
+  width: "100%",
+  textAlign: style?.textAlign ?? "center",
 });
 
 const subLabelStyle = (color: string): CSSProperties => ({

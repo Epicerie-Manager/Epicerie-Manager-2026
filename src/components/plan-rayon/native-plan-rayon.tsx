@@ -6,6 +6,7 @@ import { ModuleHeader } from "@/components/layout/module-header";
 import { Card } from "@/components/ui/card";
 import { MassPlanView } from "@/components/plan-rayon/mass-plan/mass-plan-view";
 import { PlansRayonView } from "@/components/plan-rayon/plans-rayon-view";
+import { PlanRayonConfirmModal } from "@/components/plan-rayon/confirm-modal";
 import {
   cloneOperations,
   clonePlans,
@@ -99,6 +100,7 @@ const MONTH_SHORT_LABELS = ["Jan", "Fev", "Mar", "Avr", "Mai", "Juin", "Juil", "
 const MASS_PLAN_ICON_OPTIONS = ["🏬", "🍬", "🧂", "🌍", "🌿", "🥤", "🛒", "📦", "🧩", "⭐"];
 const DEFAULT_MASS_VIEW_ID = "global";
 const DEFAULT_PLAN_SECTION_ORDER = Object.keys(DEFAULT_PLANS) as SectionKey[];
+const MASS_PLAN_DIRTY_STORAGE_KEY = "plan-rayon-mass-plan-dirty";
 
 const tabItems: Array<{ key: TabKey; label: string }> = [
   { key: "gantt", label: "Planning" },
@@ -839,6 +841,8 @@ export function NativePlanRayon() {
   const [hydrated, setHydrated] = useState(false);
   const [showOpsModal, setShowOpsModal] = useState(false);
   const [massPlan, setMassPlan] = useState<MassPlanState>(() => createDefaultMassPlanState());
+  const [massPlanDirty, setMassPlanDirty] = useState(false);
+  const [pendingTabKey, setPendingTabKey] = useState<TabKey | null>(null);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const didFinishInitialHydrationRef = useRef(false);
   const shouldSkipNextRemoteSaveRef = useRef(true);
@@ -888,6 +892,28 @@ export function NativePlanRayon() {
   }, []);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    const syncDirtyState = () => {
+      setMassPlanDirty(window.sessionStorage.getItem(MASS_PLAN_DIRTY_STORAGE_KEY) === "1");
+    };
+    syncDirtyState();
+    const handleDirtyEvent = (event: Event) => {
+      const customEvent = event as CustomEvent<{ dirty?: boolean }>;
+      if (typeof customEvent.detail?.dirty === "boolean") {
+        setMassPlanDirty(customEvent.detail.dirty);
+        return;
+      }
+      syncDirtyState();
+    };
+    window.addEventListener("plan-rayon:mass-plan-dirty", handleDirtyEvent as EventListener);
+    window.addEventListener("focus", syncDirtyState);
+    return () => {
+      window.removeEventListener("plan-rayon:mass-plan-dirty", handleDirtyEvent as EventListener);
+      window.removeEventListener("focus", syncDirtyState);
+    };
+  }, []);
+
+  useEffect(() => {
     if (!hydrated) return;
     window.localStorage.setItem(OPS_STORAGE_KEY, JSON.stringify(operations));
     window.localStorage.setItem(PLANS_STORAGE_KEY, JSON.stringify(plans));
@@ -930,6 +956,22 @@ export function NativePlanRayon() {
   const totalTodo = interventions.filter((item) => item.status === "todo").length;
   const chargedCount = interventions.filter((item) => item.charged).length;
   const showReimplantationMeta = activeTab === "gantt" || activeTab === "tableau" || activeTab === "calendrier";
+
+  function clearMassPlanDirtyFlag() {
+    if (typeof window === "undefined") return;
+    window.sessionStorage.setItem(MASS_PLAN_DIRTY_STORAGE_KEY, "0");
+    window.dispatchEvent(new CustomEvent("plan-rayon:mass-plan-dirty", { detail: { dirty: false } }));
+    setMassPlanDirty(false);
+  }
+
+  function requestTabChange(nextTab: TabKey) {
+    if (nextTab === activeTab) return;
+    if (activeTab === "masse" && massPlanDirty) {
+      setPendingTabKey(nextTab);
+      return;
+    }
+    setActiveTab(nextTab);
+  }
 
   function updateIntervention(interventionId: string, patch: Partial<Intervention>) {
     setOperations((current) =>
@@ -1110,7 +1152,7 @@ export function NativePlanRayon() {
                 <button
                   key={item.key}
                   type="button"
-                  onClick={() => setActiveTab(item.key)}
+                  onClick={() => requestTabChange(item.key)}
                   style={{
                     minHeight: 40,
                     padding: "0 16px",
@@ -1200,6 +1242,20 @@ export function NativePlanRayon() {
         {activeTab === "masse" ? (
           <MassPlanView />
         ) : null}
+
+        <PlanRayonConfirmModal
+          open={Boolean(pendingTabKey)}
+          title="Quitter le plan de masse sans sauvegarder ?"
+          description="Le plan de masse contient des modifications non sauvegardées. Si vous changez d’onglet maintenant, elles seront perdues."
+          confirmLabel="Quitter sans sauvegarder"
+          onClose={() => setPendingTabKey(null)}
+          onConfirm={() => {
+            if (!pendingTabKey) return;
+            clearMassPlanDirtyFlag();
+            setActiveTab(pendingTabKey);
+            setPendingTabKey(null);
+          }}
+        />
       </Card>
 
       <NativeOpsModal
@@ -1666,6 +1722,7 @@ function NativePlansView({
   const [newSectionColor, setNewSectionColor] = useState("#0a4f98");
   const [newSectionIcon, setNewSectionIcon] = useState("🧩");
   const [isEditUnlocked, setIsEditUnlocked] = useState(false);
+  const [pendingDeleteColumn, setPendingDeleteColumn] = useState<{ section: SectionKey; columnId: string; columnName: string } | null>(null);
   const orderedPlanEntries = getOrderedPlanEntries(plans);
 
   return (
@@ -1854,8 +1911,7 @@ function NativePlansView({
                         type="button"
                         onClick={() => {
                           if (!isEditUnlocked) return;
-                          if (!window.confirm(`Supprimer le rayon "${column.name}" ?`)) return;
-                          onRemoveColumn(section, column.id);
+                          setPendingDeleteColumn({ section, columnId: column.id, columnName: column.name });
                         }}
                         style={{
                           ...smallButton("#fff", "rgba(0,0,0,0.16)"),
@@ -1895,6 +1951,23 @@ function NativePlansView({
           </Card>
         );
       })}
+      <PlanRayonConfirmModal
+        open={Boolean(pendingDeleteColumn)}
+        tone="danger"
+        title="Supprimer ce rayon ?"
+        description={
+          pendingDeleteColumn
+            ? `Le rayon "${pendingDeleteColumn.columnName}" sera retiré du plan. Cette action ne pourra pas être annulée.`
+            : ""
+        }
+        confirmLabel="Supprimer le rayon"
+        onClose={() => setPendingDeleteColumn(null)}
+        onConfirm={() => {
+          if (!pendingDeleteColumn) return;
+          onRemoveColumn(pendingDeleteColumn.section, pendingDeleteColumn.columnId);
+          setPendingDeleteColumn(null);
+        }}
+      />
     </div>
   );
 }

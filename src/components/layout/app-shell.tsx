@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
+import { PlanRayonConfirmModal } from "@/components/plan-rayon/confirm-modal";
 import {
   attachBrowserSessionResponder,
   broadcastForceSignOut,
@@ -50,6 +51,7 @@ const moduleItems: ModuleNavItem[] = [
   { id: "aide",      label: "Aide",       desc: "Tutoriels & démos",     href: "/aide" },
   { id: "admin",     label: "Admin",      desc: "Messages & maintenance",href: "/admin" },
 ];
+const MASS_PLAN_DIRTY_STORAGE_KEY = "plan-rayon-mass-plan-dirty";
 
 const iconStyle = {
   width: "15px",
@@ -204,6 +206,7 @@ export function AppShell({ version, children }: AppShellProps) {
   const [allowedModules, setAllowedModules] = useState<ModuleAccessKey[]>([]);
   const [officeAccessResolved, setOfficeAccessResolved] = useState(false);
   const [isModulesMenuOpen, setIsModulesMenuOpen] = useState(false);
+  const [pendingNavigationHref, setPendingNavigationHref] = useState<string | null>(null);
   const signingOutRef = useRef(false);
   const modulesMenuRef = useRef<HTMLDivElement | null>(null);
 
@@ -380,6 +383,30 @@ export function AppShell({ version, children }: AppShellProps) {
     }
   };
 
+  const hasUnsavedMassPlanChanges =
+    pathname === "/plan-de-rayon" &&
+    typeof window !== "undefined" &&
+    window.sessionStorage.getItem(MASS_PLAN_DIRTY_STORAGE_KEY) === "1";
+
+  const handleProtectedNavigation = (
+    event: React.MouseEvent<HTMLAnchorElement>,
+    href: string,
+  ) => {
+    if (!hasUnsavedMassPlanChanges || href === pathname) return;
+    event.preventDefault();
+    setPendingNavigationHref(href);
+    setIsModulesMenuOpen(false);
+  };
+
+  const confirmProtectedNavigation = () => {
+    if (!pendingNavigationHref) return;
+    window.sessionStorage.setItem(MASS_PLAN_DIRTY_STORAGE_KEY, "0");
+    window.dispatchEvent(new CustomEvent("plan-rayon:mass-plan-dirty", { detail: { dirty: false } }));
+    const href = pendingNavigationHref;
+    setPendingNavigationHref(null);
+    router.push(href);
+  };
+
   if (
     pathname === "/login" ||
     pathname === "/change-password" ||
@@ -503,6 +530,7 @@ export function AppShell({ version, children }: AppShellProps) {
           >
             <Link
               href={dashboardItem.href}
+              onClick={(event) => handleProtectedNavigation(event, dashboardItem.href)}
               style={{
                 display: "inline-flex",
                 alignItems: "center",
@@ -536,6 +564,7 @@ export function AppShell({ version, children }: AppShellProps) {
             {activeNavItem.id !== "dashboard" ? (
               <Link
                 href={activeNavItem.href}
+                onClick={(event) => handleProtectedNavigation(event, activeNavItem.href)}
                 style={{
                   display: "inline-flex",
                   alignItems: "center",
@@ -620,7 +649,7 @@ export function AppShell({ version, children }: AppShellProps) {
                         <Link
                           key={item.id}
                           href={item.href}
-                          onClick={() => setIsModulesMenuOpen(false)}
+                          onClick={(event) => handleProtectedNavigation(event, item.href)}
                           style={{
                             display: "grid",
                             gridTemplateColumns: "18px 1fr",
@@ -734,6 +763,15 @@ export function AppShell({ version, children }: AppShellProps) {
       >
         {children}
       </main>
+
+      <PlanRayonConfirmModal
+        open={Boolean(pendingNavigationHref)}
+        title="Quitter le plan de masse sans sauvegarder ?"
+        description="Le plan de masse contient des modifications non sauvegardées. Si vous changez de module maintenant, elles seront perdues."
+        confirmLabel="Quitter sans sauvegarder"
+        onClose={() => setPendingNavigationHref(null)}
+        onConfirm={confirmProtectedNavigation}
+      />
     </div>
   );
 }

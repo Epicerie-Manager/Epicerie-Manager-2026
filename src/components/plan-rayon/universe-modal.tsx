@@ -2,9 +2,9 @@
 
 import type { CSSProperties } from "react";
 import { Card } from "@/components/ui/card";
+import { PLAN_RAYON_COLOR_PALETTE } from "@/components/plan-rayon/color-palette";
 
 const ICON_OPTIONS = ["🍬", "🧂", "🌿", "🌍", "🥤", "🧹", "🍼", "🐾", "🛒", "🥗", "🍷", "🏠"];
-const COLOR_OPTIONS = ["#0a4f98", "#d71920", "#059669", "#7c3aed", "#d97706", "#0891b2", "#be185d", "#374151", "#92400e", "#ec4899"];
 
 export function UniverseModal({
   open,
@@ -72,7 +72,7 @@ export function UniverseModal({
           <div style={fieldStyle}>
             <span>Couleur</span>
             <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
-              {COLOR_OPTIONS.map((entry) => (
+              {PLAN_RAYON_COLOR_PALETTE.map((entry) => (
                 <button
                   key={entry}
                   type="button"

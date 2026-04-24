@@ -2,18 +2,29 @@
 
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Card } from "@/components/ui/card";
-import type { ElementType, MassElement } from "@/components/plan-rayon/mass-plan/mass-plan-types";
+import { PLAN_RAYON_COLOR_PALETTE } from "@/components/plan-rayon/color-palette";
+import type { ElementType, MassElement, TextModuleAlign, TextModuleBorderStyle, TextModuleFontFamily } from "@/components/plan-rayon/mass-plan/mass-plan-types";
+import { getDefaultTextModuleStyle, getTextModuleStyle } from "@/lib/mass-plan-text";
 
 type Props = {
   selected: MassElement | null;
+  selectedElements: MassElement[];
   canWrite: boolean;
   onPatch: (patch: Partial<MassElement>) => void;
+  onSetSelectedRotation: (rotated: boolean) => void;
+  onSetSelectedColor: (color: string) => void;
   onDelete: () => void;
 };
 
-const PRESET_COLORS = ["#0a4f98", "#d71920", "#059669", "#7c3aed", "#d97706", "#0891b2", "#374151", "#111827"];
-
-export function MassPlanInspector({ selected, canWrite, onPatch, onDelete }: Props) {
+export function MassPlanInspector({
+  selected,
+  selectedElements,
+  canWrite,
+  onPatch,
+  onSetSelectedRotation,
+  onSetSelectedColor,
+  onDelete,
+}: Props) {
   const [previewOpen, setPreviewOpen] = useState(false);
   const [previewScale, setPreviewScale] = useState(1);
   const [previewOffset, setPreviewOffset] = useState({ x: 0, y: 0 });
@@ -96,7 +107,7 @@ export function MassPlanInspector({ selected, canWrite, onPatch, onDelete }: Pro
     setPreviewDragging(true);
   }
 
-  if (!selected) {
+  if (!selectedElements.length) {
     return (
       <div style={panelStyle}>
         <div style={sectionTitleStyle}>Propriétés</div>
@@ -108,8 +119,104 @@ export function MassPlanInspector({ selected, canWrite, onPatch, onDelete }: Pro
     );
   }
 
+  if (selectedElements.length > 1) {
+    const colorableSelection = selectedElements.filter(
+      (element) => element.element_type !== "alley-h" && element.element_type !== "alley-v",
+    );
+    const firstColor = colorableSelection[0]?.color ?? colorableSelection[0]?.rayon_color ?? null;
+    const sharedColor =
+      firstColor && colorableSelection.every((element) => (element.color ?? element.rayon_color ?? null) === firstColor)
+        ? firstColor
+        : null;
+    const allRotated = selectedElements.every((element) => element.rotated);
+    const allHorizontal = selectedElements.every((element) => !element.rotated);
+
+    return (
+      <div style={panelStyle}>
+        <div style={sectionTitleStyle}>Propriétés</div>
+        <div style={scrollStyle}>
+          <Card static style={{ padding: 14, borderRadius: 14 }}>
+            <div style={tinyTitleStyle}>Sélection</div>
+            <div style={{ marginTop: 6, fontSize: 18, fontWeight: 800, color: "#13243b" }}>
+              {selectedElements.length} éléments sélectionnés
+            </div>
+            <div style={multiHintStyle}>
+              Appliquez une action à toute la sélection sans repasser élément par élément.
+            </div>
+          </Card>
+
+          <Card static style={{ padding: 14, borderRadius: 14 }}>
+            <div style={tinyTitleStyle}>Orientation</div>
+            <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+              <button
+                type="button"
+                onClick={() => onSetSelectedRotation(false)}
+                disabled={!canWrite}
+                style={rotButtonStyle(allHorizontal, canWrite)}
+              >
+                Horizontal
+              </button>
+              <button
+                type="button"
+                onClick={() => onSetSelectedRotation(true)}
+                disabled={!canWrite}
+                style={rotButtonStyle(allRotated, canWrite)}
+              >
+                Vertical
+              </button>
+            </div>
+          </Card>
+
+          {colorableSelection.length ? (
+            <Card static style={{ padding: 14, borderRadius: 14 }}>
+              <div style={tinyTitleStyle}>Couleur</div>
+              <div style={multiHintStyle}>
+                {colorableSelection.length === selectedElements.length
+                  ? "Appliquer une couleur à toute la sélection."
+                  : `Appliquer une couleur aux ${colorableSelection.length} éléments compatibles.`}
+              </div>
+              <div style={colorGridStyle}>
+                {PLAN_RAYON_COLOR_PALETTE.map((entry) => (
+                  <button
+                    key={entry}
+                    type="button"
+                    disabled={!canWrite}
+                    onClick={() => onSetSelectedColor(entry)}
+                    style={colorDotStyle(entry, sharedColor === entry, canWrite)}
+                  />
+                ))}
+              </div>
+            </Card>
+          ) : null}
+        </div>
+        <div style={actionBarStyle}>
+          <button type="button" disabled={!canWrite} onClick={onDelete} style={deleteButtonStyle(canWrite)}>
+            Supprimer la sélection
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (!selected) {
+    return null;
+  }
+
   const currentColor = selected.color ?? selected.rayon_color ?? "#0a4f98";
+  const isTextElement = selected.element_type === "text";
+  const textStyle = getTextModuleStyle(selected);
   const showColor = selected.element_type !== "alley-h" && selected.element_type !== "alley-v";
+
+  function patchTextStyle(patch: Partial<NonNullable<MassElement["text_style"]>>) {
+    if (!isTextElement) return;
+    onPatch({
+      text_style: {
+        ...(textStyle ?? getDefaultTextModuleStyle()),
+        ...patch,
+      },
+      color: patch.textColor ?? selected?.color ?? textStyle?.textColor ?? currentColor,
+    });
+  }
 
   return (
     <div style={panelStyle}>
@@ -118,7 +225,7 @@ export function MassPlanInspector({ selected, canWrite, onPatch, onDelete }: Pro
         <Card static style={{ padding: 14, borderRadius: 14 }}>
           <div style={tinyTitleStyle}>Élément</div>
           <div style={{ marginTop: 6, fontSize: 18, fontWeight: 800, color: "#13243b" }}>
-            {selected.rayon_name ?? selected.label ?? getTypeLabel(selected.element_type)}
+            {selected.label ?? selected.rayon_name ?? getTypeLabel(selected.element_type)}
           </div>
           {selected.rayon_elem_count ? (
             <div style={badgeStyle}>📦 {selected.rayon_elem_count} éléments</div>
@@ -131,7 +238,7 @@ export function MassPlanInspector({ selected, canWrite, onPatch, onDelete }: Pro
             <div style={tinyTitleStyle}>Facing</div>
             {selected.rayon_facing_url ? (
               <button type="button" onClick={() => setPreviewOpen(true)} style={previewCardStyle}>
-                <img src={selected.rayon_facing_url} alt={`Facing ${selected.rayon_name ?? selected.label ?? ""}`} style={previewImageStyle} />
+                <img src={selected.rayon_facing_url} alt={`Facing ${selected.label ?? selected.rayon_name ?? ""}`} style={previewImageStyle} />
                 <div style={previewCaptionStyle}>
                   <span>Aperçu du facing</span>
                   <span style={{ color: "#0a4f98", fontWeight: 800 }}>Cliquer pour agrandir</span>
@@ -166,30 +273,207 @@ export function MassPlanInspector({ selected, canWrite, onPatch, onDelete }: Pro
         </Card>
 
         <Card static style={{ padding: 14, borderRadius: 14 }}>
-          <div style={tinyTitleStyle}>Libellé</div>
-          <input
-            value={selected.label ?? ""}
-            disabled={!canWrite}
-            onChange={(event) => onPatch({ label: event.target.value })}
-            style={inputStyle}
-            placeholder="Nom affiché"
-          />
+          <div style={tinyTitleStyle}>{isTextElement ? "Contenu" : "Libellé"}</div>
+          {isTextElement ? (
+            <textarea
+              value={selected.label ?? ""}
+              disabled={!canWrite}
+              onChange={(event) => onPatch({ label: event.target.value })}
+              style={{ ...textareaStyle, minHeight: 120 }}
+              placeholder={"Texte libre\nUne ligne par point si vous activez les puces"}
+            />
+          ) : (
+            <input
+              value={selected.label ?? ""}
+              disabled={!canWrite}
+              onChange={(event) => onPatch({ label: event.target.value })}
+              style={inputStyle}
+              placeholder="Nom affiché"
+            />
+          )}
         </Card>
+
+        {isTextElement ? (
+          <>
+            <Card static style={{ padding: 14, borderRadius: 14 }}>
+              <div style={tinyTitleStyle}>Typographie</div>
+              <div style={fieldStackStyle}>
+                <label style={fieldLabelWrapStyle}>
+                  <span style={labelStyle}>Police</span>
+                  <select
+                    value={textStyle?.fontFamily ?? "dm-sans"}
+                    disabled={!canWrite}
+                    onChange={(event) => patchTextStyle({ fontFamily: event.target.value as TextModuleFontFamily })}
+                    style={inputStyle}
+                  >
+                    <option value="dm-sans">DM Sans</option>
+                    <option value="fraunces">Fraunces</option>
+                    <option value="geist-sans">Geist Sans</option>
+                    <option value="geist-mono">Geist Mono</option>
+                  </select>
+                </label>
+                <div style={fieldGridStyle}>
+                  <Field
+                    label="Taille"
+                    value={textStyle?.fontSize ?? 18}
+                    disabled={!canWrite}
+                    onChange={(value) => patchTextStyle({ fontSize: Math.max(10, Math.min(48, value)) })}
+                  />
+                  <Field
+                    label="Interligne"
+                    value={Math.round((textStyle?.lineHeight ?? 1.35) * 100)}
+                    disabled={!canWrite}
+                    onChange={(value) => patchTextStyle({ lineHeight: Math.max(1, Math.min(2.2, value / 100)) })}
+                  />
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => patchTextStyle({ fontWeight: 500 })}
+                    disabled={!canWrite}
+                    style={rotButtonStyle((textStyle?.fontWeight ?? 700) === 500, canWrite)}
+                  >
+                    Regular
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => patchTextStyle({ fontWeight: 700 })}
+                    disabled={!canWrite}
+                    style={rotButtonStyle((textStyle?.fontWeight ?? 700) === 700, canWrite)}
+                  >
+                    Bold
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => patchTextStyle({ fontWeight: 800 })}
+                    disabled={!canWrite}
+                    style={rotButtonStyle((textStyle?.fontWeight ?? 700) === 800, canWrite)}
+                  >
+                    Extra
+                  </button>
+                </div>
+              </div>
+            </Card>
+
+            <Card static style={{ padding: 14, borderRadius: 14 }}>
+              <div style={tinyTitleStyle}>Mise en forme</div>
+              <div style={fieldStackStyle}>
+                <div style={{ display: "flex", gap: 8 }}>
+                  {TEXT_ALIGN_OPTIONS.map((option) => (
+                    <button
+                      key={option.value}
+                      type="button"
+                      onClick={() => patchTextStyle({ textAlign: option.value })}
+                      disabled={!canWrite}
+                      style={rotButtonStyle((textStyle?.textAlign ?? "center") === option.value, canWrite)}
+                    >
+                      {option.label}
+                    </button>
+                  ))}
+                </div>
+                <div style={{ display: "flex", gap: 8 }}>
+                  <button
+                    type="button"
+                    onClick={() => patchTextStyle({ bulletMode: !(textStyle?.bulletMode ?? false) })}
+                    disabled={!canWrite}
+                    style={rotButtonStyle(Boolean(textStyle?.bulletMode), canWrite)}
+                  >
+                    Puces
+                  </button>
+                  <label style={fieldLabelWrapStyle}>
+                    <span style={labelStyle}>Padding</span>
+                    <input
+                      type="number"
+                      value={Math.round(textStyle?.padding ?? 14)}
+                      disabled={!canWrite}
+                      onChange={(event) =>
+                        patchTextStyle({ padding: Math.max(4, Math.min(40, Number(event.target.value) || 14)) })
+                      }
+                      style={inputStyle}
+                    />
+                  </label>
+                </div>
+              </div>
+            </Card>
+          </>
+        ) : null}
 
         {showColor ? (
           <Card static style={{ padding: 14, borderRadius: 14 }}>
-            <div style={tinyTitleStyle}>Couleur</div>
-            <div style={colorGridStyle}>
-              {PRESET_COLORS.map((entry) => (
-                <button
-                  key={entry}
-                  type="button"
-                  disabled={!canWrite}
-                  onClick={() => onPatch({ color: entry })}
-                  style={colorDotStyle(entry, currentColor === entry, canWrite)}
-                />
-              ))}
-            </div>
+            <div style={tinyTitleStyle}>{isTextElement ? "Couleurs" : "Couleur"}</div>
+            {isTextElement ? (
+              <div style={fieldStackStyle}>
+                <div>
+                  <div style={subSectionTitleStyle}>Texte</div>
+                  <div style={colorGridStyle}>
+                    {PLAN_RAYON_COLOR_PALETTE.map((entry) => (
+                      <button
+                        key={`text-${entry}`}
+                        type="button"
+                        disabled={!canWrite}
+                        onClick={() => patchTextStyle({ textColor: entry })}
+                        style={colorDotStyle(entry, (textStyle?.textColor ?? currentColor) === entry, canWrite)}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div style={subSectionTitleStyle}>Cadre</div>
+                  <div style={fieldStackStyle}>
+                    <div style={colorGridStyle}>
+                      {PLAN_RAYON_COLOR_PALETTE.map((entry) => (
+                        <button
+                          key={`border-${entry}`}
+                          type="button"
+                          disabled={!canWrite}
+                          onClick={() => patchTextStyle({ borderColor: entry })}
+                          style={colorDotStyle(entry, (textStyle?.borderColor ?? "#cbd5e1") === entry, canWrite)}
+                        />
+                      ))}
+                    </div>
+                    <div style={{ display: "flex", gap: 8 }}>
+                      {TEXT_BORDER_OPTIONS.map((option) => (
+                        <button
+                          key={option.value}
+                          type="button"
+                          onClick={() => patchTextStyle({ borderStyle: option.value })}
+                          disabled={!canWrite}
+                          style={rotButtonStyle((textStyle?.borderStyle ?? "dashed") === option.value, canWrite)}
+                        >
+                          {option.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+                <div>
+                  <div style={subSectionTitleStyle}>Fond</div>
+                  <div style={colorGridStyle}>
+                    {TEXT_BACKGROUND_OPTIONS.map((entry) => (
+                      <button
+                        key={`bg-${entry.value}`}
+                        type="button"
+                        disabled={!canWrite}
+                        onClick={() => patchTextStyle({ backgroundColor: entry.value })}
+                        style={colorDotStyle(entry.swatch, (textStyle?.backgroundColor ?? "#ffffff") === entry.value, canWrite)}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div style={colorGridStyle}>
+                {PLAN_RAYON_COLOR_PALETTE.map((entry) => (
+                  <button
+                    key={entry}
+                    type="button"
+                    disabled={!canWrite}
+                    onClick={() => onPatch({ color: entry })}
+                    style={colorDotStyle(entry, currentColor === entry, canWrite)}
+                  />
+                ))}
+              </div>
+            )}
           </Card>
         ) : null}
       </div>
@@ -225,7 +509,7 @@ export function MassPlanInspector({ selected, canWrite, onPatch, onDelete }: Pro
             <div style={overlayStageStyle(previewOffset)}>
               <img
                 src={selected.rayon_facing_url}
-                alt={`Facing ${selected.rayon_name ?? selected.label ?? ""}`}
+                alt={`Facing ${selected.label ?? selected.rayon_name ?? ""}`}
                 style={overlayImageStyle(previewScale, previewScale > 1)}
                 draggable={false}
                 onLoad={(event) =>
@@ -263,8 +547,30 @@ function getTypeLabel(type: ElementType) {
   if (type === "alley-v") return "Allée verticale";
   if (type === "tete-gondole") return "Tête de gondole";
   if (type === "gondole-basse") return "Gondole basse";
+  if (type === "text") return "Zone de texte";
   return "Rayon";
 }
+
+const TEXT_ALIGN_OPTIONS: Array<{ label: string; value: TextModuleAlign }> = [
+  { label: "Gauche", value: "left" },
+  { label: "Centre", value: "center" },
+  { label: "Droite", value: "right" },
+];
+
+const TEXT_BORDER_OPTIONS: Array<{ label: string; value: TextModuleBorderStyle }> = [
+  { label: "Aucun", value: "none" },
+  { label: "Trait", value: "solid" },
+  { label: "Pointillé", value: "dashed" },
+];
+
+const TEXT_BACKGROUND_OPTIONS = [
+  { value: "#ffffff", swatch: "#ffffff" },
+  { value: "#f8fafc", swatch: "#f8fafc" },
+  { value: "#fef3c7", swatch: "#fef3c7" },
+  { value: "#ecfeff", swatch: "#ecfeff" },
+  { value: "#fdf2f8", swatch: "#fdf2f8" },
+  { value: "#f3f4f6", swatch: "#f3f4f6" },
+];
 
 function clampPreviewOffset(
   offset: { x: number; y: number },
@@ -378,6 +684,17 @@ const labelStyle: CSSProperties = {
   color: "#617286",
 };
 
+const fieldLabelWrapStyle: CSSProperties = {
+  display: "grid",
+  gap: 4,
+};
+
+const fieldStackStyle: CSSProperties = {
+  marginTop: 10,
+  display: "grid",
+  gap: 10,
+};
+
 const inputStyle: CSSProperties = {
   width: "100%",
   minHeight: 36,
@@ -388,11 +705,31 @@ const inputStyle: CSSProperties = {
   color: "#13243b",
 };
 
+const textareaStyle: CSSProperties = {
+  ...inputStyle,
+  resize: "vertical",
+  padding: "10px 10px",
+  lineHeight: 1.45,
+};
+
 const colorGridStyle: CSSProperties = {
   display: "flex",
   flexWrap: "wrap",
   gap: 8,
   marginTop: 10,
+};
+
+const multiHintStyle: CSSProperties = {
+  marginTop: 8,
+  fontSize: 12,
+  color: "#64748b",
+};
+
+const subSectionTitleStyle: CSSProperties = {
+  marginBottom: 8,
+  fontSize: 11,
+  fontWeight: 700,
+  color: "#64748b",
 };
 
 const colorDotStyle = (color: string, active: boolean, enabled: boolean): CSSProperties => ({

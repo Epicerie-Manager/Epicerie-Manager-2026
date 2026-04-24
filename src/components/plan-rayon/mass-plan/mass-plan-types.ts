@@ -1,4 +1,22 @@
-export type ElementType = "rayon" | "alley-h" | "alley-v" | "tete-gondole" | "gondole-basse";
+export type ElementType = "rayon" | "alley-h" | "alley-v" | "tete-gondole" | "gondole-basse" | "text";
+
+export type TextModuleFontFamily = "dm-sans" | "fraunces" | "geist-sans" | "geist-mono";
+export type TextModuleAlign = "left" | "center" | "right";
+export type TextModuleBorderStyle = "none" | "solid" | "dashed";
+
+export type TextModuleStyle = {
+  fontFamily: TextModuleFontFamily;
+  fontSize: number;
+  fontWeight: number;
+  textAlign: TextModuleAlign;
+  bulletMode: boolean;
+  textColor: string;
+  borderColor: string;
+  backgroundColor: string;
+  borderStyle: TextModuleBorderStyle;
+  lineHeight: number;
+  padding: number;
+};
 
 export type MassElement = {
   id: string;
@@ -18,6 +36,7 @@ export type MassElement = {
   rayon_elem_count?: number;
   rayon_facing_url?: string | null;
   rayon_universe_name?: string;
+  text_style?: TextModuleStyle | null;
 };
 
 export type MassPlan = {
@@ -47,7 +66,13 @@ export type RayonLibItem = {
 
 export type DragLibraryPayload =
   | { kind: "rayon"; rayon: RayonLibItem }
-  | { kind: "structure"; elementType: Exclude<ElementType, "rayon"> };
+  | {
+      kind: "structure";
+      elementType: Exclude<ElementType, "rayon">;
+      label?: string;
+      color?: string | null;
+      size?: { w: number; h: number };
+    };
 
 export const GRID = 40;
 export const PLAN_TITLE_BAR_HEIGHT = 32;

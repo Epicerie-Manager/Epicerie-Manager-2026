@@ -4,6 +4,8 @@ import type { CSSProperties, Dispatch, SetStateAction } from "react";
 import { useEffect, useRef, useState } from "react";
 import { ModuleHeader } from "@/components/layout/module-header";
 import { Card } from "@/components/ui/card";
+import { MassPlanView } from "@/components/plan-rayon/mass-plan/mass-plan-view";
+import { PlansRayonView } from "@/components/plan-rayon/plans-rayon-view";
 import {
   cloneOperations,
   clonePlans,
@@ -52,6 +54,35 @@ type MassPlanViewState = {
   alleys: Record<string, MassPlanAlley>;
   linkedViews: Record<string, MassPlanLinkedView>;
 };
+
+type MassPlanClipboardCell = {
+  rowOffset: number;
+  colOffset: number;
+  cell: MassPlanCell;
+};
+
+function parseMassCellKey(key: string) {
+  const [row, col] = key.split("-").map(Number);
+  return { row, col };
+}
+
+function buildMassRectSelection(startKey: string, endKey: string) {
+  const start = parseMassCellKey(startKey);
+  const end = parseMassCellKey(endKey);
+  const minRow = Math.min(start.row, end.row);
+  const maxRow = Math.max(start.row, end.row);
+  const minCol = Math.min(start.col, end.col);
+  const maxCol = Math.max(start.col, end.col);
+  const keys: string[] = [];
+
+  for (let row = minRow; row <= maxRow; row += 1) {
+    for (let col = minCol; col <= maxCol; col += 1) {
+      keys.push(`${row}-${col}`);
+    }
+  }
+
+  return keys;
+}
 type MassPlanState = {
   activeViewId: string;
   views: Record<string, MassPlanViewState>;
@@ -1163,26 +1194,11 @@ export function NativePlanRayon() {
         ) : null}
 
         {activeTab === "plans" ? (
-          <NativePlansView
-            plans={plans}
-            onAddColumn={addPlanColumn}
-            onMoveColumn={movePlanColumn}
-            onResetPlan={resetPlan}
-            onAddSection={addPlanSection}
-            onUpdateColumn={updatePlanColumn}
-            onRemoveColumn={removePlanColumn}
-            onAddCell={addPlanCell}
-            onUpdateCell={updatePlanCell}
-            onRemoveCell={removePlanCell}
-          />
+          <PlansRayonView />
         ) : null}
 
         {activeTab === "masse" ? (
-          <NativeMassPlanView
-            plans={plans}
-            massPlan={massPlan}
-            onChangeMassPlan={setMassPlan}
-          />
+          <MassPlanView />
         ) : null}
       </Card>
 
@@ -1896,6 +1912,7 @@ function NativeMassPlanView({
     | { label: string; color: string; rotation?: number; kind: "cell" }
     | { label: string; color: string; rotation?: number; kind: "alley"; orientation: "horizontal" | "vertical" }
     | { kind: "view"; viewId: string }
+    | { kind: "cell_block"; cells: MassPlanClipboardCell[]; width: number; height: number }
     | null
   >(null);
   const [selectedTarget, setSelectedTarget] = useState<
@@ -1911,6 +1928,19 @@ function NativeMassPlanView({
     | null
   >(null);
   const [selectedAlleyCells, setSelectedAlleyCells] = useState<string[]>([]);
+  const [massSelectionMode, setMassSelectionMode] = useState(false);
+  const [selectedMassCells, setSelectedMassCells] = useState<string[]>([]);
+  const [selectionAnchorKey, setSelectionAnchorKey] = useState<string | null>(null);
+  const [selectionDrag, setSelectionDrag] = useState<{ startKey: string; currentKey: string } | null>(null);
+  const [pendingMassTransfer, setPendingMassTransfer] = useState<
+    | {
+        baseRow: number;
+        baseCol: number;
+        cells: MassPlanClipboardCell[];
+        cut: boolean;
+      }
+    | null
+  >(null);
   const [draggingLinkedViewKey, setDraggingLinkedViewKey] = useState<string | null>(null);
   const [armedLinkedViewKey, setArmedLinkedViewKey] = useState<string | null>(null);
   const [expandedMassSections, setExpandedMassSections] = useState<Record<SectionKey, boolean>>({
@@ -1926,6 +1956,7 @@ function NativeMassPlanView({
 
   const activeMassView = massPlan.views[massPlan.activeViewId] ?? Object.values(massPlan.views)[0] ?? createMassPlanViewState(DEFAULT_MASS_VIEW_ID, "Plan global", "🏬");
   const massViewTabs = Object.values(massPlan.views);
+  const isDetailedMassView = activeMassView.id !== DEFAULT_MASS_VIEW_ID;
 
   const sectionPaletteGroups = orderedPlanEntries.map(([sectionKey, plan]) => ({
     sectionKey,
@@ -1950,11 +1981,22 @@ function NativeMassPlanView({
   const canvasWidth = activeMassView.cols * activeMassView.cellWidth + Math.max(0, activeMassView.cols - 1) * gridGap;
   const canvasHeight = activeMassView.rows * activeMassView.cellHeight + Math.max(0, activeMassView.rows - 1) * gridGap;
 
+  const activeSelectedMassCells = selectionDrag
+    ? buildMassRectSelection(selectionDrag.startKey, selectionDrag.currentKey)
+    : selectedMassCells;
+  const activeSelectedMassCellSet = new Set(activeSelectedMassCells);
+  const selectablePlacedMassCells = activeSelectedMassCells.filter((key) => Boolean(activeMassView.cells[key]));
+
   useEffect(() => {
     setSelectedMassItem(null);
     setSelectedTarget(null);
     setHoveredTarget(null);
     setSelectedAlleyCells([]);
+    setSelectedMassCells([]);
+    setSelectionAnchorKey(null);
+    setSelectionDrag(null);
+    setMassSelectionMode(false);
+    setPendingMassTransfer(null);
     setDraggingLinkedViewKey(null);
     setArmedLinkedViewKey(null);
   }, [massPlan.activeViewId]);
@@ -2200,6 +2242,150 @@ function NativeMassPlanView({
     };
   }
 
+  function copyMassSelection(removeOriginal: boolean) {
+    if (!isDetailedMassView || !selectablePlacedMassCells.length) return;
+    const bounds = getSelectionBounds(selectablePlacedMassCells);
+    const clipboardCells = selectablePlacedMassCells
+      .map((key) => {
+        const sourceCell = activeMassView.cells[key];
+        if (!sourceCell) return null;
+        const { row, col } = parseMassCellKey(key);
+        return {
+          rowOffset: row - bounds.minRow,
+          colOffset: col - bounds.minCol,
+          cell: { ...sourceCell },
+        } satisfies MassPlanClipboardCell;
+      })
+      .filter((item): item is MassPlanClipboardCell => Boolean(item));
+
+    if (!clipboardCells.length) return;
+
+    if (removeOriginal) {
+      updateActiveMassView((current) => {
+        const nextCells = { ...current.cells };
+        selectablePlacedMassCells.forEach((key) => {
+          delete nextCells[key];
+        });
+        return {
+          ...current,
+          cells: nextCells,
+        };
+      });
+      setSelectedMassCells([]);
+      setPendingMassTransfer({
+        baseRow: bounds.minRow,
+        baseCol: bounds.minCol,
+        cells: clipboardCells,
+        cut: true,
+      });
+    } else {
+      setPendingMassTransfer({
+        baseRow: bounds.minRow,
+        baseCol: bounds.minCol,
+        cells: clipboardCells,
+        cut: false,
+      });
+    }
+
+    setSelectedMassItem({
+      kind: "cell_block",
+      cells: clipboardCells,
+      width: bounds.maxCol - bounds.minCol + 1,
+      height: bounds.maxRow - bounds.minRow + 1,
+    });
+    setSelectedTarget(null);
+    setSelectedAlleyCells([]);
+  }
+
+  function cancelPendingMassTransfer() {
+    if (!pendingMassTransfer) return;
+
+    if (pendingMassTransfer.cut) {
+      updateActiveMassView((current) => ({
+        ...current,
+        cells: {
+          ...current.cells,
+          ...Object.fromEntries(
+            pendingMassTransfer.cells.map((item) => [
+              `${pendingMassTransfer.baseRow + item.rowOffset}-${pendingMassTransfer.baseCol + item.colOffset}`,
+              { ...item.cell },
+            ]),
+          ),
+        },
+      }));
+      setSelectedMassCells(
+        pendingMassTransfer.cells.map(
+          (item) => `${pendingMassTransfer.baseRow + item.rowOffset}-${pendingMassTransfer.baseCol + item.colOffset}`,
+        ),
+      );
+    }
+
+    setSelectedMassItem(null);
+    setPendingMassTransfer(null);
+  }
+
+  function moveSelectedMassCellsBy(rowDelta: number, colDelta: number) {
+    if (!isDetailedMassView || !selectablePlacedMassCells.length) return;
+    const sourceKeys = [...selectablePlacedMassCells];
+    const nextCellsMap = new Map<string, MassPlanCell>();
+
+    for (const sourceKey of sourceKeys) {
+      const sourceCell = activeMassView.cells[sourceKey];
+      if (!sourceCell) continue;
+      const { row, col } = parseMassCellKey(sourceKey);
+      const nextRow = row + rowDelta;
+      const nextCol = col + colDelta;
+      if (nextRow < 0 || nextCol < 0 || nextRow >= activeMassView.rows || nextCol >= activeMassView.cols) {
+        return;
+      }
+      if (isCellInsideAlley(nextRow, nextCol)) {
+        return;
+      }
+      const destinationKey = `${nextRow}-${nextCol}`;
+      if (!sourceKeys.includes(destinationKey) && activeMassView.cells[destinationKey]) {
+        return;
+      }
+      nextCellsMap.set(destinationKey, { ...sourceCell });
+    }
+
+    updateActiveMassView((current) => {
+      const nextCells = { ...current.cells };
+      sourceKeys.forEach((key) => {
+        delete nextCells[key];
+      });
+      nextCellsMap.forEach((cell, key) => {
+        nextCells[key] = cell;
+      });
+      return {
+        ...current,
+        cells: nextCells,
+      };
+    });
+
+    setSelectedMassCells(Array.from(nextCellsMap.keys()));
+    setSelectionAnchorKey(null);
+    setSelectionDrag(null);
+    setSelectedMassItem(null);
+    setSelectedTarget(null);
+  }
+
+  function clearMassSelection() {
+    setSelectedMassCells([]);
+    setSelectionAnchorKey(null);
+    setSelectionDrag(null);
+  }
+
+  function handleMassSelectionClick(cellKey: string) {
+    if (!isDetailedMassView || !massSelectionMode) return false;
+    const nextSelection = selectionAnchorKey ? buildMassRectSelection(selectionAnchorKey, cellKey) : [cellKey];
+    setSelectedMassCells(nextSelection);
+    setSelectionAnchorKey(cellKey);
+    setSelectionDrag(null);
+    setSelectedTarget(null);
+    setSelectedAlleyCells([]);
+    return true;
+  }
+
   function canBuildAlley(orientation: "horizontal" | "vertical") {
     if (!selectedAlleyCells.length) return false;
     const bounds = getSelectionBounds(selectedAlleyCells);
@@ -2244,6 +2430,36 @@ function NativeMassPlanView({
   function placeMassItem(cellKey: string) {
     const [row, col] = cellKey.split("-").map(Number);
 
+    if (selectedMassItem?.kind === "cell_block") {
+      const nextCells = new Map<string, MassPlanCell>();
+      for (const item of selectedMassItem.cells) {
+        const nextRow = row + item.rowOffset;
+        const nextCol = col + item.colOffset;
+        if (nextRow < 0 || nextCol < 0 || nextRow >= activeMassView.rows || nextCol >= activeMassView.cols) {
+          return;
+        }
+        if (isCellInsideAlley(nextRow, nextCol)) {
+          return;
+        }
+        nextCells.set(`${nextRow}-${nextCol}`, { ...item.cell });
+      }
+
+      updateActiveMassView((current) => ({
+        ...current,
+        cells: {
+          ...current.cells,
+          ...Object.fromEntries(nextCells.entries()),
+        },
+      }));
+      setSelectedMassCells(Array.from(nextCells.keys()));
+      setSelectionAnchorKey(null);
+      setSelectionDrag(null);
+      setSelectedTarget(null);
+      setSelectedMassItem(null);
+      setPendingMassTransfer(null);
+      return;
+    }
+
     if (selectedMassItem?.kind === "alley") {
       if (isCellInsideAlley(row, col)) return;
       setSelectedAlleyCells((current) =>
@@ -2278,6 +2494,7 @@ function NativeMassPlanView({
   }
 
     if (!selectedMassItem) {
+      if (handleMassSelectionClick(cellKey)) return;
       if (selectedTarget?.kind === "view" && activeMassView.id === DEFAULT_MASS_VIEW_ID) {
         const linkedView = activeMassView.linkedViews[selectedTarget.key];
         if (!linkedView) return;
@@ -2322,6 +2539,20 @@ function NativeMassPlanView({
   }
 
   function clearSelectedTarget() {
+    if (activeSelectedMassCells.length) {
+      updateActiveMassView((current) => {
+        const nextCells = { ...current.cells };
+        activeSelectedMassCells.forEach((key) => {
+          delete nextCells[key];
+        });
+        return {
+          ...current,
+          cells: nextCells,
+        };
+      });
+      clearMassSelection();
+      return;
+    }
     if (selectedAlleyCells.length) {
       setSelectedAlleyCells([]);
       return;
@@ -2484,10 +2715,67 @@ function NativeMassPlanView({
             {activeMassView.icon} {activeMassView.title}
           </div>
           <div style={{ marginTop: 4, fontSize: 13, color: "#617286" }}>
-            Regle la grille puis place les rayons, les produits et les allees. En mode allee, selectionne plusieurs cases contigues puis fusionne-les en une seule allee.
+            {isDetailedMassView
+              ? "Place les rayons, puis active le mode sélection pour encadrer un bloc, le déplacer, le copier ou le recoller ailleurs sans tout refaire."
+              : "Regle la grille puis place les rayons, les produits et les allees. Dans le plan global, tu peux aussi positionner les onglets détaillés."}
           </div>
         </div>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {isDetailedMassView ? (
+            <button
+              type="button"
+              onClick={() => {
+                setMassSelectionMode((current) => !current);
+                setSelectedMassItem(null);
+                setSelectedTarget(null);
+                setSelectedAlleyCells([]);
+                clearMassSelection();
+              }}
+              style={smallButton("#0a4f98", massSelectionMode ? "#dbeafe" : "#ffffff")}
+            >
+              {massSelectionMode ? "Mode sélection actif" : "Mode sélection"}
+            </button>
+          ) : null}
+          {isDetailedMassView ? (
+            <button
+              type="button"
+              onClick={() => copyMassSelection(false)}
+              disabled={!selectablePlacedMassCells.length}
+              style={{ ...smallButton("#0a4f98", "#edf5ff"), opacity: selectablePlacedMassCells.length ? 1 : 0.45 }}
+            >
+              Copier sélection
+            </button>
+          ) : null}
+          {isDetailedMassView ? (
+            <button
+              type="button"
+              onClick={() => copyMassSelection(true)}
+              disabled={!selectablePlacedMassCells.length}
+              style={{ ...smallButton("#13243b", "#ffffff"), opacity: selectablePlacedMassCells.length ? 1 : 0.45 }}
+            >
+              Déplacer ailleurs
+            </button>
+          ) : null}
+          {isDetailedMassView ? (
+            <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
+              {[
+                { label: "←", rowDelta: 0, colDelta: -1 },
+                { label: "↑", rowDelta: -1, colDelta: 0 },
+                { label: "↓", rowDelta: 1, colDelta: 0 },
+                { label: "→", rowDelta: 0, colDelta: 1 },
+              ].map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={() => moveSelectedMassCellsBy(item.rowDelta, item.colDelta)}
+                  disabled={!selectablePlacedMassCells.length}
+                  style={{ ...smallButton("#617286", "#fff"), minWidth: 38, opacity: selectablePlacedMassCells.length ? 1 : 0.45 }}
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          ) : null}
           <button type="button" onClick={duplicateSelectedTarget} disabled={!selectedCell && !selectedAlley && !selectedLinkedView} style={{ ...smallButton("#0a4f98", "#edf5ff"), opacity: selectedCell || selectedAlley || selectedLinkedView ? 1 : 0.45 }}>
             Dupliquer
           </button>
@@ -2503,6 +2791,7 @@ function NativeMassPlanView({
               setSelectedMassItem(null);
               setSelectedAlleyCells([]);
               setSelectedTarget(null);
+              clearMassSelection();
             }}
             style={smallButton("#617286", "#fff")}
           >
@@ -2513,6 +2802,46 @@ function NativeMassPlanView({
           </button>
         </div>
       </div>
+
+      {selectedMassItem?.kind === "cell_block" ? (
+        <div
+          style={{
+            marginTop: 14,
+            border: "1px solid #bfdbfe",
+            background: "linear-gradient(135deg, #eff6ff, #f8fbff)",
+            borderRadius: 16,
+            padding: "12px 14px",
+            display: "flex",
+            justifyContent: "space-between",
+            gap: 12,
+            flexWrap: "wrap",
+            alignItems: "center",
+          }}
+        >
+          <div style={{ fontSize: 13, lineHeight: 1.55, color: "#0f3d75", fontWeight: 700 }}>
+            {pendingMassTransfer?.cut
+              ? `Bloc retiré du plan et prêt à être reposé ailleurs (${selectedMassItem.width} × ${selectedMassItem.height}). Clique sur la nouvelle zone pour le coller.`
+              : `Bloc copié prêt à être collé (${selectedMassItem.width} × ${selectedMassItem.height}). Clique sur la nouvelle zone pour le dupliquer.`}
+          </div>
+          <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+            {pendingMassTransfer?.cut ? (
+              <button type="button" onClick={cancelPendingMassTransfer} style={smallButton("#617286", "#fff")}>
+                Annuler et remettre en place
+              </button>
+            ) : null}
+            <button
+              type="button"
+              onClick={() => {
+                setSelectedMassItem(null);
+                setPendingMassTransfer(null);
+              }}
+              style={smallButton("#0a4f98", "#edf5ff")}
+            >
+              Quitter le collage
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       <div style={{ marginTop: 16, display: "grid", gap: 12 }}>
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
@@ -2591,6 +2920,21 @@ function NativeMassPlanView({
               </label>
             </div>
           </div>
+
+          {isDetailedMassView ? (
+            <div style={{ border: "1px solid #dbe3eb", borderRadius: 18, padding: 14, background: "#fbfcfd", display: "grid", gap: 8 }}>
+              <div style={{ fontSize: 11, fontWeight: 800, letterSpacing: "0.06em", textTransform: "uppercase", color: "#617286" }}>
+                Déplacement rapide
+              </div>
+              <div style={{ fontSize: 12, lineHeight: 1.55, color: "#617286" }}>
+                1. Active <strong>Mode sélection</strong>.
+                <br />
+                2. Clique une première case puis une seconde pour encadrer un bloc.
+                <br />
+                3. Utilise les flèches pour décaler le bloc, ou <strong>Copier sélection</strong> / <strong>Déplacer ailleurs</strong> puis clique la nouvelle zone.
+              </div>
+            </div>
+          ) : null}
 
           {activeMassView.id === DEFAULT_MASS_VIEW_ID && massViewTabs.filter((view) => view.id !== DEFAULT_MASS_VIEW_ID).length ? (
             <div style={{ border: "1px solid #dbe3eb", borderRadius: 18, padding: 14, background: "#fbfcfd", display: "grid", gap: 10 }}>
@@ -2826,6 +3170,20 @@ function NativeMassPlanView({
         <div style={{ border: "1px solid #dbe3eb", borderRadius: 18, padding: 14, background: "#fff", overflow: "auto" }}>
           <div
             ref={canvasRef}
+            onMouseUp={() => {
+              if (!selectionDrag) return;
+              const nextSelection = buildMassRectSelection(selectionDrag.startKey, selectionDrag.currentKey);
+              setSelectedMassCells(nextSelection);
+              setSelectionAnchorKey(selectionDrag.startKey);
+              setSelectionDrag(null);
+            }}
+            onMouseLeave={() => {
+              if (!selectionDrag) return;
+              const nextSelection = buildMassRectSelection(selectionDrag.startKey, selectionDrag.currentKey);
+              setSelectedMassCells(nextSelection);
+              setSelectionAnchorKey(selectionDrag.startKey);
+              setSelectionDrag(null);
+            }}
             style={{
               position: "relative",
               width: canvasWidth,
@@ -2856,7 +3214,19 @@ function NativeMassPlanView({
                       onClick={(event) => {
                         const mouseEvent = event as unknown as React.MouseEvent<HTMLDivElement>;
                         mouseEvent.stopPropagation();
+                        if (isDetailedMassView && massSelectionMode) return;
                         placeMassItem(key);
+                      }}
+                      onMouseDown={(event) => {
+                        if (!isDetailedMassView || !massSelectionMode) return;
+                        event.preventDefault();
+                        event.stopPropagation();
+                        setSelectionAnchorKey(key);
+                        setSelectionDrag({ startKey: key, currentKey: key });
+                        setSelectedMassCells([key]);
+                        setSelectedTarget(null);
+                        setSelectedAlleyCells([]);
+                        setSelectedMassItem(null);
                       }}
                       onKeyDown={(event) => {
                         if (event.key !== "Enter" && event.key !== " ") return;
@@ -2864,6 +3234,10 @@ function NativeMassPlanView({
                         placeMassItem(key);
                       }}
                       onMouseEnter={() => {
+                        if (selectionDrag) {
+                          setSelectionDrag((current) => (current ? { ...current, currentKey: key } : current));
+                          return;
+                        }
                         if (cell) setHoveredTarget({ kind: "cell", key });
                       }}
                       onMouseLeave={() => {
@@ -2874,7 +3248,9 @@ function NativeMassPlanView({
                       style={{
                         minHeight: activeMassView.cellHeight,
                         borderRadius: 0,
-                        border: selectedTarget?.kind === "cell" && selectedTarget.key === key
+                        border: activeSelectedMassCellSet.has(key)
+                          ? "2px solid #0a4f98"
+                          : selectedTarget?.kind === "cell" && selectedTarget.key === key
                           ? "2px solid #0a4f98"
                           : selectedAlleyCells.includes(key)
                             ? "2px solid #475569"
@@ -2883,6 +3259,10 @@ function NativeMassPlanView({
                               : "1px dashed #cbd5e1",
                         background: isCellInsideAlley(row, col)
                           ? "#e2e8f0"
+                          : activeSelectedMassCellSet.has(key)
+                            ? cell
+                              ? "linear-gradient(180deg, #dbeafe, #eff6ff)"
+                              : "#eff6ff"
                           : selectedAlleyCells.includes(key)
                             ? "rgba(71,85,105,0.10)"
                             : cell
@@ -2892,7 +3272,7 @@ function NativeMassPlanView({
                               : "#f8fafc",
                         color: cell && isHeader ? "#ffffff" : "#13243b",
                         padding: 8,
-                        cursor: selectedMassItem || cell || isCellInsideAlley(row, col) ? "pointer" : "default",
+                        cursor: isDetailedMassView && massSelectionMode ? "crosshair" : selectedMassItem || cell || isCellInsideAlley(row, col) ? "pointer" : "default",
                         display: "grid",
                         alignContent: "center",
                         justifyItems: "center",
@@ -2969,7 +3349,17 @@ function NativeMassPlanView({
                         <span style={{ fontSize: 10, fontWeight: 800, color: "transparent" }}>.</span>
                       ) : (
                         <span style={{ fontSize: 10, fontWeight: 700, color: "#94a3b8" }}>
-                          {selectedMassItem?.kind === "cell" ? "Placer ici" : selectedMassItem?.kind === "alley" ? "Sélection" : selectedMassItem?.kind === "view" ? "Poser plan" : `Case ${row + 1}-${col + 1}`}
+                          {selectedMassItem?.kind === "cell"
+                            ? "Placer ici"
+                            : selectedMassItem?.kind === "cell_block"
+                              ? "Coller ici"
+                              : selectedMassItem?.kind === "alley"
+                                ? "Sélection"
+                                : selectedMassItem?.kind === "view"
+                                  ? "Poser plan"
+                                  : massSelectionMode && isDetailedMassView
+                                    ? "Sélection"
+                                    : `Case ${row + 1}-${col + 1}`}
                         </span>
                       )}
                     </div>

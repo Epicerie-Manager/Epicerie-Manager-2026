@@ -1,4 +1,4 @@
-create extension if not exists pgcrypto with schema extensions;
+create extension if not exists pgcrypto;
 
 create table if not exists public.manager_mobile_access (
   id uuid primary key default gen_random_uuid(),
@@ -65,7 +65,7 @@ as $$
   from public.manager_mobile_access mma
   where mma.is_active = true
     and lower(mma.slug) = lower(trim(p_slug))
-    and mma.pin_hash = extensions.crypt(trim(p_pin), mma.pin_hash)
+    and mma.pin_hash = crypt(trim(p_pin), mma.pin_hash)
   limit 1;
 $$;
 
@@ -77,10 +77,10 @@ comment on table public.manager_mobile_access is 'Acces PIN dedie a l applicatio
 -- Exemples a adapter :
 -- insert into public.manager_mobile_access (user_id, email, slug, display_name, initials, pin_hash, first_login, is_active, sort_order)
 -- values
--- ('UUID_PROFIL_RACHID', 'rachid@ep.fr', 'rachid', 'Rachid BEN DAOUD', 'RB', extensions.crypt('123456', extensions.gen_salt('bf')), false, true, 10),
--- ('UUID_PROFIL_FARIDA', 'farida@ep.fr', 'farida', 'Farida BEN DAOUD', 'FB', extensions.crypt('123456', extensions.gen_salt('bf')), false, true, 20);
+-- ('UUID_PROFIL_RACHID', 'rachid.ben91@gmail.com', 'rachid', 'Rachid BEN DAOUD', 'RB', crypt('123456', gen_salt('bf')), false, true, 10),
+-- ('UUID_PROFIL_FARIDA', 'fboukhrissa@auchan.fr', 'farida', 'Farida BEN DAOUD', 'FB', crypt('123456', gen_salt('bf')), false, true, 20);
 
 -- Pour changer un PIN :
 -- update public.manager_mobile_access
--- set pin_hash = extensions.crypt('654321', extensions.gen_salt('bf')), first_login = false
+-- set pin_hash = crypt('654321', gen_salt('bf')), first_login = false
 -- where slug = 'rachid';

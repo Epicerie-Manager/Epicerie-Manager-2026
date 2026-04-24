@@ -106,6 +106,7 @@ export async function saveMassPlanElements(
   supabase: SupabaseClient,
   planId: string,
   elements: MassElement[],
+  canvas: { width: number; height: number },
   userId: string,
 ): Promise<void> {
   const { error: deleteError } = await supabase.from("mass_plan_elements").delete().eq("plan_id", planId);
@@ -131,9 +132,41 @@ export async function saveMassPlanElements(
 
   const { error: updateError } = await supabase
     .from("mass_plans")
-    .update({ updated_at: new Date().toISOString(), updated_by: userId })
-    .eq("id", planId);
+    .update({
+      canvas_w: Math.round(canvas.width),
+      canvas_h: Math.round(canvas.height),
+      updated_at: new Date().toISOString(),
+      updated_by: userId,
+    })
+    .eq("id", planId)
+    .select("id,canvas_w,canvas_h")
+    .single();
   if (updateError) throw updateError;
+}
+
+export async function updateMassPlanDimensions(
+  supabase: SupabaseClient,
+  planId: string,
+  canvasW: number,
+  canvasH: number,
+): Promise<void> {
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  const { error } = await supabase
+    .from("mass_plans")
+    .update({
+      canvas_w: Math.round(canvasW),
+      canvas_h: Math.round(canvasH),
+      updated_by: user?.id ?? null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("id", planId);
+
+  if (error) {
+    console.error("[mass-plan] updateMassPlanDimensions error:", error);
+  }
 }
 
 export async function createMassPlan(

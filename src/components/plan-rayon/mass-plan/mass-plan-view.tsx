@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase";
 import { useUserRole } from "@/lib/use-user-role";
 import { buildImportedElements, type MassPlanImportMode } from "@/lib/mass-plan-import";
-import { createFacingSignedUrl, createMassPlan, deleteMassPlan, loadMassPlanElements, loadMassPlans, loadRayonLibrary, saveMassPlanElements } from "@/lib/mass-plan-db";
+import { createFacingSignedUrl, createMassPlan, deleteMassPlan, loadMassPlanElements, loadMassPlans, loadRayonLibrary, saveMassPlanElements, updateMassPlanDimensions } from "@/lib/mass-plan-db";
 import { MassPlanCanvas } from "@/components/plan-rayon/mass-plan/mass-plan-canvas";
 import { MassPlanInspector } from "@/components/plan-rayon/mass-plan/mass-plan-inspector";
 import { DeletePlanModal, ImportPlanModal, NewPlanModal } from "@/components/plan-rayon/mass-plan/mass-plan-modals";
@@ -50,6 +50,7 @@ export function MassPlanView() {
   const [toast, setToast] = useState("");
   const [history, setHistory] = useState<MassElement[][]>([]);
   const signedUrlCache = useRef(new Map<string, string>());
+  const resizeDebounceRef = useRef<number | null>(null);
 
   const activePlan = plans.find((plan) => plan.id === activePlanId) ?? null;
   const selectedElement = selectedIds.size === 1 ? elements.find((element) => selectedIds.has(element.id)) ?? null : null;
@@ -65,6 +66,14 @@ export function MassPlanView() {
     const timer = window.setTimeout(() => setToast(""), 2500);
     return () => window.clearTimeout(timer);
   }, [toast]);
+
+  useEffect(() => {
+    return () => {
+      if (resizeDebounceRef.current) {
+        window.clearTimeout(resizeDebounceRef.current);
+      }
+    };
+  }, []);
 
   useEffect(() => {
     void bootstrap();
@@ -247,12 +256,38 @@ export function MassPlanView() {
     setDirty(true);
   }
 
+  function parseCanvasDraft() {
+    if (!activePlan) return { width: DEFAULT_PLAN_WIDTH, height: DEFAULT_PLAN_HEIGHT };
+    const parsedWidth = Number.parseInt(canvasDraft.width, 10);
+    const parsedHeight = Number.parseInt(canvasDraft.height, 10);
+    return {
+      width: Math.max(800, Math.min(4000, Number.isFinite(parsedWidth) ? parsedWidth : activePlan.canvas_w)),
+      height: Math.max(400, Math.min(3000, Number.isFinite(parsedHeight) ? parsedHeight : activePlan.canvas_h)),
+    };
+  }
+
   async function saveCurrentPlan() {
     if (!activePlan || !profile?.id) return;
     try {
       setSaving(true);
-      await saveMassPlanElements(supabase, activePlan.id, elements, profile.id);
+      const nextCanvas = parseCanvasDraft();
+      setPlans((current) =>
+        current.map((plan) =>
+          plan.id === activePlan.id
+            ? { ...plan, canvas_w: nextCanvas.width, canvas_h: nextCanvas.height }
+            : plan,
+        ),
+      );
+      await saveMassPlanElements(
+        supabase,
+        activePlan.id,
+        elements,
+        nextCanvas,
+        profile.id,
+      );
+      const refreshedPlans = await loadMassPlans(supabase);
       const refreshed = await hydrateElements(await loadMassPlanElements(supabase, activePlan.id));
+      setPlans(refreshedPlans);
       setElements(refreshed);
       setDirty(false);
       setHistory([]);
@@ -356,14 +391,23 @@ export function MassPlanView() {
 
   function resizeCanvas(width: number, height: number) {
     if (!activePlan) return;
+    const nextWidth = Math.max(800, Math.min(4000, width));
+    const nextHeight = Math.max(400, Math.min(3000, height));
     setPlans((current) =>
       current.map((plan) =>
         plan.id === activePlan.id
-          ? { ...plan, canvas_w: Math.max(800, Math.min(4000, width)), canvas_h: Math.max(400, Math.min(3000, height)) }
+          ? { ...plan, canvas_w: nextWidth, canvas_h: nextHeight }
           : plan,
       ),
     );
     setDirty(true);
+
+    if (resizeDebounceRef.current) {
+      window.clearTimeout(resizeDebounceRef.current);
+    }
+    resizeDebounceRef.current = window.setTimeout(() => {
+      void updateMassPlanDimensions(supabase, activePlan.id, nextWidth, nextHeight);
+    }, 800);
   }
 
   function commitCanvasDraft(nextWidth = canvasDraft.width, nextHeight = canvasDraft.height) {

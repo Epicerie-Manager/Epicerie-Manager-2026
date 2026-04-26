@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase";
+import { endSessionLog } from "@/lib/session-log-client";
 
 export type CollabEmployee = {
   id: string;
@@ -115,6 +116,7 @@ export async function collabSignOut() {
   const supabase = createClient();
   collabProfileCache = null;
   collabProfilePromise = null;
+  await endSessionLog("collab", "Collab");
   await supabase.auth.signOut();
 }
 

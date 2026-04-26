@@ -1,5 +1,6 @@
 import { promises as fs } from "node:fs";
 import path from "node:path";
+import "@/styles/admin.css";
 import { AdminPageClient, type AdminJournalEntry } from "./admin-page-client";
 
 type ChangelogSection = {

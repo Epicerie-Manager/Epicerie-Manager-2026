@@ -7,6 +7,7 @@ import {
   clearBrowserSessionState,
 } from "@/lib/browser-session";
 import { loadManagerDisplayName } from "@/lib/followup-store";
+import { ensureSessionLog, endSessionLog, heartbeatSessionLog } from "@/lib/session-log-client";
 import { createClient } from "@/lib/supabase";
 
 type ManagerMobileShellProps = {
@@ -141,6 +142,7 @@ export function ManagerMobileShell({ version, children }: ManagerMobileShellProp
   const [isLandscape, setIsLandscape] = useState(false);
   const [viewportWidth, setViewportWidth] = useState(0);
   const signingOutRef = useRef(false);
+  const sessionLogBootstrappedRef = useRef(false);
   const managerFirstName = getManagerFirstName(managerName);
   const headerDate = formatManagerHeaderDate(new Date());
 
@@ -195,12 +197,63 @@ export function ManagerMobileShell({ version, children }: ManagerMobileShellProp
     return;
   }, [isManagerAuthRoute, router]);
 
+  useEffect(() => {
+    if (isManagerAuthRoute) return;
+
+    const syncSession = async () => {
+      try {
+        if (!sessionLogBootstrappedRef.current) {
+          sessionLogBootstrappedRef.current = true;
+          await ensureSessionLog("terrain", sectionTitle);
+          return;
+        }
+        await heartbeatSessionLog("terrain", sectionTitle);
+      } catch {
+        // Le logging mobile reste discret.
+      }
+    };
+
+    void syncSession();
+  }, [isManagerAuthRoute, sectionTitle]);
+
+  useEffect(() => {
+    if (isManagerAuthRoute) return;
+
+    const syncHeartbeat = () => {
+      void heartbeatSessionLog("terrain", sectionTitle).catch(() => {
+        // noop
+      });
+    };
+    const interval = window.setInterval(syncHeartbeat, 60_000);
+    const handleFocus = () => syncHeartbeat();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        syncHeartbeat();
+      }
+    };
+    const handleBeforeUnload = () => {
+      void endSessionLog("terrain", sectionTitle, true);
+    };
+
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [isManagerAuthRoute, sectionTitle]);
+
   const handleSignOut = async () => {
     if (signingOutRef.current || isSigningOut) return;
     signingOutRef.current = true;
     setIsSigningOut(true);
     try {
       const supabase = createClient();
+      await endSessionLog("terrain", sectionTitle);
       clearBrowserSessionState();
       await supabase.auth.signOut();
       router.replace("/manager/login");

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import packageJson from "../../../package.json";
+import { CollabSessionTracker } from "@/components/collab/collab-session-tracker";
 
 export const metadata: Metadata = {
   title: "Épicerie Villebon 2",
@@ -35,6 +36,7 @@ export default function CollabLayout({ children }: { children: React.ReactNode }
         position: "relative",
       }}
     >
+      <CollabSessionTracker />
       {children}
       <div
         style={{

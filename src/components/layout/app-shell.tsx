@@ -20,6 +20,7 @@ import { isAdminUser } from "@/lib/admin-access";
 import { canAccessOfficePath, getOfficeModuleAccess } from "@/lib/office-access";
 import type { ModuleAccessKey } from "@/lib/modules-config";
 import { loadCurrentOfficeProfile } from "@/lib/office-profile";
+import { ensureSessionLog, endSessionLog, heartbeatSessionLog } from "@/lib/session-log-client";
 import { colors, getThemeByPathname, moduleThemes, shadows } from "@/lib/theme";
 import { createClient } from "@/lib/supabase";
 
@@ -193,10 +194,11 @@ export function AppShell({ version, children }: AppShellProps) {
   const isManagerRoute = pathname.startsWith("/manager");
   const isPrintRoute = pathname.startsWith("/exports/") && pathname.endsWith("/print");
   const activeId  = getThemeByPathname(pathname) as ModuleNavItem["id"];
+  const isAdminRoute = activeId === "admin";
   const activeModule = moduleItems.find((m) => m.id === activeId) ?? moduleItems[0];
-  const shellMaxWidth = activeId === "planning" ? "min(2040px, calc(100vw - 12px))" : "1580px";
-  const shellPaddingX = activeId === "planning" ? "0 12px" : "0 20px";
-  const shellMainPadding = activeId === "planning" ? "0 12px 32px" : "0 20px 32px";
+  const shellMaxWidth = activeId === "planning" ? "min(2040px, calc(100vw - 12px))" : isAdminRoute ? "calc(100vw - 24px)" : "1580px";
+  const shellPaddingX = activeId === "planning" ? "0 12px" : isAdminRoute ? "0 12px" : "0 20px";
+  const shellMainPadding = activeId === "planning" ? "0 12px 32px" : isAdminRoute ? "0 12px 12px" : "0 20px 32px";
   const [todayLabel, setTodayLabel] = useState("");
   const [timeLabel, setTimeLabel] = useState("");
   const [isSigningOut, setIsSigningOut] = useState(false);
@@ -209,6 +211,7 @@ export function AppShell({ version, children }: AppShellProps) {
   const [pendingNavigationHref, setPendingNavigationHref] = useState<string | null>(null);
   const signingOutRef = useRef(false);
   const modulesMenuRef = useRef<HTMLDivElement | null>(null);
+  const sessionLogBootstrappedRef = useRef(false);
 
   useEffect(() => {
     if (isCollabRoute || isPrintRoute || isManagerRoute) return;
@@ -292,6 +295,7 @@ export function AppShell({ version, children }: AppShellProps) {
       signingOutRef.current = true;
       setIsSigningOut(true);
       try {
+        await endSessionLog("bureau", activeModule.label);
         clearBrowserSessionState();
         broadcastForceSignOut(channel);
         await supabase.auth.signOut();
@@ -354,6 +358,75 @@ export function AppShell({ version, children }: AppShellProps) {
   }, [pathname]);
 
   useEffect(() => {
+    if (
+      !officeAccessResolved ||
+      pathname === "/login" ||
+      pathname === "/change-password" ||
+      isCollabRoute ||
+      isPrintRoute ||
+      isManagerRoute
+    ) {
+      return;
+    }
+
+    const syncSession = async () => {
+      try {
+        if (!sessionLogBootstrappedRef.current) {
+          sessionLogBootstrappedRef.current = true;
+          await ensureSessionLog("bureau", activeModule.label);
+          return;
+        }
+        await heartbeatSessionLog("bureau", activeModule.label);
+      } catch {
+        // Le logging ne doit jamais bloquer le shell bureau.
+      }
+    };
+
+    void syncSession();
+  }, [activeModule.label, isCollabRoute, isManagerRoute, isPrintRoute, officeAccessResolved, pathname]);
+
+  useEffect(() => {
+    if (
+      !officeAccessResolved ||
+      pathname === "/login" ||
+      pathname === "/change-password" ||
+      isCollabRoute ||
+      isPrintRoute ||
+      isManagerRoute
+    ) {
+      return;
+    }
+
+    const syncHeartbeat = () => {
+      void heartbeatSessionLog("bureau", activeModule.label).catch(() => {
+        // Le dashboard admin peut rester vide quelques secondes, mais l'UX ne doit pas casser.
+      });
+    };
+
+    const interval = window.setInterval(syncHeartbeat, 60_000);
+    const handleFocus = () => syncHeartbeat();
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        syncHeartbeat();
+      }
+    };
+    const handleBeforeUnload = () => {
+      void endSessionLog("bureau", activeModule.label, true);
+    };
+
+    window.addEventListener("focus", handleFocus);
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener("focus", handleFocus);
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+    };
+  }, [activeModule.label, isCollabRoute, isManagerRoute, isPrintRoute, officeAccessResolved, pathname]);
+
+  useEffect(() => {
     if (!isModulesMenuOpen) return;
 
     const handlePointerDown = (event: PointerEvent) => {
@@ -372,6 +445,7 @@ export function AppShell({ version, children }: AppShellProps) {
     setIsSigningOut(true);
     try {
       const supabase = createClient();
+      await endSessionLog("bureau", activeModule.label);
       clearBrowserSessionState();
       setIsAdmin(false);
       await supabase.auth.signOut();
@@ -430,10 +504,12 @@ export function AppShell({ version, children }: AppShellProps) {
       style={{
         minHeight: "100vh",
         background:
-          "radial-gradient(circle at 15% 10%, rgba(10,79,152,0.07) 0%, transparent 30%), " +
-          "radial-gradient(circle at 85% 80%, rgba(185,28,46,0.04) 0%, transparent 30%), " +
-          "linear-gradient(180deg, #f6f9fc 0%, #eef2f7 100%)",
-        color: colors.text,
+          isAdminRoute
+            ? "#0d1117"
+            : "radial-gradient(circle at 15% 10%, rgba(10,79,152,0.07) 0%, transparent 30%), " +
+              "radial-gradient(circle at 85% 80%, rgba(185,28,46,0.04) 0%, transparent 30%), " +
+              "linear-gradient(180deg, #f6f9fc 0%, #eef2f7 100%)",
+        color: isAdminRoute ? "#c9d1d9" : colors.text,
         fontFamily: "'Segoe UI', system-ui, -apple-system, sans-serif",
       }}
     >
@@ -443,11 +519,11 @@ export function AppShell({ version, children }: AppShellProps) {
           position: "sticky",
           top: 0,
           zIndex: 100,
-          background: "rgba(255,255,255,0.88)",
+          background: isAdminRoute ? "rgba(13,17,23,0.96)" : "rgba(255,255,255,0.88)",
           backdropFilter: "blur(16px)",
           WebkitBackdropFilter: "blur(16px)",
-          borderBottom: "1px solid rgba(210,222,234,0.6)",
-          boxShadow: shadows.subtle,
+          borderBottom: isAdminRoute ? "1px solid #21262d" : "1px solid rgba(210,222,234,0.6)",
+          boxShadow: isAdminRoute ? "none" : shadows.subtle,
         }}
       >
         <div
@@ -486,7 +562,7 @@ export function AppShell({ version, children }: AppShellProps) {
                   fontWeight: 700,
                   letterSpacing: "0.06em",
                   textTransform: "uppercase",
-                  color: colors.muted,
+                  color: isAdminRoute ? "#8b949e" : colors.muted,
                   lineHeight: 1,
                 }}
               >
@@ -496,7 +572,7 @@ export function AppShell({ version, children }: AppShellProps) {
                 style={{
                   fontSize: "15px",
                   fontWeight: 700,
-                  color: colors.textStrong,
+                  color: isAdminRoute ? "#c9d1d9" : colors.textStrong,
                   letterSpacing: "-0.02em",
                   lineHeight: 1.2,
                 }}
@@ -508,7 +584,7 @@ export function AppShell({ version, children }: AppShellProps) {
                   marginTop: "2px",
                   fontSize: "11px",
                   fontWeight: 600,
-                  color: "#94a3b8",
+                  color: isAdminRoute ? "#6e7681" : "#94a3b8",
                   lineHeight: 1.1,
                 }}
               >
@@ -541,10 +617,10 @@ export function AppShell({ version, children }: AppShellProps) {
                 whiteSpace: "nowrap",
                 fontSize: "13px",
                 fontWeight: dashboardItem.id === activeId ? 700 : 600,
-                background: dashboardItem.id === activeId ? moduleThemes[dashboardItem.id].medium : "#ffffff",
-                color: dashboardItem.id === activeId ? moduleThemes[dashboardItem.id].color : colors.textStrong,
-                border: "1px solid #dbe3eb",
-                boxShadow: dashboardItem.id === activeId ? "none" : "0 1px 2px rgba(15,23,42,0.04)",
+                background: dashboardItem.id === activeId ? moduleThemes[dashboardItem.id].medium : isAdminRoute ? "#161b22" : "#ffffff",
+                color: dashboardItem.id === activeId ? moduleThemes[dashboardItem.id].color : isAdminRoute ? "#c9d1d9" : colors.textStrong,
+                border: isAdminRoute ? "1px solid #30363d" : "1px solid #dbe3eb",
+                boxShadow: dashboardItem.id === activeId || isAdminRoute ? "none" : "0 1px 2px rgba(15,23,42,0.04)",
                 flexShrink: 0,
               }}
             >
@@ -553,7 +629,7 @@ export function AppShell({ version, children }: AppShellProps) {
                   display: "inline-flex",
                   width: "15px",
                   height: "15px",
-                  color: dashboardItem.id === activeId ? moduleThemes[dashboardItem.id].color : colors.muted,
+                  color: dashboardItem.id === activeId ? moduleThemes[dashboardItem.id].color : isAdminRoute ? "#8b949e" : colors.muted,
                 }}
               >
                 {ICONS[dashboardItem.id]}
@@ -606,19 +682,19 @@ export function AppShell({ version, children }: AppShellProps) {
                     minHeight: "34px",
                     padding: "0 12px",
                     borderRadius: "999px",
-                    border: "1px solid #dbe3eb",
-                    background: isModulesMenuOpen ? "#eef5ff" : "#ffffff",
-                    color: "#334155",
+                    border: isAdminRoute ? "1px solid #30363d" : "1px solid #dbe3eb",
+                    background: isAdminRoute ? "#161b22" : isModulesMenuOpen ? "#eef5ff" : "#ffffff",
+                    color: isAdminRoute ? "#c9d1d9" : "#334155",
                     cursor: "pointer",
                     fontSize: "13px",
                     fontWeight: 700,
-                    boxShadow: "0 1px 2px rgba(15,23,42,0.04)",
+                    boxShadow: isAdminRoute ? "none" : "0 1px 2px rgba(15,23,42,0.04)",
                   }}
                   aria-haspopup="menu"
                   aria-expanded={isModulesMenuOpen}
                 >
                   Modules
-                  <span style={{ fontSize: "11px", color: "#64748b" }}>{isModulesMenuOpen ? "▲" : "▼"}</span>
+                  <span style={{ fontSize: "11px", color: isAdminRoute ? "#8b949e" : "#64748b" }}>{isModulesMenuOpen ? "▲" : "▼"}</span>
                 </button>
 
                 {isModulesMenuOpen ? (
@@ -631,8 +707,8 @@ export function AppShell({ version, children }: AppShellProps) {
                       maxWidth: "560px",
                       padding: "12px",
                       borderRadius: "20px",
-                      border: "1px solid rgba(210,222,234,0.9)",
-                      background: "rgba(255,255,255,0.98)",
+                      border: isAdminRoute ? "1px solid #30363d" : "1px solid rgba(210,222,234,0.9)",
+                      background: isAdminRoute ? "rgba(13,17,23,0.98)" : "rgba(255,255,255,0.98)",
                       backdropFilter: "blur(16px)",
                       WebkitBackdropFilter: "blur(16px)",
                       boxShadow: "0 18px 40px rgba(15,23,42,0.16)",
@@ -658,9 +734,9 @@ export function AppShell({ version, children }: AppShellProps) {
                             padding: "10px 12px",
                             borderRadius: "14px",
                             textDecoration: "none",
-                            color: "#1e293b",
-                            background: "#ffffff",
-                            border: "1px solid #e2e8f0",
+                            color: isAdminRoute ? "#c9d1d9" : "#1e293b",
+                            background: isAdminRoute ? "#161b22" : "#ffffff",
+                            border: isAdminRoute ? "1px solid #21262d" : "1px solid #e2e8f0",
                           }}
                         >
                           <span
@@ -676,7 +752,7 @@ export function AppShell({ version, children }: AppShellProps) {
                           </span>
                           <span style={{ display: "grid", gap: "2px" }}>
                             <span style={{ fontSize: "13px", fontWeight: 800 }}>{item.label}</span>
-                            <span style={{ fontSize: "11px", color: "#64748b", lineHeight: 1.3 }}>{item.desc}</span>
+                            <span style={{ fontSize: "11px", color: isAdminRoute ? "#8b949e" : "#64748b", lineHeight: 1.3 }}>{item.desc}</span>
                           </span>
                         </Link>
                       );
@@ -699,11 +775,11 @@ export function AppShell({ version, children }: AppShellProps) {
             <span
               style={{
                 fontSize: "12px",
-                color: colors.muted,
-                background: "#f1f5f9",
+                color: isAdminRoute ? "#8b949e" : colors.muted,
+                background: isAdminRoute ? "#161b22" : "#f1f5f9",
                 padding: "5px 12px",
                 borderRadius: "999px",
-                border: "1px solid #dbe3eb",
+                border: isAdminRoute ? "1px solid #30363d" : "1px solid #dbe3eb",
                 whiteSpace: "nowrap",
               }}
               suppressHydrationWarning
@@ -715,11 +791,11 @@ export function AppShell({ version, children }: AppShellProps) {
                 style={{
                   fontSize: "12px",
                   fontWeight: 700,
-                  color: "#1e293b",
-                  background: "#ffffff",
+                  color: isAdminRoute ? "#c9d1d9" : "#1e293b",
+                  background: isAdminRoute ? "#161b22" : "#ffffff",
                   padding: "5px 12px",
                   borderRadius: "999px",
-                  border: "1px solid #dbe3eb",
+                  border: isAdminRoute ? "1px solid #30363d" : "1px solid #dbe3eb",
                   maxWidth: "220px",
                   overflow: "hidden",
                   textOverflow: "ellipsis",
@@ -737,11 +813,11 @@ export function AppShell({ version, children }: AppShellProps) {
               style={{
                 fontSize: "12px",
                 fontWeight: 700,
-                color: "#991b1b",
-                background: "#fef2f2",
+                color: isAdminRoute ? "#ff8f8a" : "#991b1b",
+                background: isAdminRoute ? "rgba(248,81,73,0.12)" : "#fef2f2",
                 padding: "5px 12px",
                 borderRadius: "999px",
-                border: "1px solid #fecaca",
+                border: isAdminRoute ? "1px solid #8b1a1a" : "1px solid #fecaca",
                 cursor: isSigningOut ? "not-allowed" : "pointer",
                 opacity: isSigningOut ? 0.7 : 1,
                 whiteSpace: "nowrap",
